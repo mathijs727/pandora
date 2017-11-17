@@ -1,0 +1,13 @@
+[
+{
+  "directory": "/home/mathijs/Development/dist_path_tracer/build",
+  "command": "/usr/local/bin/clang++   -I/home/mathijs/Desktop/Development/dist_path_tracer/libPandora/include -I/home/mathijs/Desktop/Development/dist_path_tracer/libPandora/src  ${CMAKE_CXX_FLAGS} -stdlib=libc++ -O2 -g -DNDEBUG   -W -Wall -Wpedantic -std=c++1z -o CMakeFiles/libPandora.dir/libPandora/src/main.cpp.o -c /home/mathijs/Desktop/Development/dist_path_tracer/libPandora/src/main.cpp",
+  "file": "/home/mathijs/Desktop/Development/dist_path_tracer/libPandora/src/main.cpp"
+},
+
+{
+  "directory": "/home/mathijs/Development/dist_path_tracer/build",
+  "command": "/usr/local/bin/clang++   -I/home/mathijs/Desktop/Development/dist_path_tracer/pandora/src -I/home/mathijs/Desktop/Development/dist_path_tracer/libPandora/include  ${CMAKE_CXX_FLAGS} -stdlib=libc++ -O2 -g -DNDEBUG   -W -Wall -Wpedantic -std=c++1z -o CMakeFiles/pandora.dir/pandora/src/main.cpp.o -c /home/mathijs/Desktop/Development/dist_path_tracer/pandora/src/main.cpp",
+  "file": "/home/mathijs/Desktop/Development/dist_path_tracer/pandora/src/main.cpp"
+}
+]

@@ -1,0 +1,22 @@
+# ninja log v5
+0	88	0	CMakeFiles/libPandora.dir/libPandora/src/main.cpp.o	e6da814c98cdff4c
+88	104	0	liblibPandora.a	f74ef35e9c7861fc
+0	152	0	CMakeFiles/libPandora.dir/libPandora/src/main.cpp.o	356dad447aaad936
+152	160	0	liblibPandora.a	f74ef35e9c7861fc
+0	224	0	CMakeFiles/pandora.dir/pandora/src/main.cpp.o	3bfc64fbe2394647
+224	272	0	pandora	835bee8033e7c01b
+0	16	0	build.ninja	7d943318d949f79b
+0	84	0	CMakeFiles/libPandora.dir/libPandora/src/main.cpp.o	de7980be31abd6b5
+84	98	0	liblibPandora.a	f74ef35e9c7861fc
+0	318	0	CMakeFiles/pandora.dir/pandora/src/main.cpp.o	307f5cf71f1842cb
+318	339	0	pandora	ba1e2a2e58d53a02
+0	319	0	CMakeFiles/pandora.dir/pandora/src/main.cpp.o	307f5cf71f1842cb
+319	339	0	pandora	ba1e2a2e58d53a02
+0	100	0	CMakeFiles/libPandora.dir/libPandora/src/main.cpp.o	c170a5d3a0407f93
+101	131	0	liblibPandora.a	f74ef35e9c7861fc
+0	356	0	CMakeFiles/pandora.dir/pandora/src/main.cpp.o	8fe5ee018f99aa14
+356	397	0	pandora	d028a02149e4f532
+1	377	0	CMakeFiles/pandora.dir/pandora/src/main.cpp.o	8fe5ee018f99aa14
+378	415	0	pandora	d028a02149e4f532
+0	369	0	CMakeFiles/pandora.dir/pandora/src/main.cpp.o	8fe5ee018f99aa14
+369	399	0	pandora	d028a02149e4f532
