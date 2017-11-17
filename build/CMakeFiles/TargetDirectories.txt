@@ -1,4 +1,0 @@
-/home/mathijs/Development/dist_path_tracer/build/CMakeFiles/edit_cache.dir
-/home/mathijs/Development/dist_path_tracer/build/CMakeFiles/rebuild_cache.dir
-/home/mathijs/Development/dist_path_tracer/build/CMakeFiles/libPandora.dir
-/home/mathijs/Development/dist_path_tracer/build/CMakeFiles/pandora.dir
