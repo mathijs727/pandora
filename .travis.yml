@@ -16,7 +16,7 @@ addons:
 script:
  - mkdir cmake_v39
  - curl https://cmake.org/files/v3.9/cmake-3.9.6-Linux-x86_64.tar.gz | tar -x -z --strip-components 1 -C ./cmake_v39
- - export PATH="/cmake_v39/bin/:$PATH"
+ - export PATH="./cmake_v39/bin/:$PATH"
  - export CC=/usr/bin/gcc-7
  - export CXX=/usr/bin/g++-7
  - cmake .
