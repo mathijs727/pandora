@@ -1,20 +1,34 @@
+# Based on: https://github.com/Microsoft/GSL/blob/master/.travis.yml
+# But with more recent compilers because of C++17 support
 language: cpp
 sudo: false
 
 os: linux
 dist: trusty
 
+cache:
+  directories:
+    - ${TRAVIS_BUILD_DIR}/deps
+
 addons:
   apt:
     sources:
       - ubuntu-toolchain-r-test
     packages:
-      - curl
       - ninja-build
 
 matrix:
   include:
-    - env: C_COMPILER=gcc-7 CXX_COMPILER=g++-7 BUILD_TYPE=Debug
+    ##########################################################################
+    # Clang on Linux
+    ##########################################################################
+    #$- env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
+    #$- env: COMPILER=clang++-5.0 BUILD_TYPE=Release
+
+    ##########################################################################
+    # GCC on Linux
+    ##########################################################################
+    - env: COMPILER=g++-7 BUILD_TYPE=Debug
       addons: &gcc7
         apt:
           sources:
@@ -23,18 +37,71 @@ matrix:
             - gcc-7
             - g++-7
 
-    - env: C_COMPILER=gcc-7 CXX_COMPILER=g++-7 BUILD_TYPE=Release
+    - env: COMPILER=g++-7 BUILD_TYPE=Release
       addons: *gcc7
 
+install:
+  # Set the ${CXX} variable properly
+  - export CXX=${COMPILER}
+  - ${CXX} --version
+
+  # Dependencies required by the CI are installed in ${TRAVIS_BUILD_DIR}/deps/
+  - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+  - mkdir -p "${DEPS_DIR}"
+  - cd "${DEPS_DIR}"
+
+  # Travis machines have 2 cores
+  - JOBS=2
+
+  ############################################################################
+  # Install a recent CMake (unless already installed on OS X)
+  ############################################################################
+  - CMAKE_VERSION=3.8.0
+  - |
+    if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+      CMAKE_URL="https://cmake.org/files/v${CMAKE_VERSION%.[0-9]}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz"
+      mkdir cmake && travis_retry wget --no-check-certificate -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
+      export PATH=${DEPS_DIR}/cmake/bin:${PATH}
+    else
+      brew install cmake || brew upgrade cmake
+    fi
+  - cmake --version
+
+  ############################################################################
+  # [linux]: Install the right version of libc++
+  ############################################################################
+  - |
+    LLVM_INSTALL=${DEPS_DIR}/llvm/install
+    # if in linux and compiler clang and llvm not installed
+    if [[ "${TRAVIS_OS_NAME}" == "linux" && "${CXX%%+*}" == "clang" && -n "$(ls -A ${LLVM_INSTALL})" ]]; then
+      if   [[ "${CXX}" == "clang++-3.6" ]]; then LLVM_VERSION="3.6.2";
+      elif [[ "${CXX}" == "clang++-3.7" ]]; then LLVM_VERSION="3.7.1";
+      elif [[ "${CXX}" == "clang++-3.8" ]]; then LLVM_VERSION="3.8.1";
+      elif [[ "${CXX}" == "clang++-3.9" ]]; then LLVM_VERSION="3.9.1";
+      elif [[ "${CXX}" == "clang++-5.0" ]]; then LLVM_VERSION="5.0.0";
+      fi
+      LLVM_URL="http://llvm.org/releases/${LLVM_VERSION}/llvm-${LLVM_VERSION}.src.tar.xz"
+      LIBCXX_URL="http://llvm.org/releases/${LLVM_VERSION}/libcxx-${LLVM_VERSION}.src.tar.xz"
+      LIBCXXABI_URL="http://llvm.org/releases/${LLVM_VERSION}/libcxxabi-${LLVM_VERSION}.src.tar.xz"
+      mkdir -p llvm llvm/build llvm/projects/libcxx llvm/projects/libcxxabi
+      travis_retry wget -O - ${LLVM_URL} | tar --strip-components=1 -xJ -C llvm
+      travis_retry wget -O - ${LIBCXX_URL} | tar --strip-components=1 -xJ -C llvm/projects/libcxx
+      travis_retry wget -O - ${LIBCXXABI_URL} | tar --strip-components=1 -xJ -C llvm/projects/libcxxabi
+      (cd llvm/build && cmake .. -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL})
+      (cd llvm/build/projects/libcxx && make install -j2)
+      (cd llvm/build/projects/libcxxabi && make install -j2)
+      export CXXFLAGS="-isystem ${LLVM_INSTALL}/include/c++/v1"
+      export LDFLAGS="-L ${LLVM_INSTALL}/lib -l c++ -l c++abi"
+      export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${LLVM_INSTALL}/lib"
+    fi
 
 before_script:
- - mkdir cmake_v39
- - curl https://cmake.org/files/v3.9/cmake-3.9.6-Linux-x86_64.tar.gz | tar -x -z --strip-components 1 -C ./cmake_v39
- - export PATH="./cmake_v39/bin/:$PATH"
- - export CC=${C_COMPILIER}
- - export CXX=${CXX_COMPILER}
- - mkdir build && cd build
-
+  # have CMake to generate build files
+  - cd "${TRAVIS_BUILD_DIR}"
+  - mkdir build && cd build
+  - cmake .. -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+  
 script:
- - cmake -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE../
- - cmake --build . -- -j2
+  # build and run tests
+  - cmake --build . -- -j${JOBS}
+  # - ctest --output-on-failure -j${JOBS}
