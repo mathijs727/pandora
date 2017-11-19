@@ -1,6 +1,8 @@
 dist: trusty
 sudo: false
 language: cpp
+compiler:
+  - gcc
 
 addons:
   apt:
