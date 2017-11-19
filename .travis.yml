@@ -8,7 +8,6 @@ addons:
       - ubuntu-toolchain-r-test
     packages:
       - g++-5
-      - libgtest-dev
 
 script:
  - CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 cmake .
