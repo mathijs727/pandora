@@ -1,0 +1,7 @@
+dist: trusty
+sudo: false
+language: cpp
+
+script:
+ -cmake -G Ninja .
+ -cmake --build . -- -j2
