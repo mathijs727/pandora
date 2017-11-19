@@ -1,26 +1,40 @@
-dist: trusty
-sudo: false
 language: cpp
-compiler:
-  - gcc
+sudo: false
+
+os: linux
+dist: trusty
 
 addons:
   apt:
     sources:
       - ubuntu-toolchain-r-test
     packages:
-      - gcc-7
-      - g++-7
       - curl
       - ninja-build
 
-script:
+matrix:
+  include:
+    - env: C_COMPILER=gcc-7 CXX_COMPILER=g++-7 BUILD_TYPE=Debug
+      addons: &gcc7
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - gcc-7
+            - g++-7
+
+    - env: C_COMPILER=gcc-7 CXX_COMPILER=g++-7 BUILD_TYPE=Release
+      addons: *gcc7
+
+
+before_script:
  - mkdir cmake_v39
  - curl https://cmake.org/files/v3.9/cmake-3.9.6-Linux-x86_64.tar.gz | tar -x -z --strip-components 1 -C ./cmake_v39
  - export PATH="./cmake_v39/bin/:$PATH"
- - export CC=/usr/bin/gcc-7
- - export CXX=/usr/bin/g++-7
- - mkdir build
- - cd build
- - cmake -G Ninja ../
+ - export CC=${C_COMPILIER}
+ - export CXX=${CXX_COMPILER}
+ - mkdir build && cd build
+
+script:
+ - cmake -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE../
  - cmake --build . -- -j2
