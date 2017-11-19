@@ -10,20 +10,18 @@ cache:
   directories:
     - ${TRAVIS_BUILD_DIR}/deps
 
-addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-    packages:
-      - ninja-build
-
 matrix:
   include:
     ##########################################################################
     # Clang on Linux
     ##########################################################################
-    #$- env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
-    #$- env: COMPILER=clang++-5.0 BUILD_TYPE=Release
+    #- env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
+    #  addons: &clang50
+    #    apt:
+    #      packages:
+    #        - ninja-build
+    #- env: COMPILER=clang++-5.0 BUILD_TYPE=Release
+    #  addons: *clang50
 
     ##########################################################################
     # GCC on Linux
@@ -34,6 +32,7 @@ matrix:
           sources:
             - ubuntu-toolchain-r-test
           packages:
+            - ninja-build
             - gcc-7
             - g++-7
 
