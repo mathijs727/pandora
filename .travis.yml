@@ -3,5 +3,5 @@ sudo: false
 language: cpp
 
 script:
- -cmake -G Ninja .
- -cmake --build . -- -j2
+ - cmake -G Ninja .
+ - cmake --build . -- -j2
