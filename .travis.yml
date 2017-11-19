@@ -15,13 +15,13 @@ matrix:
     ##########################################################################
     # Clang on Linux
     ##########################################################################
-    #- env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
-    #  addons: &clang50
-    #    apt:
-    #      packages:
-    #        - ninja-build
-    #- env: COMPILER=clang++-5.0 BUILD_TYPE=Release
-    #  addons: *clang50
+    - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
+      addons: &clang50
+        apt:
+          packages:
+            - ninja-build
+    - env: COMPILER=clang++-5.0 BUILD_TYPE=Release
+      addons: *clang50
 
     ##########################################################################
     # GCC on Linux
