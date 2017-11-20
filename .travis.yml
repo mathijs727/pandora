@@ -26,6 +26,8 @@ matrix:
           packages:
             - ninja-build
             - clang-5.0
+            - libc++-dev
+            - libc++abi-dev
     #- env: COMPILER=clang++-5.0 BUILD_TYPE=Release
     #  addons: *clang50
 
