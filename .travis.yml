@@ -108,10 +108,10 @@ before_script:
     fi
   # Manually add the c++17 flag when using clang because apperently something with CMake/Travis is broken and its not passing
   # the correct values.
-  #- |
-  #  if [[ "${CXX%%+*}" == "clang" ]]
-  #    export CPP_FLAGS="-std=c++17 ${CPP_FLAGS}"
-  #  fi
+  - |
+    if [[ "${CXX%%+*}" == "clang" ]]
+      export CPP_FLAGS="-std=c++17 ${CPP_FLAGS}"
+    fi
 
   # have CMake to generate build files
   - cd "${TRAVIS_BUILD_DIR}"
