@@ -17,10 +17,7 @@ matrix:
     ##########################################################################
     # Clang on Linux
     ##########################################################################
-    - env:
-        COMPILER=clang++-5.0
-        BUILD_TYPE=Debug
-        USE_STDLIB=libc++
+    - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug USE_STDLIB=libc++
       addons: &clang50
         apt:
           sources:
