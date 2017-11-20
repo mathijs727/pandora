@@ -2,6 +2,8 @@
 # But with more recent compilers because of C++17 support
 language: cpp
 sudo: false
+notifications:
+  email: false
 
 os: linux
 dist: trusty
