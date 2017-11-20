@@ -17,6 +17,7 @@ matrix:
     ##########################################################################
     # Clang on Linux
     ##########################################################################
+    # Debug with libc++
     - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug USE_STDLIB=libc++
       addons: &clang50
         apt:
@@ -28,21 +29,31 @@ matrix:
             - clang-5.0
             - libc++-dev
             - libc++abi-dev
+
+    # Debug with stdlibc++
+    - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
+      addons: *clang50
+
+    # Release with libc++
+    #- env: COMPILER=clang++-5.0 BUILD_TYPE=Release USE_STDLIB=libc++
+    #  addons: *clang50
+
+    # Release with stdlibc++
     #- env: COMPILER=clang++-5.0 BUILD_TYPE=Release
     #  addons: *clang50
 
     ##########################################################################
     # GCC on Linux
     ##########################################################################
-    #- env: COMPILER=g++-7 BUILD_TYPE=Debug
-    #  addons: &gcc7
-    #    apt:
-    #      sources:
-    #        - ubuntu-toolchain-r-test
-    #      packages:
-    #        - ninja-build
-    #        - gcc-7
-    #        - g++-7
+    - env: COMPILER=g++-7 BUILD_TYPE=Debug
+      addons: &gcc7
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - ninja-build
+            - gcc-7
+            - g++-7
 
     #- env: COMPILER=g++-7 BUILD_TYPE=Release
     #  addons: *gcc7
