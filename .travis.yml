@@ -73,12 +73,6 @@ install:
   - cmake --version
 
 before_script:
-  export CPP_FLAGS=""
-  #if [[ "$USE_STDLIB" == "libc++" ]]; then
-  #  export CPP_FLAGS="-std=libc++ ${CPP_FLAGS}"
-  #fi
-  #echo "CPP flags are ${CPP_FLAGS}"
-
   # have CMake to generate build files
   - cd "${TRAVIS_BUILD_DIR}"
   - mkdir build && cd build
