@@ -22,9 +22,9 @@ matrix:
     ##########################################################################
     # Clang on Linux
     ##########################################################################
-     Debug with libc++
+    # Debug with libc++
     - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug USE_STDLIB=libc++
-      addons: &clang50
+      addons: &clang50libcpp
         apt:
           sources:
             - ubuntu-toolchain-r-test
@@ -37,7 +37,7 @@ matrix:
 
     # Debug with stdlibc++
     - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
-      addons:
+      addons: &clang50
         apt:
           sources:
             - ubuntu-toolchain-r-test
