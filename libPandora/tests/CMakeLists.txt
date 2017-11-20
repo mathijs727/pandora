@@ -3,6 +3,7 @@ add_executable(pandoraTest
 target_compile_features(pandoraTest PRIVATE cxx_std_17)
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/external/googletest/")
+target_compile_features(gtest PUBLIC cxx_std_11)
 target_link_libraries(pandoraTest PRIVATE gtest)
 
 enable_testing()

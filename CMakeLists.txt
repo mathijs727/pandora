@@ -9,7 +9,7 @@ endif()
 
 # Output to a folder called bin to prevent the following error:
 # cannot open output file pandora: Is a directory
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/bin)
 
 include(libPandora/CMakeLists.txt)
 include(pandora/CMakeLists.txt)
