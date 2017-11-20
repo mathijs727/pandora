@@ -17,7 +17,7 @@ matrix:
     ##########################################################################
     # Clang on Linux
     ##########################################################################
-    - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
+    - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug USE_STDLIB=libc++
       addons: &clang50
         apt:
           sources:
@@ -73,10 +73,17 @@ install:
   - cmake --version
 
 before_script:
+  - export CPP_FLAGS=""
+  - |
+    if [[ "$USE_STDLIB" == "libc++" ]]; then
+      export CPP_FLAGS="-stdlib=libc++ ${CPP_FLAGS}"
+    fi
+  - echo "CPP flags are ${CPP_FLAGS}"
+
   # have CMake to generate build files
   - cd "${TRAVIS_BUILD_DIR}"
   - mkdir build && cd build
-  - cmake .. -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_FLAGS="${CPP_FLAGS}"
+  - cmake .. -G Ninja -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_FLAGS="${CPP_FLAGS}"
   
 script:
   # build and run tests
