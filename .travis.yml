@@ -36,17 +36,17 @@ matrix:
             - libc++abi-dev
 
     # Debug with stdlibc++
-    - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
-      addons: &clang50
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-            - llvm-toolchain-trusty-5.0
-          packages:
-            - ninja-build
-            - clang-5.0
-            - gcc-7
-            - g++-7
+    #- env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
+    #  addons: &clang50
+    #    apt:
+    #      sources:
+    #        - ubuntu-toolchain-r-test
+    #        - llvm-toolchain-trusty-5.0
+    #      packages:
+    #        - ninja-build
+    #        - clang-5.0
+    #        - gcc-7
+    #        - g++-7
 
     # Release with libc++
     #- env: COMPILER=clang++-5.0 BUILD_TYPE=Release USE_STDLIB=libc++
@@ -59,15 +59,15 @@ matrix:
     ##########################################################################
     # GCC on Linux
     ##########################################################################
-    - env: COMPILER=g++-7 BUILD_TYPE=Debug
-      addons: &gcc7
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - ninja-build
-            - gcc-7
-            - g++-7
+    #- env: COMPILER=g++-7 BUILD_TYPE=Debug
+    #  addons: &gcc7
+    #    apt:
+    #      sources:
+    #        - ubuntu-toolchain-r-test
+    #      packages:
+    #        - ninja-build
+    #        - gcc-7
+    #        - g++-7
 
     #- env: COMPILER=g++-7 BUILD_TYPE=Release
     #  addons: *gcc7
@@ -88,7 +88,7 @@ install:
   ############################################################################
   # Install a recent CMake (unless already installed on OS X)
   ############################################################################
-  - CMAKE_VERSION=3.8.0
+  - CMAKE_VERSION=3.9.6
   - |
     if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
       CMAKE_URL="https://cmake.org/files/v${CMAKE_VERSION%.[0-9]}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz"
@@ -101,11 +101,17 @@ install:
 
 before_script:
   - export CPP_FLAGS=""
+  # Add libc++ flag when specified in USE_STDLIB
   - |
     if [[ "$USE_STDLIB" == "libc++" ]]; then
       export CPP_FLAGS="-stdlib=libc++ ${CPP_FLAGS}"
     fi
-  - echo "CPP flags are ${CPP_FLAGS}"
+  # Manually add the c++17 flag when using clang because apperently something with CMake/Travis is broken and its not passing
+  # the correct values.
+  #- |
+  #  if [[ "${CXX%%+*}" == "clang" ]]
+  #    export CPP_FLAGS="-std=c++17 ${CPP_FLAGS}"
+  #  fi
 
   # have CMake to generate build files
   - cd "${TRAVIS_BUILD_DIR}"
