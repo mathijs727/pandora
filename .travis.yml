@@ -17,7 +17,7 @@ matrix:
     ##########################################################################
     # Clang on Linux
     ##########################################################################
-    - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug USE_STDLIB=libc++
+    - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
       addons: &clang50
         apt:
           sources:
@@ -71,34 +71,6 @@ install:
       brew install cmake || brew upgrade cmake
     fi
   - cmake --version
-
-  ############################################################################
-  # [linux]: Install the right version of libc++
-  ############################################################################
-  #- |
-  #  LLVM_INSTALL=${DEPS_DIR}/llvm/install
-  #  # if in linux and compiler clang and llvm not installed
-  #  if [[ "${TRAVIS_OS_NAME}" == "linux" && "${CXX%%+*}" == "clang" && -n "$(ls -A ${LLVM_INSTALL})" ]]; then
-  #    if   [[ "${CXX}" == "clang++-3.6" ]]; then LLVM_VERSION="3.6.2";
-  #    elif [[ "${CXX}" == "clang++-3.7" ]]; then LLVM_VERSION="3.7.1";
-  #    elif [[ "${CXX}" == "clang++-3.8" ]]; then LLVM_VERSION="3.8.1";
-  #    elif [[ "${CXX}" == "clang++-3.9" ]]; then LLVM_VERSION="3.9.1";
-  #    elif [[ "${CXX}" == "clang++-5.0" ]]; then LLVM_VERSION="5.0.0";
-  #    fi
-  #    LLVM_URL="http://llvm.org/releases/${LLVM_VERSION}/llvm-${LLVM_VERSION}.src.tar.xz"
-  #    LIBCXX_URL="http://llvm.org/releases/${LLVM_VERSION}/libcxx-${LLVM_VERSION}.src.tar.xz"
-  #    LIBCXXABI_URL="http://llvm.org/releases/${LLVM_VERSION}/libcxxabi-${LLVM_VERSION}.src.tar.xz"
-  #    mkdir -p llvm llvm/build llvm/projects/libcxx llvm/projects/libcxxabi
-  #    travis_retry wget -O - ${LLVM_URL} | tar --strip-components=1 -xJ -C llvm
-  #    travis_retry wget -O - ${LIBCXX_URL} | tar --strip-components=1 -xJ -C llvm/projects/libcxx
-  #    travis_retry wget -O - ${LIBCXXABI_URL} | tar --strip-components=1 -xJ -C llvm/projects/libcxxabi
-  #    (cd llvm/build && cmake .. -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL})
-  #    (cd llvm/build/projects/libcxx && make install -j2)
-  #    (cd llvm/build/projects/libcxxabi && make install -j2)
-  #    export CXXFLAGS="-isystem ${LLVM_INSTALL}/include/c++/v1"
-  #    export LDFLAGS="-L ${LLVM_INSTALL}/lib -l c++ -l c++abi"
-  #    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${LLVM_INSTALL}/lib"
-  #  fi
 
 before_script:
   export CPP_FLAGS=""
