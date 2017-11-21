@@ -106,12 +106,6 @@ before_script:
     if [[ "$USE_STDLIB" == "libc++" ]]; then
       export CPP_FLAGS="-stdlib=libc++ ${CPP_FLAGS}"
     fi
-  # Manually add the c++17 flag when using clang because apperently something with CMake/Travis is broken and its not passing
-  # the correct values.
-  - |
-    if [[ "${CXX%%+*}" == "clang" ]]; then
-      export CPP_FLAGS="-std=c++17 ${CPP_FLAGS}"
-    fi
 
   # have CMake to generate build files
   - cd "${TRAVIS_BUILD_DIR}"
