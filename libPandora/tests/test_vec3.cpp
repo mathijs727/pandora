@@ -42,6 +42,34 @@ TEST(Vec3Test, BinaryOperatorsFloat)
         ASSERT_FLOAT_EQ(c.y, 2.0f / 11.0f);
         ASSERT_FLOAT_EQ(c.z, 3.0f / 4.0f);
     }
+
+    {
+        Vec3f c = 2.0f * a;
+        ASSERT_FLOAT_EQ(c.x, 10.0f);
+        ASSERT_FLOAT_EQ(c.y, 4.0f);
+        ASSERT_FLOAT_EQ(c.z, 6.0f);
+    }
+
+    {
+        Vec3f c = 30.0f / a;
+        ASSERT_FLOAT_EQ(c.x, 6.0f);
+        ASSERT_FLOAT_EQ(c.y, 15.0f);
+        ASSERT_FLOAT_EQ(c.z, 10.0f);
+    }
+
+    {
+        Vec3f c = 4.0f + b;
+        ASSERT_FLOAT_EQ(c.x, 13.0f);
+        ASSERT_FLOAT_EQ(c.y, 15.0f);
+        ASSERT_FLOAT_EQ(c.z, 8.0f);
+    }
+
+    {
+        Vec3f c = 10.0f - a;
+        ASSERT_FLOAT_EQ(c.x, 5.0f);
+        ASSERT_FLOAT_EQ(c.y, 8.0f);
+        ASSERT_FLOAT_EQ(c.z, 7.0f);
+    }
 }
 
 TEST(Vec3Test, UnaryOperators)
@@ -111,10 +139,4 @@ TEST(Vec3Test, DotProduct)
     float c = dot(a, b);
 
     ASSERT_FLOAT_EQ(c, 65.0f);
-}
-
-int main(int argc, char** argv)
-{
-    testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
 }
