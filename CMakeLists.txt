@@ -6,6 +6,7 @@ project(dist_path_tracer)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/GSL/)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/GLEW/)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/glfw/)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/googletest/)
 

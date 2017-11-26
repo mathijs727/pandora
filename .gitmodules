@@ -8,3 +8,9 @@
 [submodule "external/GSL"]
 	path = external/GSL
 	url = git@github.com:Microsoft/GSL.git
+[submodule "external/gl3w"]
+	path = external/gl3w
+	url = https://github.com/skaslev/gl3w
+[submodule "external/glbinding"]
+	path = external/glbinding
+	url = git@github.com:cginternals/glbinding.git
