@@ -11,7 +11,7 @@ void errorCallback(int error, const char* description)
     exit(1);
 }
 
-Window::Window(int width, int height, const char* title)
+Window::Window(int width, int height, std::string_view title)
 {
     if (!glfwInit())
     {
@@ -20,11 +20,11 @@ Window::Window(int width, int height, const char* title)
     }
 
     glfwSetErrorCallback(errorCallback);
-    m_window = glfwCreateWindow(width, height, title, nullptr, nullptr);
+    m_window = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
     if (m_window == nullptr)
     {
         glfwTerminate();
-        std::cerr << "COuld nto create GLFW window" << std::endl;
+        std::cerr << "Could not create GLFW window" << std::endl;
         exit(1);
     }
 

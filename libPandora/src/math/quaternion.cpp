@@ -90,7 +90,7 @@ UnitQuaternion<T> UnitQuaternion<T>::operator*(const UnitQuaternion<T>& other) c
 }
 
 template <typename T>
-UnitQuaternion<T> UnitQuaternion<T>::UnitQuaternion<T>::UnitQuaternion<T>::conjugate() const
+UnitQuaternion<T> UnitQuaternion<T>::conjugate() const
 {
     return UnitQuaternion<T>(m_r, -m_v);
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <string_view>
 
 namespace pandora
 {
@@ -8,7 +9,7 @@ namespace pandora
 class Window
 {
 public:
-    Window(int width, int height, const char *title);
+    Window(int width, int height, std::string_view title);
     ~Window();
 
     bool shouldClose();// Whether the user clicked on the close button
