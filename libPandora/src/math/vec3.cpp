@@ -1,16 +1,15 @@
 #include "pandora/math/vec3.h"
+#include "pandora/math/constants.h"
 #include <cmath>
 #include <type_traits>
+#include <cassert>
 
 namespace pandora {
 
 template <typename T>
 Vec3<T>::Vec3()
 {
-    if constexpr (std::is_same<T, float>::value)
-        x = y = z = 0.0f;
-    else
-        x = y = z = 0.0;
+    x = y = z = zero<T>();
 }
 
 template <typename T>
@@ -38,13 +37,25 @@ Vec3<T>::Vec3(const Vec3<T>& other)
 template <typename T>
 T Vec3<T>::length() const
 {
-    return std::sqrt(x * x + y * y + z * z);
+	if constexpr (std::is_same<T, int>::value)
+	{
+		assert(false);// Dont call length() on an int vector
+		return 0;
+	} else {
+		return std::sqrt(x * x + y * y + z * z);
+	}
 }
 
 template <typename T>
 Vec3<T> Vec3<T>::normalized() const
 {
-    return *this / length();
+	if constexpr (std::is_same<T, int>::value)
+	{
+		assert(false);// Dont call normalized() on an int vector
+		return 0;
+	} else {
+		return *this / length();
+	}
 }
 
 template <typename T>

@@ -1,4 +1,4 @@
-find_package(GTest REQUIRED)
+#find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
 
 add_executable(pandoraTest
@@ -10,4 +10,4 @@ target_link_libraries(pandoraTest PRIVATE gtest Threads::Threads libPandora)
 target_compile_features(pandoraTest PRIVATE cxx_std_17)
 
 enable_testing()
-gtest_add_tests(TARGET pandoraTest)
+add_test(TARGET pandoraTest)
