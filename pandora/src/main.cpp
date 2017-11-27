@@ -1,20 +1,26 @@
-#include "pandora/main.h"
+#include "pandora/core/sensor.h"
+#include "ui/framebuffer_gl.h"
 #include "ui/window.h"
 #include <algorithm>
 #include <iostream>
 
 using namespace pandora;
 
+const int width = 1280;
+const int height = 720;
+
 int main()
 {
-    auto[item1, item2, item3] = pandora::getMultipleValues();
-    std::cout << "Items: " << item1 << ", " << item2 << ", " << item3 << std::endl;
-    
-    Window myWindow(1280, 720, "Hello World!");
-    while (!myWindow.shouldClose())
-    {
-    	myWindow.updateInput();
-    	myWindow.swapBuffers();
+    Sensor sensor(width, height);
+    sensor.clear(Vec3f(0.3f, 0.5f, 0.8f));
+
+    Window myWindow(width, height, "Hello World!");
+    FramebufferGL frameBuffer;
+    frameBuffer.clear(Vec3f(0.8f, 0.5f, 0.3f));
+    frameBuffer.update(sensor);
+    while (!myWindow.shouldClose()) {
+        myWindow.updateInput();
+        myWindow.swapBuffers();
     }
 
     return 0;
