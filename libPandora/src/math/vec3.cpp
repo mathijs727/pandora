@@ -1,8 +1,8 @@
 #include "pandora/math/vec3.h"
 #include "pandora/math/constants.h"
+#include <cassert>
 #include <cmath>
 #include <type_traits>
-#include <cassert>
 
 namespace pandora {
 
@@ -37,25 +37,27 @@ Vec3<T>::Vec3(const Vec3<T>& other)
 template <typename T>
 T Vec3<T>::length() const
 {
-	if constexpr (std::is_same<T, int>::value)
-	{
-		assert(false);// Dont call length() on an int vector
-		return 0;
-	} else {
-		return std::sqrt(x * x + y * y + z * z);
-	}
+    return std::sqrt(x * x + y * y + z * z);
+}
+
+template <>
+int Vec3<int>::length() const
+{
+    assert(false); // Returning the length as an int would cause massive rounding errors
+    return 0;
 }
 
 template <typename T>
 Vec3<T> Vec3<T>::normalized() const
 {
-	if constexpr (std::is_same<T, int>::value)
-	{
-		assert(false);// Dont call normalized() on an int vector
-		return 0;
-	} else {
-		return *this / length();
-	}
+    return *this / length();
+}
+
+template <>
+Vec3<int> Vec3<int>::normalized() const
+{
+    assert(false); // Normalizing an int vector does not make much sense (rounding errors)
+    return 0;
 }
 
 template <typename T>
