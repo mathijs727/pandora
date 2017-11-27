@@ -2,7 +2,7 @@
 #include "ui/gl_error.h"
 #include <iostream>
 
-namespace pandora {
+namespace atlas {
 
 FramebufferGL::FramebufferGL()
 {

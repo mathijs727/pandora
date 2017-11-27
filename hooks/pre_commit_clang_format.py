@@ -33,7 +33,8 @@ def gen_clang_format_diff(file_data):
 
 def clang_format(files, patch_filename):
     pool = Pool()
-    diff_results = pool.map(gen_clang_format_diff, files)
+    #diff_results = pool.map(gen_clang_format_diff, files)
+    diff_results = [gen_clang_format_diff(file) for file in files]
     diff_results = filter(None, diff_results)  # Remove emptry strings
     diff_patch = "\n".join(diff_results)
 

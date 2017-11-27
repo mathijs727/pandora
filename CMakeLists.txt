@@ -18,5 +18,5 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/GLEW/)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/glfw/)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/googletest/)
 
-include(libPandora/CMakeLists.txt)
 include(pandora/CMakeLists.txt)
+include(atlas/CMakeLists.txt)

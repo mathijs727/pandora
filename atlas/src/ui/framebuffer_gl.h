@@ -2,7 +2,9 @@
 #include "pandora/core/sensor.h"
 #include <GL/glew.h>
 
-namespace pandora {
+using namespace pandora;
+
+namespace atlas {
 
 class FramebufferGL {
 public:

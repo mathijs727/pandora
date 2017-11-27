@@ -1,8 +1,11 @@
-target_sources(pandora
-	PRIVATE
-		"${CMAKE_CURRENT_LIST_DIR}/main.cpp"
+#include(${CMAKE_CURRENT_LIST_DIR}/bvh/CMakeLists.txt)
 
-        "${CMAKE_CURRENT_LIST_DIR}/ui/framebuffer_gl.cpp"
-		"${CMAKE_CURRENT_LIST_DIR}/ui/gl_error.cpp"
-		"${CMAKE_CURRENT_LIST_DIR}/ui/window.cpp"
+target_sources(libPandora
+	PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}/core/sensor.cpp"
+        
+        "${CMAKE_CURRENT_LIST_DIR}/math/mat3x4.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/math/quaternion.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/math/transform.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/math/vec3.cpp"
 )

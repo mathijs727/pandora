@@ -5,6 +5,7 @@
 #include <iostream>
 
 using namespace pandora;
+using namespace atlas;
 
 const int width = 1280;
 const int height = 720;

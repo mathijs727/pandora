@@ -1,7 +1,6 @@
 #pragma once
 #include <tuple>
 
-namespace pandora
-{
+namespace pandora {
 std::tuple<int, int, float> getMultipleValues();
 }

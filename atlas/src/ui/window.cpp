@@ -1,8 +1,7 @@
 #include "ui/window.h"
 #include <iostream>
 
-namespace pandora
-{
+namespace atlas {
 
 void errorCallback(int error, const char* description)
 {
@@ -11,18 +10,16 @@ void errorCallback(int error, const char* description)
     exit(1);
 }
 
-Window::Window(int width, int height, std::string_view title)
+Window::Window(int width, int height, gsl::cstring_span<> title)
 {
-    if (!glfwInit())
-    {
+    if (!glfwInit()) {
         std::cerr << "Could not initialize GLFW" << std::endl;
         exit(1);
     }
 
     glfwSetErrorCallback(errorCallback);
     m_window = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
-    if (m_window == nullptr)
-    {
+    if (m_window == nullptr) {
         glfwTerminate();
         std::cerr << "Could not create GLFW window" << std::endl;
         exit(1);
@@ -54,5 +51,4 @@ void Window::swapBuffers()
 {
     glfwSwapBuffers(m_window);
 }
-
 }

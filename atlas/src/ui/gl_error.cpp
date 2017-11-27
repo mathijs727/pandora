@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 
-void _check_gl_error(std::string_view file, int line)
+void _check_gl_error(gsl::cstring_span<> file, int line)
 {
     GLenum err(glGetError());
 
@@ -28,7 +28,7 @@ void _check_gl_error(std::string_view file, int line)
             break;
         }
 
-        std::cerr << "GL_" << error.c_str() << " - " << file << ":" << line << std::endl;
+        std::cerr << "GL_" << error.c_str() << " - " << file.data() << ":" << line << std::endl;
         err = glGetError();
     }
 }
