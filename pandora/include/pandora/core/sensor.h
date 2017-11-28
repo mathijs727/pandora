@@ -1,4 +1,5 @@
 #pragma once
+#include "pandora/math/vec2.h"
 #include "pandora/math/vec3.h"
 #include <gsl/gsl>
 #include <vector>
@@ -10,7 +11,7 @@ public:
     Sensor(int width, int height);
 
     void clear(Vec3f color);
-    void addPixelContribution(int x, int y, Vec3f value);
+    void addPixelContribution(Vec2i pixel, Vec3f value);
 
     int width() const { return m_width; }
     int height() const { return m_height; }

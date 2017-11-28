@@ -16,9 +16,9 @@ void Sensor::clear(Vec3f color)
     std::fill(m_frameBuffer.begin(), m_frameBuffer.end(), color);
 }
 
-void Sensor::addPixelContribution(int x, int y, Vec3f value)
+void Sensor::addPixelContribution(Vec2i pixel, Vec3f value)
 {
-    int index = y * m_width + x;
+    int index = pixel.y * m_width + pixel.x;
     m_frameBuffer[index] += value;
 }
 

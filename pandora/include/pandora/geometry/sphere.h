@@ -5,13 +5,14 @@ namespace pandora {
 
 struct Sphere {
 public:
-    Sphere(Vec3f center, float radius)
-        : m_center(center)
-        , m_radius(radius)
+    Sphere(Vec3f center_, float radius_)
+        : center(center_)
+        , radius(radius_)
+        , radius2(radius_ * radius_)
     {
     }
 
-    Vec3f m_center;
-    float m_radius;
+    Vec3f center;
+    float radius, radius2;
 };
 }
