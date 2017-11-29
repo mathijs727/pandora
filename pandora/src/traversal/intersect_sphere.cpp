@@ -4,7 +4,7 @@
 
 namespace pandora {
 
-bool intersectSphere(const Sphere& sphere, Ray& ray)
+bool intersectSphere(const Sphere& sphere, Ray& ray, ShadeData& shadeData)
 {
     Vec3f c = sphere.center - ray.origin;
     float t = dot(c, ray.direction);
@@ -17,6 +17,9 @@ bool intersectSphere(const Sphere& sphere, Ray& ray)
     t -= std::sqrt(sphere.radius2 - p2);
     if (t < ray.t && t > 0) {
         ray.t = t;
+        shadeData.hitPoint = ray.origin + t * ray.direction;
+        shadeData.uv = Vec2f(0.0f, 0.0f);
+        shadeData.normal = (shadeData.hitPoint - sphere.center).normalized();
         return true;
     } else {
         return false;

@@ -16,10 +16,6 @@ PerspectiveCamera::RayGenIterator::RayGenIterator(const PerspectiveCamera& camer
     float virtualScreenWidth = std::tan(degreesToRadian(camera.m_fovX));
     float virtualScreenHeight = virtualScreenWidth / camera.m_screenSize.x * camera.m_screenSize.y;
     m_virtualScreenSize = Vec2f(virtualScreenWidth, virtualScreenHeight);
-
-    std::cout << "FOV: (" << camera.m_fovX << ", " << camera.m_fovY << ")" << std::endl;
-    std::cout << "FOV: (" << degreesToRadian(camera.m_fovX) << ", " << std::tan(degreesToRadian(camera.m_fovY)) << ")" << std::endl;
-    std::cout << "Virtual screen size: " << m_virtualScreenSize << std::endl;
 }
 
 std::pair<Vec2i, Ray> PerspectiveCamera::RayGenIterator::operator*() const
@@ -63,9 +59,22 @@ PerspectiveCamera::PerspectiveCamera(int width, int height, float fovX)
 {
 }
 
+void PerspectiveCamera::setPosition(Vec3f pos)
+{
+    m_position = pos;
+}
+
+void PerspectiveCamera::setOrientation(Vec3f forward, Vec3f up)
+{
+    m_forward = forward;
+    m_left = cross(up, forward);
+    m_up = cross(m_left, forward);
+}
+
 GeneratorWrapper<PerspectiveCamera::RayGenIterator> PerspectiveCamera::generateSamples()
 {
-    return { RayGenIterator(*this, 0), RayGenIterator(*this, m_screenSize.x * m_screenSize.y) };
+    int endIdx = m_screenSize.x * m_screenSize.y;
+    return { RayGenIterator(*this, 0), RayGenIterator(*this, endIdx) };
 }
 
 Sensor& PerspectiveCamera::getSensor()

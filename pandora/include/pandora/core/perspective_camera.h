@@ -11,6 +11,9 @@ class PerspectiveCamera {
 public:
     PerspectiveCamera(int width, int height, float fovX);
 
+    void setPosition(Vec3f pos);
+    void setOrientation(Vec3f forward, Vec3f up);
+
     class RayGenIterator;
     GeneratorWrapper<RayGenIterator> generateSamples();
 

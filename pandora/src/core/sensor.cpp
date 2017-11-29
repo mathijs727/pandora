@@ -9,6 +9,7 @@ Sensor::Sensor(int width, int height)
     , m_height(height)
     , m_frameBuffer(width * height)
 {
+    clear(Vec3f(0.0f));
 }
 
 void Sensor::clear(Vec3f color)

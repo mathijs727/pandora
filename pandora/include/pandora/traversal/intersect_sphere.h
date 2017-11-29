@@ -4,5 +4,5 @@
 
 namespace pandora {
 
-bool intersectSphere(const Sphere& sphere, Ray& ray);
+bool intersectSphere(const Sphere& sphere, Ray& ray, ShadeData& shadeData);
 }

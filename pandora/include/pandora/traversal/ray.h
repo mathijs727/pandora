@@ -1,4 +1,5 @@
 #pragma once
+#include "pandora/math/vec2.h"
 #include "pandora/math/vec3.h"
 #include <limits>
 
@@ -18,7 +19,9 @@ public:
 };
 
 struct ShadeData {
-    // The object that we hit
-    float u, v;
+    //TODO(Mathijs): Pointer to the object that we hit
+    Vec3f hitPoint;
+    Vec3f normal;
+    Vec2f uv;
 };
 }

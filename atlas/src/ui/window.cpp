@@ -10,7 +10,7 @@ void errorCallback(int error, const char* description)
     exit(1);
 }
 
-Window::Window(int width, int height, gsl::cstring_span<> title)
+Window::Window(int width, int height, std::string_view title)
 {
     if (!glfwInit()) {
         std::cerr << "Could not initialize GLFW" << std::endl;
@@ -27,6 +27,11 @@ Window::Window(int width, int height, gsl::cstring_span<> title)
 
     glfwMakeContextCurrent(m_window);
     glfwSwapInterval(0);
+
+    glfwSetWindowUserPointer(m_window, this);
+    glfwSetKeyCallback(m_window, keyCallback);
+    glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
+    glfwSetCursorPosCallback(m_window, mouseMoveCallback);
 
     glewInit();
 }
@@ -50,5 +55,55 @@ void Window::updateInput()
 void Window::swapBuffers()
 {
     glfwSwapBuffers(m_window);
+}
+
+void Window::registerKeyCallback(KeyCallback&& callback)
+{
+    m_keyCallbacks.push_back(std::move(callback));
+}
+
+void Window::registerMouseButtonCallback(MouseButtonCallback&& callback)
+{
+    m_mouseButtonCallbacks.push_back(std::move(callback));
+}
+
+void Window::registerMouseMoveCallback(MouseMoveCallback&& callback)
+{
+    m_mouseMoveCallbacks.push_back(std::move(callback));
+}
+
+void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    Window* thisWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
+
+    for (auto& callback : thisWindow->m_keyCallbacks)
+        callback(key, scancode, action, mods);
+}
+
+void Window::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{
+    Window* thisWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
+
+    for (auto& callback : thisWindow->m_mouseButtonCallbacks)
+        callback(button, action, mods);
+}
+
+void Window::mouseMoveCallback(GLFWwindow* window, double xpos, double ypos)
+{
+    Window* thisWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
+
+    for (auto& callback : thisWindow->m_mouseMoveCallbacks)
+        callback(Vec2d(xpos, ypos));
+}
+
+void Window::setMouseCapture(bool capture)
+{
+    if (capture) {
+        glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    } else {
+        glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+
+    glfwPollEvents();
 }
 }
