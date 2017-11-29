@@ -21,8 +21,10 @@ int main()
 
     PerspectiveCamera camera = PerspectiveCamera(width, height, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
+    //camera.setPosition(Vec3f(0.0f, 0.0f, 3.0f));
+    //camera.setOrientation(Vec3f(0.0f, 0.0f, -1.0f).normalized(), Vec3f(0.0f, 1.0f, 0.0f));
 
-    Sphere sphere(Vec3f(0.0f, 0.0f, 3.0f), 0.2f);
+    Sphere sphere(Vec3f(0.0f, 0.0f, 3.0f), 0.8f);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
@@ -38,10 +40,12 @@ int main()
         cameraControls.tick();
 
         for (auto [pixel, ray] : camera.generateSamples()) {
+            //std::cout << "Origin:    " << ray.origin << std::endl;
+            //std::cout << "Direction: " << ray.direction << std::endl;
             ShadeData shadeData = {};
             if (intersectSphere(sphere, ray, shadeData)) {
                 // Super basic shading
-                Vec3f lightDirection = Vec3f(0.0f, 0.0f, 1.0f);
+                Vec3f lightDirection = Vec3f(0.0f, 0.0f, 1.0f).normalized();
                 float lightViewCos = dot(shadeData.normal, -lightDirection);
 
                 sensor.addPixelContribution(pixel, Vec3f(1.0f, 0.2f, 0.3f) * lightViewCos);

@@ -27,7 +27,7 @@ std::pair<Vec2i, Ray> PerspectiveCamera::RayGenIterator::operator*() const
     Vec2f pixel2D = (Vec2f)screenPos / m_resolutionFloat * m_virtualScreenSize;
 
     Vec3f origin = m_camera.m_position;
-    Vec3f direction = (m_camera.m_forward + Vec3f(pixel2D.x, pixel2D.y, 1.0f)).normalized();
+    Vec3f direction = m_camera.m_orientation.rotateVector(Vec3f(pixel2D.x, pixel2D.y, 1.0f).normalized());
 
     return { Vec2i(x, y), Ray(origin, direction) };
 }
@@ -53,10 +53,12 @@ PerspectiveCamera::PerspectiveCamera(int width, int height, float fovX)
     , m_fovX(fovX)
     , m_fovY(fovX / width * height)
     , m_position(0.0f)
-    , m_forward(0.0f, 0.0f, 1.0f)
-    , m_up(0.0f, 1.0f, 0.0f)
-    , m_left(1.0f, 0.0f, 0.0f)
 {
+}
+
+Vec3f PerspectiveCamera::getPosition() const
+{
+    return m_position;
 }
 
 void PerspectiveCamera::setPosition(Vec3f pos)
@@ -64,11 +66,14 @@ void PerspectiveCamera::setPosition(Vec3f pos)
     m_position = pos;
 }
 
-void PerspectiveCamera::setOrientation(Vec3f forward, Vec3f up)
+QuatF PerspectiveCamera::getOrienation() const
 {
-    m_forward = forward;
-    m_left = cross(up, forward);
-    m_up = cross(m_left, forward);
+    return m_orientation;
+}
+
+void PerspectiveCamera::setOrientation(QuatF orientation)
+{
+    m_orientation = orientation;
 }
 
 GeneratorWrapper<PerspectiveCamera::RayGenIterator> PerspectiveCamera::generateSamples()

@@ -1,5 +1,6 @@
 #pragma once
 #include "pandora/core/perspective_camera.h"
+#include "pandora/math/quaternion.h"
 #include "ui/window.h"
 #include <chrono>
 
@@ -17,10 +18,7 @@ public:
 
 private:
     Window& m_window;
-
     PerspectiveCamera& m_camera;
-    Vec3f m_position;
-    double m_pitch, m_yaw;
 
     using clock = std::chrono::high_resolution_clock;
     clock::time_point m_previousFrameTimePoint;

@@ -1,5 +1,6 @@
 #pragma once
 #include "pandora/core/sensor.h"
+#include "pandora/math/quaternion.h"
 #include "pandora/math/vec2.h"
 #include "pandora/traversal/ray.h"
 #include "pandora/utility/generator_wrapper.h"
@@ -11,8 +12,11 @@ class PerspectiveCamera {
 public:
     PerspectiveCamera(int width, int height, float fovX);
 
+    Vec3f getPosition() const;
     void setPosition(Vec3f pos);
-    void setOrientation(Vec3f forward, Vec3f up);
+
+    QuatF getOrienation() const;
+    void setOrientation(QuatF orientation);
 
     class RayGenIterator;
     GeneratorWrapper<RayGenIterator> generateSamples();
@@ -48,6 +52,6 @@ private:
     float m_fovX, m_fovY;
 
     Vec3f m_position;
-    Vec3f m_forward, m_up, m_left;
+    QuatF m_orientation;
 };
 }
