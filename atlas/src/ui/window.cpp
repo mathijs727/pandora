@@ -96,6 +96,11 @@ void Window::mouseMoveCallback(GLFWwindow* window, double xpos, double ypos)
         callback(Vec2d(xpos, ypos));
 }
 
+bool Window::isKeyDown(int key)
+{
+    return glfwGetKey(m_window, key) == GLFW_PRESS;
+}
+
 void Window::setMouseCapture(bool capture)
 {
     if (capture) {

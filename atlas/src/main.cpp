@@ -35,6 +35,8 @@ int main()
         sensor.clear(Vec3f(0.0f));
 
         myWindow.updateInput();
+        cameraControls.tick();
+
         for (auto [pixel, ray] : camera.generateSamples()) {
             ShadeData shadeData = {};
             if (intersectSphere(sphere, ray, shadeData)) {

@@ -28,6 +28,8 @@ public:
     using MouseMoveCallback = std::function<void(Vec2d newPosition)>;
     void registerMouseMoveCallback(MouseMoveCallback&&);
 
+    bool isKeyDown(int key);
+
     void setMouseCapture(bool capture);
 
 private:

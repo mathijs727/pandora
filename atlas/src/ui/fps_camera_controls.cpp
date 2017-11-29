@@ -9,8 +9,10 @@ namespace atlas {
 FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
     : m_window(window)
     , m_camera(camera)
+    , m_position(0.0f)
     , m_pitch(0.0)
     , m_yaw(0.0)
+    , m_previousFrameTimePoint(clock::now())
     , m_initialFrame(true)
     , m_cameraChanged(true)
     , m_mouseCaptured(false)
@@ -51,6 +53,35 @@ FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
             m_window.setMouseCapture(m_mouseCaptured);
         }
     });
+}
+
+void FpsCameraControls::tick()
+{
+    // Move camera
+    auto now = clock::now();
+    auto delta = now - m_previousFrameTimePoint;
+    auto deltaMs = std::chrono::duration_cast<std::chrono::nanoseconds>(delta);
+    float deltaMsFloat = deltaMs.count() / 10000000.0f;
+
+    //TODO(Mathijs): store forward, left and up vectors in the class itself
+    float moveSpeed = 0.01f;
+    QuatF pitchRotation = QuatF::rotation(Vec3f(1.0f, 0.0f, 0.0f), m_pitch);
+    QuatF yawRotation = QuatF::rotation(Vec3f(0.0f, 1.0f, 0.0f), m_yaw);
+    QuatF cameraOrientation = pitchRotation * yawRotation;
+    Vec3f forward = cameraOrientation.rotateVector(Vec3f(0.0f, 0.0f, 1.0f));
+    Vec3f right = cameraOrientation.rotateVector(Vec3f(1.0f, 0.0f, 0.0f));
+    if (m_window.isKeyDown(GLFW_KEY_A))
+        m_position += right * deltaMsFloat * -moveSpeed;
+    if (m_window.isKeyDown(GLFW_KEY_D))
+        m_position += right * deltaMsFloat * moveSpeed;
+    if (m_window.isKeyDown(GLFW_KEY_W))
+        m_position += forward * deltaMsFloat * moveSpeed;
+    if (m_window.isKeyDown(GLFW_KEY_S))
+        m_position += forward * deltaMsFloat * -moveSpeed;
+
+    m_camera.setPosition(m_position);
+
+    m_previousFrameTimePoint = now;
 }
 
 bool FpsCameraControls::cameraChanged()
