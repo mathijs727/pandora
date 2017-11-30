@@ -33,13 +33,6 @@ Vec2<T>::Vec2(const Vec2<T>& other)
 }
 
 template <typename T>
-template <typename S>
-Vec2<T>::operator Vec2<S>() const
-{
-    return Vec2<S>(static_cast<S>(x), static_cast<S>(y));
-}
-
-template <typename T>
 T Vec2<T>::length() const
 {
     return std::sqrt(x * x + y * y);
@@ -225,16 +218,10 @@ std::ostream& operator<<(std::ostream& stream, const Vec2<T>& vector)
     return stream;
 }
 
+
 template class Vec2<float>;
 template class Vec2<double>;
 template class Vec2<int>;
-
-template Vec2<int>::operator Vec2<float>() const;
-template Vec2<int>::operator Vec2<double>() const;
-template Vec2<float>::operator Vec2<int>() const;
-template Vec2<float>::operator Vec2<double>() const;
-template Vec2<double>::operator Vec2<int>() const;
-template Vec2<double>::operator Vec2<float>() const;
 
 template Vec2<float> operator*(float, const Vec2<float>&);
 template Vec2<double> operator*(double, const Vec2<double>&);
