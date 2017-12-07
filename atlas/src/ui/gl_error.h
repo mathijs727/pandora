@@ -1,7 +1,7 @@
 #pragma once
-#include <gsl/gsl>
+#include <string_view>
 
-void _check_gl_error(gsl::cstring_span<> file, int line);
+void _check_gl_error(std::string_view file, int line);
 
 #ifdef DNDEBUG
 #define check_gl_error()

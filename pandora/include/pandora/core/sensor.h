@@ -1,7 +1,6 @@
 #pragma once
 #include "pandora/math/vec2.h"
 #include "pandora/math/vec3.h"
-#include <gsl/gsl>
 #include <vector>
 
 namespace pandora {
