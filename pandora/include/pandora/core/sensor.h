@@ -20,7 +20,6 @@ public:
 
     int width() const { return m_width; }
     int height() const { return m_height; }
-    //gsl::multi_span<const Vec3f, gsl::dynamic_range, gsl::dynamic_range> getFramebuffer() const;
     const FrameBufferConstArrayView getFramebuffer1D() const;
     const Vec3f* getFramebufferRaw() const;
 
