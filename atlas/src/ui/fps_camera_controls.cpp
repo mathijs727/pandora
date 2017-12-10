@@ -23,9 +23,11 @@ FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
         if (!m_initialFrame) {
             QuatF currentOrienation = m_camera.getOrienation();
 
+            // Moving mouse to the left (negative x) should result in a counter-clock wise rotation so we multiply
+            // the yaw rotation by minus one.
             Vec2d delta2D = position - m_previousMousePos;
             float pitchDelta = static_cast<float>(delta2D.y * lookSpeed);
-            float yawDelta = static_cast<float>(delta2D.x * lookSpeed);
+            float yawDelta = -static_cast<float>(delta2D.x * lookSpeed);
 
             // Limit pitch movement so we cant make "loopings"
             //m_pitch = std::clamp(m_pitch, -piD / 2.0 + 0.1, piD / 2.0 - 0.1);
@@ -64,16 +66,16 @@ void FpsCameraControls::tick()
     QuatF cameraOrientation = m_camera.getOrienation();
 
     Vec3f forward = cameraOrientation.rotateVector(Vec3f(0.0f, 0.0f, 1.0f));
-    Vec3f right = cameraOrientation.rotateVector(Vec3f(1.0f, 0.0f, 0.0f));
+    Vec3f left = cameraOrientation.rotateVector(Vec3f(1.0f, 0.0f, 0.0f));
 
     if (m_window.isKeyDown(GLFW_KEY_A))
-        cameraPosition += right * deltaMsFloat * -moveSpeed;
+        cameraPosition += left * deltaMsFloat * moveSpeed;
     if (m_window.isKeyDown(GLFW_KEY_D))
-        cameraPosition += right * deltaMsFloat * moveSpeed;
+        cameraPosition += -left * deltaMsFloat * moveSpeed;
     if (m_window.isKeyDown(GLFW_KEY_W))
         cameraPosition += forward * deltaMsFloat * moveSpeed;
     if (m_window.isKeyDown(GLFW_KEY_S))
-        cameraPosition += forward * deltaMsFloat * -moveSpeed;
+        cameraPosition += -forward * deltaMsFloat * moveSpeed;
 
     m_camera.setPosition(cameraPosition);
 

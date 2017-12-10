@@ -18,7 +18,10 @@ set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-find_package(Boost COMPONENTS multi_array)
+# Add boost header-only libraries (the guys behind CMake are lazy and didnt update find_package(Boost) to use modern CMake)
+find_package(Boost)
+include(${CMAKE_CURRENT_LIST_DIR}/external/Boost.cmake)
+
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/GLEW/)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/glfw/)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/external/googletest/)
