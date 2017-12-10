@@ -19,10 +19,12 @@ int main()
     FramebufferGL frameBuffer;
     frameBuffer.clear(Vec3f(0.8f, 0.5f, 0.3f));
 
-    PerspectiveCamera camera = PerspectiveCamera(width, height, 65.0f);
+    float aspectRatio = static_cast<float>(width) / height;
+    PerspectiveCamera camera = PerspectiveCamera(aspectRatio, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
     //camera.setPosition(Vec3f(0.0f, 0.0f, 3.0f));
     //camera.setOrientation(Vec3f(0.0f, 0.0f, -1.0f).normalized(), Vec3f(0.0f, 1.0f, 0.0f));
+    auto sensor = Sensor(width, height);
 
     Sphere sphere(Vec3f(0.0f, 0.0f, 3.0f), 0.8f);
 
@@ -33,22 +35,27 @@ int main()
     });
 
     while (!myWindow.shouldClose() && !pressedEscape) {
-        auto& sensor = camera.getSensor();
         sensor.clear(Vec3f(0.0f));
 
         myWindow.updateInput();
         cameraControls.tick();
 
-        for (auto [pixel, ray] : camera.generateSamples()) {
-            //std::cout << "Origin:    " << ray.origin << std::endl;
-            //std::cout << "Direction: " << ray.direction << std::endl;
-            ShadeData shadeData = {};
-            if (intersectSphere(sphere, ray, shadeData)) {
-                // Super basic shading
-                Vec3f lightDirection = Vec3f(0.0f, 0.0f, 1.0f).normalized();
-                float lightViewCos = dot(shadeData.normal, -lightDirection);
+        //for (auto [pixel, ray] : camera.generateSamples()) {
+        float widthF = static_cast<float>(width);
+        float heightF = static_cast<float>(height);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                auto pixelRasterCoords = Vec2i(x, y);
+                auto pixelScreenCoords = Vec2f(x / widthF, y / heightF);
+                Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
+                ShadeData shadeData = {};
+                if (intersectSphere(sphere, ray, shadeData)) {
+                    // Super basic shading
+                    Vec3f lightDirection = Vec3f(0.0f, 0.0f, 1.0f).normalized();
+                    float lightViewCos = dot(shadeData.normal, -lightDirection);
 
-                sensor.addPixelContribution(pixel, Vec3f(1.0f, 0.2f, 0.3f) * lightViewCos);
+                    sensor.addPixelContribution(pixelRasterCoords, Vec3f(1.0f, 0.2f, 0.3f) * lightViewCos);
+                }
             }
         }
 

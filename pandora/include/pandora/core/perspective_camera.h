@@ -8,9 +8,19 @@
 
 namespace pandora {
 
+struct CameraSample {
+    CameraSample(Vec2f pixel_)
+        : pixel(pixel_)
+        , lens()
+    {
+    }
+    Vec2f pixel;
+    Vec2f lens;
+};
+
 class PerspectiveCamera {
 public:
-    PerspectiveCamera(int width, int height, float fovX);
+    PerspectiveCamera(float aspectRatio, float fovX);
 
     Vec3f getPosition() const;
     void setPosition(Vec3f pos);
@@ -18,13 +28,10 @@ public:
     QuatF getOrienation() const;
     void setOrientation(QuatF orientation);
 
-    class RayGenIterator;
-    GeneratorWrapper<RayGenIterator> generateSamples();
-
-    Sensor& getSensor();
+    Ray generateRay(const CameraSample& sample) const;
 
 public:
-    class RayGenIterator : std::iterator<std::forward_iterator_tag, Ray> {
+    /*class RayGenIterator : std::iterator<std::forward_iterator_tag, Ray> {
     public:
         RayGenIterator(const PerspectiveCamera& camera, int index);
 
@@ -43,13 +50,12 @@ public:
 
         int m_currentIndex;
         int m_stride;
-    };
+    };*/
 
 private:
-    Sensor m_sensor;
-
-    Vec2i m_screenSize;
-    float m_fovX, m_fovY;
+    Vec2f m_virtualScreenSize;
+    float m_aspectRatio;
+    float m_fovX;
 
     Vec3f m_position;
     QuatF m_orientation;
