@@ -28,3 +28,4 @@ add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/googletest/" EXCLUDE_FROM_A
 
 include(pandora/CMakeLists.txt)
 include(atlas/CMakeLists.txt)
+include(torque/CMakeLists.txt)
