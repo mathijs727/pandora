@@ -9,8 +9,8 @@ namespace pandora {
 class Sensor {
 public:
     typedef boost::multi_array<Vec3f, 2> FramebufferType;
-    typedef boost::multi_array<Vec3f, 2>::array_view<1>::type FrameBufferArrayView;
-    typedef boost::multi_array<Vec3f, 2>::const_array_view<1>::type FrameBufferConstArrayView;
+    typedef boost::multi_array<Vec3f, 2>::array_view<2>::type FrameBufferArrayView;
+    typedef boost::multi_array<Vec3f, 2>::const_array_view<2>::type FrameBufferConstArrayView;
 
 public:
     Sensor(int width, int height);
@@ -20,7 +20,7 @@ public:
 
     int width() const { return m_width; }
     int height() const { return m_height; }
-    const FrameBufferConstArrayView getFramebuffer1D() const;
+    const FrameBufferConstArrayView getFramebufferView() const;
     const Vec3f* getFramebufferRaw() const;
 
 private:

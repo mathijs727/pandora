@@ -16,8 +16,7 @@ Sensor::Sensor(int width, int height)
 
 void Sensor::clear(Vec3f color)
 {
-    auto view = m_frameBuffer[boost::indices[0][range{ 0, m_width * m_height }]];
-    std::fill(view.begin(), view.end(), color);
+    std::fill(m_frameBuffer.origin(), m_frameBuffer.origin() + m_frameBuffer.num_elements(), color);
 }
 
 void Sensor::addPixelContribution(Vec2i pixel, Vec3f value)
@@ -25,9 +24,9 @@ void Sensor::addPixelContribution(Vec2i pixel, Vec3f value)
     m_frameBuffer[pixel.x][pixel.y] += value;
 }
 
-const Sensor::FrameBufferConstArrayView Sensor::getFramebuffer1D() const
+const Sensor::FrameBufferConstArrayView Sensor::getFramebufferView() const
 {
-    return m_frameBuffer[boost::indices[0][range{ 0, m_width * m_height }]];
+    return m_frameBuffer[boost::indices[range{ 0, m_width }][range{ 0, m_height }]];
 }
 
 const Vec3f* Sensor::getFramebufferRaw() const
