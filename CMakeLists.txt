@@ -13,7 +13,7 @@ endif()
 # TBB still uses GNU make as build system. It is suprising how such an industry leading
 # product relies on an outdated platform-specific tool instead of using CMake like
 # everyone else.
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/tbb/")
+include("${CMAKE_CURRENT_LIST_DIR}/external/tbb/tbb.cmake")
 
 # Dont build docs & tests of GLFW
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
