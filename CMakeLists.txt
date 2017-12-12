@@ -19,10 +19,15 @@ set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-# Add boost header-only libraries (the guys behind CMake are lazy and didnt update find_package(Boost) to use modern CMake)
-#include(${CMAKE_CURRENT_LIST_DIR}/external/Boost.cmake)
-find_package(Boost COMPONENTS fiber)
+find_package(Boost)
+
+# Build from source
+include("${CMAKE_CURRENT_LIST_DIR}/external/tbb/cmake/TBBBuild.cmake")
+tbb_build(TBB_ROOT "${CMAKE_CURRENT_LIST_DIR}/external/tbb/" CONFIG_DIR TBB_DIR)
+find_package(TBB)
+
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/GLEW/" EXCLUDE_FROM_ALL)
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/GSL/" EXCLUDE_FROM_ALL)
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/glfw/" EXCLUDE_FROM_ALL)
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/googletest/" EXCLUDE_FROM_ALL)
 

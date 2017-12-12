@@ -68,6 +68,12 @@ T dot(const Vec3<T>& a, const Vec3<T>& b);
 template <typename T>
 Vec3<T> cross(const Vec3<T>& a, const Vec3<T>& b);
 
+template <typename T>
+Vec3<T> min(const Vec3<T>& a, const Vec3<T>& b);
+
+template <typename T>
+Vec3<T> max(const Vec3<T>& a, const Vec3<T>& b);
+
 using Vec3f = Vec3<float>;
 using Vec3d = Vec3<double>;
 using Vec3i = Vec3<int>;

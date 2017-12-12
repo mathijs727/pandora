@@ -29,7 +29,7 @@ const Sensor::FrameBufferConstArrayView Sensor::getFramebufferView() const
     return m_frameBuffer[boost::indices[range{ 0, m_width }][range{ 0, m_height }]];
 }
 
-const Vec3f* Sensor::getFramebufferRaw() const
+gsl::not_null<const Vec3f*> Sensor::getFramebufferRaw() const
 {
     return m_frameBuffer.data();
 }

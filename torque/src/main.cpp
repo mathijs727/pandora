@@ -1,8 +1,6 @@
 #include "pandora/core/perspective_camera.h"
 #include "pandora/geometry/sphere.h"
 #include "pandora/traversal/intersect_sphere.h"
-#include <algorithm>
-#include <boost/fiber/all.hpp>
 #include <iostream>
 
 using namespace pandora;
@@ -17,14 +15,6 @@ int main()
     PerspectiveCamera camera = PerspectiveCamera(aspectRatio, 65.0f);
 
     Sphere sphere(Vec3f(0.0f, 0.0f, 3.0f), 0.8f);
-
-    /*boost::fibers::fiber f1([&](int i) {
-        auto x = new float[3];
-        x[2] = i;
-        std::cout << x[1] << std::endl;
-        delete[] x;
-    }, 123);
-    f1.join();*/
 
     float widthF = static_cast<float>(width);
     float heightF = static_cast<float>(height);

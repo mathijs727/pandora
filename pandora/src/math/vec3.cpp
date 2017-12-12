@@ -241,6 +241,18 @@ Vec3<T> cross(const Vec3<T>& a, const Vec3<T>& b)
     return Vec3<T>(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
 }
 
+template <typename T>
+Vec3<T> min(const Vec3<T>& a, const Vec3<T>& b)
+{
+    return Vec3<T>(std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z));
+}
+
+template <typename T>
+Vec3<T> max(const Vec3<T>& a, const Vec3<T>& b)
+{
+    return Vec3<T>(std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z));
+}
+
 template class Vec3<float>;
 template class Vec3<double>;
 template class Vec3<int>;
@@ -272,4 +284,12 @@ template double dot(const Vec3<double>&, const Vec3<double>&);
 template Vec3<float> cross(const Vec3<float>&, const Vec3<float>&);
 template Vec3<double> cross(const Vec3<double>&, const Vec3<double>&);
 // Probably dont want to use cross product on int vectors?
+
+template Vec3<float> min(const Vec3<float>&, const Vec3<float>&);
+template Vec3<double> min(const Vec3<double>&, const Vec3<double>&);
+template Vec3<int> min(const Vec3<int>&, const Vec3<int>&);
+
+template Vec3<float> max(const Vec3<float>&, const Vec3<float>&);
+template Vec3<double> max(const Vec3<double>&, const Vec3<double>&);
+template Vec3<int> max(const Vec3<int>&, const Vec3<int>&);
 }

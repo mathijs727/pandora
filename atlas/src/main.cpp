@@ -1,11 +1,10 @@
 #include "pandora/core/perspective_camera.h"
 #include "pandora/geometry/sphere.h"
 #include "pandora/traversal/intersect_sphere.h"
+#include "tbb/tbb.h"
 #include "ui/fps_camera_controls.h"
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
-#include <algorithm>
-#include <boost/fiber/all.hpp>
 #include <iostream>
 
 using namespace pandora;
@@ -35,25 +34,16 @@ int main()
             pressedEscape = true;
     });
 
-    /*boost::fibers::fiber f1([&](int i) {
-        auto x = new float[3];
-        x[2] = i;
-        std::cout << x[1] << std::endl;
-        delete[] x;
-    }, 123);
-    f1.join();*/
-
     while (!myWindow.shouldClose() && !pressedEscape) {
         sensor.clear(Vec3f(0.0f));
 
         myWindow.updateInput();
         cameraControls.tick();
 
-        //for (auto [pixel, ray] : camera.generateSamples()) {
         float widthF = static_cast<float>(width);
         float heightF = static_cast<float>(height);
 
-        for (int y = 0; y < height; y++) {
+        tbb::parallel_for(0, height, [&](int y) {
             for (int x = 0; x < width; x++) {
                 auto pixelRasterCoords = Vec2i(x, y);
                 auto pixelScreenCoords = Vec2f(x / widthF, y / heightF);
@@ -67,7 +57,7 @@ int main()
                     sensor.addPixelContribution(pixelRasterCoords, Vec3f(1.0f, 0.2f, 0.3f) * lightViewCos);
                 }
             }
-        }
+        });
 
         frameBuffer.update(sensor);
         myWindow.swapBuffers();

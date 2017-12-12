@@ -8,7 +8,10 @@ else()
     target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Wno-unused-parameter -Wno-unused-private-field)
 endif()
 
-target_link_libraries(libPandora PUBLIC Boost::boost Boost::fiber)
+target_link_libraries(libPandora PUBLIC
+    Boost::boost
+    tbb
+    GSL)
 
 target_include_directories(libPandora PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include/)
 target_include_directories(libPandora PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src/)

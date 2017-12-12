@@ -11,3 +11,12 @@
 [submodule "external/glbinding"]
 	path = external/glbinding
 	url = git@github.com:cginternals/glbinding.git
+[submodule "external/tbb"]
+	path = external/tbb
+	url = https://github.com/01org/tbb.git
+[submodule "external/--force"]
+	path = external/--force
+	url = https://github.com/Microsoft/GSL.git
+[submodule "external/GSL"]
+	path = external/GSL
+	url = https://github.com/Microsoft/GSL.git
