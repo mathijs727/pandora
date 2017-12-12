@@ -1,6 +1,10 @@
+# Visual Studio Code
 .vscode
 .vs
+
+# Manual build folder
 build
 
+# Sublime
 *.sublime-project
 *.sublime-workspace
