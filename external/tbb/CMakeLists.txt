@@ -1,0 +1,9 @@
+if (WIN32)
+set(TBB_PLATFORM_POSTFIX "win")
+elseif (APPLE)
+set(TBB_PLATFORM_POSTFIX "mac")
+else()# Assume Linux
+set(TBB_PLATFORM_POSTFIX "lin")
+endif()
+set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};${CMAKE_CURRENT_LIST_DIR}/tbb2018_20171205oss_${TBB_PLATFORM_POSTFIX}/tbb2018_20171205oss/")
+find_package(TBB)
