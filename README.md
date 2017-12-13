@@ -20,11 +20,11 @@ Download and install the Boost binaries from:
 <http://www.boost.org/users/download/>
 
 ### Ubuntu
-Install Boost binaries using the package manager:
+Install Boost binaries using the package manager:  
 ```sudo apt install libboost-all-dev```
-
-_OR_
-
+  
+__OR__  
+  
 Build the latest version of Boost from source ([boost manual](https://github.com/boostorg/boost/wiki/Getting-Started)):
 ```
 git clone --recursive https://github.com/boostorg/boost.git
