@@ -10,7 +10,7 @@ endif()
 
 target_link_libraries(libPandora PUBLIC
     Boost::boost
-    tbb
+    TBB::tbb
     GSL)
 
 target_include_directories(libPandora PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include/)

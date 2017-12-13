@@ -1,5 +1,6 @@
 #include "pandora/math/vec3.h"
 #include "pandora/math/constants.h"
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <type_traits>
