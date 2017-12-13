@@ -22,7 +22,9 @@ Download and install the Boost binaries from:
 ### Ubuntu
 Install Boost binaries using the package manager:
 ```sudo apt install libboost-all-dev```
+
 _OR_
+
 Build the latest version of Boost from source ([boost manual](https://github.com/boostorg/boost/wiki/Getting-Started)):
 ```
 git clone --recursive https://github.com/boostorg/boost.git
