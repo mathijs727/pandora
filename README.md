@@ -32,15 +32,15 @@ git checkout develop # or whatever branch you want to use
 .\b2 headers
 ```
 
-Install GLEW:
+Install GLEW:  
 ```sudo apt install libglew-dev```
 
 
 ## Install
-Option 1 (Windows only):
+Option 1 (Windows only):  
 Open the root folders CMakeLists.txt file in Visual Studio 2017
 
-Option 2:
+Option 2:  
 Use CMake to generate a build script:
 ```
 git clone git@github.com:mathijs727/pandora.git
@@ -59,10 +59,9 @@ mkdir build
 cd build
 cmake -G Ninja ../
 cmake --build . -- -j<yourcorecounthere>
-```
-
-
-Compile with:<br />
+```  
+  
+Compile with:  
 ```
 cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS="-stdlib=libc++ -fsanitize=address" ../
 ```
