@@ -51,7 +51,7 @@ cmake ../
 cmake --build .
 ```
 
-To reduce compile times, use the Ninja build system and enable multithreading (replace "<yourcorecounthere>" by the number of build threads that you want to use):
+To reduce compile times, use the Ninja build system and enable multithreading (replace `<yourcorecounthere>` by the number of build threads that you want to use):
 ```
 git clone git@github.com:mathijs727/pandora.git
 cd pandora
