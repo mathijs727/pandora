@@ -24,10 +24,21 @@ def find_dependency_data(dep_name):
         return None
 
 
+def get_for_platform(dep_data, key):
+    try:
+        return dep_data["all"][key]
+    except KeyError:
+        if sys.platform == "win32" or sys.platform == "win64":
+            platform = "windows"
+        else:
+            platform = "unix"
+        return dep_data[platform][key]
+
+
 def download_dependency(dep_name, dep_data):
     download_folder = os.path.join(downloads_folder, dep_name)
 
-    for download_data in dep_data["download"]:
+    for download_data in get_for_platform(dep_data, "download"):
         # Folder already exists (we downloaded it before)
         if os.path.exists(download_folder):
             return True
@@ -93,7 +104,7 @@ def download_dependency(dep_name, dep_data):
 
 
 def install_dependency(dep_name, dep_data):
-    build_data = dep_data["build"]
+    build_data = get_for_platform(dep_data, "build")
     core_count = multiprocessing.cpu_count()
     install_folder = os.path.join(installs_folder, dep_name)
     if os.path.exists(install_folder):
@@ -142,11 +153,19 @@ def install_dependency(dep_name, dep_data):
             bootstrap_path = os.path.join(download_folder, "bootstrap.sh")
         subprocess.check_call([bootstrap_path], cwd=download_folder)
 
+        if "with_libraries" in build_data:
+            with_libraries = ["--with-%s" %
+                              lib for lib in build_data["with_libraries"]]
+        else:
+            with_libraries = []
+
         b2_path = os.path.join(download_folder, "b2")
         try:
-            subprocess.check_call(
-                [b2_path, "install", "--prefix=%s" % install_folder], cwd=download_folder)
+            subprocess.check_call([b2_path, "install", "--prefix=%s" %
+                                   install_folder] + with_libraries, cwd=download_folder)
+            return True
         except Exception as e:
+            print("Failed to build using Boost.build")
             print(e)
 
     return False
