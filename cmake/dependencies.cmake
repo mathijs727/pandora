@@ -4,21 +4,23 @@ function(find_or_install_package PACKAGE_NAME)
     set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};${CMAKE_CURRENT_LIST_DIR}/third_party/install/${PACKAGE_NAME}")
     set(${${PACKAGE_NAME_UPPER}_ROOT}} "${CMAKE_CURRENT_LIST_DIR}/third_party/install/${PACKAGE_NAME}")
 
-    find_package(${PACKAGE_NAME} QUIET)
-
-    if (NOT ${${PACKAGE_NAME}_FOUND})
+    set(install_folder "${CMAKE_CURRENT_LIST_DIR}/third_party/install/${PACKAGE_NAME}/")
+	if (NOT EXISTS "${install_folder}")
+		message("Downloading and compiling dependency: ${PACKAGE_NAME}")
         execute_process(
-            COMMAND python external_dependencies.py ${PACKAGE_NAME}
+            COMMAND python external_dependencies.py ${PACKAGE_NAME} ${CMAKE_GENERATOR}
             WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/third_party/")
-        find_package(${PACKAGE_NAME} REQUIRED)
     endif()
+    find_package(${PACKAGE_NAME} REQUIRED)
+	unset(install_folder)
 endfunction(find_or_install_package)
 
 function(install_header_only_package PACKAGE_NAME)
-    set(install_folder "${CMAKE_CURRENT_LIST_DIR}/third_party/install/${PACKAGE_NAME}/include/")
+    set(install_folder "${CMAKE_CURRENT_LIST_DIR}/third_party/install/${PACKAGE_NAME}/")
     if (NOT EXISTS "${install_folder}")
+		message("Downloading and installing dependency: ${PACKAGE_NAME}")
         execute_process(
-            COMMAND python external_dependencies.py ${PACKAGE_NAME}
+            COMMAND python external_dependencies.py ${PACKAGE_NAME} ${CMAKE_GENERATOR}
             WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/third_party/")
     endif()
     add_library(${PACKAGE_NAME} INTERFACE)# Create target for the header only

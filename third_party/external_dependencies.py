@@ -15,6 +15,25 @@ downloads_folder = os.path.join(script_path, "downloads")
 installs_folder = os.path.join(script_path, "install")
 
 
+def monkey_patch_tarfile():
+    # Fix max file path length errors in tarfile
+    # https://stackoverflow.com/questions/4677234/python-ioerror-exception-when-creating-a-long-file
+    import os
+    import sys
+    if sys.platform not in ['cygwin', 'win32', 'win64']:
+        return
+
+    def long_open(name, *args, **kwargs):
+        # http://msdn.microsoft.com/en-us/library/aa365247%28v=vs.85%29.aspx#maxpath
+        if len(name) >= 200:
+            if not os.path.isabs(name):
+                name = os.path.join(os.getcwd(), name)
+            name = "\\\\?\\" + os.path.normpath(name)
+        return long_open.bltn_open(name, *args, **kwargs)
+    long_open.bltn_open = tarfile.bltn_open
+    tarfile.bltn_open = long_open
+
+
 def find_dependency_data(dep_name):
     dependencies = json.load(open(dependencies_file))
 
@@ -122,23 +141,34 @@ def install_dependency(dep_name, dep_data):
             os.makedirs(build_folder)
 
             try:
-                build_flags = build_data["flags"]
+                cmake_flags = build_data["flags"]
             except KeyError:
-                build_flags = []
+                cmake_flags = []
 
             if "cmakelists_folder" in build_data:
                 path_to_cmakelists = os.path.join(
                     "../", build_data["cmakelists_folder"])
             else:
                 path_to_cmakelists = "../"
-            subprocess.check_call(["cmake",
-                                   "-GNinja",
-                                   "-DCMAKE_INSTALL_PREFIX=%s" % install_folder,
-                                   path_to_cmakelists] + build_flags,
-                                  cwd=build_folder)
+
+            # Multithreading
+            generator_flags = []
+            if generator == "Ninja" or generator == "Unix Makefiles":
+                generator_flags.append("-j%d" % core_count)
+
+            # Force 64 bit compilation
+            # TODO: build dependencies for both 32 and 64 bit
+            if generator.startswith("Visual Studio"):
+                cmake_flags.append("-DCMAKE_GENERATOR_PLATFORM=x64")
+
+            subprocess.check_output(["cmake",
+                                     "-DCMAKE_BUILD_TYPE=Release",
+                                     "-G%s" % generator,
+                                     "-DCMAKE_INSTALL_PREFIX=%s" % install_folder,
+                                     path_to_cmakelists] + cmake_flags,
+                                    cwd=build_folder)
             subprocess.check_call(
-                ["ninja", "-j%d" % core_count], cwd=build_folder)
-            subprocess.check_call(["ninja", "install"], cwd=build_folder)
+                ["cmake", "--build", ".", "--target", "install", "--"] + generator_flags, cwd=build_folder)
             return True
         except Exception as e:
             print("Failed to build using this CMake")
@@ -147,7 +177,17 @@ def install_dependency(dep_name, dep_data):
     elif build_data["build_system"] == "boost":
         download_folder = os.path.join(downloads_folder, dep_name)
 
-        if os.name == "nt":  # If Windows
+        # Build the Boost.build build system
+        if sys.platform == "win32" or sys.platform == "win64":  # If Windows
+            # Bug that has been fixed on the master branch of Boost.build:
+            # https://github.com/boostorg/build/pull/265
+            build_jam = os.path.join(download_folder, "tools", "build", "src", "engine", "build.jam")
+            with open(build_jam, "r") as file:
+                txt = file.readlines()
+            txt[186] = "toolset cc \"$(CC)\" : \"-o \" : -D"
+            with open(build_jam, "w") as file:
+                file.writelines(txt)
+
             bootstrap_path = os.path.join(download_folder, "bootstrap.bat")
         else:
             bootstrap_path = os.path.join(download_folder, "bootstrap.sh")
@@ -159,10 +199,17 @@ def install_dependency(dep_name, dep_data):
         else:
             with_libraries = []
 
-        b2_path = os.path.join(download_folder, "b2")
         try:
-            subprocess.check_call([b2_path, "install", "--prefix=%s" %
-                                   install_folder] + with_libraries, cwd=download_folder)
+            b2_path = os.path.join(download_folder, "b2")
+            result = subprocess.check_output([b2_path,
+                                   "release",
+                                   "address-model=64",
+                                   "threading=multi",
+                                   "-j%d" % core_count,
+                                   "install",
+                                   "--prefix=%s" % install_folder] + with_libraries, cwd=download_folder)
+            result = result.decode("utf-8")
+            print(result)
             return True
         except Exception as e:
             print("Failed to build using Boost.build")
@@ -172,11 +219,17 @@ def install_dependency(dep_name, dep_data):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Script has one argument: name of the dependency")
+    # Patch tarfile so it can handle long paths on Windows
+    monkey_patch_tarfile()
+
+    if len(sys.argv) != 3:
+        print("Script has two argument:")
+        print(" - Name of the dependency")
+        print(" - Generator")
         exit(1)
 
     dep_name = sys.argv[1]
+    generator = sys.argv[2]
 
     dependency = find_dependency_data(dep_name)
     if dependency is None:
@@ -195,3 +248,5 @@ if __name__ == "__main__":
         print("Install failed")
     else:
         print("Install succeeded")
+
+    exit(0)

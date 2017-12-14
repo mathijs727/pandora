@@ -15,6 +15,8 @@ In addition Atlas, the real-time viewer, requires:
 Most dependencies are shipped with the project as submodules so the user does not need to do a thing.
 TBB is shipped as precompiled binaries as provided by Intel from the TBB Github page. On Linux/macOS systems the user is required to install GLEW (binaries are provided for Windows). Also, the user is responsible for installing Boost.
 
+https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages
+
 ### Windows
 Download and install the Boost binaries from:
 <http://www.boost.org/users/download/>
