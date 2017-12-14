@@ -1,0 +1,67 @@
+{
+    "GSL": {
+        "download": [
+            {
+                "git": "https://github.com/Microsoft/GSL.git"
+            }
+        ],
+        "build": {
+            "build_system": "CMake",
+            "flags": [
+                "-DGSL_TEST=OFF"
+            ]
+        }
+    },
+    "glfw3": {
+        "download": [
+            {
+                "git": "https://github.com/glfw/glfw.git"
+            }
+        ],
+        "build": {
+            "build_system": "CMake",
+            "flags": [
+                "-DGLFW_BUILD_DOCS=OFF",
+                "-DGLFW_BUILD_TESTS=OFF",
+                "-DGLFW_BUILD_EXAMPLES=OFF"
+            ]
+        }
+    },
+    "GTest": {
+        "download": [
+            {
+                "git": "https://github.com/google/googletest.git"
+            }
+        ],
+        "build": {
+            "build_system": "CMake",
+            "flags": [
+                "-DCMAKE_CXX_FLAGS='/D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING'",
+                "-Dgtest_force_shared_crt=ON"
+            ]
+        }
+    },
+    "Boost": {
+        "download": [
+            {
+                "url": "https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_65_1.tar.gz",
+                "unpack_folder":  "boost_1_65_1"
+            }
+        ],
+        "build": {
+            "build_system": "boost"
+        }
+    },
+    "GLEW": {
+        "download": [
+            {
+                "url": "https://github.com/nigels-com/glew/releases/download/glew-2.1.0/glew-2.1.0.zip",
+                "unpack_folder": "glew-2.1.0"
+            }
+        ],
+        "build": {
+            "build_system": "CMake",
+            "cmakelists_folder": "build/cmake/"
+        }
+    }
+}

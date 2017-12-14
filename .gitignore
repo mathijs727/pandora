@@ -5,6 +5,10 @@
 # Manual build folder
 build
 
+# Dependencies folders
+third_party/downloads/
+third_party/install/
+
 # Sublime
 *.sublime-project
 *.sublime-workspace
