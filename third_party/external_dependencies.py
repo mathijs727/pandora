@@ -4,10 +4,16 @@ import subprocess
 import json
 import multiprocessing
 import shutil
-import urllib.request
-import urllib.parse
 import tarfile
 import zipfile
+
+# Python 2 and 3: alternative 4
+try:
+    from urllib.parse import urlsplit
+    from urllib.request import urlretrieve
+except ImportError:
+    from urlparse import urlsplit
+    from urllib import urlretrieve
 
 script_path = os.path.dirname(os.path.abspath(__file__))
 dependencies_file = "dependencies.json"
@@ -69,12 +75,12 @@ def download_dependency(dep_name, dep_data):
 
         if "url" in download_data:
             # https://stackoverflow.com/questions/2795331/python-download-without-supplying-a-filename
-            filename = urllib.parse.urlsplit(
+            filename = urlsplit(
                 download_data["url"]).path.split("/")[-1]
             file_path = os.path.join(downloads_folder, filename)
 
             if not os.path.exists(file_path):
-                urllib.request.urlretrieve(download_data["url"], file_path)
+                urlretrieve(download_data["url"], file_path)
 
             # https://stackoverflow.com/questions/30887979/i-want-to-create-a-script-for-unzip-tar-gz-file-via-python
             if filename.endswith("tar.gz"):

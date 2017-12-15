@@ -81,7 +81,10 @@
             ],
             "build": {
                 "build_system": "CMake",
-                "cmakelists_folder": "build/cmake/"
+                "cmakelists_folder": "build/cmake/",
+                "flags": [
+                    "-DBUILD_SHARED_LIBS=OFF"
+                ]
             }
         }
     }
