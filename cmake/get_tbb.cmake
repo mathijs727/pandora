@@ -1,5 +1,5 @@
 function(install_and_find_tbb)
-	set(TBB_PATH "${CMAKE_CURRENT_LIST_DIR}/third_party/downloads/tbb/")
+	set(TBB_PATH "${CMAKE_CURRENT_LIST_DIR}/third_party/downloads/tbb")
 	
 	if (NOT EXISTS ${tbb_path})
 		execute_process(
