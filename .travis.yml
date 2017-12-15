@@ -36,6 +36,8 @@ matrix:
             - libc++-dev
             - libc++abi-dev
             - python-dev
+            - xorg-dev
+            - libglu1-mesa-dev
 
     # Debug with stdlibc++
     # - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug

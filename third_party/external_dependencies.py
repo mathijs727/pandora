@@ -211,6 +211,7 @@ def install_dependency(dep_name, dep_data):
                                    "address-model=64",
                                    "threading=multi",
                                    "-j%d" % core_count,
+                                   "-d0",# Supress all informational messages
                                    "install",
                                    "--prefix=%s" % install_folder] + with_libraries, cwd=download_folder)
             result = result.decode("utf-8")
