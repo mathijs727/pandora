@@ -116,6 +116,8 @@ before_script:
     if [[ "$USE_STDLIB" == "libc++" ]]; then
       export CPP_FLAGS="-stdlib=libc++ ${CPP_FLAGS}"
     fi
+  # Dont use std::byte because its not supported by clang-5.0 yet (and the check in GSL fails to recognize this)
+  - export CPP_FLAGS="${CPP_FLAGS} -DGSL_USE_STD_BYTE=0"
 
   # have CMake to generate build files
   - cd "${TRAVIS_BUILD_DIR}"
