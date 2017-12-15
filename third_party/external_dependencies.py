@@ -230,6 +230,13 @@ if __name__ == "__main__":
     # Patch tarfile so it can handle long paths on Windows
     monkey_patch_tarfile()
 
+    # Create the install & download folders if they do not exist already
+    if not os.path.exists(downloads_folder):
+        os.makedirs(downloads_folder)
+
+    if not os.path.exists(installs_folder):
+        os.makedirs(installs_folder)
+
     if len(sys.argv) != 3:
         print("Script has two argument:")
         print(" - Name of the dependency")
