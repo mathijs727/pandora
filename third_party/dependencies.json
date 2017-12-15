@@ -1,11 +1,9 @@
 {
     "GSL": {
         "all": {
-            "download": [
-                {
+            "download": {
                     "git": "https://github.com/Microsoft/GSL.git"
-                }
-            ],
+            },
             "build": {
                 "build_system": "CMake",
                 "flags": [
@@ -16,11 +14,9 @@
     },
     "glfw3": {
         "all": {
-            "download": [
-                {
+            "download": {
                     "git": "https://github.com/glfw/glfw.git"
-                }
-            ],
+            },
             "build": {
                 "build_system": "CMake",
                 "flags": [
@@ -33,11 +29,9 @@
     },
     "GTest": {
         "windows": {
-            "download": [
-                {
-                    "git": "https://github.com/google/googletest.git"
-                }
-            ],
+            "download": {
+                "git": "https://github.com/google/googletest.git"
+            },
             "build": {
                 "build_system": "CMake",
                 "flags": [
@@ -47,11 +41,9 @@
             }
         },
         "unix": {
-            "download": [
-                {
+            "download": {
                     "git": "https://github.com/google/googletest.git"
-                }
-            ],
+            },
             "build": {
                 "build_system": "CMake"
             }
@@ -59,12 +51,10 @@
     },
     "Boost": {
         "all": {
-            "download": [
-                {
+            "download": {
                     "url": "https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_65_1.tar.gz",
                     "unpack_folder":  "boost_1_65_1"
-                }
-            ],
+            },
             "build": {
                 "build_system": "boost",
                 "with_libraries": ["fiber", "system"]
@@ -73,18 +63,36 @@
     },
     "GLEW": {
         "all": {
-            "download": [
-                {
+            "download": {
                     "url": "https://github.com/nigels-com/glew/releases/download/glew-2.1.0/glew-2.1.0.zip",
                     "unpack_folder": "glew-2.1.0"
-                }
-            ],
+            },
             "build": {
                 "build_system": "CMake",
                 "cmakelists_folder": "build/cmake/",
                 "flags": [
                     "-DBUILD_SHARED_LIBS=OFF"
                 ]
+            }
+        }
+    },
+    "tbb": {
+        "windows": {
+            "download": {
+                "url": "https://github.com/01org/tbb/releases/download/2018_U2/tbb2018_20171205oss_win.zip",
+                "unpack_folder": "tbb2018_20171205oss"
+            },
+            "build": {
+                "build_system": "none"
+            }
+        },
+        "unix": {
+            "download": {
+                "url": "https://github.com/01org/tbb/archive/2018_U2.zip",
+                "unpack_folder": "tbb-2018_U2"
+            },
+            "build": {
+                "build_system": "none"
             }
         }
     }

@@ -7,7 +7,3 @@
 [submodule "external/--force"]
 	path = external/--force
 	url = https://github.com/Microsoft/GSL.git
-[submodule "external/tbb/tbb"]
-	path = external/tbb/tbb
-	url = https://github.com/01org/tbb.git
-	ignore = dirty

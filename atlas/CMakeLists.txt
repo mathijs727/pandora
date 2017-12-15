@@ -8,5 +8,4 @@ target_link_libraries(atlas PRIVATE
 	libPandora
 	glfw
 	OpenGL::GL
-    GLEW::GLEW
-	Threads::Threads)
+    GLEW::GLEW)

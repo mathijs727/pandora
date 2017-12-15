@@ -62,68 +62,67 @@ def get_for_platform(dep_data, key):
 
 def download_dependency(dep_name, dep_data):
     download_folder = os.path.join(downloads_folder, dep_name)
+    download_data = get_for_platform(dep_data, "download")
 
-    for download_data in get_for_platform(dep_data, "download"):
-        # Folder already exists (we downloaded it before)
-        if os.path.exists(download_folder):
-            return True
+    # Folder already exists (we downloaded it before)
+    if os.path.exists(download_folder):
+        return True
 
-        if "git" in download_data:
-            subprocess.check_call(
-                ["git", "clone", download_data["git"], download_folder])
-            continue
+    if "git" in download_data:
+        subprocess.check_call(
+            ["git", "clone", download_data["git"], download_folder])
 
-        if "url" in download_data:
-            # https://stackoverflow.com/questions/2795331/python-download-without-supplying-a-filename
-            filename = urlsplit(
-                download_data["url"]).path.split("/")[-1]
-            file_path = os.path.join(downloads_folder, filename)
+    if "url" in download_data:# Download and decompress zip/tar files
+        # https://stackoverflow.com/questions/2795331/python-download-without-supplying-a-filename
+        filename = urlsplit(
+            download_data["url"]).path.split("/")[-1]
+        file_path = os.path.join(downloads_folder, filename)
 
-            if not os.path.exists(file_path):
-                urlretrieve(download_data["url"], file_path)
+        if not os.path.exists(file_path):
+            urlretrieve(download_data["url"], file_path)
 
-            # https://stackoverflow.com/questions/30887979/i-want-to-create-a-script-for-unzip-tar-gz-file-via-python
-            if filename.endswith("tar.gz"):
-                # Because Python is retarded and cant move the content of
-                # folder to the parent folder
-                tmp_path = os.path.join(downloads_folder, "tmp")
+        # https://stackoverflow.com/questions/30887979/i-want-to-create-a-script-for-unzip-tar-gz-file-via-python
+        if filename.endswith("tar.gz"):
+            # Because Python is retarded and cant move the content of
+            # folder to the parent folder
+            tmp_path = os.path.join(downloads_folder, "tmp")
 
-                tar = tarfile.open(file_path, "r:gz")
-                tar.extractall(path=tmp_path)
-                tar.close()
+            tar = tarfile.open(file_path, "r:gz")
+            tar.extractall(path=tmp_path)
+            tar.close()
 
-                if "unpack_folder" in download_data:
-                    old_path = os.path.join(
-                        tmp_path, download_data["unpack_folder"])
-                    shutil.move(old_path, download_folder)
-                else:
-                    shutil.move(tmp_path, download_folder)
-
-                # Delete the folder to which we unpacked the zip/tar file
-                os.rmdir(tmp_path)
-            elif filename.endswith("zip"):
-                # Because Python is retarded and cant move the content of
-                # folder to the parent folder
-                tmp_path = os.path.join(downloads_folder, "tmp")
-
-                zip_file = zipfile.ZipFile(file_path)
-                zip_file.extractall(path=tmp_path)
-                zip_file.close()
-
-                if "unpack_folder" in download_data:
-                    old_path = os.path.join(
-                        tmp_path, download_data["unpack_folder"])
-                    shutil.move(old_path, download_folder)
-                else:
-                    shutil.move(tmp_path, download_folder)
-
-                # Delete the folder to which we unpacked the zip/tar file
-                os.rmdir(tmp_path)
-
+            if "unpack_folder" in download_data:
+                old_path = os.path.join(
+                    tmp_path, download_data["unpack_folder"])
+                shutil.move(old_path, download_folder)
             else:
-                print("Cannot uncompress unknown format: %s" % filename)
+                shutil.move(tmp_path, download_folder)
 
-            os.remove(file_path)  # Delete the zip/tar file
+            # Delete the folder to which we unpacked the zip/tar file
+            os.rmdir(tmp_path)
+        elif filename.endswith("zip"):
+            # Because Python is retarded and cant move the content of
+            # folder to the parent folder
+            tmp_path = os.path.join(downloads_folder, "tmp")
+
+            zip_file = zipfile.ZipFile(file_path)
+            zip_file.extractall(path=tmp_path)
+            zip_file.close()
+
+            if "unpack_folder" in download_data:
+                old_path = os.path.join(
+                    tmp_path, download_data["unpack_folder"])
+                shutil.move(old_path, download_folder)
+            else:
+                shutil.move(tmp_path, download_folder)
+
+            # Delete the folder to which we unpacked the zip/tar file
+            os.rmdir(tmp_path)
+
+        else:
+            print("Cannot uncompress unknown format: %s" % filename)
+
+        os.remove(file_path)  # Delete the zip/tar file
 
     return True
 
@@ -220,6 +219,9 @@ def install_dependency(dep_name, dep_data):
         except Exception as e:
             print("Failed to build using Boost.build")
             print(e)
+
+    elif build_data["build_system"] == "none":
+        return True
 
     return False
 
