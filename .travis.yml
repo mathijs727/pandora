@@ -1,7 +1,7 @@
 # Based on: https://github.com/Microsoft/GSL/blob/master/.travis.yml
 # But with more recent compilers because of C++17 support
 language: cpp
-sudo: false
+sudo: true
 notifications:
   email: false
 
