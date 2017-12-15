@@ -18,5 +18,5 @@ target_include_directories(libPandora PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src/)
 include(${CMAKE_CURRENT_LIST_DIR}/src/CMakeLists.txt)
 
 if (BUILD_TESTS)
-include(${CMAKE_CURRENT_LIST_DIR}/tests/CMakeLists.txt)
+    include(${CMAKE_CURRENT_LIST_DIR}/tests/CMakeLists.txt)
 endif()

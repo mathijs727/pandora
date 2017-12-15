@@ -14,8 +14,8 @@ public:
     Vec2(T x, T y);
     Vec2(const Vec2<T>& other);
 
-	template <typename S>
-	operator Vec2<S>() const;
+    template <typename S>
+    operator Vec2<S>() const;
 
     T length() const;
     Vec2<T> normalized() const;
@@ -69,11 +69,10 @@ using Vec2f = Vec2<float>;
 using Vec2d = Vec2<double>;
 using Vec2i = Vec2<int>;
 
-template<typename T>
-template<typename S>
+template <typename T>
+template <typename S>
 inline Vec2<T>::operator Vec2<S>() const
 {
-	return Vec2<S>(static_cast<S>(x), static_cast<S>(y));
+    return Vec2<S>(static_cast<S>(x), static_cast<S>(y));
 }
-
 }

@@ -218,7 +218,6 @@ std::ostream& operator<<(std::ostream& stream, const Vec2<T>& vector)
     return stream;
 }
 
-
 template class Vec2<float>;
 template class Vec2<double>;
 template class Vec2<int>;
