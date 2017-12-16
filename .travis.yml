@@ -33,6 +33,8 @@ matrix:
           packages:
             - ninja-build
             - clang-5.0
+            - gcc-7
+            - g++-7
             - libc++-dev
             - libc++abi-dev
             - python-dev
@@ -117,7 +119,7 @@ before_script:
       export CPP_FLAGS="-stdlib=libc++ ${CPP_FLAGS}"
     fi
   # Dont use std::byte because its not supported by clang-5.0 yet (and the check in GSL fails to recognize this)
-  - export CPP_FLAGS="${CPP_FLAGS} -DGSL_USE_STD_BYTE=0"
+  - export CPP_FLAGS="${CPP_FLAGS}"
 
   # have CMake to generate build files
   - cd "${TRAVIS_BUILD_DIR}"
