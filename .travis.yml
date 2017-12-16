@@ -1,6 +1,6 @@
 # Based on: https://github.com/Microsoft/GSL/blob/master/.travis.yml
 # But with more recent compilers because of C++17 support
-language: cpp
+language: generic
 sudo: false
 notifications:
   email: false
@@ -24,7 +24,7 @@ matrix:
     # Clang on Linux
     ##########################################################################
     # Debug with libc++
-    # - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug USE_STDLIB=libc++
+    # - env: CXX=clang++-5.0 CC=clang-5.0 BUILD_TYPE=Debug USE_STDLIB=libc++
     #   addons: &clang50libcpp
     #     apt:
     #       sources:
@@ -42,7 +42,7 @@ matrix:
     #         - libglu1-mesa-dev
 
     # Debug with stdlibc++
-    - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
+    - env: CXX=clang++-5.0 CC=clang-5.0 BUILD_TYPE=Debug
       addons: &clang50
         apt:
           sources:
@@ -51,6 +51,8 @@ matrix:
           packages:
             - ninja-build
             - clang-5.0
+            - gcc-7
+            - g++-7
             - libstdc++6
             - python-dev
             - xorg-dev
@@ -67,7 +69,7 @@ matrix:
     ##########################################################################
     # GCC on Linux
     ##########################################################################
-    - env: COMPILER=g++-7 BUILD_TYPE=Debug
+    - env: CXX=g++-7 CC=gcc-7 BUILD_TYPE=Debug
       addons: &gcc7
         apt:
           sources:
@@ -84,10 +86,6 @@ matrix:
     #  addons: *gcc7
 
 install:
-  # Set the ${CXX} variable properly
-  - export CXX=${COMPILER}
-  - ${CXX} --version
-
   # Dependencies required by the CI are installed in ${TRAVIS_BUILD_DIR}/deps/
   - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
   - mkdir -p "${DEPS_DIR}"
@@ -99,7 +97,7 @@ install:
   ############################################################################
   # Install a recent CMake (unless already installed on OS X)
   ############################################################################
-  - CMAKE_VERSION=3.9.6
+  - CMAKE_VERSION=3.10
   - |
     if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
       CMAKE_URL="https://cmake.org/files/v${CMAKE_VERSION%.[0-9]}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz"
@@ -122,7 +120,7 @@ before_script:
   - cd "${TRAVIS_BUILD_DIR}"
   - mkdir build && cd build
   - mkdir bin
-  - cmake .. -G Ninja -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_FLAGS="${CPP_FLAGS}"
+  - cmake .. -G Ninja -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_FLAGS="${CPP_FLAGS}"
   
 script:
   # build and run tests
