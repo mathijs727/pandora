@@ -24,22 +24,22 @@ matrix:
     # Clang on Linux
     ##########################################################################
     # Debug with libc++
-    - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug USE_STDLIB=libc++
-      addons: &clang50libcpp
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-            - llvm-toolchain-trusty-5.0
-          packages:
-            - ninja-build
-            - clang-5.0
-            - gcc-7
-            - g++-7
-            - libc++-dev
-            - libc++abi-dev
-            - python-dev
-            - xorg-dev
-            - libglu1-mesa-dev
+    # - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug USE_STDLIB=libc++
+    #   addons: &clang50libcpp
+    #     apt:
+    #       sources:
+    #         - ubuntu-toolchain-r-test
+    #         - llvm-toolchain-trusty-5.0
+    #       packages:
+    #         - ninja-build
+    #         - clang-5.0
+    #         - gcc-7
+    #         - g++-7
+    #         - libc++-dev
+    #         - libc++abi-dev
+    #         - python-dev
+    #         - xorg-dev
+    #         - libglu1-mesa-dev
 
     # Debug with stdlibc++
     # - env: COMPILER=clang++-5.0 BUILD_TYPE=Debug
@@ -68,18 +68,18 @@ matrix:
     ##########################################################################
     # GCC on Linux
     ##########################################################################
-    # - env: COMPILER=g++-7 BUILD_TYPE=Debug
-    #   addons: &gcc7
-    #     apt:
-    #       sources:
-    #         - ubuntu-toolchain-r-test
-    #       packages:
-    #         - ninja-build
-    #         - gcc-7
-    #         - g++-7
-    #         - libglfw3
-    #         - libglfw3-dev
-    #         - libglew-dev
+    - env: COMPILER=g++-7 BUILD_TYPE=Debug
+      addons: &gcc7
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - ninja-build
+            - gcc-7
+            - g++-7
+            - python-dev
+            - xorg-dev
+            - libglu1-mesa-dev
 
     #- env: COMPILER=g++-7 BUILD_TYPE=Release
     #  addons: *gcc7
