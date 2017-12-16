@@ -51,8 +51,7 @@ matrix:
           packages:
             - ninja-build
             - clang-5.0
-            - gcc-7
-            - g++-7
+            - libstdc++6
             - python-dev
             - xorg-dev
             - libglu1-mesa-dev
