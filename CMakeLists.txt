@@ -39,7 +39,7 @@ if (BUILD_ATLAS)
     find_or_install_package(GLEW)
     find_package(OpenGL)
 
-    # GLEW generates a library called libglew32 but find_package(GLEW) looks for glew32s
+    # GLEW generates a library called libglew32 but on Windows find_package(GLEW) looks for glew32s
     if (WIN32)
     	set(glew_lib_dir "${CMAKE_CURRENT_LIST_DIR}/third_party/install/GLEW/lib")
     	if (EXISTS "${glew_lib_dir}/libglew32.lib")
@@ -52,6 +52,6 @@ endif()
 
 include("projects/pandora/CMakeLists.txt")
 if (BUILD_ATLAS)
-include("projects/atlas/CMakeLists.txt")
+    include("projects/atlas/CMakeLists.txt")
 endif()
 #include("torque/CMakeLists.txt")

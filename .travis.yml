@@ -23,7 +23,7 @@ matrix:
     ##########################################################################
     # Clang on Linux
     ##########################################################################
-    # Debug with libc++
+    # Debug with libc++   --> the libc++ packages on Travis are outdated and dont support C++17
     # - env: CXX=clang++-5.0 CC=clang-5.0 BUILD_TYPE=Debug USE_STDLIB=libc++
     #   addons: &clang50libcpp
     #     apt:
@@ -97,7 +97,7 @@ install:
   ############################################################################
   # Install a recent CMake (unless already installed on OS X)
   ############################################################################
-  - CMAKE_VERSION=3.10
+  - CMAKE_VERSION=3.10.1
   - |
     if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
       CMAKE_URL="https://cmake.org/files/v${CMAKE_VERSION%.[0-9]}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz"
