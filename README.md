@@ -1,5 +1,5 @@
 # Pandora
-[![Build Status](https://travis-ci.com/mathijs727/pandora.svg?token=BHkWQ9P5pzBfP88jbtB8&branch=master)](https://travis-ci.com/mathijs727/pandora)
+[![Build Status](https://travis-ci.com/mathijs727/pandora.svg?token=BHkWQ9P5pzBfP88jbtB8&branch=master)](https://travis-ci.com/mathijs727/pandora)  
 During the Advanced Graphics course at Utrecht University me and a fellow student build our first (OpenCL) path tracer. Afterwards I did an internship at Disney Animation working on the traversal code of the Hyperion renderer. Pandora is my first personal attempt to build a path tracer from scratch. It is meant as a project for me to learn more about path tracing and everything that comes with it. Furthermore, I will use this project to experiment with build tools.
 
 Currently, the goal is to make Pandora a very scalable path tracer. I want it to support both scene distribution and screen distribution so that it can scale to both high scene sizes and low render times. Additionally, out-of-core rendering might also be a future extension. GPU support is also planned. GPUs are extremely performant, but only if the scene fits in GPU memory. By building a scene distributed renderer I hope to find a use GPUs for rendering very large scenes.
