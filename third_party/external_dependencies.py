@@ -211,6 +211,7 @@ def install_dependency(dep_name, dep_data):
                                    "address-model=64",
                                    "threading=multi",
                                    "-j%d" % core_count,
+                                   "-d0",# Supress all informational messages
                                    "install",
                                    "--prefix=%s" % install_folder] + with_libraries, cwd=download_folder)
             result = result.decode("utf-8")
@@ -229,6 +230,13 @@ def install_dependency(dep_name, dep_data):
 if __name__ == "__main__":
     # Patch tarfile so it can handle long paths on Windows
     monkey_patch_tarfile()
+
+    # Create the install & download folders if they do not exist already
+    if not os.path.exists(downloads_folder):
+        os.makedirs(downloads_folder)
+
+    if not os.path.exists(installs_folder):
+        os.makedirs(installs_folder)
 
     if len(sys.argv) != 3:
         print("Script has two argument:")
