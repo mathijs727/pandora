@@ -95,5 +95,20 @@
                 "build_system": "none"
             }
         }
+    },
+    "assimp": {
+        "all": {
+            "download": {
+                "url": "https://github.com/assimp/assimp/archive/v4.1.0.zip",
+                "unpack_folder": "assimp-4.1.0"
+            },
+            "build": {
+                "build_system": "CMake",
+                "flags": [
+                    "-DASSIMP_BUILD_TESTS=OFF",
+                    "-DASSIMP_BUILD_ASSIMP_TOOLS=OFF"
+                ]
+            }
+        }
     }
 }

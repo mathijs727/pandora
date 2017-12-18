@@ -9,6 +9,7 @@ else()
 endif()
 
 target_link_libraries(libPandora PUBLIC
+    assimp_target
     Boost::boost
     TBB::tbb
     GSL)

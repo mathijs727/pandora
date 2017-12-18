@@ -134,9 +134,27 @@ TEST(Vec3Test, CrossProduct)
 
 TEST(Vec3Test, DotProduct)
 {
-    Vec3f a = Vec3f(2.0f, 4.0f, 5.0);
-    Vec3f b = Vec3f(3.0f, 6.0f, 7.0);
+    Vec3f a = Vec3f(2.0f, 4.0f, 5.0f);
+    Vec3f b = Vec3f(3.0f, 6.0f, 7.0f);
     float c = dot(a, b);
 
     ASSERT_FLOAT_EQ(c, 65.0f);
+}
+
+TEST(Vec3Test, Abs)
+{
+    Vec3f a = Vec3f(-2.0f, -4.0f, -5.0f);
+    Vec3f b = abs(a);
+    ASSERT_FLOAT_EQ(b.x, 2.0f);
+    ASSERT_FLOAT_EQ(b.y, 4.0f);
+    ASSERT_FLOAT_EQ(b.z, 5.0f);
+}
+
+TEST(Vec3Test, Permute)
+{
+    Vec3f a = Vec3f(1.0f, 2.0f, 3.0f);
+    Vec3f b = permute(a, 2, 1, 0);
+    ASSERT_FLOAT_EQ(b.x, 3.0f);
+    ASSERT_FLOAT_EQ(b.y, 2.0f);
+    ASSERT_FLOAT_EQ(b.z, 1.0f);
 }

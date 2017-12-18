@@ -254,6 +254,39 @@ Vec3<T> max(const Vec3<T>& a, const Vec3<T>& b)
     return Vec3<T>(std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z));
 }
 
+template <typename T>
+Vec3<T> abs(const Vec3<T>& a)
+{
+    return Vec3<T>(std::abs(a.x), std::abs(a.y), std::abs(a.z));
+}
+
+template <typename T>
+int maxDimension(const Vec3<T>& a)
+{
+    if (a.x > a.y) {
+        if (a.x > a.z)
+            return 0; // X
+        else
+            return 2; // Z
+    } else {
+        if (a.y > a.z)
+            return 1; // Y
+        else
+            return 2; // Z
+    }
+}
+
+template <typename T>
+Vec3<T> permute(const Vec3<T>& a, int newX, int newY, int newZ)
+{
+    assert(newX >= 0 && newX < 3);
+    assert(newY >= 0 && newY < 3);
+    assert(newZ >= 0 && newZ < 3);
+
+    const T* data = reinterpret_cast<const T*>(&a);
+    return Vec3<T>(data[newX], data[newY], data[newZ]);
+}
+
 template class Vec3<float>;
 template class Vec3<double>;
 template class Vec3<int>;
@@ -293,4 +326,16 @@ template Vec3<int> min(const Vec3<int>&, const Vec3<int>&);
 template Vec3<float> max(const Vec3<float>&, const Vec3<float>&);
 template Vec3<double> max(const Vec3<double>&, const Vec3<double>&);
 template Vec3<int> max(const Vec3<int>&, const Vec3<int>&);
+
+template Vec3<float> abs(const Vec3<float>&);
+template Vec3<double> abs(const Vec3<double>&);
+template Vec3<int> abs(const Vec3<int>&);
+
+template int maxDimension(const Vec3<float>&);
+template int maxDimension(const Vec3<double>&);
+template int maxDimension(const Vec3<int>&);
+
+template Vec3<float> permute(const Vec3<float>&, int, int, int);
+template Vec3<double> permute(const Vec3<double>&, int, int, int);
+template Vec3<int> permute(const Vec3<int>&, int, int, int);
 }

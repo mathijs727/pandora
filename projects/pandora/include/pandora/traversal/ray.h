@@ -15,6 +15,7 @@ public:
 
     Vec3f origin;
     Vec3f direction;
+    Vec2f uv;
     float t;
 };
 
@@ -22,6 +23,5 @@ struct ShadeData {
     //TODO(Mathijs): Pointer to the object that we hit
     Vec3f hitPoint;
     Vec3f normal;
-    Vec2f uv;
 };
 }

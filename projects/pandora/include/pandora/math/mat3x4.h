@@ -15,8 +15,8 @@ class Transform;
 template <typename T>
 class Mat3x4 {
 public:
-    Mat3x4() = delete;
-
+    Mat3x4(const T values[3][4]);
+    static Mat3x4<T> identity();
     static Mat3x4<T> translation(const Vec3<T>& offset);
     static Mat3x4<T> scale(const Vec3<T>& amount);
 
@@ -25,6 +25,7 @@ public:
     Vec3<T> transformVector(const Vec3<T>& vector) const;
 
     Mat3x4<T> operator*(const Mat3x4<T>& right) const;
+    Mat3x4<T> operator*=(const Mat3x4<T>& right) const;
 
     template <typename S>
     friend std::ostream& operator<<(std::ostream&, const Mat3x4<S>&);
@@ -32,7 +33,7 @@ public:
 private:
     friend class UnitQuaternion<T>;
 
-    Mat3x4(const T values[3][4]);
+    Mat3x4();
 
 private:
     T m_values[3][4];

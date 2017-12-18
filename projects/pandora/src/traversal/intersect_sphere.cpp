@@ -18,7 +18,7 @@ bool intersectSphere(const Sphere& sphere, Ray& ray, ShadeData& shadeData)
     if (t < ray.t && t > 0) {
         ray.t = t;
         shadeData.hitPoint = ray.origin + t * ray.direction;
-        shadeData.uv = Vec2f(0.0f, 0.0f);
+        //shadeData.uv = Vec2f(0.0f, 0.0f);
         shadeData.normal = (shadeData.hitPoint - sphere.center).normalized();
         return true;
     } else {

@@ -2,9 +2,10 @@
 #include "pandora/math/bounds3.h"
 #include "pandora/math/vec2.h"
 #include "pandora/math/vec3.h"
+#include "pandora/traversal/ray.h"
 #include <gsl/gsl>
-#include <memory>
 #include <string_view>
+#include <vector>
 
 namespace pandora {
 
@@ -16,23 +17,27 @@ public:
 
 public:
     TriangleMesh(
-        std::unique_ptr<Triangle[]>&& indices,
-        std::unique_ptr<Vec3f[]>&& positions,
-        std::unique_ptr<Vec3f[]>&& normals,
-        unsigned numPrimitives);
+        std::vector<Triangle>&& indices,
+        std::vector<Vec3f>&& positions,
+        std::vector<Vec3f>&& normals);
 
-    static void loadFromFile(const std::string_view filename);
+    static std::unique_ptr<TriangleMesh> singleTriangle();
+    static std::unique_ptr<TriangleMesh> loadFromFile(const std::string_view filename);
 
+    unsigned numPrimitives();
     gsl::span<const Bounds3f> getPrimitivesBounds();
 
     Bounds3f getPrimitiveBounds(unsigned primitiveIndex);
     Vec3f getNormal(unsigned primitiveIndex, Vec2f uv);
 
+    bool intersect(unsigned primitiveIndex, Ray& ray);
+
 private:
     unsigned m_numPrimitives;
-    std::unique_ptr<Triangle[]> m_indices;
-    std::unique_ptr<Bounds3f[]> m_primitiveBounds;
-    std::unique_ptr<Vec3f[]> m_positions;
-    std::unique_ptr<Vec3f[]> m_normals;
+
+    std::vector<Bounds3f> m_primitiveBounds;
+    std::vector<Triangle> m_indices;
+    std::vector<Vec3f> m_positions;
+    std::vector<Vec3f> m_normals;
 };
 }

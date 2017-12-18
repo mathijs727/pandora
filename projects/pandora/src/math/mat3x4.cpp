@@ -6,32 +6,50 @@
 namespace pandora {
 
 template <typename T>
+Mat3x4<T>::Mat3x4()
+{
+    for (int row = 0; row < 3; row++)
+        for (int col = 0; col < 4; col++)
+            m_values[row][col] = zero<T>();
+}
+
+template <typename T>
 Mat3x4<T>::Mat3x4(const T values[3][4])
 {
     std::memcpy(m_values, values, sizeof(T) * 3 * 4);
 }
 
 template <typename T>
+Mat3x4<T> Mat3x4<T>::identity()
+{
+    Mat3x4 result;
+    result.m_values[0][0] = one<T>();
+    result.m_values[1][1] = one<T>();
+    result.m_values[2][2] = one<T>();
+    return result;
+}
+
+template <typename T>
 Mat3x4<T> Mat3x4<T>::translation(const Vec3<T>& offset)
 {
-    T values[3][4] = {};
-    values[0][0] = one<T>();
-    values[1][1] = one<T>();
-    values[2][2] = one<T>();
-    values[0][3] = offset.x;
-    values[1][3] = offset.y;
-    values[2][3] = offset.z;
-    return Mat3x4(values);
+    Mat3x4 result;
+    result.m_values[0][0] = one<T>();
+    result.m_values[1][1] = one<T>();
+    result.m_values[2][2] = one<T>();
+    result.m_values[0][3] = offset.x;
+    result.m_values[1][3] = offset.y;
+    result.m_values[2][3] = offset.z;
+    return result;
 }
 
 template <typename T>
 Mat3x4<T> Mat3x4<T>::scale(const Vec3<T>& amount)
 {
-    T values[3][4] = {};
-    values[0][0] = amount.x;
-    values[1][1] = amount.y;
-    values[2][2] = amount.z;
-    return Mat3x4(values);
+    Mat3x4 result;
+    result.m_values[0][0] = amount.x;
+    result.m_values[1][1] = amount.y;
+    result.m_values[2][2] = amount.z;
+    return result;
 }
 
 template <typename T>
@@ -68,6 +86,12 @@ Mat3x4<T> Mat3x4<T>::operator*(const Mat3x4<T>& right) const
         }
     }
     return Mat3x4<T>(values);
+}
+
+template <typename T>
+Mat3x4<T> Mat3x4<T>::operator*=(const Mat3x4<T>& right) const
+{
+    return (*this) * right;
 }
 
 template <typename T>

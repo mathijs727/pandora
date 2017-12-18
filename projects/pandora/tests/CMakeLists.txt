@@ -7,7 +7,7 @@ add_executable(pandoraTest
 	${CMAKE_CURRENT_LIST_DIR}/test_vec3.cpp)
 
 target_link_libraries(pandoraTest PRIVATE GTest::GTest libPandora)
-target_compile_features(pandoraTest PRIVATE cxx_std_17)
+target_compile_features(pandoraTest PRIVATE cxx_std_14)
 
 enable_testing()
 add_test(TARGET pandoraTest)

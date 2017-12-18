@@ -1,5 +1,7 @@
 #include "pandora/core/perspective_camera.h"
 #include "pandora/geometry/sphere.h"
+#include "pandora/geometry/triangle.h"
+#include "pandora/math/constants.h"
 #include "pandora/traversal/intersect_sphere.h"
 #include "tbb/tbb.h"
 #include "ui/fps_camera_controls.h"
@@ -22,11 +24,16 @@ int main()
     float aspectRatio = static_cast<float>(width) / height;
     PerspectiveCamera camera = PerspectiveCamera(aspectRatio, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
-    //camera.setPosition(Vec3f(0.0f, 0.0f, 3.0f));
-    //camera.setOrientation(Vec3f(0.0f, 0.0f, -1.0f).normalized(), Vec3f(0.0f, 1.0f, 0.0f));
+    camera.setPosition(Vec3f(0.0f, 0.0f, 5.0f));
+    camera.setOrientation(QuatF::rotation(Vec3f(0, 1, 0), piF * 1.0f));
     auto sensor = Sensor(width, height);
 
     Sphere sphere(Vec3f(0.0f, 0.0f, 3.0f), 0.8f);
+    auto mesh = TriangleMesh::loadFromFile("../assets/CornellBox-Empty-White.obj");
+    //auto mesh = TriangleMesh::singleTriangle();
+    if (mesh == nullptr) {
+        exit(1);
+    }
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
@@ -42,19 +49,27 @@ int main()
 
         float widthF = static_cast<float>(width);
         float heightF = static_cast<float>(height);
-
         tbb::parallel_for(0, height, [&](int y) {
             for (int x = 0; x < width; x++) {
                 auto pixelRasterCoords = Vec2i(x, y);
                 auto pixelScreenCoords = Vec2f(x / widthF, y / heightF);
                 Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
-                ShadeData shadeData = {};
+
+                /*ShadeData shadeData = {};
                 if (intersectSphere(sphere, ray, shadeData)) {
                     // Super basic shading
                     Vec3f lightDirection = Vec3f(0.0f, 0.0f, 1.0f).normalized();
                     float lightViewCos = dot(shadeData.normal, -lightDirection);
 
                     sensor.addPixelContribution(pixelRasterCoords, Vec3f(1.0f, 0.2f, 0.3f) * lightViewCos);
+                }*/
+
+                for (unsigned i = 0; i < mesh->numPrimitives(); i++) {
+                    mesh->intersect(i, ray);
+                }
+
+                if (ray.t < std::numeric_limits<float>::max()) {
+                    sensor.addPixelContribution(pixelRasterCoords, Vec3f(1.0f, 0.2f, 0.3f));
                 }
             }
         });
