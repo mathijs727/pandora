@@ -5,13 +5,14 @@ option(BUILD_TESTS "Build tests for Pandora" OFF)
 option(BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
 
 # Download, compile and find dependencies
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/get_assimp.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/get_tbb.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/dependencies.cmake")
 
 install_and_find_tbb()
 find_or_install_package(Boost)
 install_header_only_package(GSL)
-find_or_install_legacy_package(assimp)
+find_or_install_assimp()
 
 if (BUILD_TESTS)
     find_or_install_package(GTest)

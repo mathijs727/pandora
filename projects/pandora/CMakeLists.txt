@@ -3,6 +3,7 @@ target_compile_features(libPandora PRIVATE cxx_std_17)
 
 if (MSVC)
 	target_compile_definitions(libPandora PUBLIC "_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
+	target_compile_definitions(libPandora PUBLIC "NOMINMAX")
     target_compile_options(libPandora PRIVATE /W3 /WX)
 else()
     target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Wno-unused-parameter -Wno-unused-private-field)

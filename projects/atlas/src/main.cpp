@@ -29,9 +29,16 @@ int main()
     auto sensor = Sensor(width, height);
 
     Sphere sphere(Vec3f(0.0f, 0.0f, 3.0f), 0.8f);
+#ifdef WIN32
+	auto mesh = TriangleMesh::loadFromFile("C:/Users/Mathijs/Documents/GitHub/pandora/assets/CornellBox-Empty-White.obj");
+#else
     auto mesh = TriangleMesh::loadFromFile("../assets/CornellBox-Empty-White.obj");
+#endif
     //auto mesh = TriangleMesh::singleTriangle();
     if (mesh == nullptr) {
+#ifdef WIN32
+		system("PAUSE");
+#endif
         exit(1);
     }
 

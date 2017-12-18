@@ -15,7 +15,7 @@ TriangleMesh::TriangleMesh(
     std::vector<Triangle>&& indices,
     std::vector<Vec3f>&& positions,
     std::vector<Vec3f>&& normals)
-    : m_numPrimitives(indices.size())
+    : m_numPrimitives((unsigned)indices.size())
     , m_primitiveBounds(m_numPrimitives)
     , m_indices(std::move(indices))
     , m_positions(std::move(positions))
@@ -92,7 +92,7 @@ static void addSubMesh(const aiScene* scene,
         return;
 
     // Add all vertex data
-    unsigned vertexOffset = positions.size();
+    unsigned vertexOffset = (unsigned)positions.size();
     for (unsigned vertexIdx = 0; vertexIdx < mesh->mNumVertices; vertexIdx++) {
         //Vec3f position = transformMatrix.transformPoint(assimpVec(mesh->mVertices[vertexIdx]));
         Vec3f position = assimpVec(mesh->mVertices[vertexIdx]);

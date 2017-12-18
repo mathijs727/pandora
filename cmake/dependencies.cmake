@@ -30,27 +30,3 @@ function(install_header_only_package PACKAGE_NAME)
     target_include_directories(${PACKAGE_NAME} INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/install/${PACKAGE_NAME}/include/")
     unset(INSTALL_FOLDER)
 endfunction(install_header_only_package)
-
-
-# Manually find include and lib folder for packages that do not provide any CMake code.
-# Or for packages where the CMake config code is so bad that it's unusable.
-# Basically: assimp config does not follow the CMake naming conventions, does not export a target
-#  and (worst of all): does not return the full path to the library
-function(find_or_install_legacy_package PACKAGE_NAME)
-    set(INSTALL_FOLDER "${CMAKE_CURRENT_LIST_DIR}/third_party/install/${PACKAGE_NAME}/")
-    if (NOT EXISTS "${INSTALL_FOLDER}")
-        message("Downloading and compiling dependency: ${PACKAGE_NAME}")
-        execute_process(
-            COMMAND python external_dependencies.py ${PACKAGE_NAME} ${CMAKE_GENERATOR}
-            WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/third_party/")
-    endif()
-
-    #find_path(${PACKAGE_NAME}_INCLUDE_DIR NAMES ${PACKAGE_NAME}/some_header_file.h PATHS "${INSTALL_FOLDER}/include")
-    set(INCLUDE_DIR ${INSTALL_FOLDER}/include)
-    find_library(LIBRARY NAMES ${PACKAGE_NAME} PATHS "${INSTALL_FOLDER}/lib")
-
-    add_library(${PACKAGE_NAME}_target "")
-    target_include_directories(${PACKAGE_NAME}_target PUBLIC ${INCLUDE_DIR})
-    set_target_properties(${PACKAGE_NAME}_target PROPERTIES LINKER_LANGUAGE CXX)
-    target_link_libraries(${PACKAGE_NAME}_target PUBLIC ${LIBRARY})
-endfunction(find_or_install_legacy_package)
