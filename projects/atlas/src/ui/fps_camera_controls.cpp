@@ -9,6 +9,7 @@ namespace atlas {
 FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
     : m_window(window)
     , m_camera(camera)
+    , m_cameraEulerAngles(0.0)
     , m_previousFrameTimePoint(clock::now())
     , m_initialFrame(true)
     , m_cameraChanged(true)
@@ -26,16 +27,28 @@ FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
             // Moving mouse to the left (negative x) should result in a counter-clock wise rotation so we multiply
             // the yaw rotation by minus one.
             Vec2d delta2D = position - m_previousMousePos;
-            float pitchDelta = static_cast<float>(delta2D.y * lookSpeed);
-            float yawDelta = -static_cast<float>(delta2D.x * lookSpeed);
+            double pitchDelta = delta2D.y * lookSpeed;
+            double yawDelta = -(delta2D.x * lookSpeed);
+
+            if (pitchDelta != 0.0 || yawDelta != 0.0) {
+                m_cameraEulerAngles.x += pitchDelta;
+                m_cameraEulerAngles.x = std::clamp(m_cameraEulerAngles.x, -piD / 2.0, piD / 2.0);
+                m_cameraEulerAngles.y += yawDelta;
+
+                auto quat = QuatF::eulerAngles(m_cameraEulerAngles);
+                m_camera.setOrientation(quat);
+
+                Vec3f forward = quat.rotateVector(Vec3f(0, 0, 1));
+                std::cout << "New forward: " << forward << std::endl;
+            }
 
             // Limit pitch movement so we cant make "loopings"
             //m_pitch = std::clamp(m_pitch, -piD / 2.0 + 0.1, piD / 2.0 - 0.1);
 
-            QuatF pitchRotation = QuatF::rotation(Vec3f(1.0f, 0.0f, 0.0f), pitchDelta);
-            QuatF yawRotation = QuatF::rotation(Vec3f(0.0f, 1.0f, 0.0f), yawDelta);
-            QuatF orientationChange = pitchRotation * yawRotation;
-            m_camera.setOrientation(currentOrienation * orientationChange);
+            //QuatF pitchRotation = QuatF::rotation(Vec3f(1.0f, 0.0f, 0.0f), pitchDelta);
+            //QuatF yawRotation = QuatF::rotation(Vec3f(0.0f, 1.0f, 0.0f), yawDelta);
+            //QuatF orientationChange = pitchRotation * yawRotation;
+            //m_camera.setOrientation(currentOrienation * orientationChange);
         } else {
             m_initialFrame = false;
         }

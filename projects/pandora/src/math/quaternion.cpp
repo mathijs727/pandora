@@ -25,6 +25,34 @@ UnitQuaternion<T> UnitQuaternion<T>::rotation(const Vec3<T>& axis, T angle)
 }
 
 template <typename T>
+UnitQuaternion<T> UnitQuaternion<T>::eulerAngles(const Vec3<T>& angles)
+{
+    T pitch = angles.x;
+    T yaw = angles.y;
+    T roll = angles.z;
+
+    auto pitchRotation = UnitQuaternion<T>::rotation(Vec3<T>(1, 0, 0), pitch);
+    auto yawRotation = UnitQuaternion<T>::rotation(Vec3<T>(0, 1, 0), yaw);
+    auto rollRotation = UnitQuaternion<T>::rotation(Vec3<T>(0, 0, 1), roll);
+    return rollRotation * yawRotation * pitchRotation;
+
+    // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+    /*T cy = std::cos(yaw * 0.5);
+    T sy = std::sin(yaw * 0.5);
+    T cr = std::cos(roll * 0.5);
+    T sr = std::sin(roll * 0.5);
+    T cp = std::cos(pitch * 0.5);
+    T sp = std::sin(pitch * 0.5);
+
+    T w = cy * cr * cp + sy * sr * sp;
+    T x = cy * sr * cp - sy * cr * sp;
+    T y = cy * cr * sp + sy * sr * cp;
+    T z = sy * cr * cp - cy * sr * sp;
+
+    return UnitQuaternion<T>(w, Vec3<T>(x, y, z));*/
+}
+
+template <typename T>
 Vec3<T> UnitQuaternion<T>::rotateVector(const Vec3<T>& vector) const
 {
     T two = std::is_same<T, float>::value ? 2.0f : 2.0;

@@ -30,28 +30,6 @@ public:
 
     Ray generateRay(const CameraSample& sample) const;
 
-public:
-    /*class RayGenIterator : std::iterator<std::forward_iterator_tag, Ray> {
-    public:
-        RayGenIterator(const PerspectiveCamera& camera, int index);
-
-        std::pair<Vec2i, Ray> operator*() const;
-
-        bool operator==(const RayGenIterator& other);
-        bool operator!=(const RayGenIterator& other);
-
-        void operator++();
-
-    private:
-        const PerspectiveCamera& m_camera;
-        Vec2f m_resolutionFloat;
-        Vec2i m_screenCenterPixels;
-        Vec2f m_virtualScreenSize; // Size of the camera plane in the world (at distance 1 from the camera)
-
-        int m_currentIndex;
-        int m_stride;
-    };*/
-
 private:
     Vec2f m_virtualScreenSize;
     float m_aspectRatio;

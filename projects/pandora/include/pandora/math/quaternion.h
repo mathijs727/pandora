@@ -10,6 +10,7 @@ public:
     UnitQuaternion();
 
     static UnitQuaternion<T> rotation(const Vec3<T>& vector, T angle);
+    static UnitQuaternion<T> eulerAngles(const Vec3<T>& angles);
 
     Vec3<T> rotateVector(const Vec3<T>& vector) const;
     Mat3x4<T> rotationMatrix() const;
