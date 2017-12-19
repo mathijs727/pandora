@@ -20,6 +20,9 @@ public:
     T length() const;
     Vec3<T> normalized() const;
 
+    T operator[](int i) const;
+    T& operator[](int i);
+
     // Binary operators
     Vec3<T> operator*(const Vec3<T>& other) const;
     Vec3<T> operator*(T amount) const;

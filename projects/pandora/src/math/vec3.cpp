@@ -71,6 +71,20 @@ Vec3<int> Vec3<int>::normalized() const
 }
 
 template <typename T>
+T Vec3<T>::operator[](int i) const
+{
+    auto data = reinterpret_cast<const T*>(this);
+    return data[i];
+}
+
+template <typename T>
+T& Vec3<T>::operator[](int i)
+{
+    auto data = reinterpret_cast<T*>(this);
+    return data[i];
+}
+
+template <typename T>
 Vec3<T> Vec3<T>::operator*(const Vec3<T>& other) const
 {
     return Vec3<T>(x * other.x, y * other.y, z * other.z);

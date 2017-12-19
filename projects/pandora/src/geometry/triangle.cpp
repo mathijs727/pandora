@@ -32,18 +32,6 @@ TriangleMesh::TriangleMesh(
         bounds.grow(m_positions[indices.i1]);
         bounds.grow(m_positions[indices.i2]);
     }
-
-    std::cout << "Triangles:\n";
-    for (auto triangle : m_indices) {
-        std::cout << triangle.i0 << ", " << triangle.i1 << ", " << triangle.i2 << "\n";
-    }
-
-    std::cout << "\nVertices:\n";
-    for (auto vertex : m_positions) {
-        std::cout << vertex << "\n";
-    }
-
-    std::cout.flush();
 }
 
 static bool fileExists(const std::string_view name)
@@ -67,10 +55,6 @@ static Mat3x4f assimpMatrix(const aiMatrix4x4& m)
     values[2][1] = m.b3;
     values[2][2] = m.c3;
     values[2][3] = m.d3;
-    //std::cout << m.a1 << ", " << m.a2 << ", " << m.a3 << ", " << m.a4 << std::endl;
-    //std::cout << m.b1 << ", " << m.b2 << ", " << m.b3 << ", " << m.b4 << std::endl;
-    //std::cout << m.c1 << ", " << m.c2 << ", " << m.c3 << ", " << m.c4 << std::endl;
-    //std::cout << m.d1 << ", " << m.d2 << ", " << m.d3 << ", " << m.d4 << std::endl;
     return Mat3x4f(values);
 }
 
@@ -176,22 +160,17 @@ unsigned TriangleMesh::numPrimitives()
     return m_numPrimitives;
 }
 
-gsl::span<const Bounds3f> TriangleMesh::getPrimitivesBounds()
+gsl::span<const Bounds3f> TriangleMesh::getPrimitivesBounds() const
 {
     return gsl::span<const Bounds3f>(m_primitiveBounds);
 }
 
-Bounds3f TriangleMesh::getPrimitiveBounds(unsigned primitiveIndex)
-{
-    return m_primitiveBounds[primitiveIndex];
-}
-
-Vec3f TriangleMesh::getNormal(unsigned primitiveIndex, Vec2f uv)
+Vec3f TriangleMesh::getNormal(unsigned primitiveIndex, Vec2f uv) const
 {
     return m_normals[primitiveIndex];
 }
 
-bool TriangleMesh::intersect(unsigned primitiveIndex, Ray& ray)
+bool TriangleMesh::intersect(unsigned primitiveIndex, Ray& ray) const
 {
     // Based on PBRT v3 triangle intersection test:
     // https://github.com/mmp/pbrt-v3/blob/master/src/shapes/triangle.cpp
@@ -289,47 +268,5 @@ bool TriangleMesh::intersect(unsigned primitiveIndex, Ray& ray)
     ray.uv = Vec2f(b0, b1);
 
     return true;
-
-    // Code that we used in the OpenCL path tracer (from Jacco's slides)
-    /*// Find vectors for two edges sharing v0
-    Vec3f e0 = v1 - v0;
-    Vec3f e1 = v2 - v0;
-
-    // Begin calculating determinant - also used to calculate u parameter
-    Vec3f P = cross(ray.direction, e1);
-
-    // If determinant is near zero, ray lies in plane of triangle or ray is parallel to plane of triangle
-    float det = dot(e0, P);
-    if (det <= std::numeric_limits<float>::min())// If det == 0.0f
-        return false;
-    float detReciprocal = 1.0f / det;
-
-    // Calculate the distance from v0 to the ray origin
-    Vec3f T = ray.origin - v0;
-
-    // Calculate u parameter and test bounds
-    float u = dot(T, P) * detReciprocal;
-    if (u < 0.0f || u > 1.0f)
-        return false;
-
-    // Prepare to test v parameter
-    Vec3f Q = cross(T, e0);
-
-    // Calculate v parameter and test bounds
-    float v = dot(ray.direction, Q) * detReciprocal;
-    if (v < 0.0f || v > 1.0f)
-        return false;
-
-    // Test if the found intersection is in front of the ray (and not behind) and test if it is better
-    // than the currently found hit.
-    float t = dot(e1, Q) * detReciprocal;
-    if (t > 0.0f && t < ray.t)
-    {
-        ray.t = t;
-        ray.uv = Vec2f(u, v);
-        return true;
-    }
-
-    return false;*/
 }
 }
