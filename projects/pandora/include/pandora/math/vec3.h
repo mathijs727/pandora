@@ -14,6 +14,9 @@ public:
     Vec3(T x, T y, T z);
     Vec3(const Vec3<T>& other);
 
+    template <typename S>
+    Vec3(const Vec3<S>& other);
+
     T length() const;
     Vec3<T> normalized() const;
 

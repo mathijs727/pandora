@@ -36,6 +36,15 @@ Vec3<T>::Vec3(const Vec3<T>& other)
 }
 
 template <typename T>
+template <typename S>
+Vec3<T>::Vec3(const Vec3<S>& other)
+    : x(static_cast<T>(other.x))
+    , y(static_cast<T>(other.y))
+    , z(static_cast<T>(other.z))
+{
+}
+
+template <typename T>
 T Vec3<T>::length() const
 {
     return std::sqrt(x * x + y * y + z * z);
@@ -286,6 +295,9 @@ Vec3<T> permute(const Vec3<T>& a, int newX, int newY, int newZ)
     const T* data = reinterpret_cast<const T*>(&a);
     return Vec3<T>(data[newX], data[newY], data[newZ]);
 }
+
+template Vec3<float>::Vec3(const Vec3<double>&);
+template Vec3<double>::Vec3(const Vec3<float>&);
 
 template class Vec3<float>;
 template class Vec3<double>;
