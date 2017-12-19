@@ -34,11 +34,11 @@ bool TwoLevelSbvhAccel::intersect(Ray& ray)
             intersectsLeft = m_botBvhNodes[leftChildIdx].bounds.intersect(ray, tminLeft, tmaxLeft);
             intersectsRight = m_botBvhNodes[rightChildIdx].bounds.intersect(ray, tminRight, tmaxRight);
 
-            //if (tminLeft > ray.t)
-            //    intersectsLeft = false;
+            if (tminLeft > ray.t)
+                intersectsLeft = false;
 
-            //if (tminRight > ray.t)
-            //    intersectsRight = false;
+            if (tminRight > ray.t)
+                intersectsRight = false;
 
             if (intersectsLeft && intersectsRight) {
                 // Both hit -> ordered traversal
@@ -163,12 +163,14 @@ std::vector<BotBvhNode> TwoLevelSbvhAccel::buildBotBvh(const Shape* shape)
 
     auto bounds = shape->getPrimitivesBounds();
 
+    // Make tuples of bounding boxes and the corresponding primitive indices
     std::vector<std::tuple<Bounds3f, uint32_t>> boundsAndPrims(bounds.size());
     uint32_t i = 0;
     std::transform(std::begin(bounds), std::end(bounds), std::begin(boundsAndPrims), [&](const auto& bounds) {
         return std::make_tuple(bounds, i++);
     });
 
+    // Initialize root node
     std::vector<BotBvhNode> nodes(2); // Start with 2 for cache line alignment
     nodes[0].firstPrimitive = 0;
     nodes[0].primitiveCount = (uint32_t)bounds.size();
@@ -187,8 +189,7 @@ std::vector<BotBvhNode> TwoLevelSbvhAccel::buildBotBvh(const Shape* shape)
     // of indirection.
     m_primitivesIndices.resize(boundsAndPrims.size());
     for (uint32_t i = 0; i < (uint32_t)boundsAndPrims.size(); i++) {
-        uint32_t bvhPrimIdx = std::get<1>(boundsAndPrims[i]);
-        m_primitivesIndices[bvhPrimIdx] = i;
+        m_primitivesIndices[i] = std::get<1>(boundsAndPrims[i]);
     }
 
     /*// Test that we can reach all the primitives
@@ -205,22 +206,46 @@ std::vector<BotBvhNode> TwoLevelSbvhAccel::buildBotBvh(const Shape* shape)
             for (uint32_t i = 0; i < node.primitiveCount; i++) {
                 uint32_t primIdx = m_primitivesIndices[node.firstPrimitive + i];
                 reachablePrims[primIdx] = true;
+
+
+                auto [primBounds, actualPrimIdx] = boundsAndPrims[node.firstPrimitive + i];
+                if ((primBounds.bounds_min.x < node.bounds.bounds_min.x) ||
+                    (primBounds.bounds_min.y < node.bounds.bounds_min.y) ||
+                    (primBounds.bounds_min.z < node.bounds.bounds_min.z) ||
+                    (primBounds.bounds_max.x > node.bounds.bounds_max.x) ||
+                    (primBounds.bounds_max.y > node.bounds.bounds_max.y) ||
+                    (primBounds.bounds_max.z > node.bounds.bounds_max.z)) {
+                    std::cout << "Primitive not fully contained in parent node" << std::endl;
+                }
+
+                if (actualPrimIdx != primIdx)
+                {
+                    std::cout << "Primitive look-up broken" << std::endl;
+                }
             }
         } else {
             // Is inner node
             uint32_t leftChildIdx = node.leftChild;
             uint32_t rightChildIdx = node.leftChild + 1;
 
+            // Check that child bounds are strictly smaller than parent bounds
+            auto leftChild = nodes[leftChildIdx];
+            if ((leftChild.bounds.bounds_min.x < node.bounds.bounds_min.x) || (leftChild.bounds.bounds_min.y < node.bounds.bounds_min.y) || (leftChild.bounds.bounds_min.z < node.bounds.bounds_min.z) || (leftChild.bounds.bounds_max.x > node.bounds.bounds_max.x) || (leftChild.bounds.bounds_max.y > node.bounds.bounds_max.y) || (leftChild.bounds.bounds_max.z > node.bounds.bounds_max.z)) {
+                std::cout << "Left child node not fully contained in parent node" << std::endl;
+            }
+
+            auto rightChild = nodes[rightChildIdx];
+            if ((rightChild.bounds.bounds_min.x < node.bounds.bounds_min.x) || (rightChild.bounds.bounds_min.y < node.bounds.bounds_min.y) || (rightChild.bounds.bounds_min.z < node.bounds.bounds_min.z) || (rightChild.bounds.bounds_max.x > node.bounds.bounds_max.x) || (rightChild.bounds.bounds_max.y > node.bounds.bounds_max.y) || (rightChild.bounds.bounds_max.z > node.bounds.bounds_max.z)) {
+                std::cout << "Left child node not fully contained in parent node" << std::endl;
+            }
+
             traversalStack.push_back(leftChildIdx);
             traversalStack.push_back(rightChildIdx);
         }
     }
 
-    std::cout << "Reachability:" << std::endl;
-    for (bool reachable : reachablePrims)
-    {
-        std::cout << reachable << std::endl;
-    }*/
+    int reachable = std::accumulate(std::begin(reachablePrims), std::end(reachablePrims), 0);
+    std::cout << reachable << " out of " << boundsAndPrims.size() << " primitives reachable" << std::endl;*/
 
     return nodes;
 }

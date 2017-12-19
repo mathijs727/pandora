@@ -37,7 +37,7 @@ int main()
 
     //Sphere sphere(Vec3f(0.0f, 0.0f, 3.0f), 0.8f);
     //auto mesh = TriangleMesh::singleTriangle();
-    auto mesh = TriangleMesh::loadFromFile(projectBasePath + "assets/CornellBox-Empty-White.obj");
+    auto mesh = TriangleMesh::loadFromFile(projectBasePath + "assets/monkey.obj");
     if (mesh == nullptr) {
 #ifdef WIN32
         system("PAUSE");
@@ -68,9 +68,9 @@ int main()
                 auto pixelScreenCoords = Vec2f(x / widthF, y / heightF);
                 Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
 
-                //for (unsigned i = 0; i < mesh->numPrimitives(); i++) {
-                //    mesh->intersect(i, ray);
-                //}
+                /*for (unsigned i = 0; i < mesh->numPrimitives(); i++) {
+                    mesh->intersect(i, ray);
+                }*/
                 accelerationStructure.intersect(ray);
 
                 if (ray.t < std::numeric_limits<float>::max()) {
