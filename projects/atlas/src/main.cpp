@@ -1,4 +1,3 @@
-#include "GLFW/glfw3.h"
 #include "pandora/core/perspective_camera.h"
 #include "pandora/geometry/sphere.h"
 #include "pandora/geometry/triangle.h"
@@ -32,7 +31,7 @@ int main()
     float aspectRatio = static_cast<float>(width) / height;
     PerspectiveCamera camera = PerspectiveCamera(aspectRatio, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
-    camera.setPosition(Vec3f(0.0f, 0.0f, -5.0f));
+    camera.setPosition(Vec3f(0.0f, 1.0f, -4.0f));
     //camera.setOrientation(QuatF::rotation(Vec3f(0, 1, 0), piF * 1.0f));
     auto sensor = Sensor(width, height);
 
@@ -69,13 +68,14 @@ int main()
                 auto pixelScreenCoords = Vec2f(x / widthF, y / heightF);
                 Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
 
-                for (unsigned i = 0; i < mesh->numPrimitives(); i++) {
-                    mesh->intersect(i, ray);
-                }
-                //accelerationStructure.intersect(ray);
+                //for (unsigned i = 0; i < mesh->numPrimitives(); i++) {
+                //    mesh->intersect(i, ray);
+                //}
+                accelerationStructure.intersect(ray);
 
                 if (ray.t < std::numeric_limits<float>::max()) {
-                    sensor.addPixelContribution(pixelRasterCoords, Vec3f(1.0f, 0.2f, 0.3f));
+                    //sensor.addPixelContribution(pixelRasterCoords, Vec3f(1.0f, 0.2f, 0.3f));
+                    sensor.addPixelContribution(pixelRasterCoords, Vec3f(0.0f, ray.uv.x, ray.uv.y));
                 }
             }
         });

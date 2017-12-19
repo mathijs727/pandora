@@ -1,5 +1,6 @@
 #include "pandora/traversal/sbvh.h"
 #include <algorithm>
+#include <iostream>
 
 namespace pandora {
 
@@ -32,6 +33,12 @@ bool TwoLevelSbvhAccel::intersect(Ray& ray)
             float tminLeft, tminRight, tmaxLeft, tmaxRight;
             intersectsLeft = m_botBvhNodes[leftChildIdx].bounds.intersect(ray, tminLeft, tmaxLeft);
             intersectsRight = m_botBvhNodes[rightChildIdx].bounds.intersect(ray, tminRight, tmaxRight);
+
+            //if (tminLeft > ray.t)
+            //    intersectsLeft = false;
+
+            //if (tminRight > ray.t)
+            //    intersectsRight = false;
 
             if (intersectsLeft && intersectsRight) {
                 // Both hit -> ordered traversal
@@ -115,7 +122,7 @@ void TwoLevelSbvhAccel::partition(
 
     auto& rightNode = bvhNodes[rightChildIdx];
     rightNode.primitiveCount = node.primitiveCount - leftPrimCount;
-    rightNode.firstPrimitive = leftPrimCount;
+    rightNode.firstPrimitive = node.firstPrimitive + leftPrimCount;
     rightNode.bounds = std::accumulate(
         startPrims + leftPrimCount,
         endPrims,
@@ -180,8 +187,40 @@ std::vector<BotBvhNode> TwoLevelSbvhAccel::buildBotBvh(const Shape* shape)
     // of indirection.
     m_primitivesIndices.resize(boundsAndPrims.size());
     for (uint32_t i = 0; i < (uint32_t)boundsAndPrims.size(); i++) {
-        m_primitivesIndices[i] = std::get<1>(boundsAndPrims[i]);
+        uint32_t bvhPrimIdx = std::get<1>(boundsAndPrims[i]);
+        m_primitivesIndices[bvhPrimIdx] = i;
     }
+
+    /*// Test that we can reach all the primitives
+    std::vector<bool> reachablePrims(boundsAndPrims.size());
+
+    std::vector<uint32_t> traversalStack = { 0 };
+    while (!traversalStack.empty()) {
+        auto nodeIndex = traversalStack.back();
+        auto node = nodes[nodeIndex];
+        traversalStack.pop_back();
+
+        if (node.primitiveCount > 0) {
+            // Is leaf
+            for (uint32_t i = 0; i < node.primitiveCount; i++) {
+                uint32_t primIdx = m_primitivesIndices[node.firstPrimitive + i];
+                reachablePrims[primIdx] = true;
+            }
+        } else {
+            // Is inner node
+            uint32_t leftChildIdx = node.leftChild;
+            uint32_t rightChildIdx = node.leftChild + 1;
+
+            traversalStack.push_back(leftChildIdx);
+            traversalStack.push_back(rightChildIdx);
+        }
+    }
+
+    std::cout << "Reachability:" << std::endl;
+    for (bool reachable : reachablePrims)
+    {
+        std::cout << reachable << std::endl;
+    }*/
 
     return nodes;
 }
