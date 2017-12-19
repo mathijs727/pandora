@@ -7,6 +7,7 @@
 #include "ui/fps_camera_controls.h"
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
+#include "glfw/glfw3.h"
 #include <iostream>
 
 using namespace pandora;
@@ -17,10 +18,16 @@ const int height = 720;
 
 int main()
 {
+#ifdef WIN32
+	std::string projectBasePath = "C:/Users/Mathijs/Documents/GitHub/pandora/";
+#else
+	std::string projectBasePath = "../";
+#endif
+
     Window myWindow(width, height, "Hello World!");
     FramebufferGL frameBuffer;
     frameBuffer.clear(Vec3f(0.8f, 0.5f, 0.3f));
-
+	
     float aspectRatio = static_cast<float>(width) / height;
     PerspectiveCamera camera = PerspectiveCamera(aspectRatio, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
@@ -28,13 +35,9 @@ int main()
     camera.setOrientation(QuatF::rotation(Vec3f(0, 1, 0), piF * 1.0f));
     auto sensor = Sensor(width, height);
 
-    Sphere sphere(Vec3f(0.0f, 0.0f, 3.0f), 0.8f);
-#ifdef WIN32
-	auto mesh = TriangleMesh::loadFromFile("C:/Users/Mathijs/Documents/GitHub/pandora/assets/CornellBox-Empty-White.obj");
-#else
-    auto mesh = TriangleMesh::loadFromFile("../assets/CornellBox-Empty-White.obj");
-#endif
+    //Sphere sphere(Vec3f(0.0f, 0.0f, 3.0f), 0.8f);
     //auto mesh = TriangleMesh::singleTriangle();
+	auto mesh = TriangleMesh::loadFromFile(projectBasePath + "assets/CornellBox-Empty-White.obj");
     if (mesh == nullptr) {
 #ifdef WIN32
 		system("PAUSE");
@@ -61,15 +64,6 @@ int main()
                 auto pixelRasterCoords = Vec2i(x, y);
                 auto pixelScreenCoords = Vec2f(x / widthF, y / heightF);
                 Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
-
-                /*ShadeData shadeData = {};
-                if (intersectSphere(sphere, ray, shadeData)) {
-                    // Super basic shading
-                    Vec3f lightDirection = Vec3f(0.0f, 0.0f, 1.0f).normalized();
-                    float lightViewCos = dot(shadeData.normal, -lightDirection);
-
-                    sensor.addPixelContribution(pixelRasterCoords, Vec3f(1.0f, 0.2f, 0.3f) * lightViewCos);
-                }*/
 
                 for (unsigned i = 0; i < mesh->numPrimitives(); i++) {
                     mesh->intersect(i, ray);
