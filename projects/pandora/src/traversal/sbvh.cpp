@@ -11,7 +11,13 @@ TwoLevelSbvhAccel::TwoLevelSbvhAccel(const std::vector<const Shape*>& geometry)
 
 bool TwoLevelSbvhAccel::intersect(Ray& ray)
 {
-    std::vector<uint32_t> traversalStack = { 0 };
+    return intersect<true>(0, ray);
+}
+
+template <bool botLvlTraversal>
+bool TwoLevelSbvhAccel::intersect(uint32_t startIndex, Ray& ray)
+{
+    std::vector<uint32_t> traversalStack = { startIndex };
     bool hit = false;
 
     while (!traversalStack.empty()) {
@@ -19,10 +25,18 @@ bool TwoLevelSbvhAccel::intersect(Ray& ray)
         traversalStack.pop_back();
 
         if (node.primitiveCount > 0) {
-            // Is leaf
-            for (uint32_t i = 0; i < node.primitiveCount; i++) {
-                uint32_t primIdx = m_primitivesIndices[node.firstPrimitive + i];
-                hit |= m_myShape->intersect(primIdx, ray);
+            if constexpr (botLvlTraversal) {
+                // Bot level BVH leaf pointing to primitives
+                for (uint32_t i = 0; i < node.primitiveCount; i++) {
+                    uint32_t primIdx = m_primitivesIndices[node.firstPrimitive + i];
+                    hit |= m_myShape->intersect(primIdx, ray);
+                }
+            } else {
+                // Top level BVH leaf pointing to a sub level BVH
+                for (uint32_t i = 0; i < node.primitiveCount; i++) {
+                    uint32_t primIdx = m_primitivesIndices[node.firstPrimitive + i];
+                    hit |= m_myShape->intersect(primIdx, ray);
+                }
             }
         } else {
             // Is inner node
@@ -83,7 +97,7 @@ void TwoLevelSbvhAccel::partition(
     uint32_t leftChildIdx,
     uint32_t rightChildIdx,
     std::vector<std::tuple<Bounds3f, uint32_t>>& allPrimitives,
-    std::vector<BotBvhNode>& bvhNodes)
+    std::vector<BvhNode>& bvhNodes)
 {
     // Use indices so we dont have a problem with pointers getting free'd when the vector we allocate
     // from decides it needs to reallocate to grow.
@@ -141,7 +155,7 @@ void TwoLevelSbvhAccel::partition(
 void TwoLevelSbvhAccel::subdivide(
     uint32_t nodeIndex,
     std::vector<std::tuple<Bounds3f, uint32_t>>& allPrimitives,
-    std::vector<BotBvhNode>& bvhNodes)
+    std::vector<BvhNode>& bvhNodes)
 {
     auto& node = bvhNodes[nodeIndex];
     if (node.primitiveCount < 4)
@@ -158,7 +172,7 @@ void TwoLevelSbvhAccel::subdivide(
     subdivide(rightChildIdx, allPrimitives, bvhNodes);
 }
 
-std::vector<BotBvhNode> TwoLevelSbvhAccel::buildBotBvh(const Shape* shape)
+std::vector<BvhNode> TwoLevelSbvhAccel::buildBotBvh(const Shape* shape)
 {
 
     auto bounds = shape->getPrimitivesBounds();
@@ -171,7 +185,7 @@ std::vector<BotBvhNode> TwoLevelSbvhAccel::buildBotBvh(const Shape* shape)
     });
 
     // Initialize root node
-    std::vector<BotBvhNode> nodes(2); // Start with 2 for cache line alignment
+    std::vector<BvhNode> nodes(2); // Start with 2 for cache line alignment
     nodes[0].firstPrimitive = 0;
     nodes[0].primitiveCount = (uint32_t)bounds.size();
     nodes[0].bounds = std::accumulate(std::begin(bounds), std::end(bounds), Bounds3f(),
@@ -192,6 +206,11 @@ std::vector<BotBvhNode> TwoLevelSbvhAccel::buildBotBvh(const Shape* shape)
         m_primitivesIndices[i] = std::get<1>(boundsAndPrims[i]);
     }
 
+    return nodes;
+}
+
+void TwoLevelSbvhAccel::testBvh()
+{
     /*// Test that we can reach all the primitives
     std::vector<bool> reachablePrims(boundsAndPrims.size());
 
@@ -246,7 +265,5 @@ std::vector<BotBvhNode> TwoLevelSbvhAccel::buildBotBvh(const Shape* shape)
 
     int reachable = std::accumulate(std::begin(reachablePrims), std::end(reachablePrims), 0);
     std::cout << reachable << " out of " << boundsAndPrims.size() << " primitives reachable" << std::endl;*/
-
-    return nodes;
 }
 }

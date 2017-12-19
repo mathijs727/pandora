@@ -38,6 +38,7 @@ int main()
     //Sphere sphere(Vec3f(0.0f, 0.0f, 3.0f), 0.8f);
     //auto mesh = TriangleMesh::singleTriangle();
     auto mesh = TriangleMesh::loadFromFile(projectBasePath + "assets/monkey.obj");
+    //auto mesh = TriangleMesh::loadFromFile(projectBasePath + "assets/cornell_box.obj");
     if (mesh == nullptr) {
 #ifdef WIN32
         system("PAUSE");

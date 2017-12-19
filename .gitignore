@@ -4,6 +4,7 @@
 
 # Manual build folder
 build
+build-release
 
 # Dependencies folders
 third_party/downloads/
