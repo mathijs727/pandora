@@ -109,8 +109,8 @@ void TwoLevelSbvhAccel::partition(
     const auto startPrims = std::begin(allPrimitives) + node.firstPrimitive;
     const auto endPrims = startPrims + node.primitiveCount;
     std::sort(startPrims, endPrims, [&](const auto& left, const auto& right) {
-        const auto& [boundsLeft, primIdxLeft] = left;
-        const auto& [boundsRight, primIdxRight] = right;
+        const auto& boundsLeft = std::get<0>(left);
+        const auto& boundsRight = std::get<0>(right);
 
         auto leftAabbCenter = boundsLeft.bounds_max[splitAxis] - boundsLeft.bounds_min[splitAxis];
         auto rightAabbCenter = boundsRight.bounds_max[splitAxis] - boundsRight.bounds_min[splitAxis];
@@ -128,9 +128,7 @@ void TwoLevelSbvhAccel::partition(
         startPrims + leftPrimCount,
         Bounds3f(),
         [&](Bounds3f boundsLeft, const std::tuple<Bounds3f, uint32_t>& right) {
-            auto [boundsRight, primIdxRight] = right;
-
-            boundsLeft.merge(boundsRight);
+            boundsLeft.merge(std::get<0>(right));
             return boundsLeft;
         });
 
@@ -142,9 +140,7 @@ void TwoLevelSbvhAccel::partition(
         endPrims,
         Bounds3f(),
         [&](Bounds3f boundsLeft, const std::tuple<Bounds3f, uint32_t>& right) {
-            auto [boundsRight, primIdxRight] = right;
-
-            boundsLeft.merge(boundsRight);
+            boundsLeft.merge(std::get<0>(right));
             return boundsLeft;
         });
 
