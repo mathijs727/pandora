@@ -1,5 +1,6 @@
 #include "pandora/math/bounds3.h"
 #include "pandora/math/constants.h"
+#include <algorithm>
 
 namespace pandora {
 

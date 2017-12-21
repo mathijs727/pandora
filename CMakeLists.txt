@@ -16,6 +16,7 @@ find_or_install_assimp()
 find_or_install_legacy_package(embree EMBREE_INCLUDE_DIRS EMBREE_LIBRARIES 2.17.1)
 if (WIN32)
     # TODO: copy DLL
+	file(COPY "${CMAKE_CURRENT_LIST_DIR}/third_party/install/embree/bin/embree.dll" DESTINATION ${CMAKE_BINARY_DIR})
 else()
     set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${CMAKE_CURRENT_LIST_DIR}/third_party/install/embree/lib")
     set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${CMAKE_CURRENT_LIST_DIR}/third_party/install/GLEW/lib")

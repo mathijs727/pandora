@@ -157,10 +157,10 @@ void TwoLevelSbvhAccel::subdivide(
     if (node.primitiveCount < 4)
         return;
 
-    uint32_t leftChildIdx = bvhNodes.size();
+    uint32_t leftChildIdx = (uint32_t)bvhNodes.size();
     bvhNodes.emplace_back();
 
-    uint32_t rightChildIdx = bvhNodes.size();
+    uint32_t rightChildIdx = (uint32_t)bvhNodes.size();
     bvhNodes.emplace_back();
 
     partition(nodeIndex, leftChildIdx, rightChildIdx, allPrimitives, bvhNodes);

@@ -173,7 +173,7 @@ def install_dependency(dep_name, dep_data):
                                      path_to_cmakelists] + cmake_flags,
                                     cwd=build_folder)
             subprocess.check_call(
-                ["cmake", "--build", ".", "--target", "install", "--"] + generator_flags, cwd=build_folder)
+                ["cmake", "--build", ".", "--target", "install", "--config", "Release", "--"] + generator_flags, cwd=build_folder)
             return True
         except Exception as e:
             print("Failed to build using this CMake")
