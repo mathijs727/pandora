@@ -12,11 +12,35 @@ function(find_or_install_package PACKAGE_NAME)
             COMMAND python external_dependencies.py ${PACKAGE_NAME} ${CMAKE_GENERATOR}
             WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/third_party/")
     endif()
-    find_package(${PACKAGE_NAME} REQUIRED)
+
+    if (NOT ${ARGN} STREQUAL "")
+        # Optionally pass the version that you want (some find_package implementations require that the user speciifes a version)
+        find_package(${PACKAGE_NAME} ${ARGN} REQUIRED)
+    else()
+        find_package(${PACKAGE_NAME} REQUIRED)
+    endif()
     unset(PACKAGE_PATH)
 	unset(INSTALL_FOLDER)
     unset(PACKAGE_NAME_UPPER)
 endfunction(find_or_install_package)
+
+
+function(find_or_install_legacy_package PACKAGE_NAME INCLUDE_PATH LIBS_PATH)
+    if (NOT ${ARGN} STREQUAL "")
+        find_or_install_package(${PACKAGE_NAME} ${ARGN})
+        # find_package again because the variables that were set are local to find_or_install_package
+        find_package(${PACKAGE_NAME} ${ARGN} REQUIRED)
+    else()
+        find_or_install_package(${PACKAGE_NAME})
+        # find_package again because the variables that were set are local to find_or_install_package
+        find_package(${PACKAGE_NAME} REQUIRED)
+    endif()
+
+    add_library(${PACKAGE_NAME}_target INTERFACE)
+    target_include_directories(${PACKAGE_NAME}_target INTERFACE ${${INCLUDE_PATH}})
+    target_link_libraries(${PACKAGE_NAME}_target INTERFACE ${${LIBS_PATH}})
+endfunction(find_or_install_legacy_package)
+
 
 function(install_header_only_package PACKAGE_NAME)
     set(INSTALL_FOLDER "${CMAKE_CURRENT_LIST_DIR}/third_party/install/${PACKAGE_NAME}/")

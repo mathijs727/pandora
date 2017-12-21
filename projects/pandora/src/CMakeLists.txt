@@ -16,4 +16,5 @@ target_sources(libPandora
 
         "${CMAKE_CURRENT_LIST_DIR}/traversal/intersect_sphere.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/traversal/sbvh.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/traversal/embree.cpp"
 )

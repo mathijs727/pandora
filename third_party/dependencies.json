@@ -2,7 +2,7 @@
     "GSL": {
         "all": {
             "download": {
-                    "git": "https://github.com/Microsoft/GSL.git"
+                "git": "https://github.com/Microsoft/GSL.git"
             },
             "build": {
                 "build_system": "CMake",
@@ -107,6 +107,21 @@
                 "flags": [
                     "-DASSIMP_BUILD_TESTS=OFF",
                     "-DASSIMP_BUILD_ASSIMP_TOOLS=OFF"
+                ]
+            }
+        }
+    },
+    "embree": {
+        "all": {
+            "download": {
+                "url": "https://github.com/embree/embree/archive/v2.17.1.tar.gz",
+                "unpack_folder": "embree-2.17.1"
+            },
+            "build": {
+                "build_system": "CMake",
+                "flags": [
+                    "-DEMBREE_ISPC_SUPPORT=OFF",
+                    "-DEMBREE_TUTORIALS=OFF"
                 ]
             }
         }

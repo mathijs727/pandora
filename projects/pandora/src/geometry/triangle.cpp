@@ -155,7 +155,7 @@ std::unique_ptr<TriangleMesh> TriangleMesh::loadFromFile(const std::string_view 
     return std::make_unique<TriangleMesh>(std::move(indices), std::move(positions), std::move(normals));
 }
 
-unsigned TriangleMesh::numPrimitives()
+unsigned TriangleMesh::numPrimitives() const
 {
     return m_numPrimitives;
 }
@@ -163,6 +163,34 @@ unsigned TriangleMesh::numPrimitives()
 gsl::span<const Bounds3f> TriangleMesh::getPrimitivesBounds() const
 {
     return gsl::span<const Bounds3f>(m_primitiveBounds);
+}
+
+unsigned TriangleMesh::addToEmbreeScene(RTCScene& scene) const
+{
+    RTCGeometryFlags geomFlags = RTC_GEOMETRY_STATIC;
+    unsigned geomID = rtcNewTriangleMesh2(scene, geomFlags, m_indices.size(), m_positions.size(), 1);
+    struct EmbreeVertex {
+        float x, y, z, a;
+    };
+    struct EmbreeTriangle {
+        int v0, v1, v2;
+    };
+
+    auto vertices = (EmbreeVertex*)rtcMapBuffer(scene, geomID, RTC_VERTEX_BUFFER);
+    std::transform(std::begin(m_positions), std::end(m_positions), vertices,
+        [](Vec3f pos) {
+            return EmbreeVertex{ pos.x, pos.y, pos.z, 0.0f };
+        });
+    rtcUnmapBuffer(scene, geomID, RTC_VERTEX_BUFFER);
+
+    auto triangles = (EmbreeTriangle*)rtcMapBuffer(scene, geomID, RTC_INDEX_BUFFER);
+    std::transform(std::begin(m_indices), std::end(m_indices), triangles,
+        [](Triangle tri) {
+            return EmbreeTriangle{ (int)tri.i0, (int)tri.i1, (int)tri.i2 };
+        });
+    rtcUnmapBuffer(scene, geomID, RTC_INDEX_BUFFER);
+
+    return geomID;
 }
 
 Vec3f TriangleMesh::getNormal(unsigned primitiveIndex, Vec2f uv) const

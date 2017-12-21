@@ -13,6 +13,15 @@ install_and_find_tbb()
 find_or_install_package(Boost)
 install_header_only_package(GSL)
 find_or_install_assimp()
+find_or_install_legacy_package(embree EMBREE_INCLUDE_DIRS EMBREE_LIBRARIES 2.17.1)
+if (WIN32)
+    # TODO: copy DLL
+else()
+    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${CMAKE_CURRENT_LIST_DIR}/third_party/install/embree/lib")
+    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${CMAKE_CURRENT_LIST_DIR}/third_party/install/GLEW/lib")
+    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${CMAKE_CURRENT_LIST_DIR}/third_party/install/assimp/lib")
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE) # only if you want copy from the build tree
+endif()
 
 if (BUILD_TESTS)
     find_or_install_package(GTest)

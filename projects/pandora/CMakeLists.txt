@@ -8,11 +8,13 @@ if (MSVC)
 else()
     target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Wno-unused-parameter -Wno-unused-private-field)
 endif()
+target_compile_definitions(libPandora PRIVATE "ENABLE_STATIC_LIB")# Embree static lib
 
 target_link_libraries(libPandora PUBLIC
     assimp_target
     Boost::boost
     TBB::tbb
+    embree_target
     GSL)
 
 target_include_directories(libPandora PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include/)

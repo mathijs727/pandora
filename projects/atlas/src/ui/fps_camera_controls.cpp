@@ -39,7 +39,6 @@ FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
                 m_camera.setOrientation(quat);
 
                 Vec3f forward = quat.rotateVector(Vec3f(0, 0, 1));
-                std::cout << "New forward: " << forward << std::endl;
             }
 
             // Limit pitch movement so we cant make "loopings"

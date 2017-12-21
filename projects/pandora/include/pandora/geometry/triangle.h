@@ -22,8 +22,10 @@ public:
     static std::unique_ptr<TriangleMesh> singleTriangle();
     static std::unique_ptr<TriangleMesh> loadFromFile(const std::string_view filename);
 
-    unsigned numPrimitives() override;
+    unsigned numPrimitives() const override;
     gsl::span<const Bounds3f> getPrimitivesBounds() const override;
+
+    unsigned addToEmbreeScene(RTCScene& scene) const override;
 
     bool intersect(unsigned primitiveIndex, Ray& ray) const override;
     Vec3f getNormal(unsigned primitiveIndex, Vec2f uv) const override;
