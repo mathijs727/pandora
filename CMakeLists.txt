@@ -21,7 +21,8 @@ else()
     set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${CMAKE_CURRENT_LIST_DIR}/third_party/install/embree/lib")
     set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${CMAKE_CURRENT_LIST_DIR}/third_party/install/GLEW/lib")
     set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${CMAKE_CURRENT_LIST_DIR}/third_party/install/assimp/lib")
-    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE) # only if you want copy from the build tree
+    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${CMAKE_CURRENT_BINARY_DIR}/tbb_cmake_build/tbb_cmake_build_subdir_release/")
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 
 if (BUILD_TESTS)
