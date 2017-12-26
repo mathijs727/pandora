@@ -15,7 +15,7 @@ target_link_libraries(libPandora PUBLIC
     assimp_target
     Boost::boost
     TBB::tbb
-    embree_target
+    #embree_target
     GSL)
 
 target_include_directories(libPandora PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include/)

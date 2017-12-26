@@ -21,6 +21,8 @@ TriangleMesh::TriangleMesh(
     , m_positions(std::move(positions))
     , m_normals(std::move(normals))
 {
+    std::cout << "Indices size: " << indices.size() << std::endl;
+    throw;
     assert(indices.size() > 0);
     assert(positions.size() == normals.size() || normals.size() == 0);
 
@@ -152,6 +154,10 @@ std::unique_ptr<TriangleMesh> TriangleMesh::loadFromFile(const std::string_view 
     if (indices.size() == 0 || positions.size() == 0)
         return nullptr;
 
+    if (indices.size() == 0) {
+        std::cout << "Empty mesh file: " << filename << std::endl;
+        return nullptr;
+    }
     return std::make_unique<TriangleMesh>(std::move(indices), std::move(positions), std::move(normals));
 }
 
@@ -165,7 +171,7 @@ gsl::span<const Bounds3f> TriangleMesh::getPrimitivesBounds() const
     return gsl::span<const Bounds3f>(m_primitiveBounds);
 }
 
-unsigned TriangleMesh::addToEmbreeScene(RTCScene& scene) const
+/*unsigned TriangleMesh::addToEmbreeScene(RTCScene& scene) const
 {
     RTCGeometryFlags geomFlags = RTC_GEOMETRY_STATIC;
     unsigned geomID = rtcNewTriangleMesh2(scene, geomFlags, m_indices.size(), m_positions.size(), 1);
@@ -191,7 +197,7 @@ unsigned TriangleMesh::addToEmbreeScene(RTCScene& scene) const
     rtcUnmapBuffer(scene, geomID, RTC_INDEX_BUFFER);
 
     return geomID;
-}
+}*/
 
 Vec3f TriangleMesh::getNormal(unsigned primitiveIndex, Vec2f uv) const
 {

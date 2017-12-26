@@ -25,7 +25,7 @@ public:
     unsigned numPrimitives() const override;
     gsl::span<const Bounds3f> getPrimitivesBounds() const override;
 
-    unsigned addToEmbreeScene(RTCScene& scene) const override;
+    //unsigned addToEmbreeScene(RTCScene& scene) const override;
 
     bool intersect(unsigned primitiveIndex, Ray& ray) const override;
     Vec3f getNormal(unsigned primitiveIndex, Vec2f uv) const override;

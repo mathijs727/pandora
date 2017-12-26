@@ -1,265 +1,249 @@
 #include "pandora/traversal/sbvh.h"
 #include <algorithm>
 #include <iostream>
+#include <unordered_map>
 
 namespace pandora {
 
-TwoLevelSbvhAccel::TwoLevelSbvhAccel(const std::vector<const Shape*>& geometry)
+template <int N>
+void BVHBuilderSAH<N>::build(const std::vector<const Shape*>& geometry, BVH<N>& bvh)
 {
-    m_rootNode = buildBvh(geometry);
+    m_bvh = &bvh;
+
+    // Store pointers to the geometry in the BVH
+    bvh.m_shapes.resize(geometry.size());
+    std::copy(geometry.begin(), geometry.end(), bvh.m_shapes.begin());
+
+    // TODO: instead of propegating the BVHPrimitves through the tree, allocate them all ahead of time and
+    //  propegate the pointers (noderefs) to them. This also makes it easy to add transform nodes as leaves.
+    std::vector<PrimitiveBuilder> primitives;
+    Bounds3f realBounds;
+    Bounds3f centerBounds;
+
+    // TODO: parallelize and write this using STL algorithms?
+    m_numPrimitives = 0;
+    for (uint32_t geomID = 0; geomID < (uint32_t)geometry.size(); geomID++) {
+        auto primBounds = geometry[geomID]->getPrimitivesBounds();
+        primitives.reserve(primitives.size() + primBounds.size());
+
+        for (uint32_t primID = 0; primID < (uint32_t)primBounds.size(); primID++) {
+            m_numPrimitives++;
+
+            auto bounds = primBounds[primID];
+            realBounds.extend(bounds);
+            centerBounds.grow(bounds.center());
+            primitives.push_back({ bounds, bounds.center(), { geomID, primID } });
+        }
+    }
+
+    // Allocate a root node
+    auto* rootNodePtr = m_bvh->m_primitiveAllocator.template allocate<typename BVH<N>::InternalNode>(1, 32);
+    m_bvh->m_rootNode = BVH<2>::NodeRef(rootNodePtr);
+
+    // Recursively split the node using the Surface Area Heuristic
+    NodeBuilder nodeBuildInfo;
+    nodeBuildInfo.nodePtr = rootNodePtr;
+    nodeBuildInfo.realBounds = realBounds;
+    nodeBuildInfo.centerBounds = centerBounds;
+    nodeBuildInfo.primitives = gsl::make_span(primitives);
+    recurse(nodeBuildInfo);
+
+    testBvh();
 }
 
-bool TwoLevelSbvhAccel::intersect(Ray& ray)
+struct SAHBin {
+    SAHBin()
+        : primitiveCount(0){};
+    SAHBin(const Bounds3f& realBounds_, int primitiveCount_)
+        : realBounds(realBounds_)
+        , primitiveCount(primitiveCount_){};
+    Bounds3f realBounds;
+    int primitiveCount;
+};
+
+template <int N>
+template <int numBins>
+typename BVHBuilderSAH<N>::ObjectSplit BVHBuilderSAH<N>::findObjectSplit(const NodeBuilder& nodeInfo)
 {
-    return intersect<true>(0, ray);
+    float bestSahCost = std::numeric_limits<float>::max();
+    ObjectSplit bestSplit;
+    for (int axis = 0; axis < 3; axis++) {
+        // Bounds of the primitive AABB centers (so not of the AABBs themselves)
+        float minBound = nodeInfo.centerBounds.bounds_min[axis];
+        float maxBound = nodeInfo.centerBounds.bounds_max[axis];
+        float extent = maxBound - minBound;
+
+        // Bin the primitives based on the center of their AABB
+        std::array<SAHBin, numBins> bins;
+        for (auto primAndBounds : nodeInfo.primitives) {
+            Vec3f center = primAndBounds.boundsCenter;
+
+            if (center[axis] < minBound || center[axis] > maxBound) {
+                std::cout << "findObjectSplit -> node prim center bounds are incorrect" << std::endl;
+                exit(1);
+            }
+
+            float binF = (center[axis] - minBound) / extent * numBins;
+            int bin = std::clamp((int)binF, 0, numBins - 1);
+            bins[bin].primitiveCount++;
+            bins[bin].realBounds.extend(primAndBounds.primBounds);
+        }
+
+        // TODO: Handle the case where the centers of all AABBs fall in the same bin (will now lead to endless recursion)
+        // Test every splitting plane
+        for (int i = 1; i < numBins; i++) {
+            // Combine all the bins left of the splitting plane
+            SAHBin left = std::accumulate(bins.begin(), bins.begin() + i, SAHBin(), [](SAHBin accum, const auto& bin) -> SAHBin {
+                return {
+                    accum.realBounds.extended(bin.realBounds),
+                    accum.primitiveCount + bin.primitiveCount
+                };
+            });
+
+            // Combine all the bins left of the splitting plane
+            SAHBin right = std::accumulate(bins.begin() + i, bins.end(), SAHBin(), [](SAHBin accum, const auto& bin) -> SAHBin {
+                return {
+                    accum.realBounds.extended(bin.realBounds),
+                    accum.primitiveCount + bin.primitiveCount
+                };
+            });
+
+            float binSahCost = left.realBounds.area() * left.primitiveCount + right.realBounds.area() * right.primitiveCount;
+            if (binSahCost < bestSahCost) {
+                //std::cout << "Left prim count: " << left.primitiveCount << ", right prim count: " << right.primitiveCount << std::endl;
+                //std::cout << "Bin " << i << " has SAH cost of:" << binSahCost << std::endl;
+                bestSplit.axis = axis;
+                bestSplit.splitLocation = minBound + extent / numBins * i;
+                bestSplit.leftBounds = left.realBounds;
+                bestSplit.rightBounds = right.realBounds;
+                bestSahCost = binSahCost;
+            }
+        }
+    }
+
+    if (bestSahCost == std::numeric_limits<float>::max()) {
+        std::cout << "TODO: SAHBuilder - handle cases where an object split is worse than not splitting" << std::endl;
+        exit(1);
+    }
+
+    return bestSplit;
 }
 
-template <bool botLvlTraversal>
-bool TwoLevelSbvhAccel::intersect(uint32_t startIndex, Ray& ray)
+template <int N>
+void BVHBuilderSAH<N>::recurse(const NodeBuilder& nodeInfo)
 {
-    std::vector<uint32_t> traversalStack = { startIndex };
-    bool hit = false;
+    auto* nodePtr = nodeInfo.nodePtr;
 
+    // We can only split internal nodes
+    //assert(nodeRef.isInternalNode());
+
+    ObjectSplit split = findObjectSplit<32>(nodeInfo);
+    //std::cout << "Splitting node [" << nodeInfo.centerBounds.bounds_min[split.axis] << ", "
+    //          << nodeInfo.centerBounds.bounds_max[split.axis] << "] at " << split.splitLocation << std::endl;
+    auto splitIter = std::partition(nodeInfo.primitives.begin(), nodeInfo.primitives.end(),
+        [&](const PrimitiveBuilder& primBuilder) {
+            return primBuilder.boundsCenter[split.axis] < split.splitLocation;
+        });
+
+    // TODO: work with N != 2
+    std::tuple<decltype(splitIter), decltype(splitIter)> splitPrimitiveBuilders[2] = {
+        { nodeInfo.primitives.begin(), splitIter },
+        { splitIter, nodeInfo.primitives.end() }
+    };
+    Bounds3f splitBounds[2] = {
+        split.leftBounds,
+        split.rightBounds
+    };
+    for (int childIdx = 0; childIdx < 2; childIdx++) {
+        nodePtr->childBounds[childIdx] = splitBounds[childIdx];
+
+        auto [primBuilderBegin, primBuilderEnd] = splitPrimitiveBuilders[childIdx];
+        size_t numPrims = primBuilderEnd - primBuilderBegin;
+        if (numPrims < 4) {
+            std::cout << "LEAF" << std::endl;
+
+            // Allocate space for the primitives
+            auto* primitives = m_bvh->m_primitiveAllocator.template allocate<BvhPrimitive>(numPrims, 32);
+
+            // Copy the primitves to the memory we just allocated
+            std::transform(primBuilderBegin, primBuilderEnd, primitives, [](const PrimitiveBuilder& primBuilder) {
+                return primBuilder.primitive;
+            });
+
+            nodePtr->children[childIdx] = typename BVH<N>::NodeRef(primitives, numPrims);
+        } else {
+            std::cout << "INNER NODE WITH " << numPrims << " PRIMS" << std::endl;
+
+            // Allocate a new inner node and assign it as a child
+            auto* childNode = m_bvh->m_primitiveAllocator.template allocate<typename BVH<N>::InternalNode>(1, 32);
+            nodePtr->children[childIdx] = typename BVH<N>::NodeRef(childNode);
+
+            // Calculate the bounds of the primitives AABB centers
+            Bounds3f childCenterBounds;
+            for (auto iter = primBuilderBegin; iter < primBuilderEnd; iter++)
+                childCenterBounds.grow(iter->boundsCenter);
+
+            // Seems like gsl::span does not like iterators and it feells the need to know the underlying data structure
+            size_t primStartIdx = primBuilderBegin - nodeInfo.primitives.begin();
+            size_t primEndIdx = primBuilderEnd - nodeInfo.primitives.begin();
+            //std::cout << "Child node subspan: " << primStartIdx << ", " << primEndIdx << std::endl;
+
+            NodeBuilder childBuilder;
+            childBuilder.nodePtr = childNode;
+            childBuilder.realBounds = splitBounds[childIdx];
+            childBuilder.centerBounds = childCenterBounds;
+            childBuilder.primitives = nodeInfo.primitives.subspan(primStartIdx, primEndIdx);
+            recurse(childBuilder);
+        }
+    }
+}
+
+template <int N>
+void BVHBuilderSAH<N>::testBvh()
+{
+    // Test that we can reach all the primitives
+    // TODO: gsl_span gives a bunch of compile errors when unordered_map is included so use std::map for now
+    std::unordered_map<uint64_t, bool> reachablePrims;
+
+    std::vector<BVH<2>::NodeRef> traversalStack = { m_bvh->m_rootNode };
     while (!traversalStack.empty()) {
-        auto node = m_botBvhNodes[traversalStack.back()];
+        auto nodeRef = traversalStack.back();
+        auto* nodePtr = nodeRef.getInternalNode();
         traversalStack.pop_back();
 
-        if (node.primitiveCount > 0) {
-            if constexpr (botLvlTraversal) {
-                // Bot level BVH leaf pointing to primitives
-                for (uint32_t i = 0; i < node.primitiveCount; i++) {
-                    uint32_t primIdx = m_primitivesIndices[node.firstPrimitive + i];
-                    hit |= m_myShape->intersect(primIdx, ray);
+        for (int i = 0; i < 2; i++) {
+            auto childRef = nodePtr->children[i];
+            auto childBounds = nodePtr->childBounds[i];
+
+            if (childRef.isLeaf()) {
+                auto* primitives = nodeRef.getPrimitives();
+
+                // Node refers to one or more primitives
+                for (uint64_t i = 0; i < nodeRef.numPrimitives(); i++) {
+                    auto [geomID, primID] = primitives[i];
+
+                    uint64_t hashKey = ((uint64_t)geomID << 32) | ((uint64_t)primID);
+                    reachablePrims[hashKey] = true;
+
+                    auto primBounds = m_bvh->m_shapes[geomID]->getPrimitivesBounds()[primID];
+                    if ((primBounds.bounds_min.x < childBounds.bounds_min.x) || (primBounds.bounds_min.y < childBounds.bounds_min.y) || (primBounds.bounds_min.z < childBounds.bounds_min.z) || (primBounds.bounds_max.x > childBounds.bounds_max.x) || (primBounds.bounds_max.y > childBounds.bounds_max.y) || (primBounds.bounds_max.z > childBounds.bounds_max.z)) {
+                        std::cout << "Primitive not fully contained in parent node" << std::endl;
+                    }
                 }
+            } else if (nodeRef.isInternalNode()) {
+                traversalStack.push_back(childRef);
             } else {
-                // Top level BVH leaf pointing to a sub level BVH
-                for (uint32_t i = 0; i < node.primitiveCount; i++) {
-                    uint32_t primIdx = m_primitivesIndices[node.firstPrimitive + i];
-                    hit |= m_myShape->intersect(primIdx, ray);
-                }
-            }
-        } else {
-            // Is inner node
-            uint32_t leftChildIdx = node.leftChild;
-            uint32_t rightChildIdx = node.leftChild + 1;
-
-            bool intersectsLeft, intersectsRight;
-            float tminLeft, tminRight, tmaxLeft, tmaxRight;
-            intersectsLeft = m_botBvhNodes[leftChildIdx].bounds.intersect(ray, tminLeft, tmaxLeft);
-            intersectsRight = m_botBvhNodes[rightChildIdx].bounds.intersect(ray, tminRight, tmaxRight);
-
-            if (tminLeft > ray.t)
-                intersectsLeft = false;
-
-            if (tminRight > ray.t)
-                intersectsRight = false;
-
-            if (intersectsLeft && intersectsRight) {
-                // Both hit -> ordered traversal
-                if (tminLeft < tminRight) {
-                    traversalStack.push_back(leftChildIdx);
-                    traversalStack.push_back(rightChildIdx);
-                } else {
-                    traversalStack.push_back(rightChildIdx);
-                    traversalStack.push_back(leftChildIdx);
-                }
-            } else if (intersectsLeft) {
-                traversalStack.push_back(leftChildIdx);
-            } else if (intersectsRight) {
-                traversalStack.push_back(rightChildIdx);
+                std::cout << "Reached unknown node type" << std::endl;
             }
         }
     }
 
-    return hit;
-}
-
-uint32_t TwoLevelSbvhAccel::buildBvh(const std::vector<const Shape*>& geometry)
-{
-    std::vector<std::tuple<uint32_t, Bounds3f>> shapeBounds;
-    //for (const Shape* shape : geometry) {
-    {
-        const Shape* shape = geometry[0];
-        m_myShape = shape;
-
-        auto shapesBotBvhNodes = buildBotBvh(shape);
-        uint32_t rootNode = (uint32_t)m_topBvhNodes.size(); // Assume root node is the first node in the vector
-        m_botBvhNodes.insert(std::end(m_botBvhNodes), begin(shapesBotBvhNodes), std::end(shapesBotBvhNodes));
-
-        shapeBounds.push_back({ rootNode, shapesBotBvhNodes[0].bounds });
-    }
-
-    return 0;
-}
-
-void TwoLevelSbvhAccel::partition(
-    uint32_t nodeIndex,
-    uint32_t leftChildIdx,
-    uint32_t rightChildIdx,
-    std::vector<std::tuple<Bounds3f, uint32_t>>& allPrimitives,
-    std::vector<BvhNode>& bvhNodes)
-{
-    // Use indices so we dont have a problem with pointers getting free'd when the vector we allocate
-    // from decides it needs to reallocate to grow.
-    auto& node = bvhNodes[nodeIndex];
-
-    // Split based on the largest dimension
-    int splitAxis = maxDimension(node.bounds.bounds_max - node.bounds.bounds_min);
-
-    const auto startPrims = std::begin(allPrimitives) + node.firstPrimitive;
-    const auto endPrims = startPrims + node.primitiveCount;
-    std::sort(startPrims, endPrims, [&](const auto& left, const auto& right) {
-        const auto& boundsLeft = std::get<0>(left);
-        const auto& boundsRight = std::get<0>(right);
-
-        auto leftAabbCenter = boundsLeft.bounds_max[splitAxis] - boundsLeft.bounds_min[splitAxis];
-        auto rightAabbCenter = boundsRight.bounds_max[splitAxis] - boundsRight.bounds_min[splitAxis];
-
-        return leftAabbCenter < rightAabbCenter;
-    });
-
-    uint32_t leftPrimCount = node.primitiveCount / 2;
-
-    auto& leftNode = bvhNodes[leftChildIdx];
-    leftNode.primitiveCount = leftPrimCount;
-    leftNode.firstPrimitive = node.firstPrimitive;
-    leftNode.bounds = std::accumulate(
-        startPrims,
-        startPrims + leftPrimCount,
-        Bounds3f(),
-        [&](Bounds3f boundsLeft, const std::tuple<Bounds3f, uint32_t>& right) {
-            boundsLeft.merge(std::get<0>(right));
-            return boundsLeft;
+    int reachable = std::accumulate(std::begin(reachablePrims), std::end(reachablePrims), 0,
+        [](int counter, const decltype(reachablePrims)::value_type& p) {
+            return counter + p.second;
         });
-
-    auto& rightNode = bvhNodes[rightChildIdx];
-    rightNode.primitiveCount = node.primitiveCount - leftPrimCount;
-    rightNode.firstPrimitive = node.firstPrimitive + leftPrimCount;
-    rightNode.bounds = std::accumulate(
-        startPrims + leftPrimCount,
-        endPrims,
-        Bounds3f(),
-        [&](Bounds3f boundsLeft, const std::tuple<Bounds3f, uint32_t>& right) {
-            boundsLeft.merge(std::get<0>(right));
-            return boundsLeft;
-        });
-
-    node.leftChild = leftChildIdx;
-    node.primitiveCount = 0;
+    std::cout << reachable << " out of " << m_numPrimitives << " primitives reachable" << std::endl;
 }
 
-void TwoLevelSbvhAccel::subdivide(
-    uint32_t nodeIndex,
-    std::vector<std::tuple<Bounds3f, uint32_t>>& allPrimitives,
-    std::vector<BvhNode>& bvhNodes)
-{
-    auto& node = bvhNodes[nodeIndex];
-    if (node.primitiveCount < 4)
-        return;
-
-    uint32_t leftChildIdx = (uint32_t)bvhNodes.size();
-    bvhNodes.emplace_back();
-
-    uint32_t rightChildIdx = (uint32_t)bvhNodes.size();
-    bvhNodes.emplace_back();
-
-    partition(nodeIndex, leftChildIdx, rightChildIdx, allPrimitives, bvhNodes);
-    subdivide(leftChildIdx, allPrimitives, bvhNodes);
-    subdivide(rightChildIdx, allPrimitives, bvhNodes);
-}
-
-std::vector<BvhNode> TwoLevelSbvhAccel::buildBotBvh(const Shape* shape)
-{
-
-    auto bounds = shape->getPrimitivesBounds();
-
-    // Make tuples of bounding boxes and the corresponding primitive indices
-    std::vector<std::tuple<Bounds3f, uint32_t>> boundsAndPrims(bounds.size());
-    uint32_t i = 0;
-    std::transform(std::begin(bounds), std::end(bounds), std::begin(boundsAndPrims), [&](const auto& bounds) {
-        return std::make_tuple(bounds, i++);
-    });
-
-    // Initialize root node
-    std::vector<BvhNode> nodes(2); // Start with 2 for cache line alignment
-    nodes[0].firstPrimitive = 0;
-    nodes[0].primitiveCount = (uint32_t)bounds.size();
-    nodes[0].bounds = std::accumulate(std::begin(bounds), std::end(bounds), Bounds3f(),
-        [](const Bounds3f& left, const Bounds3f& right) {
-            Bounds3f result = left;
-            result.merge(right);
-            return result;
-        });
-
-    // Build the BVH
-    subdivide(0, boundsAndPrims, nodes);
-
-    // The subdivide BVH has changed the order of the primitives.
-    // Instead of changing the order in the Shape structure (which is very intrusive), we add an extra layer
-    // of indirection.
-    m_primitivesIndices.resize(boundsAndPrims.size());
-    for (uint32_t i = 0; i < (uint32_t)boundsAndPrims.size(); i++) {
-        m_primitivesIndices[i] = std::get<1>(boundsAndPrims[i]);
-    }
-
-    return nodes;
-}
-
-void TwoLevelSbvhAccel::testBvh()
-{
-    /*// Test that we can reach all the primitives
-    std::vector<bool> reachablePrims(boundsAndPrims.size());
-
-    std::vector<uint32_t> traversalStack = { 0 };
-    while (!traversalStack.empty()) {
-        auto nodeIndex = traversalStack.back();
-        auto node = nodes[nodeIndex];
-        traversalStack.pop_back();
-
-        if (node.primitiveCount > 0) {
-            // Is leaf
-            for (uint32_t i = 0; i < node.primitiveCount; i++) {
-                uint32_t primIdx = m_primitivesIndices[node.firstPrimitive + i];
-                reachablePrims[primIdx] = true;
-
-
-                auto [primBounds, actualPrimIdx] = boundsAndPrims[node.firstPrimitive + i];
-                if ((primBounds.bounds_min.x < node.bounds.bounds_min.x) ||
-                    (primBounds.bounds_min.y < node.bounds.bounds_min.y) ||
-                    (primBounds.bounds_min.z < node.bounds.bounds_min.z) ||
-                    (primBounds.bounds_max.x > node.bounds.bounds_max.x) ||
-                    (primBounds.bounds_max.y > node.bounds.bounds_max.y) ||
-                    (primBounds.bounds_max.z > node.bounds.bounds_max.z)) {
-                    std::cout << "Primitive not fully contained in parent node" << std::endl;
-                }
-
-                if (actualPrimIdx != primIdx)
-                {
-                    std::cout << "Primitive look-up broken" << std::endl;
-                }
-            }
-        } else {
-            // Is inner node
-            uint32_t leftChildIdx = node.leftChild;
-            uint32_t rightChildIdx = node.leftChild + 1;
-
-            // Check that child bounds are strictly smaller than parent bounds
-            auto leftChild = nodes[leftChildIdx];
-            if ((leftChild.bounds.bounds_min.x < node.bounds.bounds_min.x) || (leftChild.bounds.bounds_min.y < node.bounds.bounds_min.y) || (leftChild.bounds.bounds_min.z < node.bounds.bounds_min.z) || (leftChild.bounds.bounds_max.x > node.bounds.bounds_max.x) || (leftChild.bounds.bounds_max.y > node.bounds.bounds_max.y) || (leftChild.bounds.bounds_max.z > node.bounds.bounds_max.z)) {
-                std::cout << "Left child node not fully contained in parent node" << std::endl;
-            }
-
-            auto rightChild = nodes[rightChildIdx];
-            if ((rightChild.bounds.bounds_min.x < node.bounds.bounds_min.x) || (rightChild.bounds.bounds_min.y < node.bounds.bounds_min.y) || (rightChild.bounds.bounds_min.z < node.bounds.bounds_min.z) || (rightChild.bounds.bounds_max.x > node.bounds.bounds_max.x) || (rightChild.bounds.bounds_max.y > node.bounds.bounds_max.y) || (rightChild.bounds.bounds_max.z > node.bounds.bounds_max.z)) {
-                std::cout << "Left child node not fully contained in parent node" << std::endl;
-            }
-
-            traversalStack.push_back(leftChildIdx);
-            traversalStack.push_back(rightChildIdx);
-        }
-    }
-
-    int reachable = std::accumulate(std::begin(reachablePrims), std::end(reachablePrims), 0);
-    std::cout << reachable << " out of " << boundsAndPrims.size() << " primitives reachable" << std::endl;*/
-}
+template class BVHBuilderSAH<2>;
 }

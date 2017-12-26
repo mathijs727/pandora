@@ -1,54 +1,47 @@
 #pragma once
 #include "pandora/geometry/shape.h"
+#include "pandora/traversal/bvh.h"
 #include "pandora/traversal/ray.h"
 #include <tuple>
 #include <vector>
 
 namespace pandora {
 
-struct BvhNode { // 32 bytes
-    Bounds3f bounds; // 24 bytes
-    union // 4 bytes
-    {
-        uint32_t leftChild; // Inner
-        uint32_t firstPrimitive; // Leaf
-    };
-    uint32_t primitiveCount; // 4 bytes
-};
-
-class TwoLevelSbvhAccel {
+template <int N>
+class BVHBuilderSAH {
 public:
-    TwoLevelSbvhAccel(const std::vector<const Shape*>& geometry);
-
-    bool intersect(Ray& ray);
+    void build(const std::vector<const Shape*>& geometry, BVH<N>& bvh);
 
 private:
-    template <bool botLvlTraversal>
-    bool intersect(uint32_t startIndex, Ray& ray);
+    struct ObjectSplit {
+        int axis;
+        float splitLocation;
+        Bounds3f leftBounds;
+        Bounds3f rightBounds;
+    };
 
-    uint32_t buildBvh(const std::vector<const Shape*>& geometry);
+    struct PrimitiveBuilder {
+        Bounds3f primBounds;
+        Vec3f boundsCenter;
+        BvhPrimitive primitive;
+    };
 
-    std::vector<BvhNode> buildBotBvh(const Shape*);
+    struct NodeBuilder {
+        typename BVH<N>::InternalNode* nodePtr;
+        Bounds3f realBounds;
+        Bounds3f centerBounds;
+        gsl::span<PrimitiveBuilder> primitives;
+    };
 
-    void partition(
-        uint32_t nodeIndex,
-        uint32_t leftChild,
-        uint32_t rightChild,
-        std::vector<std::tuple<Bounds3f, uint32_t>>& allPrimitives,
-        std::vector<BvhNode>& bvhNodes);
-    void subdivide(
-        uint32_t nodeIndex,
-        std::vector<std::tuple<Bounds3f, uint32_t>>& allPrimitives,
-        std::vector<BvhNode>& bvhNodes);
+    template <int numBins>
+    ObjectSplit findObjectSplit(const NodeBuilder& nodeInfo);
+
+    void recurse(const NodeBuilder& nodeInfo);
 
     void testBvh();
 
 private:
-    const Shape* m_myShape;
-    uint32_t m_rootNode;
-
-    std::vector<uint32_t> m_primitivesIndices;
-    std::vector<BvhNode> m_topBvhNodes;
-    std::vector<BvhNode> m_botBvhNodes;
+    size_t m_numPrimitives;
+    BVH<N>* m_bvh;
 };
 }

@@ -5,6 +5,7 @@
 # Manual build folder
 build
 build-release
+build-gcc
 
 # Dependencies folders
 third_party/downloads/

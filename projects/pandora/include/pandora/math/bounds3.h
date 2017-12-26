@@ -8,7 +8,12 @@ struct Bounds3 {
 public:
     void reset();
     void grow(Vec3<T> vec);
-    void merge(const Bounds3<T>& other);
+    void extend(const Bounds3<T>& other);
+    Bounds3 extended(const Bounds3<T>& other) const;
+
+    Vec3<T> center() const;
+    T area() const;
+    T halfArea() const;
 
     bool intersect(const Ray& ray, T& tmin, T& tmax);
 

@@ -2,9 +2,9 @@
 #include "pandora/geometry/sphere.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/math/constants.h"
-#include "pandora/traversal/embree.h"
 #include "pandora/traversal/intersect_sphere.h"
 #include "pandora/traversal/sbvh.h"
+#include "pandora/traversal/single_ray_traverser.h"
 #include "tbb/tbb.h"
 #include "ui/fps_camera_controls.h"
 #include "ui/framebuffer_gl.h"
@@ -55,7 +55,11 @@ int main()
     }
 
     std::vector<const Shape*> shapes = { mesh.get() };
-    EmbreeAccel accelerationStructure(shapes);
+    //EmbreeAccel accelerationStructure(shapes);
+    //TwoLevelSbvhAccel accelerationStructure(shapes);
+    BVH<2> accelerationStructure;
+    BVHBuilderSAH<2> sahBuilder;
+    sahBuilder.build(shapes, accelerationStructure);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
@@ -69,6 +73,10 @@ int main()
         myWindow.updateInput();
         cameraControls.tick();
 
+        auto prevFrameEndTime = std::chrono::high_resolution_clock::now();
+
+        SingleRayTraverser traverser(accelerationStructure);
+
         float widthF = static_cast<float>(width);
         float heightF = static_cast<float>(height);
         tbb::parallel_for(0, height, [&](int y) {
@@ -77,17 +85,19 @@ int main()
                 auto pixelScreenCoords = Vec2f(x / widthF, y / heightF);
                 Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
 
-                /*for (unsigned i = 0; i < mesh->numPrimitives(); i++) {
-                    mesh->intersect(i, ray);
-                }*/
-                accelerationStructure.intersect(ray);
-
-                if (ray.t < std::numeric_limits<float>::max()) {
+                //accelerationStructure.intersect(ray);
+                //if (ray.t < std::numeric_limits<float>::max()) {
+                if (traverser.intersect(ray)) {
                     //sensor.addPixelContribution(pixelRasterCoords, Vec3f(1.0f, 0.2f, 0.3f));
                     sensor.addPixelContribution(pixelRasterCoords, Vec3f(0.0f, ray.uv.x, ray.uv.y));
                 }
             }
         });
+
+        auto now = std::chrono::high_resolution_clock::now();
+        auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(now - prevFrameEndTime);
+        prevFrameEndTime = now;
+        std::cout << "Time to render frame: " << timeDelta.count() / 1000.0f << " miliseconds" << std::endl;
 
         frameBuffer.update(sensor);
         myWindow.swapBuffers();

@@ -19,7 +19,7 @@ function(install_and_find_tbb)
 		endif ()
 	else ()# If not Windows: build from source
 		include("${TBB_PATH}/cmake/TBBBuild.cmake")
-		tbb_build(TBB_ROOT "${TBB_PATH}" CONFIG_DIR TBB_DIR)
+		tbb_build(TBB_ROOT "${TBB_PATH}" CONFIG_DIR TBB_DIR MAKE_ARGS "compiler=gcc")
 		find_package(TBB REQUIRED tbb)
 	endif ()
 	unset(TBB_PATH)

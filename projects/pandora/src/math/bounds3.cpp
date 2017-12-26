@@ -19,10 +19,37 @@ void Bounds3<T>::grow(Vec3<T> vec)
 }
 
 template <typename T>
-void Bounds3<T>::merge(const Bounds3<T>& other)
+void Bounds3<T>::extend(const Bounds3<T>& other)
 {
     bounds_min = min(bounds_min, other.bounds_min);
     bounds_max = max(bounds_max, other.bounds_max);
+}
+
+template <typename T>
+Bounds3<T> Bounds3<T>::extended(const Bounds3<T>& other) const
+{
+    auto minBounds = min(bounds_min, other.bounds_min);
+    auto maxBounds = max(bounds_max, other.bounds_max);
+    return { minBounds, maxBounds };
+}
+
+template <typename T>
+Vec3<T> Bounds3<T>::center() const
+{
+    return (bounds_min + bounds_max) / 2.0f;
+}
+
+template <typename T>
+T Bounds3<T>::area() const
+{
+    return 2 * halfArea();
+}
+
+template <typename T>
+T Bounds3<T>::halfArea() const
+{
+    Vec3<T> extent = bounds_max - bounds_min;
+    return extent.x * extent.y * extent.z;
 }
 
 template <typename T>

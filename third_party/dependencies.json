@@ -36,7 +36,8 @@
                 "build_system": "CMake",
                 "flags": [
                     "-DCMAKE_CXX_FLAGS='/D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING'",
-                    "-Dgtest_force_shared_crt=ON"
+                    "-Dgtest_force_shared_crt=ON",
+                    "-DCMAKE_CXX_STANDARD=17"
                 ]
             }
         },
@@ -45,7 +46,10 @@
                     "git": "https://github.com/google/googletest.git"
             },
             "build": {
-                "build_system": "CMake"
+                "build_system": "CMake",
+                "flags": [
+                    "-DCMAKE_CXX_STANDARD=17"
+                ]
             }
         }
     },
