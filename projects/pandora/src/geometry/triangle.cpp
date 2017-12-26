@@ -21,10 +21,8 @@ TriangleMesh::TriangleMesh(
     , m_positions(std::move(positions))
     , m_normals(std::move(normals))
 {
-    std::cout << "Indices size: " << indices.size() << std::endl;
-    throw;
-    assert(indices.size() > 0);
-    assert(positions.size() == normals.size() || normals.size() == 0);
+    assert(m_indices.size() > 0);
+    assert(m_positions.size() == m_normals.size() || m_normals.size() == 0);
 
     for (unsigned i = 0; i < m_numPrimitives; i++) {
         Triangle indices = m_indices[i];
