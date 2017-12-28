@@ -134,12 +134,7 @@ void BVHBuilderSAH<N>::recurse(const NodeBuilder& nodeInfo)
 {
     auto* nodePtr = nodeInfo.nodePtr;
 
-    // We can only split internal nodes
-    //assert(nodeRef.isInternalNode());
-
     ObjectSplit split = findObjectSplit<32>(nodeInfo);
-    //std::cout << "Splitting node [" << nodeInfo.centerBounds.bounds_min[split.axis] << ", "
-    //          << nodeInfo.centerBounds.bounds_max[split.axis] << "] at " << split.splitLocation << std::endl;
     auto splitIter = std::partition(nodeInfo.primitives.begin(), nodeInfo.primitives.end(),
         [&](const PrimitiveBuilder& primBuilder) {
             return primBuilder.boundsCenter[split.axis] < split.splitLocation;
@@ -160,8 +155,6 @@ void BVHBuilderSAH<N>::recurse(const NodeBuilder& nodeInfo)
         auto [primBuilderBegin, primBuilderEnd] = splitPrimitiveBuilders[childIdx];
         size_t numPrims = primBuilderEnd - primBuilderBegin;
         if (numPrims < 4) {
-            std::cout << "LEAF" << std::endl;
-
             // Allocate space for the primitives
             auto* primitives = m_bvh->m_primitiveAllocator.template allocate<BvhPrimitive>(numPrims, 32);
 
@@ -172,8 +165,6 @@ void BVHBuilderSAH<N>::recurse(const NodeBuilder& nodeInfo)
 
             nodePtr->children[childIdx] = typename BVH<N>::NodeRef(primitives, numPrims);
         } else {
-            std::cout << "INNER NODE WITH " << numPrims << " PRIMS" << std::endl;
-
             // Allocate a new inner node and assign it as a child
             auto* childNode = m_bvh->m_primitiveAllocator.template allocate<typename BVH<N>::InternalNode>(1, 32);
             nodePtr->children[childIdx] = typename BVH<N>::NodeRef(childNode);
@@ -186,13 +177,12 @@ void BVHBuilderSAH<N>::recurse(const NodeBuilder& nodeInfo)
             // Seems like gsl::span does not like iterators and it feells the need to know the underlying data structure
             size_t primStartIdx = primBuilderBegin - nodeInfo.primitives.begin();
             size_t primEndIdx = primBuilderEnd - nodeInfo.primitives.begin();
-            //std::cout << "Child node subspan: " << primStartIdx << ", " << primEndIdx << std::endl;
 
             NodeBuilder childBuilder;
             childBuilder.nodePtr = childNode;
             childBuilder.realBounds = splitBounds[childIdx];
             childBuilder.centerBounds = childCenterBounds;
-            childBuilder.primitives = nodeInfo.primitives.subspan(primStartIdx, primEndIdx);
+            childBuilder.primitives = nodeInfo.primitives.subspan(primStartIdx, primEndIdx - primStartIdx);
             recurse(childBuilder);
         }
     }
