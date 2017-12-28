@@ -21,6 +21,10 @@ public:
     void reset();
 
 private:
+    void allocateBlock();
+    void* tryAlignedAllocInCurrentBlock(size_t amount, size_t alignment);
+
+private:
     // Global allocation pool
     size_t m_memoryBlockSize;
     tbb::concurrent_vector<std::unique_ptr<std::byte[]>> m_memoryBlocks;
@@ -44,44 +48,27 @@ T* BlockedStackAllocator::allocate(size_t n, size_t alignment)
     // https://stackoverflow.com/questions/10585450/how-do-i-check-if-a-template-parameter-is-a-power-of-two
     assert((alignment & (alignment - 1)) == 0);
 
-    auto& localBlock = m_threadLocalBlocks.local();
-
     // Amount of bytes to allocate
     size_t amount = n * sizeof(T);
 
+    // If the amount we try to allocate is larger than the memory block then the allocation will always fail
+    assert(amount <= m_memoryBlockSize);
+
     // It is never going to fit in the current block, so allocate a new block
-    if (localBlock.space < amount) {
-        // Allocation failed because the block is full. Allocate a new block and try again.
-        auto newMemBlock = m_memoryBlocks.emplace_back(new std::byte[m_memoryBlockSize]);
-        //m_memoryBlocks.emplace_back(m_memoryBlockSize);
-        localBlock.data = newMemBlock->get();
-        localBlock.space = m_memoryBlockSize;
+    if (m_threadLocalBlocks.local().space < amount) {
+        allocateBlock();
     }
 
-    // Try to get the next available aligned address in the current block of memory
-    // http://en.cppreference.com/w/cpp/memory/align
-    void* ptr = localBlock.data;
-    size_t space = localBlock.space;
-    if (void* alignedPtr = std::align(alignment, amount, ptr, space)) {
-        T* result = reinterpret_cast<T*>(ptr);
-        localBlock.data = (std::byte*)ptr + amount;
-        localBlock.space -= amount;
+    // Try to make an aligned allocation in the current block
+    if (T* result = (T*)tryAlignedAllocInCurrentBlock(amount, alignment)) {
         return result;
     }
 
-    // Allocation failed because the block is full. Allocate a new block and try again.
-    auto newMemBlock = m_memoryBlocks.emplace_back(new std::byte[m_memoryBlockSize]);
-    localBlock.data = newMemBlock->get();
-    localBlock.space = m_memoryBlockSize;
+    // Allocation failed because the block is full. Allocate a new block and try again
+    allocateBlock();
 
-    // Try to get the next available aligned address in the current block of memory
-    // http://en.cppreference.com/w/cpp/memory/align
-    ptr = localBlock.data;
-    space = localBlock.space;
-    if (std::align(alignment, amount, ptr, space)) {
-        T* result = reinterpret_cast<T*>(ptr);
-        localBlock.data = (std::byte*)ptr + amount;
-        localBlock.space -= amount;
+    // Try again
+    if (T* result = (T*)tryAlignedAllocInCurrentBlock(amount, alignment)) {
         return result;
     }
 

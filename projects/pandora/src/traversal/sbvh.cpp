@@ -198,34 +198,22 @@ void BVHBuilderSAH<N>::testBvh()
     std::vector<BVH<2>::NodeRef> traversalStack = { m_bvh->m_rootNode };
     while (!traversalStack.empty()) {
         auto nodeRef = traversalStack.back();
-        auto* nodePtr = nodeRef.getInternalNode();
         traversalStack.pop_back();
 
-        for (int i = 0; i < 2; i++) {
-            auto childRef = nodePtr->children[i];
-            auto childBounds = nodePtr->childBounds[i];
+        if (nodeRef.isInternalNode()) {
+            auto* nodePtr = nodeRef.getInternalNode();
+            traversalStack.push_back(nodePtr->children[0]);
+            traversalStack.push_back(nodePtr->children[1]);
+        } else if (nodeRef.isLeaf()) {
+            auto* primitives = nodeRef.getPrimitives();
 
-            if (childRef.isLeaf()) {
-                auto* primitives = nodeRef.getPrimitives();
-
-                // Node refers to one or more primitives
-                for (uint64_t i = 0; i < nodeRef.numPrimitives(); i++) {
-                    auto [geomID, primID] = primitives[i];
-
-                    uint64_t hashKey = ((uint64_t)geomID << 32) | ((uint64_t)primID);
-                    reachablePrims[hashKey] = true;
-
-                    auto primBounds = m_bvh->m_shapes[geomID]->getPrimitivesBounds()[primID];
-                    if ((primBounds.bounds_min.x < childBounds.bounds_min.x) || (primBounds.bounds_min.y < childBounds.bounds_min.y) || (primBounds.bounds_min.z < childBounds.bounds_min.z) || (primBounds.bounds_max.x > childBounds.bounds_max.x) || (primBounds.bounds_max.y > childBounds.bounds_max.y) || (primBounds.bounds_max.z > childBounds.bounds_max.z)) {
-                        std::cout << "Primitive not fully contained in parent node" << std::endl;
-                    }
-                }
-            } else if (nodeRef.isInternalNode()) {
-                traversalStack.push_back(childRef);
-            } else {
-                std::cout << "Reached unknown node type" << std::endl;
+            // Node refers to one or more primitives
+            for (uint64_t i = 0; i < nodeRef.numPrimitives(); i++) {
+                auto [geomID, primID] = primitives[i];
+                uint64_t hashKey = (((uint64_t)geomID) << 32) + (uint64_t)primID;
+                reachablePrims[hashKey] = true;
             }
-        }
+        } // TODO: transform nodes
     }
 
     int reachable = std::accumulate(std::begin(reachablePrims), std::end(reachablePrims), 0,
