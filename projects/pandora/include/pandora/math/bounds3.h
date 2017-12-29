@@ -6,6 +6,9 @@ namespace pandora {
 template <typename T>
 struct Bounds3 {
 public:
+    Bounds3();
+    Bounds3(Vec3<T> lower, Vec3<T> upper);
+
     void reset();
     void grow(Vec3<T> vec);
     void extend(const Bounds3<T>& other);

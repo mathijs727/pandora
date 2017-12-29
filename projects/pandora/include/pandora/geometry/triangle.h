@@ -26,8 +26,10 @@ public:
     gsl::span<const Bounds3f> getPrimitivesBounds() const override;
 
     //unsigned addToEmbreeScene(RTCScene& scene) const override;
-
     bool intersect(unsigned primitiveIndex, Ray& ray) const override;
+    bool intersectMollerTrumbore(unsigned primitiveIndex, Ray& ray) const;
+    bool intersectPbrt(unsigned primitiveIndex, Ray& ray) const;
+
     Vec3f getNormal(unsigned primitiveIndex, Vec2f uv) const override;
 
 private:

@@ -10,6 +10,11 @@
 namespace pandora {
 
 struct BvhPrimitive {
+    BvhPrimitive(uint32_t goemID_, uint32_t primID_)
+        : geomID(goemID_)
+        , primID(primID_)
+    {
+    }
     uint32_t geomID;
     uint32_t primID;
 };
@@ -102,8 +107,9 @@ public:
     };
 
     struct InternalNode {
-        NodeRef children[N];
-        Bounds3f childBounds[N];
+        Bounds3f childBounds[N]; // N * 24 bytes
+        NodeRef children[N]; // N * 4 bytes
+        int numChildren; // 4 bytes
     };
 
     struct TransformNode {
@@ -122,5 +128,7 @@ public:
     //       a massive block of conginuous memory)
     BlockedStackAllocator m_nodeAllocator;
     BlockedStackAllocator m_primitiveAllocator;
+
+    size_t m_numPrimitives;
 };
 }

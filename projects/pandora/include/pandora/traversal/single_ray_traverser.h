@@ -1,6 +1,7 @@
 #pragma once
 #include "pandora/traversal/bvh.h"
 #include "pandora/traversal/ray.h"
+#include <vector>
 
 namespace pandora {
 

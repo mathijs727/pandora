@@ -39,8 +39,6 @@ private:
 
     void recurse(const NodeBuilder& nodeInfo);
 
-    void testBvh();
-
 private:
     size_t m_numPrimitives;
     BVH<N>* m_bvh;

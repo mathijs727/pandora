@@ -1,4 +1,5 @@
 #include "pandora/traversal/single_ray_traverser.h"
+#include "pandora/utility/fixed_stack.h"
 #include <iostream>
 
 namespace pandora {
@@ -22,15 +23,18 @@ bool SingleRayTraverser::intersect(Ray& ray, IntersectionInfo& info)
 template <bool intersectionInfo>
 bool SingleRayTraverser::intersectOptionalInfo(Ray& ray, IntersectionInfo& info)
 {
-    std::vector<BVH<2>::NodeRef> traversalStack = { m_bvh.m_rootNode };
-    bool hit = false;
+    //std::vector<BVH<2>::NodeRef> traversalStack = { m_bvh.m_rootNode };
+    fixed_stack<BVH<2>::NodeRef, 64> traversalStack;
+    traversalStack.push(m_bvh.m_rootNode);
 
+    bool hit = false;
     while (!traversalStack.empty()) {
-        auto nodeRef = traversalStack.back();
-        traversalStack.pop_back();
+        auto nodeRef = traversalStack.pop();
 
         if (nodeRef.isInternalNode()) {
             auto* nodePtr = nodeRef.getInternalNode();
+            //if (nodePtr->numChildren != 2)
+            //    std::cout << "Inner node with " << nodePtr->numChildren << " children" << std::endl;
 
             // Is inner node
             bool intersectsLeft, intersectsRight;
@@ -47,16 +51,16 @@ bool SingleRayTraverser::intersectOptionalInfo(Ray& ray, IntersectionInfo& info)
             if (intersectsLeft && intersectsRight) {
                 // Both hit -> ordered traversal
                 if (tminLeft < tminRight) {
-                    traversalStack.push_back(nodePtr->children[1]);
-                    traversalStack.push_back(nodePtr->children[0]); // Left traversed first
+                    traversalStack.push(nodePtr->children[1]);
+                    traversalStack.push(nodePtr->children[0]); // Left traversed first
                 } else {
-                    traversalStack.push_back(nodePtr->children[0]);
-                    traversalStack.push_back(nodePtr->children[1]);
+                    traversalStack.push(nodePtr->children[0]);
+                    traversalStack.push(nodePtr->children[1]);
                 }
             } else if (intersectsLeft) {
-                traversalStack.push_back(nodePtr->children[0]);
+                traversalStack.push(nodePtr->children[0]);
             } else if (intersectsRight) {
-                traversalStack.push_back(nodePtr->children[1]);
+                traversalStack.push(nodePtr->children[1]);
             }
         } else if (nodeRef.isLeaf()) {
             auto* primitives = nodeRef.getPrimitives();

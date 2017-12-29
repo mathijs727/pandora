@@ -5,6 +5,20 @@
 namespace pandora {
 
 template <typename T>
+Bounds3<T>::Bounds3()
+    : bounds_min(zero<T>())
+    , bounds_max(zero<T>())
+{
+}
+
+template <typename T>
+Bounds3<T>::Bounds3(Vec3<T> lower, Vec3<T> upper)
+    : bounds_min(lower)
+    , bounds_max(upper)
+{
+}
+
+template <typename T>
 void Bounds3<T>::reset()
 {
     bounds_min = zero<T>();

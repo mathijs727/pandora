@@ -25,7 +25,6 @@ void BlockedStackAllocator::allocateBlock()
 
     // Allocation failed because the block is full. Allocate a new block and try again.
     auto newMemBlock = m_memoryBlocks.emplace_back(new std::byte[m_memoryBlockSize]);
-    //m_memoryBlocks.emplace_back(m_memoryBlockSize);
     localBlock.data = newMemBlock->get();
     localBlock.space = m_memoryBlockSize;
 }

@@ -1,7 +1,6 @@
-#include "pandora/traversal/sbvh.h"
+#include "pandora/traversal/sbvh_builder.h"
 #include <algorithm>
 #include <iostream>
-#include <unordered_map>
 
 namespace pandora {
 
@@ -14,8 +13,6 @@ void BVHBuilderSAH<N>::build(const std::vector<const TriangleMesh*>& geometry, B
     bvh.m_shapes.resize(geometry.size());
     std::copy(geometry.begin(), geometry.end(), bvh.m_shapes.begin());
 
-    // TODO: instead of propegating the BVHPrimitves through the tree, allocate them all ahead of time and
-    //  propegate the pointers (noderefs) to them. This also makes it easy to add transform nodes as leaves.
     std::vector<PrimitiveBuilder> primitives;
     Bounds3f realBounds;
     Bounds3f centerBounds;
@@ -36,8 +33,6 @@ void BVHBuilderSAH<N>::build(const std::vector<const TriangleMesh*>& geometry, B
         }
     }
 
-    std::cout << "NUM PRIMS: " << m_numPrimitives << std::endl;
-
     // Allocate a root node
     auto* rootNodePtr = m_bvh->m_primitiveAllocator.template allocate<typename BVH<N>::InternalNode>(1, 32);
     m_bvh->m_rootNode = BVH<2>::NodeRef(rootNodePtr);
@@ -50,7 +45,7 @@ void BVHBuilderSAH<N>::build(const std::vector<const TriangleMesh*>& geometry, B
     nodeBuildInfo.primitives = gsl::make_span(primitives);
     recurse(nodeBuildInfo);
 
-    testBvh();
+    //testBvh(bvh);
 }
 
 struct SAHBin {
@@ -135,6 +130,7 @@ template <int N>
 void BVHBuilderSAH<N>::recurse(const NodeBuilder& nodeInfo)
 {
     auto* nodePtr = nodeInfo.nodePtr;
+    nodePtr->numChildren = 2;
 
     ObjectSplit split = findObjectSplit<32>(nodeInfo);
     auto splitIter = std::partition(nodeInfo.primitives.begin(), nodeInfo.primitives.end(),
@@ -188,41 +184,6 @@ void BVHBuilderSAH<N>::recurse(const NodeBuilder& nodeInfo)
             recurse(childBuilder);
         }
     }
-}
-
-template <int N>
-void BVHBuilderSAH<N>::testBvh()
-{
-    // Test that we can reach all the primitives
-    // TODO: gsl_span gives a bunch of compile errors when unordered_map is included so use std::map for now
-    std::unordered_map<uint64_t, bool> reachablePrims;
-
-    std::vector<BVH<2>::NodeRef> traversalStack = { m_bvh->m_rootNode };
-    while (!traversalStack.empty()) {
-        auto nodeRef = traversalStack.back();
-        traversalStack.pop_back();
-
-        if (nodeRef.isInternalNode()) {
-            auto* nodePtr = nodeRef.getInternalNode();
-            traversalStack.push_back(nodePtr->children[0]);
-            traversalStack.push_back(nodePtr->children[1]);
-        } else if (nodeRef.isLeaf()) {
-            auto* primitives = nodeRef.getPrimitives();
-
-            // Node refers to one or more primitives
-            for (uint64_t i = 0; i < nodeRef.numPrimitives(); i++) {
-                auto [geomID, primID] = primitives[i];
-                uint64_t hashKey = (((uint64_t)geomID) << 32) + (uint64_t)primID;
-                reachablePrims[hashKey] = true;
-            }
-        } // TODO: transform nodes
-    }
-
-    int reachable = std::accumulate(std::begin(reachablePrims), std::end(reachablePrims), 0,
-        [](int counter, const decltype(reachablePrims)::value_type& p) {
-            return counter + p.second;
-        });
-    std::cout << reachable << " out of " << m_numPrimitives << " primitives reachable" << std::endl;
 }
 
 template class BVHBuilderSAH<2>;

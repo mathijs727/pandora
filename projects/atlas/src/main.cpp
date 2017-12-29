@@ -2,8 +2,8 @@
 #include "pandora/geometry/sphere.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/math/constants.h"
-#include "pandora/traversal/intersect_sphere.h"
-#include "pandora/traversal/sbvh.h"
+#include "pandora/traversal/embree_builder.h"
+#include "pandora/traversal/sbvh_builder.h"
 #include "pandora/traversal/single_ray_traverser.h"
 #include "tbb/tbb.h"
 #include "ui/fps_camera_controls.h"
@@ -55,11 +55,11 @@ int main()
     }
 
     std::vector<const TriangleMesh*> shapes = { mesh.get() };
-    //EmbreeAccel accelerationStructure(shapes);
-    //TwoLevelSbvhAccel accelerationStructure(shapes);
     BVH<2> accelerationStructure;
-    BVHBuilderSAH<2> sahBuilder;
-    sahBuilder.build(shapes, accelerationStructure);
+    //BVHBuilderSAH<2> sahBuilder;
+    //sahBuilder.build(shapes, accelerationStructure);
+    BVHBuilderEmbree<2> embreeBuilder;
+    embreeBuilder.build(shapes, accelerationStructure);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {

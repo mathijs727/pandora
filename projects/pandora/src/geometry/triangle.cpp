@@ -202,7 +202,51 @@ Vec3f TriangleMesh::getNormal(unsigned primitiveIndex, Vec2f uv) const
     return m_normals[primitiveIndex];
 }
 
-bool TriangleMesh::intersect(unsigned primitiveIndex, Ray& ray) const
+bool TriangleMesh::intersect(unsigned int primitiveIndex, Ray& ray) const
+{
+    //return intersectMollerTrumbore(primitiveIndex, ray);
+    return intersectPbrt(primitiveIndex, ray);
+}
+
+bool TriangleMesh::intersectMollerTrumbore(unsigned int primitiveIndex, Ray& ray) const
+{
+    // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
+    const float EPSILON = 0.000001f;
+
+    Triangle triangle = m_indices[primitiveIndex];
+    Vec3f p0 = m_positions[triangle.i0];
+    Vec3f p1 = m_positions[triangle.i1];
+    Vec3f p2 = m_positions[triangle.i2];
+
+    Vec3f e1 = p1 - p0;
+    Vec3f e2 = p2 - p0;
+    Vec3f h = cross(ray.direction, e2);
+    float a = dot(e1, h);
+    if (a > -EPSILON && a < EPSILON)
+        return false;
+
+    float f = 1.0f / a;
+    Vec3f s = ray.origin - p0;
+    float u = f * dot(s, h);
+    if (u < 0.0f || u > 1.0f)
+        return false;
+
+    Vec3f q = cross(s, e1);
+    float v = f * dot(ray.direction, q);
+    if (v < 0.0f || u + v > 1.0f)
+        return false;
+
+    float t = f * dot(e2, q);
+    if (t > EPSILON) {
+        ray.t = t;
+        ray.uv = Vec2f(u, v);
+        return true;
+    }
+
+    return false;
+}
+
+bool TriangleMesh::intersectPbrt(unsigned primitiveIndex, Ray& ray) const
 {
     // Based on PBRT v3 triangle intersection test:
     // https://github.com/mmp/pbrt-v3/blob/master/src/shapes/triangle.cpp

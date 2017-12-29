@@ -3,7 +3,6 @@
 #include "pandora/math/quaternion.h"
 #include "pandora/math/vec2.h"
 #include "pandora/traversal/ray.h"
-#include "pandora/utility/generator_wrapper.h"
 #include <iterator>
 
 namespace pandora {
