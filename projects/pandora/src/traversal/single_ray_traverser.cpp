@@ -23,7 +23,6 @@ bool SingleRayTraverser::intersect(Ray& ray, IntersectionInfo& info)
 template <bool intersectionInfo>
 bool SingleRayTraverser::intersectOptionalInfo(Ray& ray, IntersectionInfo& info)
 {
-    //std::vector<BVH<2>::NodeRef> traversalStack = { m_bvh.m_rootNode };
     fixed_stack<BVH<2>::NodeRef, 64> traversalStack;
     traversalStack.push(m_bvh.m_rootNode);
 
@@ -33,8 +32,6 @@ bool SingleRayTraverser::intersectOptionalInfo(Ray& ray, IntersectionInfo& info)
 
         if (nodeRef.isInternalNode()) {
             auto* nodePtr = nodeRef.getInternalNode();
-            //if (nodePtr->numChildren != 2)
-            //    std::cout << "Inner node with " << nodePtr->numChildren << " children" << std::endl;
 
             // Is inner node
             bool intersectsLeft, intersectsRight;

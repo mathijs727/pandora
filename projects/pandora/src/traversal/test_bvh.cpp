@@ -15,9 +15,10 @@ void testBvh(BVH<2>& bvh)
 
         if (nodeRef.isInternalNode()) {
             auto* nodePtr = nodeRef.getInternalNode();
-            std::cout << "INTERNAL NODE: " << nodePtr << std::endl;
-            if (nodePtr->numChildren != 2)
+            if (nodePtr->numChildren != 2) {
                 std::cout << "Internal node with " << nodePtr->numChildren << "children" << std::endl;
+                exit(1);
+            }
             traversalStack.push_back(nodePtr->children[0]);
             traversalStack.push_back(nodePtr->children[1]);
         } else if (nodeRef.isLeaf()) {
@@ -32,10 +33,13 @@ void testBvh(BVH<2>& bvh)
         } // TODO: transform nodes
     }
 
-    int reachable = std::accumulate(std::begin(reachablePrims), std::end(reachablePrims), 0,
-        [](int counter, const decltype(reachablePrims)::value_type& p) {
+    size_t reachable = std::accumulate(std::begin(reachablePrims), std::end(reachablePrims), 0,
+        [](size_t counter, const decltype(reachablePrims)::value_type& p) {
             return counter + p.second;
         });
     std::cout << reachable << " out of " << bvh.m_numPrimitives << " primitives reachable" << std::endl;
+
+    if (reachable != bvh.m_numPrimitives)
+        exit(1);
 }
 }

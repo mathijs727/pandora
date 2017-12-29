@@ -17,7 +17,8 @@ private:
     static void* createLeaf(RTCThreadLocalAllocator, const RTCBuildPrimitive* prims, size_t numPrimitives, void* userPtr);
     static void setNodeChildren(void* nodePtr, void** childPtrs, size_t numChildren, void* userPtr);
     static void setNodeBounds(void* nodePtr, const RTCBounds**, size_t numChildren, void* userPtr);
-    //void splitPrimitive(const RTCBuildPrimitive&, unsigned dim, float pos, RTCBounds& lbounds, RTCBounds& rbounds, void* userPtr);
+    static void splitPrimitive(const RTCBuildPrimitive&, unsigned dim, float pos, RTCBounds& lbounds, RTCBounds& rbounds, void* userPtr);
+
 private:
     using NodeRef = typename BVH<N>::NodeRef;
 

@@ -44,6 +44,9 @@ public:
         };
 
     public:
+        static constexpr size_t maxLeafSize = (1 << primCountBits) - 1;
+
+    public:
         NodeRef()
             : m_type(0)
             , m_primCount(0)

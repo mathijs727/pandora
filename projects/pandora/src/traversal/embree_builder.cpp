@@ -8,13 +8,17 @@ void BVHBuilderEmbree<N>::build(const std::vector<const TriangleMesh*>& geometry
 {
     m_bvh = &bvh;
 
+    // Store pointers to the geometry in the BVH
+    bvh.m_shapes.resize(geometry.size());
+    std::copy(geometry.begin(), geometry.end(), bvh.m_shapes.begin());
+
     // TODO: parallelize and write this using STL algorithms?
     bvh.m_numPrimitives = 0;
     std::vector<RTCBuildPrimitive> primitives;
     for (uint32_t geomID = 0; geomID < (uint32_t)geometry.size(); geomID++) {
         auto primBounds = geometry[geomID]->getPrimitivesBounds();
         primitives.reserve(primitives.size() + primBounds.size());
-        bvh.m_numPrimitives += primitives.size();
+        bvh.m_numPrimitives += primBounds.size();
 
         for (uint32_t primID = 0; primID < (uint32_t)primBounds.size(); primID++) {
             auto bounds = primBounds[primID];
@@ -27,6 +31,7 @@ void BVHBuilderEmbree<N>::build(const std::vector<const TriangleMesh*>& geometry
             embreePrimitive.upper_z = bounds.bounds_max.z;
             embreePrimitive.geomID = (int)geomID;
             embreePrimitive.primID = (int)primID;
+            primitives.push_back(embreePrimitive);
         }
     }
 
@@ -34,6 +39,7 @@ void BVHBuilderEmbree<N>::build(const std::vector<const TriangleMesh*>& geometry
     RTCBVH embreeBvh = rtcNewBVH(device);
     RTCBuildSettings buildSettings = rtcDefaultBuildSettings();
     buildSettings.maxBranchingFactor = N;
+    buildSettings.maxLeafSize = NodeRef::maxLeafSize;
     buildSettings.quality = RTC_BUILD_QUALITY_NORMAL;
     void* rootNodeRefPtr = rtcBuildBVH(
         embreeBvh,
@@ -44,7 +50,7 @@ void BVHBuilderEmbree<N>::build(const std::vector<const TriangleMesh*>& geometry
         &setNodeChildren,
         &setNodeBounds,
         &createLeaf,
-        nullptr, // TODO: primitive split
+        &splitPrimitive, // TODO: primitive split
         nullptr, // Build progress
         this);
     bvh.m_rootNode = *reinterpret_cast<NodeRef*>(rootNodeRefPtr); // Before rtcDeleteBVH
@@ -60,11 +66,12 @@ void* BVHBuilderEmbree<N>::createNode(RTCThreadLocalAllocator tmpAllocator, size
 
     auto& allocator = thisPtr->m_bvh->m_nodeAllocator;
     auto* innerNode = allocator.template allocate<typename BVH<N>::InternalNode>(1, 32);
+    innerNode->numChildren = numChildren;
 
     // We want to return a NodeRef but that is 8 bytes so casting it to a void* won't work on 32 bit platforms.
     // Instead we use the fast Embree allocator to allocate temporary storage for the NodeReferences.
     // This memory will automatically be freed when rtcDeleteBVH() is called.
-    auto* nodeRefPtr = reinterpret_cast<NodeRef*>(rtcThreadLocalAlloc(tmpAllocator, sizeof(NodeRef), 0));
+    auto* nodeRefPtr = reinterpret_cast<NodeRef*>(rtcThreadLocalAlloc(tmpAllocator, sizeof(NodeRef), sizeof(NodeRef)));
     *nodeRefPtr = NodeRef(innerNode);
     return nodeRefPtr;
 }
@@ -84,7 +91,7 @@ void* BVHBuilderEmbree<N>::createLeaf(RTCThreadLocalAllocator tmpAllocator, cons
     // We want to return a NodeRef but that is 8 bytes so casting it to a void* won't work on 32 bit platforms.
     // Instead we use the fast Embree allocator to allocate temporary storage for the NodeReferences.
     // This memory will automatically be freed when rtcDeleteBVH() is called.
-    auto* nodeRefPtr = reinterpret_cast<NodeRef*>(rtcThreadLocalAlloc(tmpAllocator, sizeof(NodeRef), 0));
+    auto* nodeRefPtr = reinterpret_cast<NodeRef*>(rtcThreadLocalAlloc(tmpAllocator, sizeof(NodeRef), sizeof(NodeRef)));
     *nodeRefPtr = NodeRef(primitives, numPrimitives);
     return nodeRefPtr;
 }
@@ -97,6 +104,23 @@ void BVHBuilderEmbree<N>::setNodeChildren(void* voidNodePtr, void** childPtrs, s
 
     // Leaf nodes cant have children
     assert(nodeRef->isInternalNode());
+    if (nodeRef->isLeaf()) {
+        std::cout << "setNodeChildren: " << voidNodePtr << std::endl;
+        std::cout << "Set children on leaf node???" << std::endl;
+        std::cout << "Num children: " << numChildren << std::endl;
+        for (size_t i = 0; i < numChildren; i++) {
+            if (childRefs[i]->isInternalNode())
+                std::cout << "Internal" << std::endl;
+            else
+                std::cout << "Leaf with " << childRefs[i]->numPrimitives() << " primitives" << std::endl;
+        }
+        exit(1);
+    }
+
+    if (numChildren > N) {
+        std::cout << "Embree requested an inner node with more than the allowed number of children" << std::endl;
+        exit(1);
+    }
 
     auto* node = nodeRef->getInternalNode();
     node->numChildren = numChildren;
@@ -121,6 +145,13 @@ void BVHBuilderEmbree<N>::setNodeBounds(void* voidNodePtr, const RTCBounds** bou
         Vec3f upper = Vec3f(embreeBounds.upper_x, embreeBounds.upper_y, embreeBounds.upper_z);
         node->childBounds[childIdx] = Bounds3f(lower, upper);
     }
+}
+
+template <int N>
+void BVHBuilderEmbree<N>::splitPrimitive(const RTCBuildPrimitive&, unsigned dim, float pos, RTCBounds& lbounds, RTCBounds& rbounds, void* userPtr)
+{
+    std::cout << "splitPrimitive not implemented yet" << std::endl;
+    exit(1);
 }
 
 template class BVHBuilderEmbree<2>;

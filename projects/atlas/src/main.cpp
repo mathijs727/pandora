@@ -88,7 +88,6 @@ int main()
                 IntersectionInfo intersectInfo;
                 if (traverser.intersect(ray)) {
                     sensor.addPixelContribution(pixelRasterCoords, Vec3f(0.0f, ray.uv.x, ray.uv.y));
-                    //sensor.addPixelContribution(pixelRasterCoords, Vec3f(intersectInfo.numPrimIntersectTests / 450.0f));
                 }
             }
         });
