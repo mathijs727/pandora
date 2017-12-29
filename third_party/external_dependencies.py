@@ -67,6 +67,8 @@ def download_dependency(dep_name, dep_data):
     # Folder already exists (we downloaded it before)
     if os.path.exists(download_folder):
         return True
+    else:
+        os.makedirs(download_folder)
 
     if "git" in download_data:
         subprocess.check_call(
@@ -134,6 +136,8 @@ def install_dependency(dep_name, dep_data, build_type):
         installs_folder, build_type.lower(), dep_name)
     if os.path.exists(install_folder):
         return True  # Already exists
+    else:
+        os.makedirs(install_folder)
 
     if build_data["build_system"] == "CMake":
         download_folder = os.path.join(downloads_folder, dep_name)
@@ -272,13 +276,6 @@ if __name__ == "__main__":
     dep_name = sys.argv[1]
     generator = sys.argv[2]
     build_type = build_type_lookup[sys.argv[3].lower()]
-
-    # Create the install & download folders if they do not exist already
-    if not os.path.exists(downloads_folder):
-        os.makedirs(downloads_folder)
-
-    if not os.path.exists(os.path.join(installs_folder, build_type.lower())):
-        os.makedirs(os.path.join(installs_folder, build_type))
 
     dependency = find_dependency_data(dep_name)
     if dependency is None:
