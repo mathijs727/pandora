@@ -72,7 +72,7 @@ def download_dependency(dep_name, dep_data):
         subprocess.check_call(
             ["git", "clone", download_data["git"], download_folder])
 
-    if "url" in download_data:# Download and decompress zip/tar files
+    if "url" in download_data:  # Download and decompress zip/tar files
         # https://stackoverflow.com/questions/2795331/python-download-without-supplying-a-filename
         filename = urlsplit(
             download_data["url"]).path.split("/")[-1]
@@ -127,17 +127,21 @@ def download_dependency(dep_name, dep_data):
     return True
 
 
-def install_dependency(dep_name, dep_data):
+def install_dependency(dep_name, dep_data, build_type):
     build_data = get_for_platform(dep_data, "build")
     core_count = multiprocessing.cpu_count()
-    install_folder = os.path.join(installs_folder, dep_name)
+    install_folder = os.path.join(
+        installs_folder, build_type.lower(), dep_name)
     if os.path.exists(install_folder):
         return True  # Already exists
 
     if build_data["build_system"] == "CMake":
         download_folder = os.path.join(downloads_folder, dep_name)
         # Cant be "build" because that clashes with GLEW
-        build_folder = os.path.join(download_folder, "pandora_build")
+        build_folder = os.path.join(
+            download_folder,
+            "pandora_build_%s" %
+            build_type)
 
         try:
             # Clean the build folder
@@ -166,14 +170,27 @@ def install_dependency(dep_name, dep_data):
             if generator.startswith("Visual Studio"):
                 cmake_flags.append("-DCMAKE_GENERATOR_PLATFORM=x64")
 
-            subprocess.check_output(["cmake",
-                                     "-DCMAKE_BUILD_TYPE=Release",
-                                     "-G%s" % generator,
-                                     "-DCMAKE_INSTALL_PREFIX=%s" % install_folder,
-                                     path_to_cmakelists] + cmake_flags,
-                                    cwd=build_folder)
-            subprocess.check_call(
-                ["cmake", "--build", ".", "--target", "install", "--config", "Release", "--"] + generator_flags, cwd=build_folder)
+            subprocess.check_output(
+                [
+                    "cmake",
+                    "-DCMAKE_BUILD_TYPE=%s" %
+                    build_type,
+                    "-G%s" %
+                    generator,
+                    "-DCMAKE_INSTALL_PREFIX=%s" %
+                    install_folder,
+                    path_to_cmakelists] +
+                cmake_flags,
+                cwd=build_folder)
+            subprocess.check_call(["cmake",
+                                   "--build",
+                                   ".",
+                                   "--target",
+                                   "install",
+                                   "--config",
+                                   build_type,
+                                   "--"] + generator_flags,
+                                  cwd=build_folder)
             return True
         except Exception as e:
             print("Failed to build using this CMake")
@@ -186,7 +203,13 @@ def install_dependency(dep_name, dep_data):
         if sys.platform == "win32" or sys.platform == "win64":  # If Windows
             # Bug that has been fixed on the master branch of Boost.build:
             # https://github.com/boostorg/build/pull/265
-            build_jam = os.path.join(download_folder, "tools", "build", "src", "engine", "build.jam")
+            build_jam = os.path.join(
+                download_folder,
+                "tools",
+                "build",
+                "src",
+                "engine",
+                "build.jam")
             with open(build_jam, "r") as file:
                 txt = file.readlines()
             txt[186] = "toolset cc \"$(CC)\" : \"-o \" : -D"
@@ -207,13 +230,13 @@ def install_dependency(dep_name, dep_data):
         try:
             b2_path = os.path.join(download_folder, "b2")
             result = subprocess.check_output([b2_path,
-                                   "release",
-                                   "address-model=64",
-                                   "threading=multi",
-                                   "-j%d" % core_count,
-                                   "-d0",# Supress all informational messages
-                                   "install",
-                                   "--prefix=%s" % install_folder] + with_libraries, cwd=download_folder)
+                                              build_type.lower(),
+                                              "address-model=64",
+                                              "threading=multi",
+                                              "-j%d" % core_count,
+                                              "-d0",  # Supress all informational messages
+                                              "install",
+                                              "--prefix=%s" % install_folder] + with_libraries, cwd=download_folder)
             result = result.decode("utf-8")
             print(result)
             return True
@@ -231,21 +254,31 @@ if __name__ == "__main__":
     # Patch tarfile so it can handle long paths on Windows
     monkey_patch_tarfile()
 
+    if len(sys.argv) != 4:
+        print("Script has three argument:")
+        print(" - Name of the dependency")
+        print(" - Generator")
+        print(" - Build type (release or debug)")
+        print("\nGiven: ", sys.argv)
+        exit(1)
+
+    build_type_lookup = {
+        "debug": "Debug",
+        "release": "Release",
+        "relwithdebinfo": "Release",
+        "minsizerel": "Release"
+    }
+
+    dep_name = sys.argv[1]
+    generator = sys.argv[2]
+    build_type = build_type_lookup[sys.argv[3].lower()]
+
     # Create the install & download folders if they do not exist already
     if not os.path.exists(downloads_folder):
         os.makedirs(downloads_folder)
 
-    if not os.path.exists(installs_folder):
-        os.makedirs(installs_folder)
-
-    if len(sys.argv) != 3:
-        print("Script has two argument:")
-        print(" - Name of the dependency")
-        print(" - Generator")
-        exit(1)
-
-    dep_name = sys.argv[1]
-    generator = sys.argv[2]
+    if not os.path.exists(os.path.join(installs_folder, build_type.lower())):
+        os.makedirs(os.path.join(installs_folder, build_type))
 
     dependency = find_dependency_data(dep_name)
     if dependency is None:
@@ -260,7 +293,7 @@ if __name__ == "__main__":
         exit(1)
 
     print("Building [%s]" % dep_name)
-    if not install_dependency(dep_name, dependency):
+    if not install_dependency(dep_name, dependency, build_type):
         print("Install failed")
     else:
         print("Install succeeded")

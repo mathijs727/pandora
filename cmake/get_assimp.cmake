@@ -2,11 +2,11 @@
 #  and (worst of all): does not return the full path to the library files
 function(find_or_install_assimp)
 	set(PACKAGE_NAME "assimp")
-    set(INSTALL_FOLDER "${CMAKE_CURRENT_LIST_DIR}/third_party/install/${PACKAGE_NAME}/")
+    set(INSTALL_FOLDER "${THIRD_PARTY_INSTALL_FOLDER}/${PACKAGE_NAME}/")
     if (NOT EXISTS "${INSTALL_FOLDER}")
         message("Downloading and compiling dependency: ${PACKAGE_NAME}")
         execute_process(
-            COMMAND python external_dependencies.py ${PACKAGE_NAME} ${CMAKE_GENERATOR}
+            COMMAND python external_dependencies.py ${PACKAGE_NAME} ${CMAKE_GENERATOR} ${CMAKE_BUILD_TYPE}
             WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/third_party/")
     endif()
 
