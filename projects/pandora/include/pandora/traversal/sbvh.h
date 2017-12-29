@@ -1,5 +1,6 @@
 #pragma once
 #include "pandora/geometry/shape.h"
+#include "pandora/geometry/triangle.h"
 #include "pandora/traversal/bvh.h"
 #include "pandora/traversal/ray.h"
 #include <tuple>
@@ -10,7 +11,7 @@ namespace pandora {
 template <int N>
 class BVHBuilderSAH {
 public:
-    void build(const std::vector<const Shape*>& geometry, BVH<N>& bvh);
+    void build(const std::vector<const TriangleMesh*>& geometry, BVH<N>& bvh);
 
 private:
     struct ObjectSplit {

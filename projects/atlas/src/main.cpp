@@ -54,7 +54,7 @@ int main()
         exit(1);
     }
 
-    std::vector<const Shape*> shapes = { mesh.get() };
+    std::vector<const TriangleMesh*> shapes = { mesh.get() };
     //EmbreeAccel accelerationStructure(shapes);
     //TwoLevelSbvhAccel accelerationStructure(shapes);
     BVH<2> accelerationStructure;
@@ -85,11 +85,10 @@ int main()
                 auto pixelScreenCoords = Vec2f(x / widthF, y / heightF);
                 Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
 
-                //accelerationStructure.intersect(ray);
-                //if (ray.t < std::numeric_limits<float>::max()) {
+                IntersectionInfo intersectInfo;
                 if (traverser.intersect(ray)) {
-                    //sensor.addPixelContribution(pixelRasterCoords, Vec3f(1.0f, 0.2f, 0.3f));
                     sensor.addPixelContribution(pixelRasterCoords, Vec3f(0.0f, ray.uv.x, ray.uv.y));
+                    //sensor.addPixelContribution(pixelRasterCoords, Vec3f(intersectInfo.numPrimIntersectTests / 450.0f));
                 }
             }
         });

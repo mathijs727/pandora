@@ -1,5 +1,6 @@
 #pragma once
 #include "pandora/geometry/shape.h"
+#include "pandora/geometry/triangle.h"
 #include "pandora/math/bounds3.h"
 #include "pandora/math/mat3x4.h"
 #include "pandora/utility/blocked_stack_allocator.h"
@@ -114,7 +115,7 @@ public:
 
 public:
     NodeRef m_rootNode;
-    std::vector<const Shape*> m_shapes;
+    std::vector<const TriangleMesh*> m_shapes;
 
     // TODO: Use a fast (thread local) allocator so we build the BVH on multiple threads AND
     //       to prevent reallocation as the tree grows (plus we dont want to ask the OS for such

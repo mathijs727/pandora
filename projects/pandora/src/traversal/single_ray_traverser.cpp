@@ -10,6 +10,18 @@ SingleRayTraverser::SingleRayTraverser(BVH<2>& bvh)
 
 bool SingleRayTraverser::intersect(Ray& ray)
 {
+    IntersectionInfo intersectInfo = {};
+    return intersectOptionalInfo<false>(ray, intersectInfo);
+}
+
+bool SingleRayTraverser::intersect(Ray& ray, IntersectionInfo& info)
+{
+    return intersectOptionalInfo<true>(ray, info);
+}
+
+template <bool intersectionInfo>
+bool SingleRayTraverser::intersectOptionalInfo(Ray& ray, IntersectionInfo& info)
+{
     std::vector<BVH<2>::NodeRef> traversalStack = { m_bvh.m_rootNode };
     bool hit = false;
 
@@ -35,11 +47,11 @@ bool SingleRayTraverser::intersect(Ray& ray)
             if (intersectsLeft && intersectsRight) {
                 // Both hit -> ordered traversal
                 if (tminLeft < tminRight) {
-                    traversalStack.push_back(nodePtr->children[0]);
                     traversalStack.push_back(nodePtr->children[1]);
+                    traversalStack.push_back(nodePtr->children[0]); // Left traversed first
                 } else {
-                    traversalStack.push_back(nodePtr->children[1]);
                     traversalStack.push_back(nodePtr->children[0]);
+                    traversalStack.push_back(nodePtr->children[1]);
                 }
             } else if (intersectsLeft) {
                 traversalStack.push_back(nodePtr->children[0]);
@@ -53,6 +65,9 @@ bool SingleRayTraverser::intersect(Ray& ray)
             for (uint64_t i = 0; i < nodeRef.numPrimitives(); i++) {
                 auto [geomID, primID] = primitives[i];
                 hit |= m_bvh.m_shapes[geomID]->intersect(primID, ray);
+
+                if constexpr (intersectionInfo)
+                    info.numPrimIntersectTests++;
             }
         } // TODO: transform nodes
     }

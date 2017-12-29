@@ -6,7 +6,7 @@
 namespace pandora {
 
 template <int N>
-void BVHBuilderSAH<N>::build(const std::vector<const Shape*>& geometry, BVH<N>& bvh)
+void BVHBuilderSAH<N>::build(const std::vector<const TriangleMesh*>& geometry, BVH<N>& bvh)
 {
     m_bvh = &bvh;
 
@@ -35,6 +35,8 @@ void BVHBuilderSAH<N>::build(const std::vector<const Shape*>& geometry, BVH<N>& 
             primitives.push_back({ bounds, bounds.center(), { geomID, primID } });
         }
     }
+
+    std::cout << "NUM PRIMS: " << m_numPrimitives << std::endl;
 
     // Allocate a root node
     auto* rootNodePtr = m_bvh->m_primitiveAllocator.template allocate<typename BVH<N>::InternalNode>(1, 32);
