@@ -68,7 +68,9 @@ def download_dependency(dep_name, dep_data):
     if os.path.exists(download_folder):
         return True
     else:
-        os.makedirs(download_folder)
+        one_folder_up = os.path.dirname(download_folder)
+        if not os.path.exists(one_folder_up):
+            os.makedirs(one_folder_up)
 
     if "git" in download_data:
         subprocess.check_call(
@@ -111,10 +113,14 @@ def download_dependency(dep_name, dep_data):
             zip_file.extractall(path=tmp_path)
             zip_file.close()
 
+            # exit()
+
             if "unpack_folder" in download_data:
                 old_path = os.path.join(
                     tmp_path, download_data["unpack_folder"])
                 shutil.move(old_path, download_folder)
+                #shutil.copytree(old_path, download_folder)
+                #print("Move from: %s to %s" % (old_path, download_folder))
             else:
                 shutil.move(tmp_path, download_folder)
 
@@ -137,7 +143,9 @@ def install_dependency(dep_name, dep_data, build_type):
     if os.path.exists(install_folder):
         return True  # Already exists
     else:
-        os.makedirs(install_folder)
+        one_folder_up = os.path.dirname(install_folder)
+        if not os.path.exists(one_folder_up):
+            os.makedirs(one_folder_up)
 
     if build_data["build_system"] == "CMake":
         download_folder = os.path.join(downloads_folder, dep_name)

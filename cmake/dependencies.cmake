@@ -2,7 +2,6 @@ function(find_or_install_package PACKAGE_NAME)
     # Add the location where it should be installed to CMAKE_PREFIX_PATH and [PACKAGENAME]_ROOT
     string(TOUPPER ${PACKAGE_NAME} PACKAGE_NAME_UPPER)
     set(PACKAGE_PATH "${THIRD_PARTY_INSTALL_FOLDER}/${PACKAGE_NAME}/")
-    message("PackagePath: ${PACKAGE_PATH}")
     set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};${PACKAGE_PATH}")
     set(${PACKAGE_NAME_UPPER}_ROOT ${PACKAGE_PATH})
 

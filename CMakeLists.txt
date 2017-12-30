@@ -23,12 +23,31 @@ if (WIN32)
     # TODO: copy DLL
 	file(COPY "${CMAKE_CURRENT_LIST_DIR}/third_party/install/embree/bin/embree.dll" DESTINATION ${CMAKE_BINARY_DIR})
 else()
-    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${THIRD_PARTY_INSTALL_FOLDER}/embree/lib")
-    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${THIRD_PARTY_INSTALL_FOLDER}/GLEW/lib")
-    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${THIRD_PARTY_INSTALL_FOLDER}/assimp/lib")
-    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${CMAKE_CURRENT_BINARY_DIR}/tbb_cmake_build/tbb_cmake_build_subdir_debug/")
-    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${CMAKE_CURRENT_BINARY_DIR}/tbb_cmake_build/tbb_cmake_build_subdir_release/")
-    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+    if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+        set(TBB_PATH ${CMAKE_CURRENT_BINARY_DIR}/tbb_cmake_build/tbb_cmake_build_subdir_debug)
+    else()
+        set(TBB_PATH ${CMAKE_CURRENT_BINARY_DIR}/tbb_cmake_build/tbb_cmake_build_subdir_release)
+    endif()
+
+    execute_process(COMMAND python "${CMAKE_CURRENT_LIST_DIR}/cmake/copy_shared_libs.py"
+        # To:
+        "${CMAKE_BINARY_DIR}/shared_libs/"
+        # From:
+        #"${THIRD_PARTY_INSTALL_FOLDER}/GLEW/lib"
+        "${THIRD_PARTY_INSTALL_FOLDER}/assimp/lib"
+        "${THIRD_PARTY_INSTALL_FOLDER}/embree/lib"
+        "${TBB_PATH}")
+
+    if (BUILD_ATLAS)
+        execute_process(COMMAND python "${CMAKE_CURRENT_LIST_DIR}/cmake/copy_shared_libs.py"
+            # To:
+            "${CMAKE_BINARY_DIR}/shared_libs/"
+            # From:
+            "${THIRD_PARTY_INSTALL_FOLDER}/GLEW/lib")
+    endif()
+
+    message("Please execute the following line of code to point your system to the shared libraries:")
+    message("export LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}/shared_libs:$LD_LIBRARY_PATH")
 endif()
 
 if (BUILD_TESTS)

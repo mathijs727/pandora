@@ -119,8 +119,8 @@ before_script:
   # have CMake to generate build files
   - cd "${TRAVIS_BUILD_DIR}"
   - mkdir build && cd build
-  - mkdir bin
   - cmake .. -G Ninja -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_FLAGS="${CPP_FLAGS}"
+  - export LD_LIBRARY_PATH="$PWD/shared_libs/"
   
 script:
   # build and run tests
