@@ -44,7 +44,7 @@ matrix:
     #         - libglu1-mesa-dev
 
     # Debug with stdlibc++
-    - env: CXX=clang++-5.0 CC=clang-5.0 BUILD_TYPE=Debug CPP_FLAGS=-DTBB_USE_GLIBCXX_VERSION
+    - env: CXX=clang++-5.0 CC=clang-5.0 BUILD_TYPE=Debug CPP_FLAGS="-DTBB_USE_GLIBCXX_VERSION=70200"
       addons: &clang50
         apt:
           sources:
