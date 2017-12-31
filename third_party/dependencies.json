@@ -128,7 +128,8 @@
                     "-DEMBREE_ISPC_SUPPORT=OFF",
                     "-DEMBREE_TUTORIALS=OFF",
                     "-DEMBREE_TBB_ROOT=../../tbb/"
-                ]
+                ],
+                "single_threaded": true
             }
         }
     }
