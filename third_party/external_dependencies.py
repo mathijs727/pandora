@@ -137,7 +137,10 @@ def download_dependency(dep_name, dep_data):
 
 def install_dependency(dep_name, dep_data, build_type):
     build_data = get_for_platform(dep_data, "build")
-    core_count = multiprocessing.cpu_count()
+    if "single_threaded" in build_data and build_data["single_threaded"]:
+        core_count = 1
+    else:
+        core_count = multiprocessing.cpu_count()
     install_folder = os.path.join(
         installs_folder, build_type.lower(), dep_name)
     if os.path.exists(install_folder):

@@ -111,7 +111,8 @@
                 "flags": [
                     "-DASSIMP_BUILD_TESTS=OFF",
                     "-DASSIMP_BUILD_ASSIMP_TOOLS=OFF"
-                ]
+                ],
+                "single_threaded": true
             }
         }
     },
