@@ -17,6 +17,8 @@ dist: trusty
 cache:
   directories:
     - ${TRAVIS_BUILD_DIR}/deps
+    - ${TRAVIS_BUILD_DIR}/third_party/downloads/
+    - ${TRAVIS_BUILD_DIR}/third_party/install/
 
 matrix:
   include:

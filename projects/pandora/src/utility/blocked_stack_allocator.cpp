@@ -23,8 +23,8 @@ void BlockedStackAllocator::allocateBlock()
 {
     auto& localBlock = m_threadLocalBlocks.local();
 
-    // Allocation failed because the block is full. Allocate a new block and try again.
-    auto newMemBlock = m_memoryBlocks.emplace_back(new std::byte[m_memoryBlockSize]);
+    //auto newMemBlock = m_memoryBlocks.emplace_back(new std::byte[m_memoryBlockSize]);
+    auto newMemBlock = m_memoryBlocks.push_back(std::move(std::make_unique<byte[]>(m_memoryBlockSize)));
     localBlock.data = newMemBlock->get();
     localBlock.space = m_memoryBlockSize;
 }
