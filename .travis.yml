@@ -44,7 +44,7 @@ matrix:
     #         - libglu1-mesa-dev
 
     # Debug with stdlibc++
-    - env: CXX=clang++-5.0 CC=clang-5.0 BUILD_TYPE=Debug
+    - env: CXX=clang++-5.0 CC=clang-5.0 BUILD_TYPE=Debug CPP_FLAGS=-DTBB_USE_GLIBCXX_VERSION
       addons: &clang50
         apt:
           sources:
@@ -111,7 +111,6 @@ install:
   - cmake --version
 
 before_script:
-  - export CPP_FLAGS=""
   # Add libc++ flag when specified in USE_STDLIB
   - |
     if [[ "$USE_STDLIB" == "libc++" ]]; then
