@@ -23,11 +23,7 @@ if (WIN32)
     # TODO: copy DLL
 	file(COPY "${CMAKE_CURRENT_LIST_DIR}/third_party/install/embree/bin/embree.dll" DESTINATION ${CMAKE_BINARY_DIR})
 else()
-    if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-        set(TBB_PATH ${CMAKE_CURRENT_BINARY_DIR}/tbb_cmake_build/tbb_cmake_build_subdir_debug)
-    else()
-        set(TBB_PATH ${CMAKE_CURRENT_BINARY_DIR}/tbb_cmake_build/tbb_cmake_build_subdir_release)
-    endif()
+    set(TBB_PATH ${CMAKE_CURRENT_BINARY_DIR}/tbb_cmake_build/tbb_cmake_build_subdir_release)
 
     execute_process(COMMAND python "${CMAKE_CURRENT_LIST_DIR}/cmake/copy_shared_libs.py"
         # To:
