@@ -112,7 +112,7 @@ public:
     struct InternalNode {
         Bounds3f childBounds[N]; // N * 24 bytes
         NodeRef children[N]; // N * 4 bytes
-        int numChildren; // 4 bytes
+        size_t numChildren; // 4 bytes
     };
 
     struct TransformNode {

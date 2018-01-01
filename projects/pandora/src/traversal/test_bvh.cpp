@@ -33,9 +33,9 @@ void testBvh(BVH<2>& bvh)
         } // TODO: transform nodes
     }
 
-    size_t reachable = std::accumulate(std::begin(reachablePrims), std::end(reachablePrims), 0,
+    size_t reachable = std::accumulate(std::begin(reachablePrims), std::end(reachablePrims), (size_t)0u,
         [](size_t counter, const decltype(reachablePrims)::value_type& p) {
-            return counter + p.second;
+            return counter + (size_t)p.second;
         });
     std::cout << reachable << " out of " << bvh.m_numPrimitives << " primitives reachable" << std::endl;
 
