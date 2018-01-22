@@ -57,7 +57,7 @@ if (BUILD_ATLAS)
 
     # GLEW generates a library called libglew32 but on Windows find_package(GLEW) looks for glew32s
     if (WIN32)
-    	set(glew_lib_dir "${CMAKE_CURRENT_LIST_DIR}/third_party/install/GLEW/lib")
+    	set(glew_lib_dir "${THIRD_PARTY_INSTALL_FOLDER}/GLEW/lib")
     	if (EXISTS "${glew_lib_dir}/libglew32.lib")
     		message("RENAMING ${glew_lib_dir}/libglew32.lib")
     		file(RENAME "${glew_lib_dir}/libglew32.lib" "${glew_lib_dir}/glew32.lib")

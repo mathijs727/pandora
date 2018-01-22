@@ -61,7 +61,7 @@
             },
             "build": {
                 "build_system": "boost",
-                "with_libraries": ["fiber", "system"]
+                "with_libraries": ["system"]
             }
         }
     },

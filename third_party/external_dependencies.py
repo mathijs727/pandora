@@ -184,16 +184,13 @@ def install_dependency(dep_name, dep_data, build_type):
             # TODO: build dependencies for both 32 and 64 bit
             if generator.startswith("Visual Studio"):
                 cmake_flags.append("-DCMAKE_GENERATOR_PLATFORM=x64")
-
             subprocess.check_output(
                 [
                     "cmake",
-                    "-DCMAKE_BUILD_TYPE=%s" %
-                    build_type,
+                    "-DCMAKE_BUILD_TYPE=%s" % build_type,
                     "-G%s" %
                     generator,
-                    "-DCMAKE_INSTALL_PREFIX=%s" %
-                    install_folder,
+                    "-DCMAKE_INSTALL_PREFIX=%s" % install_folder,
                     path_to_cmakelists] +
                 cmake_flags,
                 cwd=build_folder)

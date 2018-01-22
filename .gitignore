@@ -1,6 +1,11 @@
-# Visual Studio Code
+# Visual Studio (Code)
 .vscode
 .vs
+projects/.vs/
+
+
+# Clion
+.idea
 
 # Manual build folder
 build

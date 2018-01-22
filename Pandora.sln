@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2024
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Pandora", "projects\pandora\Pandora.vcxproj", "{8800F8A1-2D18-405C-AD4E-E56F8ED4C8D3}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Atlas", "projects\atlas\Atlas.vcxproj", "{3CD5FAFD-41E2-4558-8A4A-7BD7B1A11DF6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8800F8A1-2D18-405C-AD4E-E56F8ED4C8D3}.Debug|x64.ActiveCfg = Debug|x64
+		{8800F8A1-2D18-405C-AD4E-E56F8ED4C8D3}.Debug|x64.Build.0 = Debug|x64
+		{8800F8A1-2D18-405C-AD4E-E56F8ED4C8D3}.Release|x64.ActiveCfg = Release|x64
+		{8800F8A1-2D18-405C-AD4E-E56F8ED4C8D3}.Release|x64.Build.0 = Release|x64
+		{3CD5FAFD-41E2-4558-8A4A-7BD7B1A11DF6}.Debug|x64.ActiveCfg = Debug|x64
+		{3CD5FAFD-41E2-4558-8A4A-7BD7B1A11DF6}.Debug|x64.Build.0 = Debug|x64
+		{3CD5FAFD-41E2-4558-8A4A-7BD7B1A11DF6}.Release|x64.ActiveCfg = Release|x64
+		{3CD5FAFD-41E2-4558-8A4A-7BD7B1A11DF6}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D077103D-7C67-4FE2-8F86-48613D768F9A}
+	EndGlobalSection
+EndGlobal

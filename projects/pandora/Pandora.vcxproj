@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{8800F8A1-2D18-405C-AD4E-E56F8ED4C8D3}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="DebugPropertySheet.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="ReleasePropertySheet.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)\build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)\build\tmp\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)\build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)\build\tmp\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)/include;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GSL/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/embree/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/Boost/include/boost-1_65_1/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/assimp/include/;$(SolutionDir)/third_party/downloads/tbb/include/</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(SolutionDir)/../third_party/downloads/tbb/lib/intel64/vc14/;$(SolutionDir)/../third_party/install/$(ThirdPartyBuildType)/embree/lib/;$(SolutionDir)/../third_party/install/$(ThirdPartyBuildType)/assimp/lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>assimp-vc140-mt.lib;embree.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)/include;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GSL/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/embree/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/Boost/include/boost-1_65_1/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/assimp/include/;$(SolutionDir)/third_party/downloads/tbb/include/</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(SolutionDir)/../third_party/downloads/tbb/lib/intel64/vc14/;$(SolutionDir)/../third_party/install/$(ThirdPartyBuildType)/embree/lib/;$(SolutionDir)/../third_party/install/$(ThirdPartyBuildType)/assimp/lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>assimp-vc140-mt.lib;embree.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="src\core\perspective_camera.cpp" />
+    <ClCompile Include="src\core\sensor.cpp" />
+    <ClCompile Include="src\geometry\triangle.cpp" />
+    <ClCompile Include="src\math\bounds3.cpp" />
+    <ClCompile Include="src\math\mat3x4.cpp" />
+    <ClCompile Include="src\math\quaternion.cpp" />
+    <ClCompile Include="src\math\transform.cpp" />
+    <ClCompile Include="src\math\vec2.cpp" />
+    <ClCompile Include="src\math\vec3.cpp" />
+    <ClCompile Include="src\traversal\embree_builder.cpp" />
+    <ClCompile Include="src\traversal\sbvh_builder.cpp" />
+    <ClCompile Include="src\traversal\single_ray_traverser.cpp" />
+    <ClCompile Include="src\traversal\test_bvh.cpp" />
+    <ClCompile Include="src\utility\blocked_stack_allocator.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\pandora\core\perspective_camera.h" />
+    <ClInclude Include="include\pandora\core\sensor.h" />
+    <ClInclude Include="include\pandora\geometry\shape.h" />
+    <ClInclude Include="include\pandora\geometry\sphere.h" />
+    <ClInclude Include="include\pandora\geometry\triangle.h" />
+    <ClInclude Include="include\pandora\math\bounds3.h" />
+    <ClInclude Include="include\pandora\math\constants.h" />
+    <ClInclude Include="include\pandora\math\mat3x4.h" />
+    <ClInclude Include="include\pandora\math\math_functions.h" />
+    <ClInclude Include="include\pandora\math\quaternion.h" />
+    <ClInclude Include="include\pandora\math\transform.h" />
+    <ClInclude Include="include\pandora\math\vec2.h" />
+    <ClInclude Include="include\pandora\math\vec3.h" />
+    <ClInclude Include="include\pandora\traversal\bvh.h" />
+    <ClInclude Include="include\pandora\traversal\embree_builder.h" />
+    <ClInclude Include="include\pandora\traversal\ray.h" />
+    <ClInclude Include="include\pandora\traversal\sbvh_builder.h" />
+    <ClInclude Include="include\pandora\traversal\single_ray_traverser.h" />
+    <ClInclude Include="include\pandora\traversal\test_bvh.h" />
+    <ClInclude Include="include\pandora\utility\blocked_stack_allocator.h" />
+    <ClInclude Include="include\pandora\utility\fixed_stack.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
