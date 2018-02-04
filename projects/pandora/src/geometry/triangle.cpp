@@ -12,190 +12,180 @@
 namespace pandora {
 
 TriangleMesh::TriangleMesh(
-    std::vector<Triangle>&& indices,
-    std::vector<Vec3f>&& positions,
-    std::vector<Vec3f>&& normals)
-    : m_numPrimitives((unsigned)indices.size())
-    , m_primitiveBounds(m_numPrimitives)
-    , m_indices(std::move(indices))
-    , m_positions(std::move(positions))
-    , m_normals(std::move(normals))
+	std::vector<Vec3i>&& indices,
+	std::vector<Vec3f>&& positions,
+	std::vector<Vec3f>&& normals)
+	: m_numPrimitives((unsigned)indices.size())
+	, m_primitiveBounds(m_numPrimitives)
+	, m_indices(std::move(indices))
+	, m_positions(std::move(positions))
+	, m_normals(std::move(normals))
 {
-    assert(m_indices.size() > 0);
-    assert(m_positions.size() == m_normals.size() || m_normals.size() == 0);
+	assert(m_indices.size() > 0);
+	assert(m_positions.size() == m_normals.size() || m_normals.size() == 0);
 
-    for (unsigned i = 0; i < m_numPrimitives; i++) {
-        Triangle indices = m_indices[i];
-        Bounds3f& bounds = m_primitiveBounds[i];
-        bounds.reset();
-        bounds.grow(m_positions[indices.i0]);
-        bounds.grow(m_positions[indices.i1]);
-        bounds.grow(m_positions[indices.i2]);
-    }
+	for (unsigned i = 0; i < m_numPrimitives; i++) {
+		Vec3i indices = m_indices[i];
+		Bounds3f& bounds = m_primitiveBounds[i];
+		bounds.reset();
+		bounds.grow(m_positions[indices.x]);
+		bounds.grow(m_positions[indices.y]);
+		bounds.grow(m_positions[indices.z]);
+	}
 }
 
 static bool fileExists(const std::string_view name)
 {
-    std::ifstream f(name.data());
-    return f.good() && f.is_open();
+	std::ifstream f(name.data());
+	return f.good() && f.is_open();
 }
 
 static Mat3x4f assimpMatrix(const aiMatrix4x4& m)
 {
-    float values[3][4] = {};
-    values[0][0] = m.a1;
-    values[0][1] = m.b1;
-    values[0][2] = m.c1;
-    values[0][3] = m.d1;
-    values[1][0] = m.a2;
-    values[1][1] = m.b2;
-    values[1][2] = m.c2;
-    values[1][3] = m.d2;
-    values[2][0] = m.a3;
-    values[2][1] = m.b3;
-    values[2][2] = m.c3;
-    values[2][3] = m.d3;
-    return Mat3x4f(values);
+	float values[3][4] = {};
+	values[0][0] = m.a1;
+	values[0][1] = m.b1;
+	values[0][2] = m.c1;
+	values[0][3] = m.d1;
+	values[1][0] = m.a2;
+	values[1][1] = m.b2;
+	values[1][2] = m.c2;
+	values[1][3] = m.d2;
+	values[2][0] = m.a3;
+	values[2][1] = m.b3;
+	values[2][2] = m.c3;
+	values[2][3] = m.d3;
+	return Mat3x4f(values);
 }
 
 static Vec3f assimpVec(const aiVector3D& v)
 {
-    return Vec3f(v.x, v.y, v.z);
+	return Vec3f(v.x, v.y, v.z);
 }
 
 static void addSubMesh(const aiScene* scene,
-    const unsigned meshIndex,
-    const Mat3x4f& transformMatrix,
-    std::vector<TriangleMesh::Triangle>& indices,
-    std::vector<Vec3f>& positions,
-    std::vector<Vec3f>& normals)
+	const unsigned meshIndex,
+	const Mat3x4f& transformMatrix,
+	std::vector<Vec3i>& indices,
+	std::vector<Vec3f>& positions,
+	std::vector<Vec3f>& normals)
 {
-    aiMesh* mesh = scene->mMeshes[meshIndex];
+	aiMesh* mesh = scene->mMeshes[meshIndex];
 
-    if (mesh->mNumVertices == 0 || mesh->mNumFaces == 0)
-        return;
+	if (mesh->mNumVertices == 0 || mesh->mNumFaces == 0)
+		return;
 
-    // Add all vertex data
-    unsigned vertexOffset = (unsigned)positions.size();
-    for (unsigned vertexIdx = 0; vertexIdx < mesh->mNumVertices; vertexIdx++) {
-        //Vec3f position = transformMatrix.transformPoint(assimpVec(mesh->mVertices[vertexIdx]));
-        Vec3f position = assimpVec(mesh->mVertices[vertexIdx]);
-        //position = transformMatrix.transformPoint(position);
-        positions.push_back(position);
-    }
+	// Add all vertex data
+	unsigned vertexOffset = (unsigned)positions.size();
+	for (unsigned vertexIdx = 0; vertexIdx < mesh->mNumVertices; vertexIdx++) {
+		//Vec3f position = transformMatrix.transformPoint(assimpVec(mesh->mVertices[vertexIdx]));
+		Vec3f position = assimpVec(mesh->mVertices[vertexIdx]);
+		//position = transformMatrix.transformPoint(position);
+		positions.push_back(position);
+	}
 
-    // Add all the triangle indices
-    for (unsigned faceIdx = 0; faceIdx < mesh->mNumFaces; faceIdx++) {
-        const aiFace& face = mesh->mFaces[faceIdx];
-        if (face.mNumIndices != 3) {
-            std::cout << "Found a face which is not a triangle, discarding!" << std::endl;
-            continue;
-        }
+	// Add all the triangle indices
+	for (unsigned faceIdx = 0; faceIdx < mesh->mNumFaces; faceIdx++) {
+		const aiFace& face = mesh->mFaces[faceIdx];
+		if (face.mNumIndices != 3) {
+			std::cout << "Found a face which is not a triangle, discarding!" << std::endl;
+			continue;
+		}
 
-        auto aiIndices = face.mIndices;
-        TriangleMesh::Triangle triangle = {
-            aiIndices[0] + vertexOffset,
-            aiIndices[1] + vertexOffset,
-            aiIndices[2] + vertexOffset
-        };
-        indices.push_back(triangle);
-    }
+		auto aiIndices = face.mIndices;
+		Vec3i triangle = {
+			static_cast<int>(aiIndices[0] + vertexOffset),
+			static_cast<int>(aiIndices[1] + vertexOffset),
+			static_cast<int>(aiIndices[2] + vertexOffset)
+		};
+		indices.push_back(triangle);
+	}
 }
 
 std::unique_ptr<TriangleMesh> TriangleMesh::singleTriangle()
 {
-    std::vector<Triangle> indices = { { 0, 1, 2 } };
-    std::vector<Vec3f> positions = { Vec3f(1, 0, 0), Vec3f(0, 1, 0), Vec3f(1, 1, 0) };
-    std::vector<Vec3f> normals;
-    return std::make_unique<TriangleMesh>(std::move(indices), std::move(positions), std::move(normals));
+	std::vector<Vec3i> indices = { { 0, 1, 2 } };
+	std::vector<Vec3f> positions = { Vec3f(-1, -1, 0), Vec3f(1, -1, 0), Vec3f(0, 1, 0) };
+	std::vector<Vec3f> normals;
+	return std::make_unique<TriangleMesh>(std::move(indices), std::move(positions), std::move(normals));
 }
 
 std::unique_ptr<TriangleMesh> TriangleMesh::loadFromFile(const std::string_view filename)
 {
-    if (!fileExists(filename)) {
-        std::cout << "Could not find mesh file: " << filename << std::endl;
-        return nullptr;
-    }
+	if (!fileExists(filename)) {
+		std::cout << "Could not find mesh file: " << filename << std::endl;
+		return nullptr;
+	}
 
-    //TODO(Mathijs): move this out of the triangle class because it should also load material information
-    // which will be stored in a SceneObject kinda way.
-    Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(filename.data(), aiProcessPreset_TargetRealtime_MaxQuality);
+	//TODO(Mathijs): move this out of the triangle class because it should also load material information
+	// which will be stored in a SceneObject kinda way.
+	Assimp::Importer importer;
+	const aiScene* scene = importer.ReadFile(filename.data(), aiProcessPreset_TargetRealtime_MaxQuality);
 
-    if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
-        std::cout << "Failed to load mesh file: " << filename << std::endl;
-        return nullptr;
-    }
+	if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
+		std::cout << "Failed to load mesh file: " << filename << std::endl;
+		return nullptr;
+	}
 
-    std::vector<Triangle> indices;
-    std::vector<Vec3f> positions;
-    std::vector<Vec3f> normals;
+	std::vector<Vec3i> indices;
+	std::vector<Vec3f> positions;
+	std::vector<Vec3f> normals;
 
-    std::stack<std::tuple<aiNode*, Mat3x4f>> stack;
-    stack.push({ scene->mRootNode, assimpMatrix(scene->mRootNode->mTransformation) });
-    while (!stack.empty()) {
-        auto [node, transform] = stack.top();
-        stack.pop();
+	std::stack<std::tuple<aiNode*, Mat3x4f>> stack;
+	stack.push({ scene->mRootNode, assimpMatrix(scene->mRootNode->mTransformation) });
+	while (!stack.empty()) {
+		auto[node, transform] = stack.top();
+		stack.pop();
 
-        transform *= assimpMatrix(node->mTransformation);
+		transform *= assimpMatrix(node->mTransformation);
 
-        for (unsigned i = 0; i < node->mNumMeshes; i++) {
-            // Process subMesh
-            addSubMesh(scene, node->mMeshes[i], transform, indices, positions, normals);
-        }
+		for (unsigned i = 0; i < node->mNumMeshes; i++) {
+			// Process subMesh
+			addSubMesh(scene, node->mMeshes[i], transform, indices, positions, normals);
+		}
 
-        for (unsigned i = 0; i < node->mNumChildren; i++) {
-            stack.push({ node->mChildren[i], transform });
-        }
-    }
+		for (unsigned i = 0; i < node->mNumChildren; i++) {
+			stack.push({ node->mChildren[i], transform });
+		}
+	}
 
-    if (indices.size() == 0 || positions.size() == 0)
-        return nullptr;
+	if (indices.size() == 0 || positions.size() == 0)
+		return nullptr;
 
-    if (indices.size() == 0) {
-        std::cout << "Empty mesh file: " << filename << std::endl;
-        return nullptr;
-    }
-    return std::make_unique<TriangleMesh>(std::move(indices), std::move(positions), std::move(normals));
+	if (indices.size() == 0) {
+		std::cout << "Empty mesh file: " << filename << std::endl;
+		return nullptr;
+	}
+	return std::make_unique<TriangleMesh>(std::move(indices), std::move(positions), std::move(normals));
 }
 
 unsigned TriangleMesh::numPrimitives() const
 {
-    return m_numPrimitives;
+	return m_numPrimitives;
 }
+
+const gsl::span<const Vec3i> TriangleMesh::getIndices() const
+{
+	return m_indices;
+}
+
+const gsl::span<const Vec3f> TriangleMesh::getPositions() const
+{
+	return  m_positions;
+}
+
+const gsl::span<const Vec3f> TriangleMesh::getNormals() const
+{
+	return m_normals;
+}
+}
+
+/*
 
 gsl::span<const Bounds3f> TriangleMesh::getPrimitivesBounds() const
 {
     return gsl::span<const Bounds3f>(m_primitiveBounds);
 }
-
-/*unsigned TriangleMesh::addToEmbreeScene(RTCScene& scene) const
-{
-    RTCGeometryFlags geomFlags = RTC_GEOMETRY_STATIC;
-    unsigned geomID = rtcNewTriangleMesh2(scene, geomFlags, m_indices.size(), m_positions.size(), 1);
-    struct EmbreeVertex {
-        float x, y, z, a;
-    };
-    struct EmbreeTriangle {
-        int v0, v1, v2;
-    };
-
-    auto vertices = (EmbreeVertex*)rtcMapBuffer(scene, geomID, RTC_VERTEX_BUFFER);
-    std::transform(std::begin(m_positions), std::end(m_positions), vertices,
-        [](Vec3f pos) {
-            return EmbreeVertex{ pos.x, pos.y, pos.z, 0.0f };
-        });
-    rtcUnmapBuffer(scene, geomID, RTC_VERTEX_BUFFER);
-
-    auto triangles = (EmbreeTriangle*)rtcMapBuffer(scene, geomID, RTC_INDEX_BUFFER);
-    std::transform(std::begin(m_indices), std::end(m_indices), triangles,
-        [](Triangle tri) {
-            return EmbreeTriangle{ (int)tri.i0, (int)tri.i1, (int)tri.i2 };
-        });
-    rtcUnmapBuffer(scene, geomID, RTC_INDEX_BUFFER);
-
-    return geomID;
-}*/
 
 Vec3f TriangleMesh::getNormal(unsigned primitiveIndex, Vec2f uv) const
 {
@@ -344,5 +334,4 @@ bool TriangleMesh::intersectPbrt(unsigned primitiveIndex, Ray& ray) const
     ray.uv = Vec2f(b0, b1);
 
     return true;
-}
-}
+}*/

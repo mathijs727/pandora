@@ -2,13 +2,13 @@
 #include "pandora/geometry/sphere.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/math/constants.h"
-#include "pandora/traversal/embree_builder.h"
-#include "pandora/traversal/sbvh_builder.h"
-#include "pandora/traversal/single_ray_traverser.h"
-#include "tbb/tbb.h"
+#include "pandora/geometry/scene.h"
+#include "pandora/traversal/embree_accel.h"
 #include "ui/fps_camera_controls.h"
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
+
+#include "tbb/tbb.h"
 #include <iostream>
 #include <pmmintrin.h>
 #include <xmmintrin.h>
@@ -39,7 +39,7 @@ int main()
     float aspectRatio = static_cast<float>(width) / height;
     PerspectiveCamera camera = PerspectiveCamera(aspectRatio, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
-    camera.setPosition(Vec3f(0.0f, 1.0f, -4.0f));
+    camera.setPosition(Vec3f(0.0f, 0.5f, -4.0f));
     //camera.setOrientation(QuatF::rotation(Vec3f(0, 1, 0), piF * 1.0f));
     auto sensor = Sensor(width, height);
 
@@ -54,12 +54,9 @@ int main()
         exit(1);
     }
 
-    std::vector<const TriangleMesh*> shapes = { mesh.get() };
-    BVH<2> accelerationStructure;
-    //BVHBuilderSAH<2> sahBuilder;
-    //sahBuilder.build(shapes, accelerationStructure);
-    BVHBuilderEmbree<2> embreeBuilder;
-    embreeBuilder.build(shapes, accelerationStructure);
+	SceneView scene;
+	scene.addShape(mesh.get());
+	EmbreeAccel accelerationStructure(scene);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
@@ -75,8 +72,6 @@ int main()
 
         auto prevFrameEndTime = std::chrono::high_resolution_clock::now();
 
-        SingleRayTraverser traverser(accelerationStructure);
-
         float widthF = static_cast<float>(width);
         float heightF = static_cast<float>(height);
         tbb::parallel_for(0, height, [&](int y) {
@@ -84,10 +79,16 @@ int main()
                 auto pixelRasterCoords = Vec2i(x, y);
                 auto pixelScreenCoords = Vec2f(x / widthF, y / heightF);
                 Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
+				/*Ray ray;
+				ray.origin = Vec3f(0.25f, 0.25f, 0.0f);
+				ray.direction = Vec3f(0.0f, 0.0f, 1.0f);
+				ray.tnear = 0.0f;
+				ray.tfar = 100.0f;*/
 
-                IntersectionInfo intersectInfo;
-                if (traverser.intersect(ray)) {
-                    sensor.addPixelContribution(pixelRasterCoords, Vec3f(0.0f, ray.uv.x, ray.uv.y));
+                IntersectionData intersectionData;
+				accelerationStructure.intersect(ray, intersectionData);
+                if (intersectionData.objectHit != nullptr) {
+                    sensor.addPixelContribution(pixelRasterCoords, Vec3f(0.0f, intersectionData.uv.x, intersectionData.uv.y));
                 }
             }
         });

@@ -42,19 +42,13 @@
     <ClCompile Include="src\math\vec3.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\traversal\embree_builder.cpp">
+    <ClCompile Include="src\geometry\scene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\traversal\sbvh_builder.cpp">
+    <ClCompile Include="src\traversal\embree_accel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\traversal\single_ray_traverser.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\traversal\test_bvh.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\utility\blocked_stack_allocator.cpp">
+    <ClCompile Include="src\utility\blocked_linear_allocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -98,28 +92,22 @@
     <ClInclude Include="include\pandora\math\vec3.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\pandora\traversal\bvh.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\pandora\traversal\embree_builder.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\pandora\traversal\ray.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\pandora\traversal\sbvh_builder.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\pandora\traversal\single_ray_traverser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\pandora\traversal\test_bvh.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\pandora\utility\blocked_stack_allocator.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\pandora\utility\fixed_stack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pandora\geometry\scene.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pandora\traversal\acceleration_structure.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pandora\traversal\embree_accel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pandora\utility\blocked_linear_allocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

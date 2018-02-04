@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -72,6 +72,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\geometry\scene.cpp" />
     <ClCompile Include="src\core\perspective_camera.cpp" />
     <ClCompile Include="src\core\sensor.cpp" />
     <ClCompile Include="src\geometry\triangle.cpp" />
@@ -81,15 +82,13 @@
     <ClCompile Include="src\math\transform.cpp" />
     <ClCompile Include="src\math\vec2.cpp" />
     <ClCompile Include="src\math\vec3.cpp" />
-    <ClCompile Include="src\traversal\embree_builder.cpp" />
-    <ClCompile Include="src\traversal\sbvh_builder.cpp" />
-    <ClCompile Include="src\traversal\single_ray_traverser.cpp" />
-    <ClCompile Include="src\traversal\test_bvh.cpp" />
-    <ClCompile Include="src\utility\blocked_stack_allocator.cpp" />
+    <ClCompile Include="src\traversal\embree_accel.cpp" />
+    <ClCompile Include="src\utility\blocked_linear_allocator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\pandora\core\perspective_camera.h" />
     <ClInclude Include="include\pandora\core\sensor.h" />
+    <ClInclude Include="include\pandora\geometry\scene.h" />
     <ClInclude Include="include\pandora\geometry\shape.h" />
     <ClInclude Include="include\pandora\geometry\sphere.h" />
     <ClInclude Include="include\pandora\geometry\triangle.h" />
@@ -101,13 +100,10 @@
     <ClInclude Include="include\pandora\math\transform.h" />
     <ClInclude Include="include\pandora\math\vec2.h" />
     <ClInclude Include="include\pandora\math\vec3.h" />
-    <ClInclude Include="include\pandora\traversal\bvh.h" />
-    <ClInclude Include="include\pandora\traversal\embree_builder.h" />
+    <ClInclude Include="include\pandora\traversal\acceleration_structure.h" />
+    <ClInclude Include="include\pandora\traversal\embree_accel.h" />
     <ClInclude Include="include\pandora\traversal\ray.h" />
-    <ClInclude Include="include\pandora\traversal\sbvh_builder.h" />
-    <ClInclude Include="include\pandora\traversal\single_ray_traverser.h" />
-    <ClInclude Include="include\pandora\traversal\test_bvh.h" />
-    <ClInclude Include="include\pandora\utility\blocked_stack_allocator.h" />
+    <ClInclude Include="include\pandora\utility\blocked_linear_allocator.h" />
     <ClInclude Include="include\pandora\utility\fixed_stack.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

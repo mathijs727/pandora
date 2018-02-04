@@ -9,11 +9,11 @@
 
 namespace pandora {
 
-class BlockedStackAllocator {
+class BlockedLinearAllocator {
 public:
     static const size_t maxAlignment = 64;
 
-    BlockedStackAllocator(size_t blockSizeBytes = 4096);
+    BlockedLinearAllocator(size_t blockSizeBytes = 4096);
 
     template <class T>
     T* allocate(size_t n = 1, size_t alignment = alignof(T)); // Allocate multiple items at once (contiguous in memory)
@@ -42,7 +42,7 @@ private:
 };
 
 template <class T>
-T* BlockedStackAllocator::allocate(size_t n, size_t alignment)
+T* BlockedLinearAllocator::allocate(size_t n, size_t alignment)
 {
     // Assert that the requested alignment is a power of 2 (a requirement in C++ 17)
     // https://stackoverflow.com/questions/10585450/how-do-i-check-if-a-template-parameter-is-a-power-of-two

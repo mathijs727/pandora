@@ -1,14 +1,14 @@
-#include "pandora/utility/blocked_stack_allocator.h"
+#include "pandora/utility/blocked_linear_allocator.h"
 
 namespace pandora {
-BlockedStackAllocator::BlockedStackAllocator(size_t blockSize)
+BlockedLinearAllocator::BlockedLinearAllocator(size_t blockSize)
     : m_memoryBlockSize(blockSize)
     , m_memoryBlocks()
     , m_threadLocalBlocks(ThreadLocalData())
 {
 }
 
-void BlockedStackAllocator::reset()
+void BlockedLinearAllocator::reset()
 {
     for (auto& localBlock : m_threadLocalBlocks) {
         localBlock.data = nullptr;
@@ -19,7 +19,7 @@ void BlockedStackAllocator::reset()
     m_memoryBlocks.clear();
 }
 
-void BlockedStackAllocator::allocateBlock()
+void BlockedLinearAllocator::allocateBlock()
 {
     auto& localBlock = m_threadLocalBlocks.local();
 
@@ -29,7 +29,7 @@ void BlockedStackAllocator::allocateBlock()
     localBlock.space = m_memoryBlockSize;
 }
 
-void* BlockedStackAllocator::tryAlignedAllocInCurrentBlock(size_t amount, size_t alignment)
+void* BlockedLinearAllocator::tryAlignedAllocInCurrentBlock(size_t amount, size_t alignment)
 {
     auto& localBlock = m_threadLocalBlocks.local();
 

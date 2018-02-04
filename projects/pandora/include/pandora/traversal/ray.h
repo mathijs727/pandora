@@ -5,23 +5,30 @@
 
 namespace pandora {
 
+class Shape;
+
 struct Ray {
 public:
     Ray() = default;
     Ray(Vec3f origin_, Vec3f direction_)
         : origin(origin_)
         , direction(direction_)
-        , t(std::numeric_limits<float>::max()){};
+		, tnear(0.0f)
+		, tfar(std::numeric_limits<float>::max())
+	{
+	}
 
     Vec3f origin;
     Vec3f direction;
-    Vec2f uv;
-    float t;
+	float tnear;
+	float tfar;
 };
 
-struct ShadeData {
-    //TODO(Mathijs): Pointer to the object that we hit
-    Vec3f hitPoint;
-    Vec3f normal;
+struct IntersectionData {
+	const Shape* objectHit;
+
+	Vec2f uv;
+	Vec3f geometricNormal;
 };
+
 }
