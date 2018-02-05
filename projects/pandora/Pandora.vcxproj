@@ -51,9 +51,9 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)/include;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GSL/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/embree/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/Boost/include/boost-1_65_1/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/assimp/include/;$(SolutionDir)/third_party/downloads/tbb/include/</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)/include;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GSL/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/embree/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/Boost/include/boost-1_66/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/assimp/include/;$(SolutionDir)/third_party/downloads/tbb/include/</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX=1;_SCL_SECURE_NO_WARNINGS=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(SolutionDir)/../third_party/downloads/tbb/lib/intel64/vc14/;$(SolutionDir)/../third_party/install/$(ThirdPartyBuildType)/embree/lib/;$(SolutionDir)/../third_party/install/$(ThirdPartyBuildType)/assimp/lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -62,9 +62,9 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)/include;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GSL/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/embree/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/Boost/include/boost-1_65_1/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/assimp/include/;$(SolutionDir)/third_party/downloads/tbb/include/</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)/include;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GSL/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/embree/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/Boost/include/boost-1_66/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/assimp/include/;$(SolutionDir)/third_party/downloads/tbb/include/</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX=1;_SCL_SECURE_NO_WARNINGS=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(SolutionDir)/../third_party/downloads/tbb/lib/intel64/vc14/;$(SolutionDir)/../third_party/install/$(ThirdPartyBuildType)/embree/lib/;$(SolutionDir)/../third_party/install/$(ThirdPartyBuildType)/assimp/lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>

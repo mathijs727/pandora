@@ -51,25 +51,25 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)/src;$(ProjectDir)/../pandora/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/Boost/include/boost-1_65_1/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GLEW/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/embree/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GSL/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/glfw3/include/;$(SolutionDir)/third_party/downloads/tbb/include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)/src;$(ProjectDir)/../pandora/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/Boost/include/boost-1_66/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GLEW/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/embree/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GSL/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/glfw3/include/;$(SolutionDir)/third_party/downloads/tbb/include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>GLEW_STATIC</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GLEW_STATIC=1;_SCL_SECURE_NO_WARNINGS=1</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/assimp/lib/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/glfw3/lib/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GLEW/lib/;$(SolutionDir)/third_party/downloads/tbb/lib/intel64/vc14/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/embree/lib/</AdditionalLibraryDirectories>
       <AdditionalDependencies>opengl32.lib;glew32.lib;glfw3.lib;assimp-vc140-mt.lib;embree.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>XCOPY /F /Y /I "$(SolutionDir)third_party/downloads/tbb/bin/intel64/vc14/tbb.dll" "$(TargetDir)"
+      <Command>XCOPY /F /Y /I "$(SolutionDir)third_party/downloads/tbb/bin/intel64/vc14/tbb_debug.dll" "$(TargetDir)"
 XCOPY /F /Y /I "$(SolutionDir)third_party/install/$(ThirdPartyBuildType)/embree/bin/embree.dll" "$(TargetDir)"
-XCOPY /F /Y /I "$(SolutionDir)third_party/install/$(ThirdPartyBuildType)/assimp/bin/assimp-vc140-mt.dll" "$(TargetDir)"</Command>
+XCOPY /F /Y /I "$(SolutionDir)third_party/install/$(ThirdPartyBuildType)/assimp/bin/assimp-vc140-mtd.dll" "$(TargetDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)/src;$(ProjectDir)/../pandora/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/Boost/include/boost-1_65_1/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GLEW/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/embree/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GSL/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/glfw3/include/;$(SolutionDir)/third_party/downloads/tbb/include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)/src;$(ProjectDir)/../pandora/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/Boost/include/boost-1_66/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GLEW/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/embree/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GSL/include/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/glfw3/include/;$(SolutionDir)/third_party/downloads/tbb/include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>GLEW_STATIC</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GLEW_STATIC=1;_SCL_SECURE_NO_WARNINGS=1</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/assimp/lib/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/glfw3/lib/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/GLEW/lib/;$(SolutionDir)/third_party/downloads/tbb/lib/intel64/vc14/;$(SolutionDir)/third_party/install/$(ThirdPartyBuildType)/embree/lib/</AdditionalLibraryDirectories>

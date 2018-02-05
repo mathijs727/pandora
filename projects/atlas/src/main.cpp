@@ -79,11 +79,6 @@ int main()
                 auto pixelRasterCoords = Vec2i(x, y);
                 auto pixelScreenCoords = Vec2f(x / widthF, y / heightF);
                 Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
-				/*Ray ray;
-				ray.origin = Vec3f(0.25f, 0.25f, 0.0f);
-				ray.direction = Vec3f(0.0f, 0.0f, 1.0f);
-				ray.tnear = 0.0f;
-				ray.tfar = 100.0f;*/
 
                 IntersectionData intersectionData;
 				accelerationStructure.intersect(ray, intersectionData);

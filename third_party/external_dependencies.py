@@ -222,11 +222,12 @@ def install_dependency(dep_name, dep_data, build_type):
                 "src",
                 "engine",
                 "build.jam")
-            with open(build_jam, "r") as file:
-                txt = file.readlines()
-            txt[186] = "toolset cc \"$(CC)\" : \"-o \" : -D"
-            with open(build_jam, "w") as file:
-                file.writelines(txt)
+            # https://github.com/boostorg/build/issues/239
+            #with open(build_jam, "r") as file:
+            #    txt = file.readlines()
+            #txt[186] = "toolset cc \"$(CC)\" : \"-o \" : -D"
+            #with open(build_jam, "w") as file:
+            #    file.writelines(txt)
 
             bootstrap_path = os.path.join(download_folder, "bootstrap.bat")
         else:
