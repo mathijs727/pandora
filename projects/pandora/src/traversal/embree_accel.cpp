@@ -8,7 +8,7 @@
 
 namespace pandora {
 
-EmbreeAccel::EmbreeAccel(const SceneView& scene)
+EmbreeAccel::EmbreeAccel(const Scene& scene)
 {
 	m_device = rtcNewDevice(nullptr);
 	rtcDeviceSetErrorFunction2(m_device, embreeErrorFunc, nullptr);

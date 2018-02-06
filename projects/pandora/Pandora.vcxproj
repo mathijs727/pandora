@@ -72,6 +72,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\core\progressive_renderer.cpp" />
     <ClCompile Include="src\geometry\scene.cpp" />
     <ClCompile Include="src\core\perspective_camera.cpp" />
     <ClCompile Include="src\core\sensor.cpp" />
@@ -87,6 +88,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\pandora\core\perspective_camera.h" />
+    <ClInclude Include="include\pandora\core\progressive_renderer.h" />
     <ClInclude Include="include\pandora\core\sensor.h" />
     <ClInclude Include="include\pandora\geometry\scene.h" />
     <ClInclude Include="include\pandora\geometry\shape.h" />

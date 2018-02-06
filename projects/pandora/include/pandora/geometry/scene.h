@@ -6,7 +6,7 @@ namespace pandora
 {
 class Shape;
 
-class SceneView// "Scene" clashes with an object defined in Embree (which does not use namespaces)
+class Scene// "Scene" clashes with an object defined in Embree (which does not use namespaces)
 {
 public:
 	//Scene();

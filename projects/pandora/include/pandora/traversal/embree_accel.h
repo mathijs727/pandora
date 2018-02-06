@@ -4,14 +4,14 @@
 
 namespace pandora {
 
-class SceneView;
+class Scene;
 class TriangleMesh;
 class Sphere;
 
 class EmbreeAccel : public AccelerationStructure
 {
 public:
-	EmbreeAccel(const SceneView& scene);
+	EmbreeAccel(const Scene& scene);
 	~EmbreeAccel();
 
 	void intersect(Ray& ray, IntersectionData& intersectionData) final;

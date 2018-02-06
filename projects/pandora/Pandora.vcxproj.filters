@@ -51,6 +51,9 @@
     <ClCompile Include="src\utility\blocked_linear_allocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\core\progressive_renderer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\pandora\core\perspective_camera.h">
@@ -108,6 +111,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\pandora\utility\blocked_linear_allocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pandora\core\progressive_renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
