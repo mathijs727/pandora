@@ -72,6 +72,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\shading\core\surface_interaction.cpp" />
+    <ClCompile Include="src\shading\core\bxdf.cpp" />
     <ClCompile Include="src\core\progressive_renderer.cpp" />
     <ClCompile Include="src\geometry\scene.cpp" />
     <ClCompile Include="src\core\perspective_camera.cpp" />
@@ -83,13 +85,16 @@
     <ClCompile Include="src\math\transform.cpp" />
     <ClCompile Include="src\math\vec2.cpp" />
     <ClCompile Include="src\math\vec3.cpp" />
+    <ClCompile Include="src\shading\core\specular_bxdf.cpp" />
     <ClCompile Include="src\traversal\embree_accel.cpp" />
     <ClCompile Include="src\utility\blocked_linear_allocator.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\pandora\core\globals.h" />
     <ClInclude Include="include\pandora\core\perspective_camera.h" />
     <ClInclude Include="include\pandora\core\progressive_renderer.h" />
     <ClInclude Include="include\pandora\core\sensor.h" />
+    <ClInclude Include="include\pandora\core\template_magic.h" />
     <ClInclude Include="include\pandora\geometry\scene.h" />
     <ClInclude Include="include\pandora\geometry\shape.h" />
     <ClInclude Include="include\pandora\geometry\sphere.h" />
@@ -102,6 +107,14 @@
     <ClInclude Include="include\pandora\math\transform.h" />
     <ClInclude Include="include\pandora\math\vec2.h" />
     <ClInclude Include="include\pandora\math\vec3.h" />
+    <ClInclude Include="include\pandora\shading\core\bsdf.h" />
+    <ClInclude Include="include\pandora\shading\core\rgb_spectrum.h" />
+    <ClInclude Include="include\pandora\shading\core\surface_interaction.h" />
+    <ClInclude Include="include\pandora\shading\materials\scaled_bxdf.h" />
+    <ClInclude Include="include\pandora\shading\core\spectrum.h" />
+    <ClInclude Include="include\pandora\shading\core\bxdf.h" />
+    <ClInclude Include="include\pandora\shading\materials\specular_bxdf.h" />
+    <ClInclude Include="include\pandora\shading\materials\material.h" />
     <ClInclude Include="include\pandora\traversal\acceleration_structure.h" />
     <ClInclude Include="include\pandora\traversal\embree_accel.h" />
     <ClInclude Include="include\pandora\traversal\ray.h" />

@@ -69,6 +69,8 @@ using Vec2f = Vec2<float>;
 using Vec2d = Vec2<double>;
 using Vec2i = Vec2<int>;
 
+using Point2f = Vec2<float>;
+
 template <typename T>
 template <typename S>
 inline Vec2<T>::operator Vec2<S>() const

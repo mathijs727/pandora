@@ -8,6 +8,9 @@
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
 
+#include "pandora/shading/materials/specular_bxdf.h"
+#include "pandora/shading/core/bsdf.h"
+
 #include "tbb/tbb.h"
 #include <iostream>
 #include <pmmintrin.h>
@@ -25,6 +28,13 @@ int main()
     // For optimal Embree performance
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+
+    auto si = SurfaceInteraction(nullptr, 0, Point3f(), Vec3f(), Point2f(), Vec3f(), Vec3f(), Normal3f(), Normal3f());
+    auto fresnel = DielectricFresnel(1.0f, 1.0f);
+    auto myBxDF = SpecularBxDF<decltype(fresnel)>(Spectrum(1.0f), fresnel);
+    auto myBSDF = BSDFImpl<decltype(myBxDF), decltype(myBxDF)>(si, 0.0f, myBxDF, myBxDF);
+    BSDF* anonymousBSDF = &myBSDF;
+    anonymousBSDF->f(Vec3f(), Vec3f(), BxDF_ALL);
 
 #ifdef WIN32
     std::string projectBasePath = "C:/Users/Mathijs/Documents/GitHub/pandora/";
