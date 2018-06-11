@@ -127,7 +127,7 @@ install:
 
   # Install dependencies
   - ./vcpkg install gtest
-  - ./vcpkg install tbb
+  #- ./vcpkg install tbb
   #- ./vcpkg install embree
   #- ./vcpkg install assimp# The installed *.lib file stored in ASSIMP_LIBRARIES is for Windows not Linux
   - ./vcpkg install ms-gsl
