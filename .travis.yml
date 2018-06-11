@@ -16,9 +16,8 @@ dist: trusty
 
 cache:
   directories:
-    - ${TRAVIS_BUILD_DIR}/deps
-    - ${TRAVIS_BUILD_DIR}/third_party/downloads/
-    - ${TRAVIS_BUILD_DIR}/third_party/install/
+    - ~/deps/
+    - ~/downloads/
   timeout: 1800
 
 matrix:
@@ -57,9 +56,10 @@ matrix:
             - gcc-7
             - g++-7
             - libstdc++6
-            - python-dev
-            - xorg-dev
-            - libglu1-mesa-dev
+            - libtbb-dev
+    #        - python-dev
+    #        - xorg-dev
+    #        - libglu1-mesa-dev
 
     # Release with libc++
     #- env: COMPILER=clang++-5.0 BUILD_TYPE=Release USE_STDLIB=libc++
@@ -81,17 +81,20 @@ matrix:
             - ninja-build
             - gcc-7
             - g++-7
-            - python-dev
-            - xorg-dev
-            - libglu1-mesa-dev
+            - libtbb-dev
+    #        - python-dev
+    #        - xorg-dev
+    #        - libglu1-mesa-dev
 
     #- env: COMPILER=g++-7 BUILD_TYPE=Release
     #  addons: *gcc7
 
 install:
   # Dependencies required by the CI are installed in ${TRAVIS_BUILD_DIR}/deps/
-  - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+  - DEPS_DIR="~/deps/"
+  - DEPS_DOWNLOAD_DIR="~/downloads/"
   - mkdir -p "${DEPS_DIR}"
+  - mkdir -p "${DEPS_DOWNLOAD_DIR}"
   - cd "${DEPS_DIR}"
 
   # Travis machines have 2 cores
@@ -111,6 +114,44 @@ install:
     fi
   - cmake --version
 
+  # Download and install vcpkg
+  - VCPKG_ROOT="${DEPS_DIR}/vcpkg"
+  - cd "${DEPS_DIR}"
+  - git clone git clone https://github.com/Microsoft/vcpkg --depth 1 vcpkg
+  - cd vcpkg
+  - ./bootstrap-vcpkg.sh
+  - ./vcpkg integrate install
+
+  # Install dependencies
+  - ./vcpkg install gtest
+  - ./vcpkg install tbb
+  - ./vcpkg install embree
+  #- ./vcpkg install assimp# The installed *.lib file stored in ASSIMP_LIBRARIES is for Windows not Linux
+  - ./vcpkg install ms-gsl
+
+  # Download and install Embree from source because vcpkg does not support TBB yet on Linux (which it depends on)
+  # Debug mode & SSE2 because compilation takes ages
+  - EMBREE_ROOT="${DEPS_DIR}/embree"
+  - cd "${DEPS_DOWNLOAD_DIR}"
+  - git clone git@github.com:embree/embree.git -b release --depth 1 embree
+  - cd embree
+  - mkdir build
+  - cd build
+  - cmake -GNinja -DCMAKE_INSTALL_PREFIX="${EMBREE_ROOT}" -DCMAKE_BUILD_TYPE=Debug -DEMBREE_MAX_ISA=SSE2 -DEMBREE_TUTORIALS=OFF -DEMBREE_ISPC_SUPPORT=OFF ../
+  - ninja
+  - ninja install
+
+  # Untill vcpkg gets fixed
+  - ASSIMP_ROOT="${DEPS_DIR}/assimp"
+  - cd "${DEPS_DOWNLOAD_DIR}"
+  - git clone git@github.com:assimp/assimp.git -b release --depth 1 assimp
+  - cd assimp
+  - mkdir build
+  - cd build
+  - cmake -GNinja -DCMAKE_INSTALL_PREFIX="${ASSIMP_ROOT}" ../
+  - ninja
+  - ninja install
+
 before_script:
   # Add libc++ flag when specified in USE_STDLIB
   - |
@@ -118,11 +159,10 @@ before_script:
       export CPP_FLAGS="-stdlib=libc++ ${CPP_FLAGS}"
     fi
 
-  # have CMake to generate build files
+  # Use CMake to generate build files
   - cd "${TRAVIS_BUILD_DIR}"
   - mkdir build && cd build
-  - cmake .. -G Ninja -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_FLAGS="${CPP_FLAGS}"
-  - export LD_LIBRARY_PATH="$PWD/shared_libs/"
+  - cmake -GNinja -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_FLAGS="${CPP_FLAGS}" -DASSIMP_ROOT_DIR="${ASSIMP_ROOT}" -Dembree_DIR="${EMBREE_ROOT}" -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" ../
   
 script:
   # build and run tests
