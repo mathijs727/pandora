@@ -56,8 +56,8 @@
     "Boost": {
         "all": {
             "download": {
-                    "url": "https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_65_1.tar.gz",
-                    "unpack_folder":  "boost_1_65_1"
+                    "url": "https://dl.bintray.com/boostorg/release/1.66.0/source/boost_1_66_0.tar.gz",
+                    "unpack_folder":  "boost_1_66_0"
             },
             "build": {
                 "build_system": "boost",

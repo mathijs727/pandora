@@ -92,4 +92,8 @@ Vec3<T> permute(const Vec3<T>& a, int newX, int newY, int newZ);
 using Vec3f = Vec3<float>;
 using Vec3d = Vec3<double>;
 using Vec3i = Vec3<int>;
+
+using Point3f = Vec3<float>;
+using Normal3f = Vec3<float>;
+
 }
