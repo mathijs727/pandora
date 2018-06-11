@@ -23,6 +23,11 @@ struct Zero<int> : std::true_type {
     static constexpr int get_value() { return 0; }
 };
 
+template <>
+struct Zero<unsigned> : std::true_type {
+    static constexpr unsigned get_value() { return 0u; }
+};
+
 template <typename T>
 constexpr T zero()
 {
@@ -48,6 +53,11 @@ struct One<double> : std::true_type {
 template <>
 struct One<int> : std::true_type {
     static constexpr int get_value() { return 1; }
+};
+
+template <>
+struct One<unsigned> : std::true_type {
+    static constexpr unsigned get_value() { return 1u; }
 };
 
 template <typename T>

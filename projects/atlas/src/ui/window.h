@@ -1,7 +1,7 @@
 #pragma once
+#include "GL/glew.h" // Include before glfw3
+#include "GLFW/glfw3.h"
 #include "pandora/math/vec2.h"
-#include <GL/glew.h> // Include before glfw3
-#include <GLFW/glfw3.h>
 #include <functional>
 #include <string_view>
 #include <vector>

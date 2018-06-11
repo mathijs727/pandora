@@ -57,6 +57,13 @@ int Vec3<int>::length() const
     return 0;
 }
 
+template <>
+unsigned Vec3<unsigned>::length() const
+{
+    assert(false); // Returning the length as an int would cause massive rounding errors
+    return 0;
+}
+
 template <typename T>
 Vec3<T> Vec3<T>::normalized() const
 {
@@ -160,6 +167,13 @@ template <typename T>
 Vec3<T> Vec3<T>::operator-() const
 {
     return Vec3<T>(-x, -y, -z);
+}
+
+template <>
+Vec3<unsigned> Vec3<unsigned>::operator-() const
+{
+    assert(false);
+    return Vec3<unsigned>(0u, 0u, 0u);
 }
 
 template <typename T>
@@ -316,6 +330,7 @@ template Vec3<double>::Vec3(const Vec3<float>&);
 template class Vec3<float>;
 template class Vec3<double>;
 template class Vec3<int>;
+template class Vec3<unsigned>;
 
 template Vec3<float> operator*(float, const Vec3<float>&);
 template Vec3<double> operator*(double, const Vec3<double>&);

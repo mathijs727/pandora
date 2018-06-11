@@ -29,7 +29,7 @@ gsl::not_null<const Vec3f*> Sensor::getFramebufferRaw() const
 
 int Sensor::getIndex(int x, int y) const
 {
-    return y * m_width + x;
+    return x * m_height + y;
 }
 
 }

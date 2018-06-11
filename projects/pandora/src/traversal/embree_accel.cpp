@@ -1,103 +1,128 @@
 #include "pandora/traversal/embree_accel.h"
+#include "embree3/rtcore_ray.h"
 #include "pandora/geometry/scene.h"
-#include "pandora/geometry/triangle.h"
 #include "pandora/geometry/sphere.h"
-#include <iostream>
-#include <embree2/rtcore_ray.h>
+#include "pandora/geometry/triangle.h"
 #include <gsl/span>
+#include <iostream>
 
 namespace pandora {
 
 EmbreeAccel::EmbreeAccel(const Scene& scene)
 {
-	m_device = rtcNewDevice(nullptr);
-	rtcDeviceSetErrorFunction2(m_device, embreeErrorFunc, nullptr);
+    m_device = rtcNewDevice(nullptr);
+    rtcSetDeviceErrorFunction(m_device, embreeErrorFunc, nullptr);
 
-	RTCSceneFlags sceneFlags = RTC_SCENE_STATIC | RTC_SCENE_HIGH_QUALITY;
-	RTCAlgorithmFlags algorithmFlags = RTC_INTERSECT1;
-	m_scene = rtcDeviceNewScene(m_device, sceneFlags, algorithmFlags);
+    m_scene = rtcNewScene(m_device);
+    rtcSetSceneBuildQuality(m_scene, RTC_BUILD_QUALITY_HIGH);
 
-	for (const Shape* shape : scene.getShapes()) {
-		if (auto triangleMesh = dynamic_cast<const TriangleMesh*>(shape)) {
-			addTriangleMesh(*triangleMesh);
-		} else if (auto sphere = dynamic_cast<const Sphere*>(shape)) {
-			addSphere(*sphere);
-		}
-	}
+    for (const Shape* shape : scene.getShapes()) {
+        if (auto triangleMesh = dynamic_cast<const TriangleMesh*>(shape)) {
+            addTriangleMesh(*triangleMesh);
+        } else if (auto sphere = dynamic_cast<const Sphere*>(shape)) {
+            addSphere(*sphere);
+        }
+    }
 
-	rtcCommit(m_scene);
+    rtcCommitScene(m_scene);
 }
 
 EmbreeAccel::~EmbreeAccel()
 {
-	rtcDeleteDevice(m_device);
+    rtcReleaseScene(m_scene);
+    rtcReleaseDevice(m_device);
 }
 
-template <size_t N>
-void convertRays(gsl::span<Ray> rays, RTCRayN* embreeRays)
+template <unsigned N>
+void convertRays(gsl::span<Ray> rays, RTCRayHitN* embreeRayHits)
 {
-	for (size_t i = 0; i < N; i++) {
-		RTCRayN_org_x(embreeRays, N, i) = rays[i].origin.x;
-		RTCRayN_org_y(embreeRays, N, i) = rays[i].origin.y;
-		RTCRayN_org_z(embreeRays, N, i) = rays[i].origin.z;
-		RTCRayN_dir_x(embreeRays, N, i) = rays[i].direction.x;
-		RTCRayN_dir_y(embreeRays, N, i) = rays[i].direction.y;
-		RTCRayN_dir_z(embreeRays, N, i) = rays[i].direction.z;
-		RTCRayN_tnear(embreeRays, N, i) = rays[i].tnear;
-		RTCRayN_tfar(embreeRays, N, i) = rays[i].tfar;
-		RTCRayN_geomID(embreeRays, N, i) = RTC_INVALID_GEOMETRY_ID;
-	}
+    RTCRayN* embreeRays = RTCRayHitN_RayN(embreeRayHits, N);
+    RTCHitN* embreeHits = RTCRayHitN_HitN(embreeRayHits, N);
+    for (unsigned i = 0; i < N; i++) {
+        RTCRayN_org_x(embreeRays, N, i) = rays[i].origin.x;
+        RTCRayN_org_y(embreeRays, N, i) = rays[i].origin.y;
+        RTCRayN_org_z(embreeRays, N, i) = rays[i].origin.z;
+        RTCRayN_dir_x(embreeRays, N, i) = rays[i].direction.x;
+        RTCRayN_dir_y(embreeRays, N, i) = rays[i].direction.y;
+        RTCRayN_dir_z(embreeRays, N, i) = rays[i].direction.z;
+        RTCRayN_tnear(embreeRays, N, i) = rays[i].tnear;
+        RTCRayN_tfar(embreeRays, N, i) = rays[i].tfar;
+
+        RTCHitN_geomID(embreeHits, N, i) = RTC_INVALID_GEOMETRY_ID;
+        //RTCHitN_instID(embreeHits, N, i, 0) = RTC_INVALID_GEOMETRY_ID;
+    }
 }
 
-template <size_t N>
-void convertIntersections(RTCScene scene, RTCRayN* embreeRays, gsl::span<IntersectionData> intersections)
+template <unsigned N>
+void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<IntersectionData> intersections)
 {
-	for (size_t i = 0; i < N; i++) {
-		unsigned geomID = RTCRayN_geomID(embreeRays, N, i);
-		if (geomID == RTC_INVALID_GEOMETRY_ID) {// No hit
-			intersections[i].objectHit = nullptr;
-			return;
-		}
+    RTCHitN* embreeHits = RTCRayHitN_HitN(embreeRayHits, N);
+    for (unsigned i = 0; i < N; i++) {
+        unsigned geomID = RTCHitN_geomID(embreeHits, N, i);
+        if ( RTCHitN_geomID(embreeHits, N, i) == RTC_INVALID_GEOMETRY_ID) { // No hit
+            intersections[i].objectHit = nullptr;
+            return;
+        }
 
-		intersections[i].objectHit = reinterpret_cast<const Shape*>(rtcGetUserData(scene, geomID));
+        intersections[i].objectHit = reinterpret_cast<const Shape*>(rtcGetGeometryUserData(rtcGetGeometry(scene, geomID)));
 
-		intersections[i].uv.x = RTCRayN_u(embreeRays, N, i);
-		intersections[i].uv.y = RTCRayN_v(embreeRays, N, i);
+        intersections[i].uv.x = RTCHitN_u(embreeHits, N, i);
+        intersections[i].uv.y = RTCHitN_v(embreeHits, N, i);
 
-		intersections[i].geometricNormal.x = RTCRayN_Ng_x(embreeRays, N, i);
-		intersections[i].geometricNormal.y = RTCRayN_Ng_y(embreeRays, N, i);
-		intersections[i].geometricNormal.z = RTCRayN_Ng_z(embreeRays, N, i);
-	}
+        intersections[i].geometricNormal.x = RTCHitN_Ng_x(embreeHits, N, i);
+        intersections[i].geometricNormal.y = RTCHitN_Ng_y(embreeHits, N, i);
+        intersections[i].geometricNormal.z = RTCHitN_Ng_z(embreeHits, N, i);
+    }
 }
 
 void EmbreeAccel::intersect(Ray& ray, IntersectionData& intersectionData)
 {
-	RTCRay embreeRay;
-	convertRays<1>(gsl::make_span(&ray, 1), reinterpret_cast<RTCRayN*>(&embreeRay));
+    RTCIntersectContext context;
+    rtcInitIntersectContext(&context);
 
-	rtcIntersect(m_scene, embreeRay);
+    RTCRayHit embreeRayHit;
+    convertRays<1>(gsl::make_span(&ray, 1), reinterpret_cast<RTCRayHitN*>(&embreeRayHit));
 
-	convertIntersections<1>(m_scene, reinterpret_cast<RTCRayN*>(&embreeRay), gsl::make_span(&intersectionData, 1));
+    rtcIntersect1(m_scene, &context, &embreeRayHit);
+
+    convertIntersections<1>(m_scene, reinterpret_cast<RTCRayHitN*>(&embreeRayHit), gsl::make_span(&intersectionData, 1));
 }
 
 void EmbreeAccel::intersect(gsl::span<Ray> rays, gsl::span<IntersectionData> intersectionData)
 {
-	RTCRay8 embreeRayPacket;
-	convertRays<8>(rays, reinterpret_cast<RTCRayN*>(&embreeRayPacket));
+    RTCIntersectContext context;
+    rtcInitIntersectContext(&context);
 
-	std::array<int32_t, 8> validMasks;
-	std::fill(validMasks.begin(), validMasks.end(), 0xFFFFFFFF);
-	rtcIntersect8(validMasks.data(), m_scene, embreeRayPacket);
+    RTCRayHit8 embreeRayHitPacket;
+    convertRays<1>(rays, reinterpret_cast<RTCRayHitN*>(&embreeRayHitPacket));
 
-	convertIntersections<8>(m_scene, reinterpret_cast<RTCRayN*>(&embreeRayPacket), intersectionData);
+    std::array<int32_t, 8> validMasks;
+    std::fill(validMasks.begin(), validMasks.end(), 0xFFFFFFFF);
+    rtcIntersect8(validMasks.data(), m_scene, &context, &embreeRayHitPacket);
+
+    convertIntersections<8>(m_scene, reinterpret_cast<RTCRayHitN*>(&embreeRayHitPacket), intersectionData);
 }
 
 void EmbreeAccel::addTriangleMesh(const TriangleMesh& triangleMesh)
 {
-	auto indices = triangleMesh.getIndices();
-	auto positions = triangleMesh.getPositions();
+    auto indices = triangleMesh.getIndices();
+    auto positions = triangleMesh.getPositions();
 
-	unsigned geomID = rtcNewTriangleMesh2(m_scene, RTC_GEOMETRY_STATIC, indices.size(), positions.size());
+    RTCGeometry mesh = rtcNewGeometry(m_device, RTC_GEOMETRY_TYPE_TRIANGLE);
+    auto indexBuffer = reinterpret_cast<Vec3i*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(Vec3i), indices.size()));
+    std::copy(indices.begin(), indices.end(), indexBuffer);
+
+    auto vertexBuffer = reinterpret_cast<Vec3f*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(Vec3f), positions.size()));
+    std::copy(positions.begin(), positions.end(), vertexBuffer);
+
+    rtcSetGeometryUserData(mesh, const_cast<TriangleMesh*>(&triangleMesh));
+
+    rtcCommitGeometry(mesh);
+    unsigned geomID = rtcAttachGeometry(m_scene, mesh);
+    //rtcReleaseGeometry(mesh);
+
+
+    /*unsigned geomID = rtcNewTriangleMesh2(m_scene, RTC_GEOMETRY_STATIC, indices.size(), positions.size());
 	auto indexBuffer = reinterpret_cast<Vec3i*>(rtcMapBuffer(m_scene, geomID, RTC_INDEX_BUFFER));
 	std::copy(indices.begin(), indices.end(), indexBuffer);
 	rtcUnmapBuffer(m_scene, geomID, RTC_INDEX_BUFFER);
@@ -110,43 +135,42 @@ void EmbreeAccel::addTriangleMesh(const TriangleMesh& triangleMesh)
 	std::copy(positions.begin(), positions.end(), vertexBuffer);
 	rtcUnmapBuffer(m_scene, geomID, RTC_VERTEX_BUFFER);
 
-	rtcSetUserData(m_scene, geomID, const_cast<TriangleMesh*>(&triangleMesh));
+	rtcSetUserData(m_scene, geomID, const_cast<TriangleMesh*>(&triangleMesh));*/
 }
 
 void EmbreeAccel::addSphere(const Sphere& sphere)
 {
-	// NOT IMPLEMENTED YET
-	std::cout << "Sphere not implemented yet for Embree accelerator" << std::endl;
+    // NOT IMPLEMENTED YET
+    std::cout << "Sphere not implemented yet for Embree accelerator" << std::endl;
 }
 
 void EmbreeAccel::embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
 {
-	switch (code)
-	{
-	case RTC_NO_ERROR:
-		std::cout << "RTC_NO_ERROR";
-		break;
-	case RTC_UNKNOWN_ERROR:
-		std::cout << "RTC_UNKNOWN_ERROR";
-		break;
-	case RTC_INVALID_ARGUMENT:
-		std::cout << "RTC_INVALID_ARGUMENT";
-		break;
-	case RTC_INVALID_OPERATION:
-		std::cout << "RTC_INVALID_OPERATION";
-		break;
-	case RTC_OUT_OF_MEMORY:
-		std::cout << "RTC_OUT_OF_MEMORY";
-		break;
-	case RTC_UNSUPPORTED_CPU:
-		std::cout << "RTC_UNSUPPORTED_CPU";
-		break;
-	case RTC_CANCELLED:
-		std::cout << "RTC_CANCELLED";
-		break;
-	}
+    switch (code) {
+    case RTC_ERROR_NONE:
+        std::cout << "RTC_ERROR_NONE";
+        break;
+    case RTC_ERROR_UNKNOWN:
+        std::cout << "RTC_ERROR_UNKNOWN";
+        break;
+    case RTC_ERROR_INVALID_ARGUMENT:
+        std::cout << "RTC_ERROR_INVALID_ARGUMENT";
+        break;
+    case RTC_ERROR_INVALID_OPERATION:
+        std::cout << "RTC_ERROR_INVALID_OPERATION";
+        break;
+    case RTC_ERROR_OUT_OF_MEMORY:
+        std::cout << "RTC_ERROR_OUT_OF_MEMORY";
+        break;
+    case RTC_ERROR_UNSUPPORTED_CPU:
+        std::cout << "RTC_ERROR_UNSUPPORTED_CPU";
+        break;
+    case RTC_ERROR_CANCELLED:
+        std::cout << "RTC_ERROR_CANCELLED";
+        break;
+    }
 
-	std::cout << ": " << str << std::endl;
+    std::cout << ": " << str << std::endl;
 }
 
 }

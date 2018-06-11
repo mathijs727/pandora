@@ -1,6 +1,6 @@
 #pragma once
 #include "pandora/traversal/acceleration_structure.h"
-#include "embree2/rtcore.h"
+#include "embree3/rtcore.h"
 
 namespace pandora {
 
