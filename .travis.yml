@@ -140,14 +140,14 @@ install:
   - cd embree
   - mkdir build
   - cd build
-  - cmake -GNinja -DCMAKE_INSTALL_PREFIX="${EMBREE_ROOT}" -DCMAKE_BUILD_TYPE=Debug -DEMBREE_MAX_ISA=SSE2 -DEMBREE_TUTORIALS=OFF -DEMBREE_ISPC_SUPPORT=OFF ../
+  - cmake -GNinja -DCMAKE_INSTALL_PREFIX="${EMBREE_ROOT}" -DCMAKE_BUILD_TYPE=Debug -DEMBREE_MAX_ISA=SSE2 -DEMBREE_TUTORIALS=OFF -DEMBREE_ISPC_SUPPORT=OFF -DEMBREE_GEOMETRY_CURVE=OFF -DEMBREE_GEOMETRY_SUBDIVISION=OFF ../
   - ninja -j${JOBS}
   - ninja install
 
   # Untill vcpkg gets fixed
   - ASSIMP_ROOT="${DEPS_DIR}/assimp"
   - cd "${DEPS_DOWNLOAD_DIR}"
-  - git clone git@github.com:assimp/assimp.git -b release --depth 1 assimp
+  - git clone git@github.com:assimp/assimp.git --depth 1 assimp
   - cd assimp
   - mkdir build
   - cd build
