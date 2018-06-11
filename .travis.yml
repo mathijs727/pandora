@@ -91,8 +91,8 @@ matrix:
 
 install:
   # Dependencies required by the CI are installed in ${TRAVIS_BUILD_DIR}/deps/
-  - DEPS_DIR="~/deps/"
-  - DEPS_DOWNLOAD_DIR="~/downloads/"
+  - DEPS_DIR="${HOME}/deps/"
+  - DEPS_DOWNLOAD_DIR="${HOME}/downloads/"
   - mkdir -p "${DEPS_DIR}"
   - mkdir -p "${DEPS_DOWNLOAD_DIR}"
   - cd "${DEPS_DIR}"
