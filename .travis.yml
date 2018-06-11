@@ -99,7 +99,7 @@ install:
   - cd "${DEPS_DIR}"
 
   # Travis machines have 2 cores
-  - JOBS=2
+  - JOBS=1
 
   ############################################################################
   # Install a recent CMake (unless already installed on OS X)
@@ -120,6 +120,8 @@ install:
   - cd "${DEPS_DIR}"
   - git clone https://github.com/Microsoft/vcpkg --depth 1 vcpkg
   - cd vcpkg
+  # Compile vcpkg with a single thread to prevent out-of-memory compiler crashes
+  - sed -i '205s/--build ./--build . -- -j1/' scripts/bootstrap.sh
   - ./bootstrap-vcpkg.sh
   - ./vcpkg integrate install
 
@@ -139,7 +141,7 @@ install:
   - mkdir build
   - cd build
   - cmake -GNinja -DCMAKE_INSTALL_PREFIX="${EMBREE_ROOT}" -DCMAKE_BUILD_TYPE=Debug -DEMBREE_MAX_ISA=SSE2 -DEMBREE_TUTORIALS=OFF -DEMBREE_ISPC_SUPPORT=OFF ../
-  - ninja
+  - ninja -j${JOBS}
   - ninja install
 
   # Untill vcpkg gets fixed
@@ -150,7 +152,7 @@ install:
   - mkdir build
   - cd build
   - cmake -GNinja -DCMAKE_INSTALL_PREFIX="${ASSIMP_ROOT}" ../
-  - ninja
+  - ninja -j${JOBS}
   - ninja install
 
 before_script:
