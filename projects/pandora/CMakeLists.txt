@@ -13,11 +13,9 @@ endif()
 target_compile_definitions(libPandora PRIVATE "ENABLE_STATIC_LIB")# Embree static lib
 
 target_link_libraries(libPandora PUBLIC
-    assimp_target
-    Boost::boost
-    TBB::tbb
-    embree_target
-    GSL)
+    assimp
+    embree
+	TBB::tbb)
 
 target_include_directories(libPandora PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include/)
 target_include_directories(libPandora PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src/)

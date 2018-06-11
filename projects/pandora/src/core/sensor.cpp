@@ -2,35 +2,34 @@
 #include <iterator>
 #include <memory>
 
-typedef boost::multi_array_types::index_range range;
-
 namespace pandora {
 
 Sensor::Sensor(int width, int height)
     : m_width(width)
     , m_height(height)
-    , m_frameBuffer(boost::extents[width][height])
+    , m_frameBuffer(std::make_unique<Vec3f[]>(width * height))
 {
     clear(Vec3f(0.0f));
 }
 
 void Sensor::clear(Vec3f color)
 {
-    std::fill(m_frameBuffer.origin(), m_frameBuffer.origin() + m_frameBuffer.num_elements(), color);
+    std::fill(m_frameBuffer.get(), m_frameBuffer.get() + m_width * m_height, color);
 }
 
 void Sensor::addPixelContribution(Vec2i pixel, Vec3f value)
 {
-    m_frameBuffer[pixel.x][pixel.y] += value;
-}
-
-const Sensor::FrameBufferConstArrayView Sensor::getFramebufferView() const
-{
-    return m_frameBuffer[boost::indices[range{ 0, m_width }][range{ 0, m_height }]];
+    m_frameBuffer[getIndex(pixel.x, pixel.y)] += value;
 }
 
 gsl::not_null<const Vec3f*> Sensor::getFramebufferRaw() const
 {
-    return m_frameBuffer.data();
+    return gsl::not_null<const Vec3f*>(m_frameBuffer.get());
 }
+
+int Sensor::getIndex(int x, int y) const
+{
+    return y * m_width + x;
+}
+
 }

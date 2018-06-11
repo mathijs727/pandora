@@ -6,7 +6,7 @@ namespace pandora {
 
 class Scene;
 class TriangleMesh;
-class Sphere;
+struct Sphere;
 
 class EmbreeAccel : public AccelerationStructure
 {

@@ -12,10 +12,11 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/math/vec2.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/math/vec3.cpp"
 
-        "${CMAKE_CURRENT_LIST_DIR}/traversal/sbvh_builder.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/traversal/embree_builder.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/traversal/single_ray_traverser.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/traversal/test_bvh.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/traversal/sbvh_builder.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/traversal/embree_builder.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/traversal/single_ray_traverser.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/traversal/test_bvh.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/traversal/embree_accel.cpp"
 
-        "${CMAKE_CURRENT_LIST_DIR}/utility/blocked_stack_allocator.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/utility/blocked_stack_allocator.cpp"
 )
