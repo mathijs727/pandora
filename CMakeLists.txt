@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(pandora)
 
 option(BUILD_TESTS "Build tests for Pandora" ON)
-option(BUILD_ATLAS "Build Atlas (real-time viewer)" OFF)
+option(BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
 
 #find_package(GSL REQUIRED)# Guideline Support Library (like the Microsoft implementation)
 find_package(tbb REQUIRED)
