@@ -14,6 +14,7 @@ target_compile_definitions(libPandora PRIVATE "ENABLE_STATIC_LIB")# Embree stati
 
 target_link_libraries(libPandora PUBLIC
     assimp
+	glm
     embree
 	TBB::tbb)
 

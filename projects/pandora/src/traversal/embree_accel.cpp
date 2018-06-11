@@ -109,10 +109,10 @@ void EmbreeAccel::addTriangleMesh(const TriangleMesh& triangleMesh)
     auto positions = triangleMesh.getPositions();
 
     RTCGeometry mesh = rtcNewGeometry(m_device, RTC_GEOMETRY_TYPE_TRIANGLE);
-    auto indexBuffer = reinterpret_cast<Vec3i*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(Vec3i), indices.size()));
+    auto indexBuffer = reinterpret_cast<glm::ivec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(glm::ivec3), indices.size()));
     std::copy(indices.begin(), indices.end(), indexBuffer);
 
-    auto vertexBuffer = reinterpret_cast<Vec3f*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(Vec3f), positions.size()));
+    auto vertexBuffer = reinterpret_cast<glm::vec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(glm::vec3), positions.size()));
     std::copy(positions.begin(), positions.end(), vertexBuffer);
 
     rtcSetGeometryUserData(mesh, const_cast<TriangleMesh*>(&triangleMesh));
@@ -123,12 +123,12 @@ void EmbreeAccel::addTriangleMesh(const TriangleMesh& triangleMesh)
 
 
     /*unsigned geomID = rtcNewTriangleMesh2(m_scene, RTC_GEOMETRY_STATIC, indices.size(), positions.size());
-	auto indexBuffer = reinterpret_cast<Vec3i*>(rtcMapBuffer(m_scene, geomID, RTC_INDEX_BUFFER));
+	auto indexBuffer = reinterpret_cast<glm::ivec3*>(rtcMapBuffer(m_scene, geomID, RTC_INDEX_BUFFER));
 	std::copy(indices.begin(), indices.end(), indexBuffer);
 	rtcUnmapBuffer(m_scene, geomID, RTC_INDEX_BUFFER);
 
 	struct EmbreeVertex {
-		EmbreeVertex(const Vec3f& v) : x(v.x), y(v.y), z(v.z), a(0.0f) { }
+		EmbreeVertex(const glm::vec3& v) : x(v.x), y(v.y), z(v.z), a(0.0f) { }
 		float x, y, z, a;
 	};
 	auto vertexBuffer = reinterpret_cast<EmbreeVertex*>(rtcMapBuffer(m_scene, geomID, RTC_VERTEX_BUFFER));

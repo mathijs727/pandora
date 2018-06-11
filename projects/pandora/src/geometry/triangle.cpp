@@ -2,7 +2,7 @@
 #include "assimp/Importer.hpp"
 #include "assimp/postprocess.h"
 #include "assimp/scene.h"
-#include "pandora/math/mat3x4.h"
+#include "glm/mat4x4.hpp"
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -12,9 +12,9 @@
 namespace pandora {
 
 TriangleMesh::TriangleMesh(
-	std::vector<Vec3i>&& indices,
-	std::vector<Vec3f>&& positions,
-	std::vector<Vec3f>&& normals)
+	std::vector<glm::ivec3>&& indices,
+	std::vector<glm::vec3>&& positions,
+	std::vector<glm::vec3>&& normals)
 	: m_numPrimitives((unsigned)indices.size())
 	, m_primitiveBounds(m_numPrimitives)
 	, m_indices(std::move(indices))
@@ -25,8 +25,8 @@ TriangleMesh::TriangleMesh(
 	assert(m_positions.size() == m_normals.size() || m_normals.size() == 0);
 
 	for (unsigned i = 0; i < m_numPrimitives; i++) {
-		Vec3i indices = m_indices[i];
-		Bounds3f& bounds = m_primitiveBounds[i];
+		glm::ivec3 indices = m_indices[i];
+		Bounds& bounds = m_primitiveBounds[i];
 		bounds.reset();
 		bounds.grow(m_positions[indices.x]);
 		bounds.grow(m_positions[indices.y]);
@@ -40,35 +40,40 @@ static bool fileExists(const std::string_view name)
 	return f.good() && f.is_open();
 }
 
-static Mat3x4f assimpMatrix(const aiMatrix4x4& m)
+static glm::mat4 assimpMatrix(const aiMatrix4x4& m)
 {
-	float values[3][4] = {};
-	values[0][0] = m.a1;
-	values[0][1] = m.b1;
-	values[0][2] = m.c1;
-	values[0][3] = m.d1;
-	values[1][0] = m.a2;
-	values[1][1] = m.b2;
-	values[1][2] = m.c2;
-	values[1][3] = m.d2;
-	values[2][0] = m.a3;
-	values[2][1] = m.b3;
-	values[2][2] = m.c3;
-	values[2][3] = m.d3;
-	return Mat3x4f(values);
+	//float values[3][4] = {};
+    glm::mat4 matrix;
+	matrix[0][0] = m.a1;
+	matrix[0][1] = m.b1;
+	matrix[0][2] = m.c1;
+	matrix[0][3] = m.d1;
+	matrix[1][0] = m.a2;
+	matrix[1][1] = m.b2;
+	matrix[1][2] = m.c2;
+	matrix[1][3] = m.d2;
+	matrix[2][0] = m.a3;
+	matrix[2][1] = m.b3;
+	matrix[2][2] = m.c3;
+	matrix[2][3] = m.d3;
+    matrix[3][0] = m.a4;
+	matrix[3][1] = m.b4;
+	matrix[3][2] = m.c4;
+	matrix[3][3] = m.d4;
+	return matrix;
 }
 
-static Vec3f assimpVec(const aiVector3D& v)
+static glm::vec3 assimpVec(const aiVector3D& v)
 {
-	return Vec3f(v.x, v.y, v.z);
+	return glm::vec3(v.x, v.y, v.z);
 }
 
 static void addSubMesh(const aiScene* scene,
 	const unsigned meshIndex,
-	const Mat3x4f& transformMatrix,
-	std::vector<Vec3i>& indices,
-	std::vector<Vec3f>& positions,
-	std::vector<Vec3f>& normals)
+	const glm::mat4& transformMatrix,
+	std::vector<glm::ivec3>& indices,
+	std::vector<glm::vec3>& positions,
+	std::vector<glm::vec3>& normals)
 {
 	aiMesh* mesh = scene->mMeshes[meshIndex];
 
@@ -78,8 +83,8 @@ static void addSubMesh(const aiScene* scene,
 	// Add all vertex data
 	unsigned vertexOffset = (unsigned)positions.size();
 	for (unsigned vertexIdx = 0; vertexIdx < mesh->mNumVertices; vertexIdx++) {
-		//Vec3f position = transformMatrix.transformPoint(assimpVec(mesh->mVertices[vertexIdx]));
-		Vec3f position = assimpVec(mesh->mVertices[vertexIdx]);
+		//glm::vec3 position = transformMatrix.transformPoint(assimpVec(mesh->mVertices[vertexIdx]));
+		glm::vec3 position = assimpVec(mesh->mVertices[vertexIdx]);
 		//position = transformMatrix.transformPoint(position);
 		positions.push_back(position);
 	}
@@ -93,7 +98,7 @@ static void addSubMesh(const aiScene* scene,
 		}
 
 		auto aiIndices = face.mIndices;
-		Vec3i triangle = {
+		glm::ivec3 triangle = {
 			static_cast<int>(aiIndices[0] + vertexOffset),
 			static_cast<int>(aiIndices[1] + vertexOffset),
 			static_cast<int>(aiIndices[2] + vertexOffset)
@@ -104,9 +109,9 @@ static void addSubMesh(const aiScene* scene,
 
 std::unique_ptr<TriangleMesh> TriangleMesh::singleTriangle()
 {
-	std::vector<Vec3i> indices = { { 0, 1, 2 } };
-	std::vector<Vec3f> positions = { Vec3f(-1, -1, 0), Vec3f(1, -1, 0), Vec3f(0, 1, 0) };
-	std::vector<Vec3f> normals;
+	std::vector<glm::ivec3> indices = { { 0, 1, 2 } };
+	std::vector<glm::vec3> positions = { glm::vec3(-1, -1, 0), glm::vec3(1, -1, 0), glm::vec3(0, 1, 0) };
+	std::vector<glm::vec3> normals;
 	return std::make_unique<TriangleMesh>(std::move(indices), std::move(positions), std::move(normals));
 }
 
@@ -127,11 +132,11 @@ std::unique_ptr<TriangleMesh> TriangleMesh::loadFromFile(const std::string_view 
 		return nullptr;
 	}
 
-	std::vector<Vec3i> indices;
-	std::vector<Vec3f> positions;
-	std::vector<Vec3f> normals;
+	std::vector<glm::ivec3> indices;
+	std::vector<glm::vec3> positions;
+	std::vector<glm::vec3> normals;
 
-	std::stack<std::tuple<aiNode*, Mat3x4f>> stack;
+	std::stack<std::tuple<aiNode*, glm::mat4>> stack;
 	stack.push({ scene->mRootNode, assimpMatrix(scene->mRootNode->mTransformation) });
 	while (!stack.empty()) {
 		auto[node, transform] = stack.top();
@@ -164,17 +169,17 @@ unsigned TriangleMesh::numPrimitives() const
 	return m_numPrimitives;
 }
 
-const gsl::span<const Vec3i> TriangleMesh::getIndices() const
+const gsl::span<const glm::ivec3> TriangleMesh::getIndices() const
 {
 	return m_indices;
 }
 
-const gsl::span<const Vec3f> TriangleMesh::getPositions() const
+const gsl::span<const glm::vec3> TriangleMesh::getPositions() const
 {
 	return  m_positions;
 }
 
-const gsl::span<const Vec3f> TriangleMesh::getNormals() const
+const gsl::span<const glm::vec3> TriangleMesh::getNormals() const
 {
 	return m_normals;
 }
@@ -182,12 +187,12 @@ const gsl::span<const Vec3f> TriangleMesh::getNormals() const
 
 /*
 
-gsl::span<const Bounds3f> TriangleMesh::getPrimitivesBounds() const
+gsl::span<const Bounds> TriangleMesh::getPrimitivesBounds() const
 {
-    return gsl::span<const Bounds3f>(m_primitiveBounds);
+    return gsl::span<const Bounds>(m_primitiveBounds);
 }
 
-Vec3f TriangleMesh::getNormal(unsigned primitiveIndex, Vec2f uv) const
+glm::vec3 TriangleMesh::getNormal(unsigned primitiveIndex, glm::vec2 uv) const
 {
     return m_normals[primitiveIndex];
 }
@@ -204,24 +209,24 @@ bool TriangleMesh::intersectMollerTrumbore(unsigned int primitiveIndex, Ray& ray
     const float EPSILON = 0.000001f;
 
     Triangle triangle = m_indices[primitiveIndex];
-    Vec3f p0 = m_positions[triangle.i0];
-    Vec3f p1 = m_positions[triangle.i1];
-    Vec3f p2 = m_positions[triangle.i2];
+    glm::vec3 p0 = m_positions[triangle.i0];
+    glm::vec3 p1 = m_positions[triangle.i1];
+    glm::vec3 p2 = m_positions[triangle.i2];
 
-    Vec3f e1 = p1 - p0;
-    Vec3f e2 = p2 - p0;
-    Vec3f h = cross(ray.direction, e2);
+    glm::vec3 e1 = p1 - p0;
+    glm::vec3 e2 = p2 - p0;
+    glm::vec3 h = cross(ray.direction, e2);
     float a = dot(e1, h);
     if (a > -EPSILON && a < EPSILON)
         return false;
 
     float f = 1.0f / a;
-    Vec3f s = ray.origin - p0;
+    glm::vec3 s = ray.origin - p0;
     float u = f * dot(s, h);
     if (u < 0.0f || u > 1.0f)
         return false;
 
-    Vec3f q = cross(s, e1);
+    glm::vec3 q = cross(s, e1);
     float v = f * dot(ray.direction, q);
     if (v < 0.0f || u + v > 1.0f)
         return false;
@@ -229,7 +234,7 @@ bool TriangleMesh::intersectMollerTrumbore(unsigned int primitiveIndex, Ray& ray
     float t = f * dot(e2, q);
     if (t > EPSILON) {
         ray.t = t;
-        ray.uv = Vec2f(u, v);
+        ray.uv = glm::vec2(u, v);
         return true;
     }
 
@@ -245,14 +250,14 @@ bool TriangleMesh::intersectPbrt(unsigned primitiveIndex, Ray& ray) const
     // direction points along the +Z axis. This makes the intersection test easy and
     // allows for watertight intersection testing.
     Triangle triangle = m_indices[primitiveIndex];
-    Vec3f p0 = m_positions[triangle.i0];
-    Vec3f p1 = m_positions[triangle.i1];
-    Vec3f p2 = m_positions[triangle.i2];
+    glm::vec3 p0 = m_positions[triangle.i0];
+    glm::vec3 p1 = m_positions[triangle.i1];
+    glm::vec3 p2 = m_positions[triangle.i2];
 
     // Translate vertices based on ray origin
-    Vec3f p0t = p0 - ray.origin;
-    Vec3f p1t = p1 - ray.origin;
-    Vec3f p2t = p2 - ray.origin;
+    glm::vec3 p0t = p0 - ray.origin;
+    glm::vec3 p1t = p1 - ray.origin;
+    glm::vec3 p2t = p2 - ray.origin;
 
     // Permutate components of triangle vertices and ray direction
     int kz = maxDimension(abs(ray.direction));
@@ -264,7 +269,7 @@ bool TriangleMesh::intersectPbrt(unsigned primitiveIndex, Ray& ray) const
         ky = 0;
     //int kx = (kz + 1) % 3;
     //int ky = (kz + 2) % 3;
-    Vec3f d = permute(ray.direction, kx, ky, kz);
+    glm::vec3 d = permute(ray.direction, kx, ky, kz);
     p0t = permute(p0t, kx, ky, kz);
     p1t = permute(p1t, kx, ky, kz);
     p2t = permute(p2t, kx, ky, kz);
@@ -331,7 +336,7 @@ bool TriangleMesh::intersectPbrt(unsigned primitiveIndex, Ray& ray) const
     float t = tScaled * invDet;
 
     ray.t = t;
-    ray.uv = Vec2f(b0, b1);
+    ray.uv = glm::vec2(b0, b1);
 
     return true;
 }*/

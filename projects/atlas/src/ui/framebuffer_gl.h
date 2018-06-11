@@ -11,7 +11,7 @@ public:
     FramebufferGL();
     ~FramebufferGL();
 
-    void clear(Vec3f color);
+    void clear(glm::vec3 color);
     void update(const Sensor& sensor);
 
 private:

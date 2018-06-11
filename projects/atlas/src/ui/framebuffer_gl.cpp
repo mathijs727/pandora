@@ -15,7 +15,7 @@ FramebufferGL::~FramebufferGL()
     glDeleteTextures(1, &m_textureID);
 }
 
-void FramebufferGL::clear(Vec3f color)
+void FramebufferGL::clear(glm::vec3 color)
 {
     glClearColor(color.x, color.y, color.z, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);

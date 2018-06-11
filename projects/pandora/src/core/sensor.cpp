@@ -7,24 +7,24 @@ namespace pandora {
 Sensor::Sensor(int width, int height)
     : m_width(width)
     , m_height(height)
-    , m_frameBuffer(std::make_unique<Vec3f[]>(width * height))
+    , m_frameBuffer(std::make_unique<glm::vec3[]>(width * height))
 {
-    clear(Vec3f(0.0f));
+    clear(glm::vec3(0.0f));
 }
 
-void Sensor::clear(Vec3f color)
+void Sensor::clear(glm::vec3 color)
 {
     std::fill(m_frameBuffer.get(), m_frameBuffer.get() + m_width * m_height, color);
 }
 
-void Sensor::addPixelContribution(Vec2i pixel, Vec3f value)
+void Sensor::addPixelContribution(glm::ivec2 pixel, glm::vec3 value)
 {
     m_frameBuffer[getIndex(pixel.x, pixel.y)] += value;
 }
 
-gsl::not_null<const Vec3f*> Sensor::getFramebufferRaw() const
+gsl::not_null<const glm::vec3*> Sensor::getFramebufferRaw() const
 {
-    return gsl::not_null<const Vec3f*>(m_frameBuffer.get());
+    return gsl::not_null<const glm::vec3*>(m_frameBuffer.get());
 }
 
 int Sensor::getIndex(int x, int y) const

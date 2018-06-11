@@ -93,7 +93,7 @@ void Window::mouseMoveCallback(GLFWwindow* window, double xpos, double ypos)
     Window* thisWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
     for (auto& callback : thisWindow->m_mouseMoveCallbacks)
-        callback(Vec2d(xpos, ypos));
+        callback(glm::dvec2(xpos, ypos));
 }
 
 bool Window::isKeyDown(int key)

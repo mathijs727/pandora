@@ -6,6 +6,7 @@ option(BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
 
 #find_package(GSL REQUIRED)# Guideline Support Library (like the Microsoft implementation)
 find_package(tbb REQUIRED)
+find_package(glm REQUIRED)
 
 find_package(assimp REQUIRED)
 add_library(assimp INTERFACE)

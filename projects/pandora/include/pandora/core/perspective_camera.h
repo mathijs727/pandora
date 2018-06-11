@@ -1,40 +1,40 @@
 #pragma once
+#include "glm/glm.hpp"
+#include "glm/gtc/quaternion.hpp"
 #include "pandora/core/sensor.h"
-#include "pandora/math/quaternion.h"
-#include "pandora/math/vec2.h"
 #include "pandora/traversal/ray.h"
 #include <iterator>
 
 namespace pandora {
 
 struct CameraSample {
-    CameraSample(Vec2f pixel_)
+    CameraSample(glm::vec2 pixel_)
         : pixel(pixel_)
         , lens()
     {
     }
-    Vec2f pixel;
-    Vec2f lens;
+    glm::vec2 pixel;
+    glm::vec2 lens;
 };
 
 class PerspectiveCamera {
 public:
     PerspectiveCamera(float aspectRatio, float fovX);
 
-    Vec3f getPosition() const;
-    void setPosition(Vec3f pos);
+    glm::vec3 getPosition() const;
+    void setPosition(glm::vec3 pos);
 
-    QuatF getOrienation() const;
-    void setOrientation(QuatF orientation);
+    glm::quat getOrienation() const;
+    void setOrientation(glm::quat orientation);
 
     Ray generateRay(const CameraSample& sample) const;
 
 private:
-    Vec2f m_virtualScreenSize;
+    glm::vec2 m_virtualScreenSize;
     float m_aspectRatio;
     float m_fovX;
 
-    Vec3f m_position;
-    QuatF m_orientation;
+    glm::vec3 m_position;
+    glm::quat m_orientation;
 };
 }

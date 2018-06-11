@@ -1,12 +1,10 @@
 #pragma once
 #include "GL/glew.h" // Include before glfw3
 #include "GLFW/glfw3.h"
-#include "pandora/math/vec2.h"
+#include "glm/glm.hpp"
 #include <functional>
 #include <string_view>
 #include <vector>
-
-using namespace pandora;
 
 namespace atlas {
 
@@ -25,9 +23,9 @@ public:
     using MouseButtonCallback = std::function<void(int button, int action, int mods)>;
     void registerMouseButtonCallback(MouseButtonCallback&&);
 
-    using MouseMoveCallback = std::function<void(Vec2d newPosition)>;
+    using MouseMoveCallback = std::function<void(glm::dvec2 newPosition)>;
     void registerMouseMoveCallback(MouseMoveCallback&&);
-
+   
     bool isKeyDown(int key);
 
     void setMouseCapture(bool capture);

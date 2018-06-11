@@ -3,5 +3,5 @@
 
 class LambertBxDF
 {
-    Vec3f sampleF(const Vec3f& wo, Vec3f& wi, const Point2f& sample, float& pdf, BxDFType* sampledType = nullptr) const = 0;
+    glm::vec3 sampleF(const glm::vec3& wo, glm::vec3& wi, const Point2f& sample, float& pdf, BxDFType* sampledType = nullptr) const = 0;
 };
