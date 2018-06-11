@@ -23,6 +23,27 @@ cache:
 matrix:
   include:
     ##########################################################################
+    # GCC on Linux
+    ##########################################################################
+    - env: CXX=g++-7 CC=gcc-7 BUILD_TYPE=Debug
+      addons: &gcc7
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - ninja-build
+            - gcc-7
+            - g++-7
+            - libtbb-dev
+    #        - python-dev
+    #        - xorg-dev
+    #        - libglu1-mesa-dev
+
+    #- env: COMPILER=g++-7 BUILD_TYPE=Release
+    #  addons: *gcc7
+
+
+    ##########################################################################
     # Clang on Linux
     ##########################################################################
     # Debug with libc++   --> the libc++ packages on Travis are outdated and dont support C++17
@@ -69,26 +90,6 @@ matrix:
     #- env: COMPILER=clang++-5.0 BUILD_TYPE=Release
     #  addons: *clang50
 
-    ##########################################################################
-    # GCC on Linux
-    ##########################################################################
-    - env: CXX=g++-7 CC=gcc-7 BUILD_TYPE=Debug
-      addons: &gcc7
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - ninja-build
-            - gcc-7
-            - g++-7
-            - libtbb-dev
-    #        - python-dev
-    #        - xorg-dev
-    #        - libglu1-mesa-dev
-
-    #- env: COMPILER=g++-7 BUILD_TYPE=Release
-    #  addons: *gcc7
-
 install:
   # Dependencies required by the CI are installed in ${TRAVIS_BUILD_DIR}/deps/
   - DEPS_DIR="${HOME}/deps/"
@@ -117,7 +118,7 @@ install:
   # Download and install vcpkg
   - VCPKG_ROOT="${DEPS_DIR}/vcpkg"
   - cd "${DEPS_DIR}"
-  - git clone git clone https://github.com/Microsoft/vcpkg --depth 1 vcpkg
+  - git clone https://github.com/Microsoft/vcpkg --depth 1 vcpkg
   - cd vcpkg
   - ./bootstrap-vcpkg.sh
   - ./vcpkg integrate install
