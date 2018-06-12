@@ -11,6 +11,7 @@ namespace pandora {
 ProgressiveRenderer::ProgressiveRenderer(int resolutionX, int resolutionY, const Scene& scene)
     : m_resolutionX(resolutionX)
     , m_resolutionY(resolutionY)
+    , m_spp(0)
     , m_sensor(resolutionX, resolutionY)
     , m_scene(scene)
     , m_accelerationStructure(new EmbreeAccel(scene))
@@ -20,9 +21,10 @@ ProgressiveRenderer::ProgressiveRenderer(int resolutionX, int resolutionY, const
 void ProgressiveRenderer::clear()
 {
     m_sensor.clear(glm::vec3(0.0f));
+    m_spp = 0;
 }
 
-void ProgressiveRenderer::incrementalRender(const PerspectiveCamera& camera, int spp)
+void ProgressiveRenderer::incrementalRender(const PerspectiveCamera& camera)
 {
     const float epsilon = 0.00001f;
     LambertMaterial material(glm::vec3(0.6f, 0.4f, 0.5f));
@@ -58,11 +60,18 @@ void ProgressiveRenderer::incrementalRender(const PerspectiveCamera& camera, int
             }
         }
     });
+
+    m_spp++;
 }
 
 const Sensor& ProgressiveRenderer::getSensor()
 {
     return m_sensor;
+}
+
+int ProgressiveRenderer::getSampleCount() const
+{
+    return m_spp;
 }
 
 }

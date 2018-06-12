@@ -32,8 +32,7 @@ int main()
 #endif
 
     Window myWindow(width, height, "Hello World!");
-    FramebufferGL frameBuffer;
-    frameBuffer.clear(glm::vec3(0.8f, 0.5f, 0.3f));
+    FramebufferGL frameBuffer(width, height);
 
     float aspectRatio = static_cast<float>(width) / height;
     PerspectiveCamera camera = PerspectiveCamera(aspectRatio, 65.0f);
@@ -52,9 +51,9 @@ int main()
         exit(1);
     }
 
-	Scene scene;
-	scene.addShape(mesh.get());
-	ProgressiveRenderer renderer(1280, 720, scene);
+    Scene scene;
+    scene.addShape(mesh.get());
+    ProgressiveRenderer renderer(1280, 720, scene);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
@@ -63,19 +62,20 @@ int main()
     });
 
     while (!myWindow.shouldClose() && !pressedEscape) {
-		renderer.clear();
-
         myWindow.updateInput();
         cameraControls.tick();
 
+        if (cameraControls.cameraChanged())
+            renderer.clear();
+
         auto prevFrameEndTime = std::chrono::high_resolution_clock::now();
-		renderer.incrementalRender(camera);
+        renderer.incrementalRender(camera);
         auto now = std::chrono::high_resolution_clock::now();
         auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(now - prevFrameEndTime);
         prevFrameEndTime = now;
         std::cout << "Time to render frame: " << timeDelta.count() / 1000.0f << " miliseconds" << std::endl;
 
-        frameBuffer.update(renderer.getSensor());
+        frameBuffer.update(renderer.getSensor(), 1.0f / renderer.getSampleCount());
         myWindow.swapBuffers();
     }
 

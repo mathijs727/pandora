@@ -9,18 +9,21 @@ class PerspectiveCamera;
 
 class ProgressiveRenderer {
 public:
-	ProgressiveRenderer(int resolutionX, int resolutionY, const Scene& scene);
+    ProgressiveRenderer(int resolutionX, int resolutionY, const Scene& scene);
 
-	void clear();
-	void incrementalRender(const PerspectiveCamera& camera, int spp = 1);
+    void clear();
+    void incrementalRender(const PerspectiveCamera& camera);
 
-	const Sensor& getSensor();
+    const Sensor& getSensor();
+    int getSampleCount() const;
+
 private:
-	int m_resolutionX, m_resolutionY;
-	Sensor m_sensor;
+    int m_resolutionX, m_resolutionY;
+    int m_spp;
+    Sensor m_sensor;
 
-	const Scene& m_scene;
-	std::unique_ptr<AccelerationStructure> m_accelerationStructure;
+    const Scene& m_scene;
+    std::unique_ptr<AccelerationStructure> m_accelerationStructure;
 };
 
 }
