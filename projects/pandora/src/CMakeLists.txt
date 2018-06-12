@@ -15,7 +15,10 @@ target_sources(libPandora
         #"${CMAKE_CURRENT_LIST_DIR}/math/vec2.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/math/vec3.cpp"
 
-        #"${CMAKE_CURRENT_LIST_DIR}/shading/core/bxdf.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shading/lambert_material.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shading/shading.cpp"
+        
+		#"${CMAKE_CURRENT_LIST_DIR}/shading/core/bxdf.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/shading/core/specular_bxdf.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/shading/core/surface_interaction.cpp"
 

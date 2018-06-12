@@ -57,21 +57,29 @@ template <unsigned N>
 void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<IntersectionData> intersections)
 {
     RTCHitN* embreeHits = RTCRayHitN_HitN(embreeRayHits, N);
+    RTCRayN* embreeRays = RTCRayHitN_RayN(embreeRayHits, N);
     for (unsigned i = 0; i < N; i++) {
         unsigned geomID = RTCHitN_geomID(embreeHits, N, i);
-        if ( RTCHitN_geomID(embreeHits, N, i) == RTC_INVALID_GEOMETRY_ID) { // No hit
+        if (RTCHitN_geomID(embreeHits, N, i) == RTC_INVALID_GEOMETRY_ID) { // No hit
             intersections[i].objectHit = nullptr;
             return;
         }
 
         intersections[i].objectHit = reinterpret_cast<const Shape*>(rtcGetGeometryUserData(rtcGetGeometry(scene, geomID)));
 
-        intersections[i].uv.x = RTCHitN_u(embreeHits, N, i);
-        intersections[i].uv.y = RTCHitN_v(embreeHits, N, i);
+        glm::vec3 origin = glm::vec3(RTCRayN_org_x(embreeRays, N, i), RTCRayN_org_y(embreeRays, N, i), RTCRayN_org_z(embreeRays, N, i));
+        glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
+        float t = RTCRayN_tfar(embreeRays, N, i);
+        intersections[i].position = origin + t * direction;
+        intersections[i].incident = direction;
 
         intersections[i].geometricNormal.x = RTCHitN_Ng_x(embreeHits, N, i);
         intersections[i].geometricNormal.y = RTCHitN_Ng_y(embreeHits, N, i);
         intersections[i].geometricNormal.z = RTCHitN_Ng_z(embreeHits, N, i);
+        intersections[i].geometricNormal = glm::normalize(intersections[i].geometricNormal);
+
+        intersections[i].uv.x = RTCHitN_u(embreeHits, N, i);
+        intersections[i].uv.y = RTCHitN_v(embreeHits, N, i);
     }
 }
 
@@ -120,7 +128,6 @@ void EmbreeAccel::addTriangleMesh(const TriangleMesh& triangleMesh)
     rtcCommitGeometry(mesh);
     unsigned geomID = rtcAttachGeometry(m_scene, mesh);
     //rtcReleaseGeometry(mesh);
-
 
     /*unsigned geomID = rtcNewTriangleMesh2(m_scene, RTC_GEOMETRY_STATIC, indices.size(), positions.size());
 	auto indexBuffer = reinterpret_cast<glm::ivec3*>(rtcMapBuffer(m_scene, geomID, RTC_INDEX_BUFFER));
