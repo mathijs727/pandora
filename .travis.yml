@@ -35,6 +35,10 @@ matrix:
             - gcc-7
             - g++-7
             - libtbb-dev
+            - git 
+            - unzip
+            - tar
+            - curl
     #        - python-dev
     #        - xorg-dev
     #        - libglu1-mesa-dev
@@ -78,6 +82,10 @@ matrix:
             - g++-7
             - libstdc++6
             - libtbb-dev
+            - git 
+            - unzip
+            - tar
+            - curl
     #        - python-dev
     #        - xorg-dev
     #        - libglu1-mesa-dev
@@ -146,15 +154,16 @@ install:
   - ninja install
 
   # Untill vcpkg gets fixed
-  - ASSIMP_ROOT="${DEPS_DIR}/assimp"
+  - ASSIMP_ROOT="${DEPS_DOWNLOAD_DIR}/assimp/build/"
   - cd "${DEPS_DOWNLOAD_DIR}"
   - git clone git@github.com:assimp/assimp.git --depth 1 assimp
   - cd assimp
   - mkdir build
   - cd build
-  - cmake -GNinja -DCMAKE_INSTALL_PREFIX="${ASSIMP_ROOT}" ../
+  #- cmake -GNinja -DCMAKE_INSTALL_PREFIX="${ASSIMP_ROOT}" ../
+  - cmake -GNinja ../
   - ninja -j${JOBS}
-  - ninja install
+  #- ninja install
 
   # Download TBB because find_package(tbb) doesnt want to work for some dumb reason
   - TBB_ROOT="${DEPS_DIR}/tbb/"
@@ -171,9 +180,9 @@ before_script:
   # Use CMake to generate build files
   - cd "${TRAVIS_BUILD_DIR}"
   - mkdir build && cd build
-  - cmake -GNinja -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_FLAGS="${CPP_FLAGS}" -DASSIMP_ROOT_DIR="${ASSIMP_ROOT}" -Dembree_DIR="${EMBREE_ROOT}" -DTBB_FROM_SOURCE=ON -DTBB_ROOT=${TBB_ROOT} -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" ../
+  - cmake -GNinja -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_FLAGS="${CPP_FLAGS}" -DBUILD_ATLAS=OFF -DBUILD_TESTS=ON -Dassimp_DIR="${ASSIMP_ROOT}" -Dembree_DIR="${EMBREE_ROOT}" -DTBB_FROM_SOURCE=ON -DTBB_ROOT=${TBB_ROOT} -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" ../
   
 script:
   # build and run tests
   - cmake --build . -- -j${JOBS}
-  # - ctest --output-on-failure -j${JOBS}
+  - ctest --output-on-failure -j${JOBS}

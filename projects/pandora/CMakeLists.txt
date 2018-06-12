@@ -8,7 +8,7 @@ if (MSVC)
 	target_compile_definitions(libPandora PUBLIC "NOMINMAX")
     target_compile_options(libPandora PRIVATE /W3 /WX)
 else()
-    target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Wno-unused-parameter -Wno-unused-private-field)
+	target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Wno-unused-parameter -Wno-unused-variable -Wno-unused-private-field)
 endif()
 target_compile_definitions(libPandora PRIVATE "ENABLE_STATIC_LIB")# Embree static lib
 
