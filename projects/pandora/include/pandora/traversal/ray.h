@@ -4,16 +4,30 @@
 
 namespace pandora {
 
-class Shape;
+class TriangleMesh;
+
+struct PathState {
+    PathState() = default;
+    PathState(glm::ivec2 pixel_)
+        : pixel(pixel_)
+        , weight(1.0f)
+        , depth(0)
+    {
+    }
+    glm::ivec2 pixel;
+    glm::vec3 weight;
+    int depth;
+};
 
 struct Ray {
 public:
     Ray() = default;
-    Ray(glm::vec3 origin_, glm::vec3 direction_)
+    Ray(glm::vec3 origin_, glm::vec3 direction_, const PathState& pathState_)
         : origin(origin_)
         , direction(direction_)
         , tnear(0.0f)
         , tfar(std::numeric_limits<float>::max())
+        , pathState(pathState_)
     {
     }
 
@@ -21,10 +35,13 @@ public:
     glm::vec3 direction;
     float tnear;
     float tfar;
+
+    // Store this in the ray because otherwise we'd need a ton of extra bookkeeping for memory (de)allocations
+    PathState pathState;
 };
 
 struct IntersectionData {
-    const Shape* objectHit;
+    const TriangleMesh* objectHit;
     unsigned primitiveID;
 
     glm::vec3 position;

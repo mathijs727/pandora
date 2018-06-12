@@ -9,7 +9,7 @@ LambertMaterial::LambertMaterial(glm::vec3 color)
 {
 }
 
-Material::EvalResult LambertMaterial::evalBSDF(const IntersectionData& intersection, glm::vec3 out)
+Material::EvalResult LambertMaterial::evalBSDF(const IntersectionData& intersection, glm::vec3 out) const
 {
     Material::EvalResult result;
     result.pdf = 1.0f;
@@ -17,7 +17,7 @@ Material::EvalResult LambertMaterial::evalBSDF(const IntersectionData& intersect
     return result;
 }
 
-Material::SampleResult LambertMaterial::sampleBSDF(const IntersectionData& intersection)
+Material::SampleResult LambertMaterial::sampleBSDF(const IntersectionData& intersection) const
 {
 
     Material::SampleResult result;

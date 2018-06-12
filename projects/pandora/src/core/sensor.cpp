@@ -4,22 +4,26 @@
 
 namespace pandora {
 
-Sensor::Sensor(int width, int height)
-    : m_width(width)
-    , m_height(height)
-    , m_frameBuffer(std::make_unique<glm::vec3[]>(width * height))
+Sensor::Sensor(glm::ivec2 resolution)
+    : m_resolution(resolution)
+    , m_frameBuffer(std::make_unique<glm::vec3[]>(resolution.x * resolution.y))
 {
     clear(glm::vec3(0.0f));
 }
 
 void Sensor::clear(glm::vec3 color)
 {
-    std::fill(m_frameBuffer.get(), m_frameBuffer.get() + m_width * m_height, color);
+    std::fill(m_frameBuffer.get(), m_frameBuffer.get() + m_resolution.x * m_resolution.y, color);
 }
 
 void Sensor::addPixelContribution(glm::ivec2 pixel, glm::vec3 value)
 {
     m_frameBuffer[getIndex(pixel.x, pixel.y)] += value;
+}
+
+glm::ivec2 Sensor::getResolution() const
+{
+    return m_resolution;
 }
 
 gsl::not_null<const glm::vec3*> Sensor::getFramebufferRaw() const
@@ -29,7 +33,7 @@ gsl::not_null<const glm::vec3*> Sensor::getFramebufferRaw() const
 
 int Sensor::getIndex(int x, int y) const
 {
-    return y * m_width + x;
+    return y * m_resolution.x + x;
 }
 
 }

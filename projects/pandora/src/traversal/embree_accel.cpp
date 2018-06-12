@@ -1,14 +1,12 @@
 #include "pandora/traversal/embree_accel.h"
 #include "embree3/rtcore_ray.h"
-#include "pandora/geometry/scene.h"
-#include "pandora/geometry/sphere.h"
 #include "pandora/geometry/triangle.h"
 #include <gsl/span>
 #include <iostream>
 
 namespace pandora {
 
-EmbreeAccel::EmbreeAccel(const Scene& scene)
+EmbreeAccel::EmbreeAccel(gsl::span<const std::shared_ptr<const TriangleMesh>> meshes)
 {
     m_device = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(m_device, embreeErrorFunc, nullptr);
@@ -16,13 +14,8 @@ EmbreeAccel::EmbreeAccel(const Scene& scene)
     m_scene = rtcNewScene(m_device);
     rtcSetSceneBuildQuality(m_scene, RTC_BUILD_QUALITY_HIGH);
 
-    for (const Shape* shape : scene.getShapes()) {
-        if (auto triangleMesh = dynamic_cast<const TriangleMesh*>(shape)) {
-            addTriangleMesh(*triangleMesh);
-        } else if (auto sphere = dynamic_cast<const Sphere*>(shape)) {
-            addSphere(*sphere);
-        }
-    }
+    for (const auto& mesh : meshes)
+        addTriangleMesh(*mesh);
 
     rtcCommitScene(m_scene);
 }
@@ -65,7 +58,7 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<I
             return;
         }
 
-        intersections[i].objectHit = reinterpret_cast<const Shape*>(rtcGetGeometryUserData(rtcGetGeometry(scene, geomID)));
+        intersections[i].objectHit = reinterpret_cast<const TriangleMesh*>(rtcGetGeometryUserData(rtcGetGeometry(scene, geomID)));
 
         glm::vec3 origin = glm::vec3(RTCRayN_org_x(embreeRays, N, i), RTCRayN_org_y(embreeRays, N, i), RTCRayN_org_z(embreeRays, N, i));
         glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
@@ -83,7 +76,7 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<I
     }
 }
 
-void EmbreeAccel::intersect(Ray& ray, IntersectionData& intersectionData)
+void EmbreeAccel::intersect(Ray& ray, IntersectionData& intersectionData) const
 {
     RTCIntersectContext context;
     rtcInitIntersectContext(&context);
@@ -96,7 +89,7 @@ void EmbreeAccel::intersect(Ray& ray, IntersectionData& intersectionData)
     convertIntersections<1>(m_scene, reinterpret_cast<RTCRayHitN*>(&embreeRayHit), gsl::make_span(&intersectionData, 1));
 }
 
-void EmbreeAccel::intersect(gsl::span<Ray> rays, gsl::span<IntersectionData> intersectionData)
+void EmbreeAccel::intersectPacket(gsl::span<Ray, 8> rays, gsl::span<IntersectionData> intersectionData) const
 {
     RTCIntersectContext context;
     rtcInitIntersectContext(&context);
@@ -179,5 +172,4 @@ void EmbreeAccel::embreeErrorFunc(void* userPtr, const RTCError code, const char
 
     std::cout << ": " << str << std::endl;
 }
-
 }

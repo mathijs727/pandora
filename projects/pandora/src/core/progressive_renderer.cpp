@@ -1,6 +1,7 @@
 #include "pandora/core/progressive_renderer.h"
+#include "pandora/core/path_integrator.h"
 #include "pandora/core/perspective_camera.h"
-#include "pandora/geometry/scene.h"
+#include "pandora/core/scene.h"
 #include "pandora/shading/lambert_material.h"
 #include "pandora/traversal/embree_accel.h"
 #include <tbb/parallel_for.h>
@@ -11,22 +12,23 @@ namespace pandora {
 ProgressiveRenderer::ProgressiveRenderer(int resolutionX, int resolutionY, const Scene& scene)
     : m_resolutionX(resolutionX)
     , m_resolutionY(resolutionY)
-    , m_spp(0)
-    , m_sensor(resolutionX, resolutionY)
+    , m_spp(1)
     , m_scene(scene)
-    , m_accelerationStructure(new EmbreeAccel(scene))
 {
 }
 
 void ProgressiveRenderer::clear()
 {
-    m_sensor.clear(glm::vec3(0.0f));
-    m_spp = 0;
+    m_spp = 1;
 }
 
-void ProgressiveRenderer::incrementalRender(const PerspectiveCamera& camera)
+void ProgressiveRenderer::incrementalRender(PerspectiveCamera& camera)
 {
-    const float epsilon = 0.00001f;
+    camera.getSensor().clear(glm::vec3(0));
+    PathIntegrator integrator(8, camera);
+    integrator.render(m_scene);
+
+    /*const float epsilon = 0.00001f;
     LambertMaterial material(glm::vec3(0.6f, 0.4f, 0.5f));
 
     float widthF = static_cast<float>(m_resolutionX);
@@ -60,13 +62,8 @@ void ProgressiveRenderer::incrementalRender(const PerspectiveCamera& camera)
             }
         }
     });
-
-    m_spp++;
-}
-
-const Sensor& ProgressiveRenderer::getSensor()
-{
-    return m_sensor;
+    
+    m_spp++;*/
 }
 
 int ProgressiveRenderer::getSampleCount() const

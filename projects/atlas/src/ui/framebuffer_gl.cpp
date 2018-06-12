@@ -104,7 +104,7 @@ void FramebufferGL::update(const Sensor& sensor, float multiplier)
     glUseProgram(m_shader);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, sensor.width(), sensor.height(), 0, GL_RGB, GL_FLOAT, sensor.getFramebufferRaw());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, sensor.getResolution().x, sensor.getResolution().y, 0, GL_RGB, GL_FLOAT, sensor.getFramebufferRaw());
     glUniform1i(glGetUniformLocation(m_shader, "u_texture"), 0);
     glUniform1f(glGetUniformLocation(m_shader, "u_multiplier"), multiplier);
 

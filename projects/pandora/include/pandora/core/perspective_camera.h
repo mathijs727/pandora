@@ -19,7 +19,7 @@ struct CameraSample {
 
 class PerspectiveCamera {
 public:
-    PerspectiveCamera(float aspectRatio, float fovX);
+    PerspectiveCamera(glm::ivec2 resolution, float fovX);
 
     glm::vec3 getPosition() const;
     void setPosition(glm::vec3 pos);
@@ -27,9 +27,15 @@ public:
     glm::quat getOrienation() const;
     void setOrientation(glm::quat orientation);
 
-    Ray generateRay(const CameraSample& sample) const;
+    const Sensor& getSensor() const;
+    Sensor& getSensor();
+
+    Ray generateRay(const CameraSample& sample, const PathState& pathState) const;
 
 private:
+    glm::ivec2 m_resolution;
+    Sensor m_sensor;
+
     glm::vec2 m_virtualScreenSize;
     float m_aspectRatio;
     float m_fovX;

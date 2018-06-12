@@ -7,8 +7,8 @@ class LambertMaterial : public Material {
 public:
     LambertMaterial(glm::vec3 color);
 
-    EvalResult evalBSDF(const IntersectionData& hitPoint, glm::vec3 out) override;
-    SampleResult sampleBSDF(const IntersectionData& hitPoint) override;
+    EvalResult evalBSDF(const IntersectionData& hitPoint, glm::vec3 out) const override;
+    SampleResult sampleBSDF(const IntersectionData& hitPoint) const override;
 
 private:
     glm::vec3 m_color;

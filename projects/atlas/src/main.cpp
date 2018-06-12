@@ -1,7 +1,6 @@
 #include "pandora/core/perspective_camera.h"
 #include "pandora/core/progressive_renderer.h"
-#include "pandora/geometry/scene.h"
-#include "pandora/geometry/sphere.h"
+#include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
 #include "ui/fps_camera_controls.h"
 #include "ui/framebuffer_gl.h"
@@ -34,8 +33,7 @@ int main()
     Window myWindow(width, height, "Hello World!");
     FramebufferGL frameBuffer(width, height);
 
-    float aspectRatio = static_cast<float>(width) / height;
-    PerspectiveCamera camera = PerspectiveCamera(aspectRatio, 65.0f);
+    PerspectiveCamera camera = PerspectiveCamera(glm::ivec2(width, height), 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
     camera.setPosition(glm::vec3(0.0f, 0.5f, -4.0f));
     //camera.setOrientation(glm::quat::rotation(glm::vec3(0, 1, 0), piF * 1.0f));
@@ -52,7 +50,8 @@ int main()
     }
 
     Scene scene;
-    scene.addShape(mesh.get());
+    scene.addMesh(mesh);
+    scene.commit();
     ProgressiveRenderer renderer(1280, 720, scene);
 
     bool pressedEscape = false;
@@ -75,7 +74,7 @@ int main()
         prevFrameEndTime = now;
         std::cout << "Time to render frame: " << timeDelta.count() / 1000.0f << " miliseconds" << std::endl;
 
-        frameBuffer.update(renderer.getSensor(), 1.0f / renderer.getSampleCount());
+        frameBuffer.update(camera.getSensor(), 1.0f / renderer.getSampleCount());
         myWindow.swapBuffers();
     }
 
