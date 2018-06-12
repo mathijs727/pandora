@@ -131,6 +131,7 @@ install:
   #- ./vcpkg install embree
   #- ./vcpkg install assimp# The installed *.lib file stored in ASSIMP_LIBRARIES is for Windows not Linux
   - ./vcpkg install ms-gsl
+  - ./vcpkg install glm
 
   # Download and install Embree from source because vcpkg does not support TBB yet on Linux (which it depends on)
   # Debug mode & SSE2 because compilation takes ages
