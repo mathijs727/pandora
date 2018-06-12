@@ -69,26 +69,23 @@ matrix:
     #         - libglu1-mesa-dev
 
     # Debug with stdlibc++
-    - env: CXX=clang++-5.0 CC=clang-5.0 BUILD_TYPE=Debug CPP_FLAGS="-DTBB_USE_GLIBCXX_VERSION=70200"
-      addons: &clang50
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-            - llvm-toolchain-trusty-5.0
-          packages:
-            - ninja-build
-            - clang-5.0
-            - gcc-7
-            - g++-7
-            - libstdc++6
-            - libtbb-dev
-            - git 
-            - unzip
-            - tar
-            - curl
-    #        - python-dev
-    #        - xorg-dev
-    #        - libglu1-mesa-dev
+    #- env: CXX=clang++-5.0 CC=clang-5.0 BUILD_TYPE=Debug CPP_FLAGS="-DTBB_USE_GLIBCXX_VERSION=70200"
+    #  addons: &clang50
+    #    apt:
+    #      sources:
+    #        - ubuntu-toolchain-r-test
+    #        - llvm-toolchain-trusty-5.0
+    #      packages:
+    #        - ninja-build
+    #        - clang-5.0
+    #        - gcc-7
+    #        - g++-7
+    #        - libstdc++6
+    #        - libtbb-dev
+    #        - git 
+    #        - unzip
+    #        - tar
+    #        - curl
 
     # Release with libc++
     #- env: COMPILER=clang++-5.0 BUILD_TYPE=Release USE_STDLIB=libc++
@@ -143,15 +140,16 @@ install:
 
   # Download and install Embree from source because vcpkg does not support TBB yet on Linux (which it depends on)
   # Debug mode & SSE2 because compilation takes ages
-  - EMBREE_ROOT="${DEPS_DIR}/embree"
+  - EMBREE_ROOT="${DEPS_DOWNLOAD_DIR}/embree"
   - cd "${DEPS_DOWNLOAD_DIR}"
   - git clone git@github.com:embree/embree.git -b release --depth 1 embree
   - cd embree
   - mkdir build
   - cd build
-  - cmake -GNinja -DCMAKE_INSTALL_PREFIX="${EMBREE_ROOT}" -DCMAKE_BUILD_TYPE=Debug -DEMBREE_MAX_ISA=SSE2 -DEMBREE_TUTORIALS=OFF -DEMBREE_ISPC_SUPPORT=OFF -DEMBREE_GEOMETRY_CURVE=OFF -DEMBREE_GEOMETRY_SUBDIVISION=OFF ../
+  - cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DEMBREE_MAX_ISA=SSE2 -DEMBREE_TUTORIALS=OFF -DEMBREE_ISPC_SUPPORT=OFF -DEMBREE_GEOMETRY_CURVE=OFF -DEMBREE_GEOMETRY_SUBDIVISION=OFF ../
+  # -DCMAKE_INSTALL_PREFIX="${EMBREE_ROOT}"
   - ninja -j${JOBS}
-  - ninja install
+  #- ninja install
 
   # Untill vcpkg gets fixed
   - ASSIMP_ROOT="${DEPS_DOWNLOAD_DIR}/assimp/build/"
