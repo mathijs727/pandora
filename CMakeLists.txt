@@ -3,9 +3,9 @@ project(pandora)
 
 option(BUILD_TESTS "Build tests for Pandora" OFF)
 option(BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
+option(TBB_FROM_SOURCE "Build Intel Threaded Building Blocks from source. Requires user to pass TBB_ROOT" OFF)
 
 #find_package(GSL REQUIRED)# Guideline Support Library (like the Microsoft implementation)
-find_package(tbb REQUIRED)
 find_package(glm REQUIRED)
 
 find_package(assimp REQUIRED)
@@ -13,11 +13,18 @@ add_library(assimp INTERFACE)
 target_include_directories(assimp INTERFACE "${ASSIMP_INCLUDE_DIRS}")
 target_link_libraries(assimp INTERFACE "${ASSIMP_LIBRARIES}")
 
+if (TBB_FROM_SOURCE)
+	include(${TBB_ROOT}/cmake/TBBBuild.cmake)
+	tbb_build(TBB_ROOT ${TBB_ROOT} CONFIG_DIR TBB_DIR MAKE_ARGS tbb_cpf=1)
+	find_package(TBB REQUIRED tbb)
+else()
+	find_package(tbb REQUIRED)
+endif()
+
 find_package(embree 3.0 REQUIRED)
 add_library(embree INTERFACE)
 target_include_directories(embree INTERFACE "${EMBREE_INCLUDE_DIRS}")
 target_link_libraries(embree INTERFACE "${EMBREE_LIBRARY}")
-message("ASSIMP LIB NAME: ${ASSIMP_LIBRARIES}")
 
 if (BUILD_TESTS)
     find_package(GTest REQUIRED)
