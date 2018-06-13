@@ -169,6 +169,7 @@ install:
       cp "embree-config.cmake" "${EMBREE_ROOT}"
       cp "embree-config-install.cmake" "${EMBREE_ROOT}"
     fi
+    export LD_LIBRARY_PATH="${EMBREE_ROOT}/lib/"
 
   # Untill vcpkg gets fixed
   - ASSIMP_ROOT="${DEPS_DIR}/assimp/"
