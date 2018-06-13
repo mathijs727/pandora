@@ -168,6 +168,7 @@ install:
       ninja install
       cp "embree-config.cmake" "${EMBREE_ROOT}"
       cp "embree-config-install.cmake" "${EMBREE_ROOT}"
+      export LD_LIBRARY_PATH="${EMBREE_ROOT}/lib/"
     fi
 
   # Untill vcpkg gets fixed
