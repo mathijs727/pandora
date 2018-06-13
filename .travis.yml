@@ -17,7 +17,7 @@ dist: trusty
 cache:
   directories:
     - ${HOME}/deps/
-    - ${HOME}/downloads/
+    #- ${HOME}/downloads/
   timeout: 1800
 
 matrix:
@@ -159,6 +159,7 @@ install:
       cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DEMBREE_MAX_ISA=SSE2 -DEMBREE_TUTORIALS=OFF -DEMBREE_ISPC_SUPPORT=OFF -DEMBREE_GEOMETRY_CURVE=OFF -DEMBREE_GEOMETRY_SUBDIVISION=OFF -DCMAKE_INSTALL_PREFIX="${EMBREE_ROOT}" ../
       ninja -j${JOBS}
       ninja install
+      cp "embree-config.cmake" "${EMBREE_ROOT}"
     fi
 
   # Untill vcpkg gets fixed
@@ -173,6 +174,7 @@ install:
       cmake -GNinja -DCMAKE_INSTALL_PREFIX="${ASSIMP_ROOT}" ../
       ninja -j${JOBS}
       ninja install
+      cp "assimp-config.cmake" "${ASSIMP_ROOT}"
     fi
 
   # Download TBB because find_package(tbb) doesnt want to work for some dumb reason

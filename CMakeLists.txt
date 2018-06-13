@@ -15,6 +15,11 @@ target_link_libraries(assimp INTERFACE "${ASSIMP_LIBRARIES}")
 message("Assimp include dirs: ${ASSIMP_INCLUDE_DIRS}")
 message("Assimp libraries: ${ASSIMP_LIBRARIES}")
 
+find_package(embree 3.0 REQUIRED)
+add_library(embree INTERFACE)
+target_include_directories(embree INTERFACE "${EMBREE_INCLUDE_DIRS}")
+target_link_libraries(embree INTERFACE "${EMBREE_LIBRARY}")
+
 if (TBB_FROM_SOURCE)
 	include(${TBB_ROOT}/cmake/TBBBuild.cmake)
 	tbb_build(TBB_ROOT ${TBB_ROOT} CONFIG_DIR TBB_DIR MAKE_ARGS)
@@ -23,11 +28,6 @@ if (TBB_FROM_SOURCE)
 else()
 	find_package(tbb REQUIRED)
 endif()
-
-find_package(embree 3.0 REQUIRED)
-add_library(embree INTERFACE)
-target_include_directories(embree INTERFACE "${EMBREE_INCLUDE_DIRS}")
-target_link_libraries(embree INTERFACE "${EMBREE_LIBRARY}")
 
 if (BUILD_TESTS)
     find_package(GTest REQUIRED)
