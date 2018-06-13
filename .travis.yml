@@ -39,9 +39,6 @@ matrix:
             - unzip
             - tar
             - curl
-    #        - python-dev
-    #        - xorg-dev
-    #        - libglu1-mesa-dev
 
     #- env: COMPILER=g++-7 BUILD_TYPE=Release
     #  addons: *gcc7
@@ -64,28 +61,30 @@ matrix:
     #         - g++-7
     #         - libc++-dev
     #         - libc++abi-dev
-    #         - python-dev
-    #         - xorg-dev
-    #         - libglu1-mesa-dev
+    #         - libtbb-dev
+    #         - git 
+    #         - unzip
+    #         - tar
+    #         - curl
 
     # Debug with stdlibc++
-    #- env: CXX=clang++-5.0 CC=clang-5.0 BUILD_TYPE=Debug CPP_FLAGS="-DTBB_USE_GLIBCXX_VERSION=70200"
-    #  addons: &clang50
-    #    apt:
-    #      sources:
-    #        - ubuntu-toolchain-r-test
-    #        - llvm-toolchain-trusty-5.0
-    #      packages:
-    #        - ninja-build
-    #        - clang-5.0
-    #        - gcc-7
-    #        - g++-7
-    #        - libstdc++6
-    #        - libtbb-dev
-    #        - git 
-    #        - unzip
-    #        - tar
-    #        - curl
+    - env: CXX=clang++-6.0 CC=clang-6.0 BUILD_TYPE=Debug CPP_FLAGS="-DTBB_USE_GLIBCXX_VERSION=70200"
+      addons: &clang50
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-trusty-6.0
+          packages:
+            - ninja-build
+            - clang-6.0
+            - gcc-7
+            - g++-7
+            - libstdc++6
+            - libtbb-dev
+            - git 
+            - unzip
+            - tar
+            - curl
 
     # Release with libc++
     #- env: COMPILER=clang++-5.0 BUILD_TYPE=Release USE_STDLIB=libc++
