@@ -140,7 +140,7 @@ install:
 
   # Download and install Embree from source because vcpkg does not support TBB yet on Linux (which it depends on)
   # Debug mode & SSE2 because compilation takes ages
-  - EMBREE_ROOT="${DEPS_DOWNLOAD_DIR}/embree"
+  - EMBREE_ROOT="${DEPS_DOWNLOAD_DIR}/embree/build/"
   - cd "${DEPS_DOWNLOAD_DIR}"
   - git clone git@github.com:embree/embree.git -b release --depth 1 embree
   - cd embree
