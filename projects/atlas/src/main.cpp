@@ -33,12 +33,13 @@ int main()
     Window myWindow(width, height, "Hello World!");
     FramebufferGL frameBuffer(width, height);
 
-    PerspectiveCamera camera = PerspectiveCamera(glm::ivec2(width, height), 65.0f);
+    glm::ivec2 resolution = glm::ivec2(width, height);
+    Sensor sensor = Sensor(resolution);
+    PerspectiveCamera camera = PerspectiveCamera(resolution, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
     camera.setPosition(glm::vec3(0.0f, 0.5f, -4.0f));
     //camera.setOrientation(glm::quat::rotation(glm::vec3(0, 1, 0), piF * 1.0f));
 
-    //Sphere sphere(glm::vec3(0.0f, 0.0f, 3.0f), 0.8f);
     //auto mesh = TriangleMesh::singleTriangle();
     auto mesh = TriangleMesh::loadFromFile(projectBasePath + "assets/monkey.obj");
     //auto mesh = TriangleMesh::loadFromFile(projectBasePath + "assets/cornell_box.obj");
@@ -51,8 +52,7 @@ int main()
 
     Scene scene;
     scene.addMesh(mesh);
-    scene.commit();
-    ProgressiveRenderer renderer(1280, 720, scene);
+    ProgressiveRenderer renderer(scene, sensor);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
@@ -74,7 +74,7 @@ int main()
         prevFrameEndTime = now;
         std::cout << "Time to render frame: " << timeDelta.count() / 1000.0f << " miliseconds" << std::endl;
 
-        frameBuffer.update(camera.getSensor(), 1.0f / renderer.getSampleCount());
+        frameBuffer.update(sensor, 1.0f / renderer.getSampleCount());
         myWindow.swapBuffers();
     }
 

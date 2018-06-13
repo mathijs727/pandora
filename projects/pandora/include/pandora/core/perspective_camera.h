@@ -27,15 +27,9 @@ public:
     glm::quat getOrienation() const;
     void setOrientation(glm::quat orientation);
 
-    const Sensor& getSensor() const;
-    Sensor& getSensor();
-
-    Ray generateRay(const CameraSample& sample, const PathState& pathState) const;
+    Ray generateRay(const CameraSample& sample) const;
 
 private:
-    glm::ivec2 m_resolution;
-    Sensor m_sensor;
-
     glm::vec2 m_virtualScreenSize;
     float m_aspectRatio;
     float m_fovX;

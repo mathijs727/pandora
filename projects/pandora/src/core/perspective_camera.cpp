@@ -6,9 +6,7 @@
 namespace pandora {
 
 PerspectiveCamera::PerspectiveCamera(glm::ivec2 resolution, float fovX)
-    : m_resolution(resolution)
-    , m_sensor(resolution)
-    , m_aspectRatio((float)resolution.x / resolution.y)
+    : m_aspectRatio((float)resolution.x / resolution.y)
     , m_fovX(fovX)
     , m_position(0.0f)
 {
@@ -37,22 +35,12 @@ void PerspectiveCamera::setOrientation(glm::quat orientation)
     m_orientation = orientation;
 }
 
-const Sensor& PerspectiveCamera::getSensor() const
-{
-    return m_sensor;
-}
-
-Sensor& PerspectiveCamera::getSensor()
-{
-    return m_sensor;
-}
-
-Ray PerspectiveCamera::generateRay(const CameraSample& sample, const PathState& pathState) const
+Ray PerspectiveCamera::generateRay(const CameraSample& sample) const
 {
     glm::vec2 pixel2D = (sample.pixel - 0.5f) * m_virtualScreenSize;
 
     glm::vec3 origin = m_position;
     glm::vec3 direction = glm::normalize(m_orientation * glm::vec3(pixel2D.x, pixel2D.y, 1.0f));
-    return Ray(origin, direction, pathState);
+    return Ray(origin, direction);
 }
 }

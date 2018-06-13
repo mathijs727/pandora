@@ -2,6 +2,7 @@
 #include "pandora/core/perspective_camera.h"
 #include "pandora/core/scene.h"
 #include "pandora/core/sensor.h"
+#include "pandora/traversal/embree_accel.h"
 #include <tbb/concurrent_vector.h>
 #include <variant>
 
@@ -9,23 +10,30 @@ namespace pandora {
 
 class PathIntegrator {
 public:
-    PathIntegrator(int maxDepth, PerspectiveCamera& camera);
+    // WARNING: do not modify the scene in any way while the integrator is alive
+    PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor);
 
-    void render(const Scene& scene);
+    void render(const PerspectiveCamera& camera);
 
 private:
-    struct Continuation {
+    struct NewRays {
+        glm::vec3 continuationRayWeight;
         Ray continuationRay;
-        //Ray shadowRay;
     };
-    std::variant<Continuation, glm::vec3> performShading(const Scene& scene, const Ray& ray, const IntersectionData& intersectionData);
+
+    std::variant<NewRays, glm::vec3> performShading(glm::vec3 weight, const Ray& ray, const IntersectionData& intersection) const;
 
 private:
-    PerspectiveCamera& m_camera;
     const int m_maxDepth;
+    Sensor& m_sensor;
+    const Scene& m_scene;
 
-    tbb::concurrent_vector<Ray> m_rayQueue1;
-    tbb::concurrent_vector<Ray> m_rayQueue2;
+    struct PathState {
+        glm::ivec2 pixel;
+        glm::vec3 weight;
+        int depth;
+    };
+    EmbreeAccel<PathState> m_accelerationStructure;
 };
 
 }

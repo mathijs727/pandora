@@ -6,27 +6,49 @@
 
 namespace pandora {
 
-PathIntegrator::PathIntegrator(int maxDepth, PerspectiveCamera& camera)
+PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor)
     : m_maxDepth(maxDepth)
-    , m_camera(camera)
+    , m_scene(scene)
+    , m_sensor(sensor)
+    , m_accelerationStructure(scene.getMeshes(), [this](const Ray& r, const IntersectionData& i, const PathState& s, const auto& h) {
+        /*if (i.objectHit != nullptr) {
+            if (s.depth < 2) {
+                PathState pathState = s;
+                pathState.depth++;
+                Ray ray = r;
+                m_accelerationStructure.placeIntersectRequests(gsl::make_span(&pathState, 1), gsl::make_span(&ray, 1));
+            } else {
+                m_sensor.addPixelContribution(s.pixel, glm::vec3(1));
+            }
+        }*/
+        if (s.depth > m_maxDepth)
+            return;
+
+        auto shadingResult = performShading(s.weight, r, i);
+
+        if (std::holds_alternative<NewRays>(shadingResult)) {
+            // Continue path
+            auto [continuationWeight, continuationRay] = std::get<NewRays>(shadingResult);
+            PathState newState = s;
+            newState.depth++;
+            newState.weight *= continuationWeight;
+            m_accelerationStructure.placeIntersectRequests(gsl::make_span(&newState, 1), gsl::make_span(&continuationRay, 1));
+        } else {
+            if (s.depth > 0) {
+                // End of path: received radiance
+                auto radiance = std::get<glm::vec3>(shadingResult);
+                m_sensor.addPixelContribution(s.pixel, radiance);
+            }
+        }
+    })
 {
 }
 
-void PathIntegrator::render(const Scene& scene)
+void PathIntegrator::render(const PerspectiveCamera& camera)
 {
-    // Optional: preprocess
-
-    // Allocate memory for path states
-    glm::ivec2 resolution = m_camera.getSensor().getResolution();
-    int pixelCount = resolution.x * resolution.y;
-    m_rayQueue1.resize(pixelCount);
-    m_rayQueue2.reserve(pixelCount);
-    auto& activeRayQueue = m_rayQueue1;
-    auto& resultRayQueue = m_rayQueue2;
-
     // Generate camera rays
-    float widthF = static_cast<float>(resolution.x);
-    float heightF = static_cast<float>(resolution.y);
+    glm::ivec2 resolution = m_sensor.getResolution();
+    glm::vec2 resolutionF = resolution;
     tbb::parallel_for(0, resolution.y, [&](int y) {
         //for (int y = 0; y < resolution.y; y++) { // Not parallel because rayQueue.push_back is not thread safe
         for (int x = 0; x < resolution.x; x++) {
@@ -34,71 +56,33 @@ void PathIntegrator::render(const Scene& scene)
 
             // Initialize camera sample for current sample
             auto pixel = glm::ivec2(x, y);
-            auto pixelScreenCoords = glm::vec2(x / widthF, y / heightF);
+            auto pixelScreenCoords = glm::vec2(x / resolutionF.x, y / resolutionF.y);
             CameraSample sample = CameraSample(pixelScreenCoords);
 
-            PathState pathState(pixel);
-            Ray ray = m_camera.generateRay(CameraSample(pixelScreenCoords), pathState);
-
-            // TODO:
-            // rayQueue.push(ray)
-            int idx = y * resolution.x + x;
-            activeRayQueue[idx] = ray;
+            PathState pathState{ pixel, glm::vec3(1.0f), 0 };
+            Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
+            //Ray ray(glm::vec3(0, 0, -5), glm::vec3(0, 0, 1));
+            //m_sensor.addPixelContribution(pixel, glm::vec3(1, 0, 0));
+            m_accelerationStructure.placeIntersectRequests(gsl::make_span(&pathState, 1), gsl::make_span(&ray, 1));
         }
         //}
     });
-
-    auto& sensor = m_camera.getSensor();
-    while (activeRayQueue.size() > 0) {
-        resultRayQueue.clear();
-
-        // TODO: make this run on a secondary thread, communicating through channels
-        const auto& accelerator = scene.getAccelerator();
-        //for (auto& ray : activeRayQueue) {
-        tbb::parallel_for(0, (int)activeRayQueue.size(), [&](int i) {
-            auto ray = activeRayQueue[i];
-
-            IntersectionData intersectionData;
-            accelerator.intersect(ray, intersectionData);
-
-            auto shadingResult = performShading(scene, ray, intersectionData);
-            if (std::holds_alternative<Continuation>(shadingResult)) {
-                // Continue path
-                auto [continuationRay] = std::get<Continuation>(shadingResult);
-                resultRayQueue.push_back(continuationRay);
-                //m_rayQueue2.push_back(shadowRay);
-            } else {
-                // End of path: received radiance
-                auto radiance = std::get<glm::vec3>(shadingResult);
-                sensor.addPixelContribution(ray.pathState.pixel, radiance);
-            }
-        });
-        //}
-
-        std::swap(activeRayQueue, resultRayQueue);
-    }
 }
 
-std::variant<PathIntegrator::Continuation, glm::vec3> PathIntegrator::performShading(const Scene& scene, const Ray& ray, const IntersectionData& intersection)
+std::variant<PathIntegrator::NewRays, glm::vec3> PathIntegrator::performShading(glm::vec3 weight, const Ray& ray, const IntersectionData& intersection) const
 {
     const float epsilon = 0.00001f;
     const LambertMaterial material(glm::vec3(0.6f, 0.4f, 0.5f));
     const glm::vec3 backgroundColor = glm::vec3(1.0);
 
-    auto pathState = ray.pathState;
-    if (pathState.depth < 8 && intersection.objectHit != nullptr) {
+    if (intersection.objectHit != nullptr) {
         auto shadingResult = material.sampleBSDF(intersection);
 
-        pathState.weight = pathState.weight * shadingResult.weight / shadingResult.pdf;
-        pathState.depth++;
-        Ray continuationRay = Ray(intersection.position - epsilon * intersection.incident, shadingResult.out, pathState);
-        return Continuation{ continuationRay };
+        glm::vec3 continuationWeight = weight * shadingResult.weight / shadingResult.pdf;
+        Ray continuationRay = Ray(intersection.position - epsilon * intersection.incident, shadingResult.out);
+        return NewRays{ continuationWeight, continuationRay };
     } else {
-        if (pathState.depth == 0)
-            return glm::vec3(0);
-        else
-            return pathState.weight * backgroundColor;
+        return weight * backgroundColor;
     }
 }
-
 }

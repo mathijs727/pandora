@@ -1,13 +1,25 @@
 #pragma once
 #include "pandora/traversal/ray.h"
+#include <functional>
 #include <gsl/span>
 
 namespace pandora {
 
+/*template <typename ShadingFunc, typename IntersectHandle>
 class AccelerationStructure {
 public:
-    virtual void intersect(Ray& ray, IntersectionData& intersectionData) = 0;
-    //virtual void intersect(gsl::span<Ray> rays, gsl::span<IntersectionData> intersectionData) = 0;
-};
+    using RayWithShadeData = Ray;
+    struct IntersectHandle {
+    };
+
+    using InsertShadingRay = std::function<void(const RayWithShadeData&)>;
+    using ShadingFunc = std::function<void(const RayWithShadeData&, const IntersectionData&, const InsertShadingRay&& ray)>;
+    void setShadingFunc(ShadingFunc&& shadingFunc);
+
+    virtual void placeIntersectRequests(gsl::span<const RayWithShadeData> rays) = 0;
+
+protected:
+    ShadingFunc m_shadingFunction;
+};*/
 
 }
