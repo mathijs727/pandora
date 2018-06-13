@@ -160,6 +160,7 @@ install:
       ninja -j${JOBS}
       ninja install
       cp "embree-config.cmake" "${EMBREE_ROOT}"
+      cp "embree-config-install.cmake" "${EMBREE_ROOT}"
     fi
 
   # Untill vcpkg gets fixed
