@@ -130,10 +130,17 @@ install:
       cd "${DEPS_DIR}"
       git clone https://github.com/Microsoft/vcpkg --depth 1 vcpkg
       cd vcpkg
+      # Compile with gcc/g++ because vcpkg forces the user to use (modern, inc file system TS) libc++ with clang
+      CC_BAK=${CC}
+      CXX_BAK=${CXX}
+      CC=gcc-8
+      CXX=g++-8
       # Compile vcpkg with a single thread to prevent out-of-memory compiler crashes
       sed -i '205s/--build ./--build . -- -j1/' scripts/bootstrap.sh
       ./bootstrap-vcpkg.sh
       ./vcpkg integrate install
+      CC=${CC_BAK}
+      CXX=${CXX_BAK}
     else
       cd "${DEPS_DIR}/vcpkg/"
     fi
