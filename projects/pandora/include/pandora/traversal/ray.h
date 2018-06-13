@@ -4,7 +4,7 @@
 
 namespace pandora {
 
-class TriangleMesh;
+struct SceneObject;
 
 struct Ray {
 public:
@@ -24,7 +24,7 @@ public:
 };
 
 struct IntersectionData {
-    const TriangleMesh* objectHit;
+    const SceneObject* sceneObject;
     unsigned primitiveID;
 
     glm::vec3 position;

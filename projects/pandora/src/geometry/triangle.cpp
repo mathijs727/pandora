@@ -68,24 +68,23 @@ static glm::vec3 assimpVec(const aiVector3D& v)
     return glm::vec3(v.x, v.y, v.z);
 }
 
-static void addSubMesh(const aiScene* scene,
-    const unsigned meshIndex,
-    const glm::mat4& transformMatrix,
-    std::vector<glm::ivec3>& indices,
-    std::vector<glm::vec3>& positions,
-    std::vector<glm::vec3>& normals)
+static std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>> createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform)
 {
     aiMesh* mesh = scene->mMeshes[meshIndex];
 
     if (mesh->mNumVertices == 0 || mesh->mNumFaces == 0)
-        return;
+        return { nullptr, nullptr };
+
+    std::vector<glm::ivec3> indices;
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> normals;
+    indices.reserve(mesh->mNumFaces);
+    positions.reserve(mesh->mNumVertices);
+    positions.reserve(mesh->mNumVertices);
 
     // Add all vertex data
-    unsigned vertexOffset = (unsigned)positions.size();
     for (unsigned vertexIdx = 0; vertexIdx < mesh->mNumVertices; vertexIdx++) {
-        //glm::vec3 position = transformMatrix.transformPoint(assimpVec(mesh->mVertices[vertexIdx]));
-        glm::vec3 position = assimpVec(mesh->mVertices[vertexIdx]);
-        //position = transformMatrix.transformPoint(position);
+        glm::vec3 position = transform * glm::vec4(assimpVec(mesh->mVertices[vertexIdx]), 1);
         positions.push_back(position);
     }
 
@@ -99,27 +98,21 @@ static void addSubMesh(const aiScene* scene,
 
         auto aiIndices = face.mIndices;
         glm::ivec3 triangle = {
-            static_cast<int>(aiIndices[0] + vertexOffset),
-            static_cast<int>(aiIndices[1] + vertexOffset),
-            static_cast<int>(aiIndices[2] + vertexOffset)
+            static_cast<int>(aiIndices[0]),
+            static_cast<int>(aiIndices[1]),
+            static_cast<int>(aiIndices[2])
         };
         indices.push_back(triangle);
     }
+
+    return { std::make_shared<TriangleMesh>(std::move(indices), std::move(positions), std::move(normals)), nullptr };
 }
 
-std::shared_ptr<const TriangleMesh> TriangleMesh::singleTriangle()
-{
-    std::vector<glm::ivec3> indices = { { 0, 1, 2 } };
-    std::vector<glm::vec3> positions = { glm::vec3(-1, -1, 0), glm::vec3(1, -1, 0), glm::vec3(0, 1, 0) };
-    std::vector<glm::vec3> normals;
-    return std::make_unique<TriangleMesh>(std::move(indices), std::move(positions), std::move(normals));
-}
-
-std::shared_ptr<const TriangleMesh> TriangleMesh::loadFromFile(const std::string_view filename)
+std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform)
 {
     if (!fileExists(filename)) {
         std::cout << "Could not find mesh file: " << filename << std::endl;
-        return nullptr;
+        return {};
     }
 
     //TODO(Mathijs): move this out of the triangle class because it should also load material information
@@ -129,15 +122,13 @@ std::shared_ptr<const TriangleMesh> TriangleMesh::loadFromFile(const std::string
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
         std::cout << "Failed to load mesh file: " << filename << std::endl;
-        return nullptr;
+        return {};
     }
 
-    std::vector<glm::ivec3> indices;
-    std::vector<glm::vec3> positions;
-    std::vector<glm::vec3> normals;
+    std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>> result;
 
     std::stack<std::tuple<aiNode*, glm::mat4>> stack;
-    stack.push({ scene->mRootNode, assimpMatrix(scene->mRootNode->mTransformation) });
+    stack.push({ scene->mRootNode, modelTransform * assimpMatrix(scene->mRootNode->mTransformation) });
     while (!stack.empty()) {
         auto [node, transform] = stack.top();
         stack.pop();
@@ -146,7 +137,7 @@ std::shared_ptr<const TriangleMesh> TriangleMesh::loadFromFile(const std::string
 
         for (unsigned i = 0; i < node->mNumMeshes; i++) {
             // Process subMesh
-            addSubMesh(scene, node->mMeshes[i], transform, indices, positions, normals);
+            result.push_back(createMeshAssimp(scene, node->mMeshes[i], transform));
         }
 
         for (unsigned i = 0; i < node->mNumChildren; i++) {
@@ -154,14 +145,7 @@ std::shared_ptr<const TriangleMesh> TriangleMesh::loadFromFile(const std::string
         }
     }
 
-    if (indices.size() == 0 || positions.size() == 0)
-        return nullptr;
-
-    if (indices.size() == 0) {
-        std::cout << "Empty mesh file: " << filename << std::endl;
-        return nullptr;
-    }
-    return std::make_unique<TriangleMesh>(std::move(indices), std::move(positions), std::move(normals));
+    return result;
 }
 
 unsigned TriangleMesh::numPrimitives() const
@@ -186,23 +170,6 @@ const gsl::span<const glm::vec3> TriangleMesh::getNormals() const
 }
 
 /*
-
-gsl::span<const Bounds> TriangleMesh::getPrimitivesBounds() const
-{
-    return gsl::span<const Bounds>(m_primitiveBounds);
-}
-
-glm::vec3 TriangleMesh::getNormal(unsigned primitiveIndex, glm::vec2 uv) const
-{
-    return m_normals[primitiveIndex];
-}
-
-bool TriangleMesh::intersect(unsigned int primitiveIndex, Ray& ray) const
-{
-    //return intersectMollerTrumbore(primitiveIndex, ray);
-    return intersectPbrt(primitiveIndex, ray);
-}
-
 bool TriangleMesh::intersectMollerTrumbore(unsigned int primitiveIndex, Ray& ray) const
 {
     // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm

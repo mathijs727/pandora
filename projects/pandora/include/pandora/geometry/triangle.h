@@ -1,8 +1,10 @@
 #pragma once
 #include "glm/glm.hpp"
 #include "pandora/geometry/bounds.h"
+#include "pandora/shading/material.h"
 #include <gsl/span>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 namespace pandora {
@@ -15,8 +17,7 @@ public:
         std::vector<glm::vec3>&& normals);
     ~TriangleMesh() = default;
 
-    static std::shared_ptr<const TriangleMesh> singleTriangle();
-    static std::shared_ptr<const TriangleMesh> loadFromFile(const std::string_view filename);
+    static std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1));
 
     unsigned numPrimitives() const;
 

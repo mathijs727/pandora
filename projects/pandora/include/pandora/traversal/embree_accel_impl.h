@@ -31,11 +31,11 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<I
     for (unsigned i = 0; i < N; i++) {
         unsigned geomID = RTCHitN_geomID(embreeHits, N, i);
         if (RTCHitN_geomID(embreeHits, N, i) == RTC_INVALID_GEOMETRY_ID) { // No hit
-            intersections[i].objectHit = nullptr;
+            intersections[i].sceneObject = nullptr;
             return;
         }
 
-        intersections[i].objectHit = reinterpret_cast<const TriangleMesh*>(rtcGetGeometryUserData(rtcGetGeometry(scene, geomID)));
+        intersections[i].sceneObject = reinterpret_cast<const SceneObject*>(rtcGetGeometryUserData(rtcGetGeometry(scene, geomID)));
 
         glm::vec3 origin = glm::vec3(RTCRayN_org_x(embreeRays, N, i), RTCRayN_org_y(embreeRays, N, i), RTCRayN_org_z(embreeRays, N, i));
         glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
@@ -83,7 +83,7 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
 }
 
 template <typename UserState>
-inline EmbreeAccel<UserState>::EmbreeAccel(gsl::span<const std::shared_ptr<const TriangleMesh>> meshes, ShadingCallback shadingCallback)
+inline EmbreeAccel<UserState>::EmbreeAccel(gsl::span<const SceneObject> sceneObjects, ShadingCallback shadingCallback)
     : m_shadingCallback(shadingCallback)
 {
     m_device = rtcNewDevice(nullptr);
@@ -92,8 +92,9 @@ inline EmbreeAccel<UserState>::EmbreeAccel(gsl::span<const std::shared_ptr<const
     m_scene = rtcNewScene(m_device);
     rtcSetSceneBuildQuality(m_scene, RTC_BUILD_QUALITY_HIGH);
 
-    for (const auto& mesh : meshes)
-        addTriangleMesh(*mesh);
+    for (const auto& sceneObject : sceneObjects) {
+        addSceneObject(sceneObject);
+    }
 
     rtcCommitScene(m_scene);
 }
@@ -153,8 +154,9 @@ inline void EmbreeAccel<UserState>::intersectPacket(gsl::span<const Ray, 8> rays
 }
 
 template <typename UserState>
-inline void EmbreeAccel<UserState>::addTriangleMesh(const TriangleMesh& triangleMesh)
+inline void EmbreeAccel<UserState>::addSceneObject(const SceneObject& sceneObject)
 {
+    const auto& triangleMesh = *sceneObject.mesh;
     auto indices = triangleMesh.getIndices();
     auto positions = triangleMesh.getPositions();
 
@@ -165,7 +167,7 @@ inline void EmbreeAccel<UserState>::addTriangleMesh(const TriangleMesh& triangle
     auto vertexBuffer = reinterpret_cast<glm::vec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(glm::vec3), positions.size()));
     std::copy(positions.begin(), positions.end(), vertexBuffer);
 
-    rtcSetGeometryUserData(mesh, const_cast<TriangleMesh*>(&triangleMesh));
+    rtcSetGeometryUserData(mesh, const_cast<SceneObject*>(&sceneObject));
 
     rtcCommitGeometry(mesh);
     //unsigned geomID = rtcAttachGeometry(m_scene, mesh);

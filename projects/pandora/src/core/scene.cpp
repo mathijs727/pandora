@@ -3,14 +3,14 @@
 
 namespace pandora {
 
-void Scene::addMesh(std::shared_ptr<const TriangleMesh> mesh)
+void Scene::addSceneObject(const SceneObject& sceneNode)
 {
-    m_meshes.push_back(mesh);
+    m_sceneObject.push_back(sceneNode);
 }
 
-gsl::span<const std::shared_ptr<const TriangleMesh>> Scene::getMeshes() const
+gsl::span<const SceneObject> Scene::getSceneObjects() const
 {
-    return m_meshes;
+    return m_sceneObject;
 }
 
 }

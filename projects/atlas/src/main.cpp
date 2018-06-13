@@ -1,7 +1,9 @@
+#include "glm/gtc/matrix_transform.hpp"
 #include "pandora/core/perspective_camera.h"
 #include "pandora/core/progressive_renderer.h"
 #include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
+#include "pandora/shading/lambert_material.h"
 #include "ui/fps_camera_controls.h"
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
@@ -38,20 +40,24 @@ int main()
     PerspectiveCamera camera = PerspectiveCamera(resolution, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
     camera.setPosition(glm::vec3(0.0f, 0.5f, -4.0f));
-    //camera.setOrientation(glm::quat::rotation(glm::vec3(0, 1, 0), piF * 1.0f));
-
-    //auto mesh = TriangleMesh::singleTriangle();
-    auto mesh = TriangleMesh::loadFromFile(projectBasePath + "assets/monkey.obj");
-    //auto mesh = TriangleMesh::loadFromFile(projectBasePath + "assets/cornell_box.obj");
-    if (mesh == nullptr) {
-#ifdef WIN32
-        system("PAUSE");
-#endif
-        exit(1);
-    }
 
     Scene scene;
-    scene.addMesh(mesh);
+    {
+        auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/monkey.obj", transform);
+        auto material = std::make_shared<LambertMaterial>(glm::vec3(0.6f, 0.4f, 0.9f));
+        for (auto [mesh, _] : meshMaterialPairs)
+            scene.addSceneObject(SceneObject{ mesh, material });
+    }
+
+    /*{
+        auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.01f));
+        auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/cornell_box.obj", transform);
+        auto material = std::make_shared<LambertMaterial>(glm::vec3(0.6f, 0.4f, 0.9f));
+        for (auto [mesh, _] : meshMaterialPairs)
+            scene.addSceneObject(SceneObject{ mesh, material });
+    }*/
+
     ProgressiveRenderer renderer(scene, sensor);
 
     bool pressedEscape = false;

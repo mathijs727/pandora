@@ -1,7 +1,7 @@
 #pragma once
 #include "embree3/rtcore.h"
+#include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
-#include "pandora/traversal/acceleration_structure.h"
 #include <gsl/gsl>
 #include <memory>
 
@@ -17,7 +17,7 @@ public:
     using ShadingCallback = std::function<void(const Ray&, const IntersectionData&, const UserState&, const EmbreeInsertHandle&)>;
 
 public:
-    EmbreeAccel(gsl::span<const std::shared_ptr<const TriangleMesh>> meshes, ShadingCallback shadingCallback);
+    EmbreeAccel(gsl::span<const SceneObject> sceneObject, ShadingCallback shadingCallback);
     ~EmbreeAccel();
 
     void placeIntersectRequests(gsl::span<const UserState> perRayUserData, gsl::span<const Ray> rays);
@@ -27,7 +27,7 @@ private:
     void intersect(const Ray& ray, IntersectionData& intersectionData) const;
     void intersectPacket(gsl::span<const Ray, 8> rays, gsl::span<IntersectionData> intersectionData) const;
 
-    void addTriangleMesh(const TriangleMesh& triangleMesh);
+    void addSceneObject(const SceneObject& sceneObject);
 
 private:
     RTCDevice m_device;

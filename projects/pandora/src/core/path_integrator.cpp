@@ -10,17 +10,10 @@ PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor)
     : m_maxDepth(maxDepth)
     , m_scene(scene)
     , m_sensor(sensor)
-    , m_accelerationStructure(scene.getMeshes(), [this](const Ray& r, const IntersectionData& i, const PathState& s, const auto& h) {
-        /*if (i.objectHit != nullptr) {
-            if (s.depth < 2) {
-                PathState pathState = s;
-                pathState.depth++;
-                Ray ray = r;
-                m_accelerationStructure.placeIntersectRequests(gsl::make_span(&pathState, 1), gsl::make_span(&ray, 1));
-            } else {
-                m_sensor.addPixelContribution(s.pixel, glm::vec3(1));
-            }
-        }*/
+    , m_accelerationStructure(scene.getSceneObjects(), [this](const Ray& r, const IntersectionData& i, const PathState& s, const auto& h) {
+        //if (i.sceneObject != nullptr)
+        //    m_sensor.addPixelContribution(s.pixel, glm::abs(i.geometricNormal));
+
         if (s.depth > m_maxDepth)
             return;
 
@@ -37,7 +30,8 @@ PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor)
             if (s.depth > 0) {
                 // End of path: received radiance
                 auto radiance = std::get<glm::vec3>(shadingResult);
-                m_sensor.addPixelContribution(s.pixel, radiance);
+                if (!(glm::isnan(radiance.x) && glm::isnan(radiance.y) && glm::isnan(radiance.z)))
+                    m_sensor.addPixelContribution(s.pixel, radiance);
             }
         }
     })
@@ -50,7 +44,6 @@ void PathIntegrator::render(const PerspectiveCamera& camera)
     glm::ivec2 resolution = m_sensor.getResolution();
     glm::vec2 resolutionF = resolution;
     tbb::parallel_for(0, resolution.y, [&](int y) {
-        //for (int y = 0; y < resolution.y; y++) { // Not parallel because rayQueue.push_back is not thread safe
         for (int x = 0; x < resolution.x; x++) {
             // TODO: abstract in camera sampler and make this a while loop (multiple samples per pixel)
 
@@ -61,21 +54,18 @@ void PathIntegrator::render(const PerspectiveCamera& camera)
 
             PathState pathState{ pixel, glm::vec3(1.0f), 0 };
             Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
-            //Ray ray(glm::vec3(0, 0, -5), glm::vec3(0, 0, 1));
-            //m_sensor.addPixelContribution(pixel, glm::vec3(1, 0, 0));
             m_accelerationStructure.placeIntersectRequests(gsl::make_span(&pathState, 1), gsl::make_span(&ray, 1));
         }
-        //}
     });
 }
 
 std::variant<PathIntegrator::NewRays, glm::vec3> PathIntegrator::performShading(glm::vec3 weight, const Ray& ray, const IntersectionData& intersection) const
 {
     const float epsilon = 0.00001f;
-    const LambertMaterial material(glm::vec3(0.6f, 0.4f, 0.5f));
     const glm::vec3 backgroundColor = glm::vec3(1.0);
 
-    if (intersection.objectHit != nullptr) {
+    if (intersection.sceneObject != nullptr) {
+        const Material& material = *intersection.sceneObject->material.get();
         auto shadingResult = material.sampleBSDF(intersection);
 
         glm::vec3 continuationWeight = weight * shadingResult.weight / shadingResult.pdf;
