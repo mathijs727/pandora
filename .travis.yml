@@ -25,23 +25,23 @@ matrix:
     ##########################################################################
     # GCC on Linux
     ##########################################################################
-    - env: CXX=g++-7 CC=gcc-7 BUILD_TYPE=Debug
-      addons: &gcc7
+    - env: CXX=g++-8 CC=gcc-8 BUILD_TYPE=Debug
+      addons: &gcc8
         apt:
           sources:
             - ubuntu-toolchain-r-test
           packages:
             - ninja-build
-            - gcc-7
-            - g++-7
+            - gcc-8
+            - g++-8
             - libtbb-dev
             - git 
             - unzip
             - tar
             - curl
 
-    #- env: COMPILER=g++-7 BUILD_TYPE=Release
-    #  addons: *gcc7
+    #- env: COMPILER=g++-8 BUILD_TYPE=Release
+    #  addons: *gcc8
 
 
     ##########################################################################
@@ -69,7 +69,7 @@ matrix:
 
     # Debug with stdlibc++
     - env: CXX=clang++-6.0 CC=clang-6.0 BUILD_TYPE=Debug CPP_FLAGS="-DTBB_USE_GLIBCXX_VERSION=70200"
-      addons: &clang50
+      addons: &clang60
         apt:
           sources:
             - ubuntu-toolchain-r-test
@@ -77,9 +77,8 @@ matrix:
           packages:
             - ninja-build
             - clang-6.0
-            - gcc-7
-            - g++-7
-            - libstdc++6
+            - gcc-8
+            - g++-8
             - libtbb-dev
             - git 
             - unzip
@@ -135,6 +134,8 @@ install:
       sed -i '205s/--build ./--build . -- -j1/' scripts/bootstrap.sh
       ./bootstrap-vcpkg.sh
       ./vcpkg integrate install
+    else
+      cd "${DEPS_DIR}/vcpkg/"
     fi
   
   # Install dependencies
