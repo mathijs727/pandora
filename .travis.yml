@@ -115,7 +115,7 @@ install:
   - |
     if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
       CMAKE_PATH="${DEPS_DIR}/cmake/bin"
-      if NOT [[ -d "${CMAKE_PATH}" ]]; then
+      if [ ! -d "${CMAKE_PATH}" ]; then
         CMAKE_URL="https://cmake.org/files/v${CMAKE_VERSION%.[0-9]}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz"
         mkdir cmake && travis_retry wget --no-check-certificate -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
       fi
@@ -128,7 +128,7 @@ install:
   # Download and install vcpkg
   - VCPKG_ROOT="${DEPS_DIR}/vcpkg"
   - |
-    if NOT [[ -d "${VCPKG_ROOT}" ]]; then
+    if [ ! -d "${VCPKG_ROOT}" ]; then
       cd "${DEPS_DIR}"
       git clone https://github.com/Microsoft/vcpkg --depth 1 vcpkg
       cd vcpkg
@@ -150,7 +150,7 @@ install:
   # Debug mode & SSE2 because compilation takes ages
   - EMBREE_ROOT="${DEPS_DIR}/embree/"
   - |
-    if NOT [[ -d "${EMBREE_ROOT}" ]]; then
+    if [ ! -d "${EMBREE_ROOT}" ]; then
       cd "${DEPS_DOWNLOAD_DIR}"
       git clone git@github.com:embree/embree.git -b release --depth 1 embree
       cd embree
@@ -164,7 +164,7 @@ install:
   # Untill vcpkg gets fixed
   - ASSIMP_ROOT="${DEPS_DIR}/assimp/"
   - |
-    if NOT [[ -d "${ASSIMP_ROOT}" ]]; then
+    if [ ! -d "${ASSIMP_ROOT}" ]; then
       cd "${DEPS_DOWNLOAD_DIR}"
       git clone git@github.com:assimp/assimp.git --depth 1 assimp
       cd assimp
@@ -178,7 +178,7 @@ install:
   # Download TBB because find_package(tbb) doesnt want to work for some dumb reason
   - TBB_ROOT="${DEPS_DIR}/tbb/"
   - |
-    if NOT [[ -d "${TBB_ROOT}" ]]; then
+    if [ ! -d "${TBB_ROOT}" ]; then
       cd "${DEPS_DIR}"
       git clone https://github.com/01org/tbb.git --depth 1 tbb
     fi
