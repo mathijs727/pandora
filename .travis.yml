@@ -16,8 +16,8 @@ dist: trusty
 
 cache:
   directories:
-    - ~/deps/
-    - ~/downloads/
+    - ${HOME}/deps/
+    - ${HOME}/downloads/
   timeout: 1800
 
 matrix:
@@ -99,9 +99,10 @@ install:
   # Dependencies required by the CI are installed in ${TRAVIS_BUILD_DIR}/deps/
   - DEPS_DIR="${HOME}/deps/"
   - DEPS_DOWNLOAD_DIR="${HOME}/downloads/"
+  #- CMAKE_PREFIX_PATH="${DEPS_DIR}/config_files/"
   - mkdir -p "${DEPS_DIR}"
   - mkdir -p "${DEPS_DOWNLOAD_DIR}"
-  - cd "${DEPS_DIR}"
+  #- mkdir -p "${CMAKE_PREFIX_PATH}"
 
   # Travis machines have 2 cores
   - JOBS=1
@@ -109,12 +110,16 @@ install:
   ############################################################################
   # Install a recent CMake (unless already installed on OS X)
   ############################################################################
+  - cd "${DEPS_DIR}"
   - CMAKE_VERSION=3.10.0
   - |
     if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
-      CMAKE_URL="https://cmake.org/files/v${CMAKE_VERSION%.[0-9]}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz"
-      mkdir cmake && travis_retry wget --no-check-certificate -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
-      export PATH=${DEPS_DIR}/cmake/bin:${PATH}
+      CMAKE_PATH="${DEPS_DIR}/cmake/bin"
+      if NOT [[ -d "${CMAKE_PATH}" ]]; then
+        CMAKE_URL="https://cmake.org/files/v${CMAKE_VERSION%.[0-9]}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz"
+        mkdir cmake && travis_retry wget --no-check-certificate -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
+      fi
+      export PATH=${CMAKE_PATH}:${PATH}
     else
       brew install cmake || brew upgrade cmake
     fi
@@ -122,14 +127,17 @@ install:
 
   # Download and install vcpkg
   - VCPKG_ROOT="${DEPS_DIR}/vcpkg"
-  - cd "${DEPS_DIR}"
-  - git clone https://github.com/Microsoft/vcpkg --depth 1 vcpkg
-  - cd vcpkg
-  # Compile vcpkg with a single thread to prevent out-of-memory compiler crashes
-  - sed -i '205s/--build ./--build . -- -j1/' scripts/bootstrap.sh
-  - ./bootstrap-vcpkg.sh
-  - ./vcpkg integrate install
-
+  - |
+    if NOT [[ -d "${VCPKG_ROOT}" ]]; then
+      cd "${DEPS_DIR}"
+      git clone https://github.com/Microsoft/vcpkg --depth 1 vcpkg
+      cd vcpkg
+      # Compile vcpkg with a single thread to prevent out-of-memory compiler crashes
+      sed -i '205s/--build ./--build . -- -j1/' scripts/bootstrap.sh
+      ./bootstrap-vcpkg.sh
+      ./vcpkg integrate install
+    fi
+  
   # Install dependencies
   - ./vcpkg install gtest
   #- ./vcpkg install tbb
@@ -140,33 +148,40 @@ install:
 
   # Download and install Embree from source because vcpkg does not support TBB yet on Linux (which it depends on)
   # Debug mode & SSE2 because compilation takes ages
-  - EMBREE_ROOT="${DEPS_DOWNLOAD_DIR}/embree/build/"
-  - cd "${DEPS_DOWNLOAD_DIR}"
-  - git clone git@github.com:embree/embree.git -b release --depth 1 embree
-  - cd embree
-  - mkdir build
-  - cd build
-  - cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DEMBREE_MAX_ISA=SSE2 -DEMBREE_TUTORIALS=OFF -DEMBREE_ISPC_SUPPORT=OFF -DEMBREE_GEOMETRY_CURVE=OFF -DEMBREE_GEOMETRY_SUBDIVISION=OFF ../
-  # -DCMAKE_INSTALL_PREFIX="${EMBREE_ROOT}"
-  - ninja -j${JOBS}
-  #- ninja install
+  - EMBREE_ROOT="${DEPS_DIR}/embree/"
+  - |
+    if NOT [[ -d "${EMBREE_ROOT}" ]]; then
+      cd "${DEPS_DOWNLOAD_DIR}"
+      git clone git@github.com:embree/embree.git -b release --depth 1 embree
+      cd embree
+      mkdir build
+      cd build
+      cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DEMBREE_MAX_ISA=SSE2 -DEMBREE_TUTORIALS=OFF -DEMBREE_ISPC_SUPPORT=OFF -DEMBREE_GEOMETRY_CURVE=OFF -DEMBREE_GEOMETRY_SUBDIVISION=OFF -DCMAKE_INSTALL_PREFIX="${EMBREE_ROOT}" ../
+      ninja -j${JOBS}
+      ninja install
+    fi
 
   # Untill vcpkg gets fixed
-  - ASSIMP_ROOT="${DEPS_DOWNLOAD_DIR}/assimp/build/"
-  - cd "${DEPS_DOWNLOAD_DIR}"
-  - git clone git@github.com:assimp/assimp.git --depth 1 assimp
-  - cd assimp
-  - mkdir build
-  - cd build
-  #- cmake -GNinja -DCMAKE_INSTALL_PREFIX="${ASSIMP_ROOT}" ../
-  - cmake -GNinja ../
-  - ninja -j${JOBS}
-  #- ninja install
+  - ASSIMP_ROOT="${DEPS_DIR}/assimp/"
+  - |
+    if NOT [[ -d "${ASSIMP_ROOT}" ]]; then
+      cd "${DEPS_DOWNLOAD_DIR}"
+      git clone git@github.com:assimp/assimp.git --depth 1 assimp
+      cd assimp
+      mkdir build
+      cd build
+      cmake -GNinja -DCMAKE_INSTALL_PREFIX="${ASSIMP_ROOT}" ../
+      ninja -j${JOBS}
+      ninja install
+    fi
 
   # Download TBB because find_package(tbb) doesnt want to work for some dumb reason
   - TBB_ROOT="${DEPS_DIR}/tbb/"
-  - cd "${DEPS_DIR}"
-  - git clone https://github.com/01org/tbb.git --depth 1 tbb
+  - |
+    if NOT [[ -d "${TBB_ROOT}" ]]; then
+      cd "${DEPS_DIR}"
+      git clone https://github.com/01org/tbb.git --depth 1 tbb
+    fi
 
 before_script:
   # Add libc++ flag when specified in USE_STDLIB
