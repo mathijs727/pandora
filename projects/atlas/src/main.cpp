@@ -50,13 +50,13 @@ int main()
             scene.addSceneObject(SceneObject{ mesh, material });
     }
 
-    /*{
+    {
         auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.01f));
         auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/cornell_box.obj", transform);
         auto material = std::make_shared<LambertMaterial>(glm::vec3(0.6f, 0.4f, 0.9f));
         for (auto [mesh, _] : meshMaterialPairs)
             scene.addSceneObject(SceneObject{ mesh, material });
-    }*/
+    }
 
     ProgressiveRenderer renderer(scene, sensor);
 

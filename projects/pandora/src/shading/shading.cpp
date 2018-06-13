@@ -1,6 +1,7 @@
 #include "shading.h"
 #include "glm/gtc/quaternion.hpp"
 #include "glm/gtx/quaternion.hpp"
+#include <iostream>
 #include <random>
 
 namespace pandora {
@@ -21,7 +22,7 @@ glm::vec3 uniformSampleHemisphere(glm::vec3 normal)
     glm::vec3 sample = glm::vec3(std::cos(phi) * r, std::sin(phi) * r, u1);
 
     glm::vec3 tangent;
-    if (glm::dot(normal, glm::vec3(0, 0, 1)) > 0.5f)
+    if (glm::abs(glm::dot(normal, glm::vec3(0, 0, 1))) > 0.5f)
         tangent = glm::normalize(glm::cross(normal, glm::vec3(0, 1, 0)));
     else
         tangent = glm::normalize(glm::cross(normal, glm::vec3(0, 0, 1)));

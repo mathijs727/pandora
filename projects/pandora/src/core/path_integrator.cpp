@@ -30,8 +30,7 @@ PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor)
             if (s.depth > 0) {
                 // End of path: received radiance
                 auto radiance = std::get<glm::vec3>(shadingResult);
-                if (!(glm::isnan(radiance.x) && glm::isnan(radiance.y) && glm::isnan(radiance.z)))
-                    m_sensor.addPixelContribution(s.pixel, radiance);
+                m_sensor.addPixelContribution(s.pixel, radiance);
             }
         }
     })
@@ -43,7 +42,11 @@ void PathIntegrator::render(const PerspectiveCamera& camera)
     // Generate camera rays
     glm::ivec2 resolution = m_sensor.getResolution();
     glm::vec2 resolutionF = resolution;
+#ifdef _DEBUG
+    for (int y = 0; y < resolution.y; y++) {
+#else
     tbb::parallel_for(0, resolution.y, [&](int y) {
+#endif
         for (int x = 0; x < resolution.x; x++) {
             // TODO: abstract in camera sampler and make this a while loop (multiple samples per pixel)
 
@@ -56,7 +59,11 @@ void PathIntegrator::render(const PerspectiveCamera& camera)
             Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
             m_accelerationStructure.placeIntersectRequests(gsl::make_span(&pathState, 1), gsl::make_span(&ray, 1));
         }
+#ifdef _DEBUG
+    }
+#else
     });
+#endif
 }
 
 std::variant<PathIntegrator::NewRays, glm::vec3> PathIntegrator::performShading(glm::vec3 weight, const Ray& ray, const IntersectionData& intersection) const
@@ -69,6 +76,7 @@ std::variant<PathIntegrator::NewRays, glm::vec3> PathIntegrator::performShading(
         auto shadingResult = material.sampleBSDF(intersection);
 
         glm::vec3 continuationWeight = weight * shadingResult.weight / shadingResult.pdf;
+        assert(!glm::isnan(continuationWeight.x) && !glm::isnan(continuationWeight.y) && !glm::isnan(continuationWeight.z));
         Ray continuationRay = Ray(intersection.position - epsilon * intersection.incident, shadingResult.out);
         return NewRays{ continuationWeight, continuationRay };
     } else {
