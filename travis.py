@@ -21,20 +21,20 @@ with open(".travis.yml") as file:
         config_repos) if config_repos is not None else ""
 
     env_vars = [(key, os.environ[key]) for key in env_var_whitelist]
-    env_vars_args = [["-e", f"{key}={value}"] for (key, value) in env_vars]
+    env_vars_args = [["-e", key + "=" + value] for (key, value) in env_vars]
     env_vars_args = [item for sublist in env_vars_args for item in sublist]
     env_vars_args = " ".join(env_vars_args)
 
     # force pull latest
-    print(os.system("docker pull mikkeloscar/arch-travis"))
+    print(os.system("sudo docker pull mikkeloscar/arch-travis"))
 
     # run docker container
     pwd = os.getcwd()
-    docker_cmd = f"sudo docker run --rm -v $(pwd):/build \
-        -e CONFIG_REPOS=\"{config_repos}\" \
-        -e CONFIG_PACKAGES=\"{config_packages}\" \
-        -e CONFIG_BUILD_SCRIPTS=\"{config_build_scripts}\" \
-        {env_vars_args} \
-        mikkeloscar/arch-travis"
+    docker_cmd = "sudo docker run --rm -v $(pwd):/build \
+        -e CONFIG_REPOS=\"{}\" \
+        -e CONFIG_PACKAGES=\"{}\" \
+        -e CONFIG_BUILD_SCRIPTS=\"{}\" \
+        {} \
+        mikkeloscar/arch-travis".format(config_repos, config_packages, config_build_scripts, env_vars_args)
     print(docker_cmd)
     os.system(docker_cmd)
