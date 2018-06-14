@@ -9,6 +9,7 @@ services:
 arch:
   repos:
   #- papyros=http://dash.papyros.io/repos/$repo/$arch
+
   packages:
   # pacman packages
   - g++
@@ -20,12 +21,17 @@ arch:
   - intel-tbb
   - embree
   - assimp
+  - openimageio
+  # Required by openimageio but for some reason not marked as dependency
+  - freetype2
+
   # aur packages
   - microsoft-gsl-git
+
   # packages from papyros repo
   #- papyros-shell
   script:
-  - "./travis_build_script.sh"
+  - "./travis/build_in_arch.sh"
 
 script:
 - sudo apt install python3
@@ -34,5 +40,6 @@ script:
 - export CC=${CC}
 - export CXX=${CXX}
 - export TRAVIS_BUILD_DIR=${TRAVIS_BUILD_DIR}
-- python3 travis.py
+- cd travis
+- python3 run_arch_docker.py
 #- "sudo chmod +x arch-travis"

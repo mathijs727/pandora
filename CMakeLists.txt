@@ -2,13 +2,17 @@ cmake_minimum_required(VERSION 3.8)
 project(pandora)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
-message("MODULE PATH: ${CMAKE_MODULE_PATH}")
 
 option(BUILD_TESTS "Build tests for Pandora" OFF)
 option(BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
 
 #find_package(GSL REQUIRED)# Guideline Support Library (like the Microsoft implementation)
 find_package(glm REQUIRED)
+
+find_package(OpenImageIO REQUIRED)
+add_library(OpenImageIO INTERFACE)
+target_include_directories(OpenImageIO INTERFACE "${OIIO_INCLUDE_DIR}")
+target_link_libraries(OpenImageIO INTERFACE "${OIIO_OpenImageIO_LIBRARY}")
 
 find_package(assimp REQUIRED)
 add_library(assimp INTERFACE)

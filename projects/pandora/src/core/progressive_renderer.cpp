@@ -1,48 +1,32 @@
 #include "pandora/core/progressive_renderer.h"
-#include "pandora/core/perspective_camera.h"
-#include "pandora/geometry/scene.h"
-#include "pandora/traversal/embree_accel.h"
+#include "pandora/shading/lambert_material.h"
 #include <tbb/parallel_for.h>
 #include <tbb/tbb.h>
 
 namespace pandora {
 
-ProgressiveRenderer::ProgressiveRenderer(int resolutionX, int resolutionY, const Scene& scene) :
-	m_resolutionX(resolutionX), m_resolutionY(resolutionY), m_sensor(resolutionX, resolutionY),
-	m_scene(scene),
-	m_accelerationStructure(new EmbreeAccel(scene))
+ProgressiveRenderer::ProgressiveRenderer(const Scene& scene, Sensor& sensor)
+    : m_spp(1)
+    , m_sensor(sensor)
+    , m_integrator(8, scene, sensor)
 {
 }
 
 void ProgressiveRenderer::clear()
 {
-	m_sensor.clear(glm::vec3(0.0f));
+    m_spp = 1;
+    m_sensor.clear(glm::vec3(0));
 }
 
-void ProgressiveRenderer::incrementalRender(const PerspectiveCamera& camera, int spp)
+void ProgressiveRenderer::incrementalRender(const PerspectiveCamera& camera)
 {
-	float widthF = static_cast<float>(m_resolutionX);
-	float heightF = static_cast<float>(m_resolutionY);
-	tbb::parallel_for(0, m_resolutionY, [&](int y) {
-    //for (int y= 0; y < m_resolutionY; y++) {
-		for (int x = 0; x < m_resolutionX; x++) {
-			auto pixelRasterCoords = glm::ivec2(x, y);
-			auto pixelScreenCoords = glm::vec2(x / widthF, y / heightF);
-			Ray ray = camera.generateRay(CameraSample(pixelScreenCoords));
-
-			IntersectionData intersectionData;
-			m_accelerationStructure->intersect(ray, intersectionData);
-			if (intersectionData.objectHit != nullptr) {
-				m_sensor.addPixelContribution(pixelRasterCoords, glm::vec3(0.0f, intersectionData.uv.x, intersectionData.uv.y));
-			}
-		}
-    //}
-	});
+    m_integrator.render(camera);
+    m_spp++;
 }
 
-const Sensor& ProgressiveRenderer::getSensor()
+int ProgressiveRenderer::getSampleCount() const
 {
-	return m_sensor;
+    return m_spp;
 }
 
 }

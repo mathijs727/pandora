@@ -4,7 +4,7 @@ import yaml
 import os
 
 seperator = "::::"
-env_var_whitelist = ["TRAVIS_BUILD_DIR", "CC", "CXX"]
+env_var_whitelist = ["CC", "CXX"]
 
 with open(".travis.yml") as file:
     travis_config = yaml.load(file.read())
@@ -29,12 +29,13 @@ with open(".travis.yml") as file:
     print(os.system("sudo docker pull mikkeloscar/arch-travis"))
 
     # run docker container
-    pwd = os.getcwd()
-    docker_cmd = "sudo docker run --rm -v $(pwd):/build \
+    #pwd = os.getcwd()
+    project_dir = os.environ["TRAVIS_BUILD_DIR"]
+    docker_cmd = "sudo docker run --rm -v {}:/build \
         -e CONFIG_REPOS=\"{}\" \
         -e CONFIG_PACKAGES=\"{}\" \
         -e CONFIG_BUILD_SCRIPTS=\"{}\" \
         {} \
-        mikkeloscar/arch-travis".format(config_repos, config_packages, config_build_scripts, env_vars_args)
+        mikkeloscar/arch-travis".format(project_dir, config_repos, config_packages, config_build_scripts, env_vars_args)
     print(docker_cmd)
     os.system(docker_cmd)

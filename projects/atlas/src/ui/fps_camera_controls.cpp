@@ -29,7 +29,7 @@ FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
             // the yaw rotation by minus one.
             glm::dvec2 delta2D = position - m_previousMousePos;
             double pitchDelta = delta2D.y * lookSpeed;
-            double yawDelta = -(delta2D.x * lookSpeed);
+            double yawDelta = delta2D.x * lookSpeed;
 
             if (pitchDelta != 0.0 || yawDelta != 0.0) {
                 m_cameraEulerAngles.x += pitchDelta;
@@ -40,6 +40,7 @@ FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
                 m_camera.setOrientation(quat);
 
                 glm::vec3 forward = quat * glm::vec3(0, 0, 1);
+                m_cameraChanged = true;
             }
 
             // Limit pitch movement so we cant make "loopings"
@@ -81,14 +82,22 @@ void FpsCameraControls::tick()
     glm::vec3 forward = cameraOrientation * glm::vec3(0.0f, 0.0f, 1.0f);
     glm::vec3 left = cameraOrientation * glm::vec3(1.0f, 0.0f, 0.0f);
 
-    if (m_window.isKeyDown(GLFW_KEY_A))
-        cameraPosition += left * deltaMsFloat * moveSpeed;
-    if (m_window.isKeyDown(GLFW_KEY_D))
+    if (m_window.isKeyDown(GLFW_KEY_A)) {
         cameraPosition += -left * deltaMsFloat * moveSpeed;
-    if (m_window.isKeyDown(GLFW_KEY_W))
+        m_cameraChanged = true;
+    }
+    if (m_window.isKeyDown(GLFW_KEY_D)) {
+        cameraPosition += left * deltaMsFloat * moveSpeed;
+        m_cameraChanged = true;
+    }
+    if (m_window.isKeyDown(GLFW_KEY_W)) {
         cameraPosition += forward * deltaMsFloat * moveSpeed;
-    if (m_window.isKeyDown(GLFW_KEY_S))
+        m_cameraChanged = true;
+    }
+    if (m_window.isKeyDown(GLFW_KEY_S)) {
         cameraPosition += -forward * deltaMsFloat * moveSpeed;
+        m_cameraChanged = true;
+    }
 
     m_camera.setPosition(cameraPosition);
 

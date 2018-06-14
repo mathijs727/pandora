@@ -19,7 +19,7 @@ struct CameraSample {
 
 class PerspectiveCamera {
 public:
-    PerspectiveCamera(float aspectRatio, float fovX);
+    PerspectiveCamera(glm::ivec2 resolution, float fovX);
 
     glm::vec3 getPosition() const;
     void setPosition(glm::vec3 pos);

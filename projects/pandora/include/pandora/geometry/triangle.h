@@ -1,36 +1,31 @@
 #pragma once
 #include "glm/glm.hpp"
-#include "pandora/geometry/shape.h"
+#include "pandora/geometry/bounds.h"
+#include "pandora/shading/material.h"
 #include <gsl/span>
 #include <string_view>
+#include <tuple>
 #include <vector>
+#include <memory>
 
 namespace pandora {
 
-class TriangleMesh : public Shape {
+class TriangleMesh {
 public:
     TriangleMesh(
         std::vector<glm::ivec3>&& indices,
         std::vector<glm::vec3>&& positions,
         std::vector<glm::vec3>&& normals);
-    virtual ~TriangleMesh() = default;
+    ~TriangleMesh() = default;
 
-    static std::unique_ptr<TriangleMesh> singleTriangle();
-    static std::unique_ptr<TriangleMesh> loadFromFile(const std::string_view filename);
+    static std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1));
 
-    unsigned numPrimitives() const override;
-    /*gsl::span<const Bounds> getPrimitivesBounds() const override;
+    unsigned numPrimitives() const;
 
-    //unsigned addToEmbreeScene(RTCScene& scene) const override;
-    bool intersect(unsigned primitiveIndex, Ray& ray) const override;
-    bool intersectMollerTrumbore(unsigned primitiveIndex, Ray& ray) const;
-    bool intersectPbrt(unsigned primitiveIndex, Ray& ray) const;
+    const gsl::span<const glm::ivec3> getIndices() const;
+    const gsl::span<const glm::vec3> getPositions() const;
+    const gsl::span<const glm::vec3> getNormals() const;
 
-    glm::vec3 getNormal(unsigned primitiveIndex, glm::vec2 uv) const override;*/
-
-	const gsl::span<const glm::ivec3> getIndices() const;
-	const gsl::span<const glm::vec3> getPositions() const;
-	const gsl::span<const glm::vec3> getNormals() const;
 private:
     unsigned m_numPrimitives;
 

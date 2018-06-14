@@ -1,26 +1,26 @@
 #pragma once
+#include "pandora/core/path_integrator.h"
+#include "pandora/core/perspective_camera.h"
 #include "pandora/core/sensor.h"
-#include "pandora/traversal/embree_accel.h"
+
 #include <memory>
 
 namespace pandora {
-class Scene;
-class PerspectiveCamera;
 
 class ProgressiveRenderer {
 public:
-	ProgressiveRenderer(int resolutionX, int resolutionY, const Scene& scene);
+    ProgressiveRenderer(const Scene& scene, Sensor& sensor);
 
-	void clear();
-	void incrementalRender(const PerspectiveCamera& camera, int spp = 1);
+    void clear();
+    void incrementalRender(const PerspectiveCamera& camera);
 
-	const Sensor& getSensor();
+    int getSampleCount() const;
+
 private:
-	int m_resolutionX, m_resolutionY;
-	Sensor m_sensor;
+    int m_spp;
 
-	const Scene& m_scene;
-	std::unique_ptr<AccelerationStructure> m_accelerationStructure;
+    Sensor& m_sensor;
+    PathIntegrator m_integrator;
 };
 
 }

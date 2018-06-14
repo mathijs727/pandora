@@ -1,28 +1,41 @@
 #pragma once
-#include "pandora/traversal/acceleration_structure.h"
 #include "embree3/rtcore.h"
+#include "pandora/core/scene.h"
+#include "pandora/geometry/triangle.h"
+#include <gsl/gsl>
+#include <memory>
 
 namespace pandora {
 
-class Scene;
 class TriangleMesh;
-struct Sphere;
 
-class EmbreeAccel : public AccelerationStructure
-{
+using EmbreeInsertHandle = void*;
+
+template <typename UserState>
+class EmbreeAccel {
 public:
-	EmbreeAccel(const Scene& scene);
-	~EmbreeAccel();
+    using ShadingCallback = std::function<void(const Ray&, const IntersectionData&, const UserState&, const EmbreeInsertHandle&)>;
 
-	void intersect(Ray& ray, IntersectionData& intersectionData) final;
-	void intersect(gsl::span<Ray> rays, gsl::span<IntersectionData> intersectionData) final;
-private:
-	void addTriangleMesh(const TriangleMesh& triangleMesh);
-	void addSphere(const Sphere& sphere);
+public:
+    EmbreeAccel(gsl::span<const SceneObject> sceneObject, ShadingCallback shadingCallback);
+    ~EmbreeAccel();
 
-	static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
+    void placeIntersectRequests(gsl::span<const UserState> perRayUserData, gsl::span<const Ray> rays);
+    void placeIntersectRequests(gsl::span<const UserState> perRayUserData, gsl::span<const Ray> rays, const EmbreeInsertHandle& insertHandle);
+
 private:
-	RTCDevice m_device;
-	RTCScene m_scene;
+    void intersect(const Ray& ray, IntersectionData& intersectionData) const;
+    void intersectPacket(gsl::span<const Ray, 8> rays, gsl::span<IntersectionData> intersectionData) const;
+
+    void addSceneObject(const SceneObject& sceneObject);
+
+private:
+    RTCDevice m_device;
+    RTCScene m_scene;
+
+    ShadingCallback m_shadingCallback;
 };
+
 }
+
+#include "embree_accel_impl.h"
