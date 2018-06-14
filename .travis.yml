@@ -41,5 +41,5 @@ script:
 - export CXX=${CXX}
 - export TRAVIS_BUILD_DIR=${TRAVIS_BUILD_DIR}
 - cd travis
-- python3 run_arch_docker.py
+- python3 travis/run_arch_docker.py
 #- "sudo chmod +x arch-travis"
