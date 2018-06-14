@@ -11,8 +11,9 @@ target_sources(libPandora
 
         "${CMAKE_CURRENT_LIST_DIR}/shading/lambert_material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/shading/shading.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shading/constant_texture.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shading/image_texture.cpp"
         
-		"${CMAKE_CURRENT_LIST_DIR}/traversal/acceleration_structure.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/traversal/embree_accel.cpp"
 
         #"${CMAKE_CURRENT_LIST_DIR}/utility/blocked_stack_allocator.cpp"

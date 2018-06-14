@@ -3,6 +3,8 @@
 #include "pandora/core/progressive_renderer.h"
 #include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
+#include "pandora/shading/constant_texture.h"
+#include "pandora/shading/image_texture.h"
 #include "pandora/shading/lambert_material.h"
 #include "ui/fps_camera_controls.h"
 #include "ui/framebuffer_gl.h"
@@ -45,18 +47,20 @@ int main()
     {
         auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/monkey.obj", transform);
-        auto material = std::make_shared<LambertMaterial>(glm::vec3(0.6f, 0.4f, 0.9f));
+        auto colorTexture = std::make_shared<ConstantTexture>(glm::vec3(0.6f, 0.4f, 0.9f));
+        auto material = std::make_shared<LambertMaterial>(colorTexture);
         for (auto [mesh, _] : meshMaterialPairs)
             scene.addSceneObject(SceneObject{ mesh, material });
     }
 
-    {
+    /*{
         auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.01f));
         auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/cornell_box.obj", transform);
-        auto material = std::make_shared<LambertMaterial>(glm::vec3(0.6f, 0.4f, 0.9f));
+        auto colorTexture = std::make_shared<ConstantTexture>(glm::vec3(0.6f, 0.4f, 0.9f));
+        auto material = std::make_shared<LambertMaterial>(colorTexture);
         for (auto [mesh, _] : meshMaterialPairs)
             scene.addSceneObject(SceneObject{ mesh, material });
-    }
+    }*/
 
     ProgressiveRenderer renderer(scene, sensor);
 

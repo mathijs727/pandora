@@ -7,6 +7,10 @@ if (MSVC)
 	target_compile_definitions(libPandora PUBLIC "-D_SCL_SECURE_NO_WARNINGS")
 	target_compile_definitions(libPandora PUBLIC "NOMINMAX")
     target_compile_options(libPandora PRIVATE /W3 /WX)
+
+	# Surpess warnings from OpenImageIO
+	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/wd5040 /wd4244 /wd4275") 
+
 else()
     target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Wno-unused-parameter -Wno-unused-private-field)
 endif()
@@ -14,6 +18,7 @@ target_compile_definitions(libPandora PRIVATE "ENABLE_STATIC_LIB")# Embree stati
 
 target_link_libraries(libPandora PUBLIC
     assimp
+    OpenImageIO
 	glm
     embree
 	TBB::tbb)

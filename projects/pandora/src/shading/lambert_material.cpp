@@ -4,8 +4,8 @@
 
 namespace pandora {
 
-LambertMaterial::LambertMaterial(glm::vec3 color)
-    : m_color(color)
+LambertMaterial::LambertMaterial(std::shared_ptr<Texture> texture)
+    : m_colorTexture(texture)
 {
 }
 
@@ -13,7 +13,7 @@ Material::EvalResult LambertMaterial::evalBSDF(const IntersectionData& intersect
 {
     Material::EvalResult result;
     result.pdf = 1.0f;
-    result.weigth = m_color * glm::dot(intersection.geometricNormal, out);
+    result.weigth = m_colorTexture->evaluate(intersection) * glm::dot(intersection.geometricNormal, out);
     return result;
 }
 
@@ -23,7 +23,7 @@ Material::SampleResult LambertMaterial::sampleBSDF(const IntersectionData& inter
     Material::SampleResult result;
     result.out = uniformSampleHemisphere(intersection.geometricNormal);
     result.pdf = 1.0f;
-    result.weight = m_color * glm::dot(intersection.geometricNormal, result.out); //intersection.incident);
+    result.weight = m_colorTexture->evaluate(intersection) * glm::dot(intersection.geometricNormal, result.out);
     return result;
 }
 
