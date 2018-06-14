@@ -16,7 +16,7 @@ target_link_libraries(libPandora PUBLIC
     assimp
 	glm
     embree
-	TBB::tbb)
+	tbb)
 
 target_include_directories(libPandora PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include/)
 target_include_directories(libPandora PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src/)

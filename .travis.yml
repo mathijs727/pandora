@@ -1,5 +1,7 @@
 language: cpp
 sudo: required
+notifications:
+  email: false
 
 services:
 - docker
@@ -26,4 +28,11 @@ arch:
   - "./travis_build_script.sh"
 
 script:
-- "curl -s https://raw.githubusercontent.com/mikkeloscar/arch-travis/master/arch-travis.sh | bash"
+- "sudo apt install python3"
+- "sudo apt install python3-pip"
+- "pip3 install pyyaml"
+- export CC=${CC}
+- export CXX=${CXX}
+- export TRAVIS_BUILD_DIR=${TRAVIS_BUILD_DIR}
+- "sudo python3 travis.py"
+#- "sudo chmod +x arch-travis"
