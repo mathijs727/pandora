@@ -13,7 +13,7 @@ Pandora uses the following third-party libraries:
  - Boost
  - The Guideline Support Library implemented by Microsoft
  - Intel Threaded Building Blocks
- - GLEW
+ - glm
  - Assimp
  - Google Test (only when testing is enabled)
 
