@@ -27,12 +27,13 @@ ImageTexture::ImageTexture(std::string_view filename)
 glm::vec3 ImageTexture::evaluate(const IntersectionData& intersection)
 {
     glm::vec2 textureCoord = intersection.uv;
-    int x = std::max(0, std::min(static_cast<int>(textureCoord.x * m_resolutionF.x + 0.5f), m_resolution.x));
-    int y = std::max(0, std::min(static_cast<int>(textureCoord.x * m_resolutionF.x + 0.5f), m_resolution.y));
+    int x = std::max(0, std::min(static_cast<int>(textureCoord.x * m_resolutionF.x + 0.5f), m_resolution.x - 1));
+    int y = std::max(0, std::min(static_cast<int>(textureCoord.y * m_resolutionF.y + 0.5f), m_resolution.y - 1));
 
-    int pixelSize = m_channels * sizeof(float);
+    int pixelSize = m_channels;
     const float* data = &m_pixels[(y * m_resolution.x + x) * pixelSize];
-    return glm::vec3(data[0], data[1], data[2]);
+    auto result = glm::vec3(data[0], data[1], data[2]);
+    return result;
 }
 
 }

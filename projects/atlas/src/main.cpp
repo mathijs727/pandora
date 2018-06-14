@@ -44,23 +44,25 @@ int main()
     camera.setPosition(glm::vec3(0.0f, 0.5f, -4.0f));
 
     Scene scene;
-    {
-        auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/monkey.obj", transform);
-        auto colorTexture = std::make_shared<ConstantTexture>(glm::vec3(0.6f, 0.4f, 0.9f));
-        auto material = std::make_shared<LambertMaterial>(colorTexture);
-        for (auto [mesh, _] : meshMaterialPairs)
-            scene.addSceneObject(SceneObject{ mesh, material });
-    }
-
     /*{
-        auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.01f));
-        auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/cornell_box.obj", transform);
-        auto colorTexture = std::make_shared<ConstantTexture>(glm::vec3(0.6f, 0.4f, 0.9f));
+        auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/monkey.obj", transform);
+        //auto colorTexture = std::make_shared<ConstantTexture>(glm::vec3(0.6f, 0.4f, 0.9f));
+        auto colorTexture = std::make_shared<ImageTexture>(projectBasePath + "assets/textures/green.jpg");
         auto material = std::make_shared<LambertMaterial>(colorTexture);
         for (auto [mesh, _] : meshMaterialPairs)
             scene.addSceneObject(SceneObject{ mesh, material });
     }*/
+
+    {
+        auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.01f));
+        auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj", transform);
+        //auto colorTexture = std::make_shared<ConstantTexture>(glm::vec3(0.6f, 0.4f, 0.9f));
+        auto colorTexture = std::make_shared<ImageTexture>(projectBasePath + "assets/textures/checkerboard.jpg");
+        auto material = std::make_shared<LambertMaterial>(colorTexture);
+        for (auto [mesh, _] : meshMaterialPairs)
+            scene.addSceneObject(SceneObject{ mesh, material });
+    }
 
     ProgressiveRenderer renderer(scene, sensor);
 
