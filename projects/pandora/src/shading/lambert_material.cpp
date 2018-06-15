@@ -9,11 +9,11 @@ LambertMaterial::LambertMaterial(std::shared_ptr<Texture> texture)
 {
 }
 
-Material::EvalResult LambertMaterial::evalBSDF(const SurfaceInteraction& surfaceInteraction, glm::vec3 out) const
+Material::EvalResult LambertMaterial::evalBSDF(const SurfaceInteraction& surfaceInteraction, glm::vec3 wi) const
 {
     Material::EvalResult result;
     result.pdf = 1.0f;
-    result.weigth = m_colorTexture->evaluate(surfaceInteraction) * glm::dot(surfaceInteraction.shading.normal, out);
+    result.weigth = m_colorTexture->evaluate(surfaceInteraction) * glm::dot(surfaceInteraction.shading.normal, wi);
     return result;
 }
 
@@ -24,11 +24,6 @@ Material::SampleResult LambertMaterial::sampleBSDF(const SurfaceInteraction& sur
     result.pdf = 1.0f;
     result.weight = m_colorTexture->evaluate(surfaceInteraction) * glm::dot(surfaceInteraction.shading.normal, result.out);
     return result;
-}
-
-glm::vec3 LambertMaterial::lightEmitted() const
-{
-    return glm::vec3(0.0f);
 }
 
 }

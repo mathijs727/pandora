@@ -68,8 +68,6 @@ void PathIntegrator::render(const PerspectiveCamera& camera)
 
 std::variant<PathIntegrator::NewRays, glm::vec3> PathIntegrator::performShading(glm::vec3 weight, const Ray& ray, const SurfaceInteraction& intersection) const
 {
-    const glm::vec3 backgroundColor = glm::vec3(1.0);
-
     if (intersection.sceneObject != nullptr) {
         const Material& material = *intersection.sceneObject->material.get();
         auto shadingResult = material.sampleBSDF(intersection);
@@ -79,7 +77,15 @@ std::variant<PathIntegrator::NewRays, glm::vec3> PathIntegrator::performShading(
         Ray continuationRay = Ray(intersection.position - RAY_EPSILON * intersection.wo, shadingResult.out);
         return NewRays{ continuationWeight, continuationRay };
     } else {
-        return weight * backgroundColor;
+        glm::vec3 radiance = glm::vec3(0.0f);
+
+        auto lights = m_scene.getInfiniteLIghts();
+        for (const auto& light : lights)
+        {
+            radiance += light->Le(ray.direction);
+        }
+
+        return weight * radiance;
     }
 }
 }

@@ -33,9 +33,4 @@ LightSample AreaLight::sampleLi(const Interaction& ref, const glm::vec2& randomS
     return result;
 }
 
-glm::vec3 AreaLight::Le(const Ray& ray) const
-{
-    return glm::vec3(0.0f);
-}
-
 }

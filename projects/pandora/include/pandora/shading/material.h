@@ -10,7 +10,7 @@ public:
         glm::vec3 weigth;
         float pdf;
     };
-    virtual EvalResult evalBSDF(const SurfaceInteraction& surfaceInteraction, glm::vec3 out) const = 0;
+    virtual EvalResult evalBSDF(const SurfaceInteraction& surfaceInteraction, glm::vec3 wi) const = 0;
 
     struct SampleResult {
         glm::vec3 weight;
@@ -18,8 +18,6 @@ public:
         glm::vec3 out;
     };
     virtual SampleResult sampleBSDF(const SurfaceInteraction& surfaceInteraction) const = 0;
-
-    virtual glm::vec3 lightEmitted() const = 0;
 };
 
 }

@@ -14,10 +14,11 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/lights/environment_light.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/lights/light.cpp"
 
-        "${CMAKE_CURRENT_LIST_DIR}/shading/lambert_material.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/shading/shading.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/shading/constant_texture.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/shading/image_texture.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shading/lambert_material.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shading/mirror_material.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shading/shading.cpp"
         
 		#"${CMAKE_CURRENT_LIST_DIR}/traversal/embree_accel.cpp"
 

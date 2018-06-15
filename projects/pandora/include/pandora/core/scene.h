@@ -23,10 +23,15 @@ public:
 
     void addSceneObject(SceneObject&& sceneNode);
 
+    void addInfiniteLight(const std::shared_ptr<Light>& light);
+
     gsl::span<const SceneObject> getSceneObjects() const;
+    gsl::span<const std::shared_ptr<Light>> getInfiniteLIghts() const;
 
 private:
     std::vector<SceneObject> m_sceneObject;
+    std::vector<std::shared_ptr<Light>> m_lights;
+    std::vector<std::shared_ptr<Light>> m_infiniteLights;
 };
 
 }

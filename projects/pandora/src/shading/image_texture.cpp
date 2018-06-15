@@ -25,7 +25,7 @@ ImageTexture::ImageTexture(std::string_view filename)
     in->close();
 }
 
-glm::vec3 ImageTexture::evaluate(const glm::vec2& point)
+glm::vec3 ImageTexture::evaluate(const glm::vec2& point) const
 {
     glm::vec2 textureCoord = point;
     int x = std::max(0, std::min(static_cast<int>(textureCoord.x * m_resolutionF.x + 0.5f), m_resolution.x - 1));
@@ -37,7 +37,7 @@ glm::vec3 ImageTexture::evaluate(const glm::vec2& point)
     return result;
 }
 
-glm::vec3 ImageTexture::evaluate(const SurfaceInteraction& surfaceInteraction)
+glm::vec3 ImageTexture::evaluate(const SurfaceInteraction& surfaceInteraction) const
 {
     // TODO: mip mapping and ray differentials
     return evaluate(surfaceInteraction.uv);

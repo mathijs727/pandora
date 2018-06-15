@@ -71,6 +71,7 @@ std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>> TriangleMesh
     auto indices = std::make_unique<glm::ivec3[]>(mesh->mNumFaces);
     auto positions = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
     auto normals = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
+    std::unique_ptr<glm::vec2[]> uvCoords = nullptr;
 
     // Triangles
     for (unsigned i = 0; i < mesh->mNumFaces; i++) {
@@ -94,14 +95,13 @@ std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>> TriangleMesh
         normals[i] = normalTransform * glm::vec3(assimpVec(mesh->mNormals[i]));
     }
 
-    // UV mapping
-    std::unique_ptr<glm::vec2[]> uvCoords = nullptr;
+    /*// UV mapping
     if (mesh->HasTextureCoords(0)) {
         uvCoords = std::make_unique<glm::vec2[]>(mesh->mNumVertices);
         for (unsigned i = 0; i < mesh->mNumFaces * 3; i++) {
             uvCoords[i] = glm::vec2(assimpVec(mesh->mTextureCoords[0][i]));
         }
-    }
+    }*/
 
     return { std::make_shared<TriangleMesh>(mesh->mNumFaces, mesh->mNumVertices, std::move(indices), std::move(positions), std::move(normals), std::move(uvCoords)), nullptr };
 }
@@ -114,7 +114,7 @@ std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>>
     }
 
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(filename.data(), aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_GenUVCoords);
+    const aiScene* scene = importer.ReadFile(filename.data(), aiProcessPreset_TargetRealtime_MaxQuality);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
         std::cout << "Failed to load mesh file: " << filename << std::endl;

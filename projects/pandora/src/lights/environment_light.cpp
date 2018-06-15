@@ -15,7 +15,7 @@ static float sphericalPhi(const glm::vec3& v)
 
 namespace pandora {
 
-EnvironmentLight::EnvironmentLight(const std::shared_ptr<ImageTexture>& texture)
+EnvironmentLight::EnvironmentLight(const std::shared_ptr<Texture>& texture)
     : m_texture(texture)
 {
 }
@@ -45,11 +45,21 @@ LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& 
     return result;
 }
 
-glm::vec3 EnvironmentLight::Le(const Ray& ray) const
+
+// http://www.cs.uu.nl/docs/vakken/magr/2016-2017/slides/lecture%2009%20-%20various.pdf
+// Slide 36
+glm::vec3 EnvironmentLight::Le(const glm::vec3& w) const
 {
-    glm::fvec3 w = ray.direction;
-    glm::vec2 textureCoords(sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_two_pi<float>());
-    return m_texture->evaluate(textureCoords);
+    // Convert unit vector to polar coordinates
+    float u = 1.0f + std::atan2(w.x, -w.z) / glm::pi<float>();
+    float v = std::acos(w.y) / glm::pi<float>();
+
+    // Outputted u is in the range [0, 2], we sample using normalized coordinates [0, 1]
+    u /= 2.0f;
+
+    return m_texture->evaluate(glm::vec2(u,v));
+
+    //glm::vec2 textureCoords(sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_two_pi<float>());
 }
 
 }

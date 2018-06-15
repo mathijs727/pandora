@@ -13,8 +13,6 @@ public:
     glm::vec3 light(const Interaction& ref, const glm::vec3& w) const;
     LightSample sampleLi(const Interaction& ref, const glm::vec2& randomSample) const final;
 
-    glm::vec3 Le(const Ray& ray) const final;
-
 private:
     const glm::vec3 m_emmitedLight;
     const TriangleMesh& m_mesh;

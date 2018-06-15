@@ -20,7 +20,7 @@ public:
     virtual glm::vec3 power() const = 0;
     virtual LightSample sampleLi(const Interaction& interaction, const glm::vec2& randomSample) const = 0; // Sample_Li
 
-    virtual glm::vec3 Le(const Ray& ray) const; // Radiance added to rays that miss the scene
+    virtual glm::vec3 Le(const glm::vec3& w) const; // Radiance added to rays that miss the scene
 };
 
 }
