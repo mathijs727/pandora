@@ -1,3 +1,4 @@
+#include "glm/gtc/type_ptr.hpp"
 #include "pandora/traversal/embree_accel.h"
 #include <iostream>
 
@@ -35,7 +36,10 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<I
             return;
         }
 
-        intersections[i].sceneObject = reinterpret_cast<const SceneObject*>(rtcGetGeometryUserData(rtcGetGeometry(scene, geomID)));
+        RTCGeometry geometry = rtcGetGeometry(scene, geomID);
+        const auto* sceneObject = reinterpret_cast<const SceneObject*>(rtcGetGeometryUserData(geometry));
+        ;
+        intersections[i].sceneObject = sceneObject;
 
         glm::vec3 origin = glm::vec3(RTCRayN_org_x(embreeRays, N, i), RTCRayN_org_y(embreeRays, N, i), RTCRayN_org_z(embreeRays, N, i));
         glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
@@ -48,8 +52,34 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<I
         intersections[i].geometricNormal.z = RTCHitN_Ng_z(embreeHits, N, i);
         intersections[i].geometricNormal = glm::normalize(intersections[i].geometricNormal);
 
-        intersections[i].uv.x = RTCHitN_u(embreeHits, N, i);
-        intersections[i].uv.y = RTCHitN_v(embreeHits, N, i);
+        glm::vec3 shadingNormal;
+        RTCInterpolateArguments arguments = {};
+        arguments.geometry = geometry;
+        arguments.primID = RTCHitN_primID(embreeHits, N, i);
+        arguments.u = RTCHitN_u(embreeHits, N, i);
+        arguments.v = RTCHitN_v(embreeHits, N, i);
+        arguments.bufferType = RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE;
+        arguments.bufferSlot = 0;
+        arguments.valueCount = 3;
+        arguments.P = glm::value_ptr(shadingNormal);
+        rtcInterpolate(&arguments);
+        intersections[i].shadingNormal = glm::normalize(shadingNormal);
+
+        if (sceneObject->mesh->getUVCoords()) {
+            RTCInterpolateArguments arguments = {};
+            arguments.geometry = geometry;
+            arguments.primID = RTCHitN_primID(embreeHits, N, i);
+            arguments.u = RTCHitN_u(embreeHits, N, i);
+            arguments.v = RTCHitN_v(embreeHits, N, i);
+            arguments.bufferType = RTC_BUFFER_TYPE_FACE;
+            arguments.bufferSlot = 1;
+            arguments.valueCount = 2;
+            arguments.P = glm::value_ptr(intersections[i].uv);
+            rtcInterpolate(&arguments);
+        } else {
+            intersections[i].uv.x = RTCHitN_u(embreeHits, N, i);
+            intersections[i].uv.y = RTCHitN_v(embreeHits, N, i);
+        }
     }
 }
 
@@ -157,15 +187,30 @@ template <typename UserState>
 inline void EmbreeAccel<UserState>::addSceneObject(const SceneObject& sceneObject)
 {
     const auto& triangleMesh = *sceneObject.mesh;
-    auto indices = triangleMesh.getIndices();
+    auto triangles = triangleMesh.getTriangles();
     auto positions = triangleMesh.getPositions();
+    auto normals = triangleMesh.getNormals();
+    auto uvCoordsOpt = triangleMesh.getUVCoords();
 
     RTCGeometry mesh = rtcNewGeometry(m_device, RTC_GEOMETRY_TYPE_TRIANGLE);
-    auto indexBuffer = reinterpret_cast<glm::ivec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(glm::ivec3), indices.size()));
-    std::copy(indices.begin(), indices.end(), indexBuffer);
+    rtcSetGeometryVertexAttributeCount(mesh, 1);
+
+    auto indexBuffer = reinterpret_cast<glm::ivec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(glm::ivec3), triangles.size()));
+    std::copy(triangles.begin(), triangles.end(), indexBuffer);
 
     auto vertexBuffer = reinterpret_cast<glm::vec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(glm::vec3), positions.size()));
     std::copy(positions.begin(), positions.end(), vertexBuffer);
+
+    auto normalBuffer = reinterpret_cast<glm::vec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 0, RTC_FORMAT_FLOAT3, sizeof(glm::vec3), normals.size()));
+    std::copy(normals.begin(), normals.end(), normalBuffer);
+
+    if (uvCoordsOpt) {
+        auto uvCoords = *uvCoordsOpt;
+
+        assert(uvCoords.size() == triangles.size() * 3);
+        auto uvCoordsBuffer = reinterpret_cast<glm::vec2*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_FACE, 2, RTC_FORMAT_FLOAT2, sizeof(glm::vec2), uvCoords.size()));
+        std::copy(uvCoords.begin(), uvCoords.end(), uvCoordsBuffer);
+    }
 
     rtcSetGeometryUserData(mesh, const_cast<SceneObject*>(&sceneObject));
 

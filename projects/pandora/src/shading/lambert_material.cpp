@@ -13,7 +13,7 @@ Material::EvalResult LambertMaterial::evalBSDF(const IntersectionData& intersect
 {
     Material::EvalResult result;
     result.pdf = 1.0f;
-    result.weigth = m_colorTexture->evaluate(intersection) * glm::dot(intersection.geometricNormal, out);
+    result.weigth = m_colorTexture->evaluate(intersection) * glm::dot(intersection.shadingNormal, out);
     return result;
 }
 
@@ -23,7 +23,7 @@ Material::SampleResult LambertMaterial::sampleBSDF(const IntersectionData& inter
     Material::SampleResult result;
     result.out = uniformSampleHemisphere(intersection.geometricNormal);
     result.pdf = 1.0f;
-    result.weight = m_colorTexture->evaluate(intersection) * glm::dot(intersection.geometricNormal, result.out);
+    result.weight = m_colorTexture->evaluate(intersection) * glm::dot(intersection.shadingNormal, result.out);
     return result;
 }
 

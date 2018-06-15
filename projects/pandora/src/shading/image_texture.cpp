@@ -20,7 +20,7 @@ ImageTexture::ImageTexture(std::string_view filename)
     assert(m_channels >= 3);
 
     m_pixels = std::make_unique<float[]>(m_resolution.x * m_resolution.y * m_channels);
-    in->read_image(OIIO::TypeDesc::FLOAT, m_pixels.get());// Converts input to float
+    in->read_image(OIIO::TypeDesc::FLOAT, m_pixels.get()); // Converts input to float
     in->close();
 }
 

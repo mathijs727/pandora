@@ -3,34 +3,44 @@
 #include "pandora/geometry/bounds.h"
 #include "pandora/shading/material.h"
 #include <gsl/span>
+#include <memory>
+#include <optional>
 #include <string_view>
 #include <tuple>
 #include <vector>
+
+struct aiScene;
 
 namespace pandora {
 
 class TriangleMesh {
 public:
-    TriangleMesh(
-        std::vector<glm::ivec3>&& indices,
-        std::vector<glm::vec3>&& positions,
-        std::vector<glm::vec3>&& normals);
+    // Public constructor because std::make_shared does not work on private constructors
+    TriangleMesh(unsigned numTriangles,
+        unsigned numVertices,
+        std::unique_ptr<glm::ivec3[]>&& triangles,
+        std::unique_ptr<glm::vec3[]>&& positions,
+        std::unique_ptr<glm::vec3[]>&& normals,
+        std::unique_ptr<glm::vec2[]>&& uvCoords);
     ~TriangleMesh() = default;
 
+    static std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>> createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform);
     static std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1));
 
-    unsigned numPrimitives() const;
+    unsigned numTriangles() const;
+    unsigned numVertices() const;
 
-    const gsl::span<const glm::ivec3> getIndices() const;
-    const gsl::span<const glm::vec3> getPositions() const;
-    const gsl::span<const glm::vec3> getNormals() const;
+    gsl::span<const glm::ivec3> getTriangles() const;
+    gsl::span<const glm::vec3> getPositions() const;
+    gsl::span<const glm::vec3> getNormals() const;
+    std::optional<gsl::span<const glm::vec2>> getUVCoords() const;
 
 private:
-    unsigned m_numPrimitives;
+    const unsigned m_numTriangles, m_numVertices;
 
-    std::vector<Bounds> m_primitiveBounds;
-    std::vector<glm::ivec3> m_indices;
-    std::vector<glm::vec3> m_positions;
-    std::vector<glm::vec3> m_normals;
+    std::unique_ptr<glm::ivec3[]> m_triangles;
+    const std::unique_ptr<glm::vec3[]> m_positions;
+    const std::unique_ptr<glm::vec3[]> m_normals;
+    const std::unique_ptr<glm::vec2[]> m_uvCoords;
 };
 }

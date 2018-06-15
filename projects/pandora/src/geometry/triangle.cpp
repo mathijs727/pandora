@@ -9,31 +9,6 @@
 #include <stack>
 #include <tuple>
 
-namespace pandora {
-
-TriangleMesh::TriangleMesh(
-    std::vector<glm::ivec3>&& indices,
-    std::vector<glm::vec3>&& positions,
-    std::vector<glm::vec3>&& normals)
-    : m_numPrimitives((unsigned)indices.size())
-    , m_primitiveBounds(m_numPrimitives)
-    , m_indices(std::move(indices))
-    , m_positions(std::move(positions))
-    , m_normals(std::move(normals))
-{
-    assert(m_indices.size() > 0);
-    assert(m_positions.size() == m_normals.size() || m_normals.size() == 0);
-
-    for (unsigned i = 0; i < m_numPrimitives; i++) {
-        glm::ivec3 indices = m_indices[i];
-        Bounds& bounds = m_primitiveBounds[i];
-        bounds.reset();
-        bounds.grow(m_positions[indices.x]);
-        bounds.grow(m_positions[indices.y]);
-        bounds.grow(m_positions[indices.z]);
-    }
-}
-
 static bool fileExists(const std::string_view name)
 {
     std::ifstream f(name.data());
@@ -68,44 +43,67 @@ static glm::vec3 assimpVec(const aiVector3D& v)
     return glm::vec3(v.x, v.y, v.z);
 }
 
-static std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>> createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform)
+namespace pandora {
+
+TriangleMesh::TriangleMesh(
+    unsigned numTriangles,
+    unsigned numVertices,
+    std::unique_ptr<glm::ivec3[]>&& triangles,
+    std::unique_ptr<glm::vec3[]>&& positions,
+    std::unique_ptr<glm::vec3[]>&& normals,
+    std::unique_ptr<glm::vec2[]>&& uvCoords)
+    : m_numTriangles(numTriangles)
+    , m_numVertices(numVertices)
+    , m_triangles(std::move(triangles))
+    , m_positions(std::move(positions))
+    , m_normals(std::move(normals))
+    , m_uvCoords(std::move(uvCoords))
 {
-    aiMesh* mesh = scene->mMeshes[meshIndex];
+}
+
+std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>> TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform)
+{
+    const aiMesh* mesh = scene->mMeshes[meshIndex];
 
     if (mesh->mNumVertices == 0 || mesh->mNumFaces == 0)
-        return { nullptr, nullptr };
+        throw std::runtime_error("Empty mesh");
 
-    std::vector<glm::ivec3> indices;
-    std::vector<glm::vec3> positions;
-    std::vector<glm::vec3> normals;
-    indices.reserve(mesh->mNumFaces);
-    positions.reserve(mesh->mNumVertices);
-    positions.reserve(mesh->mNumVertices);
+    auto indices = std::make_unique<glm::ivec3[]>(mesh->mNumFaces);
+    auto positions = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
+    auto normals = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
 
-    // Add all vertex data
-    for (unsigned vertexIdx = 0; vertexIdx < mesh->mNumVertices; vertexIdx++) {
-        glm::vec3 position = transform * glm::vec4(assimpVec(mesh->mVertices[vertexIdx]), 1);
-        positions.push_back(position);
-    }
-
-    // Add all the triangle indices
-    for (unsigned faceIdx = 0; faceIdx < mesh->mNumFaces; faceIdx++) {
-        const aiFace& face = mesh->mFaces[faceIdx];
+    // Triangles
+    for (unsigned i = 0; i < mesh->mNumFaces; i++) {
+        const aiFace& face = mesh->mFaces[i];
         if (face.mNumIndices != 3) {
-            std::cout << "Found a face which is not a triangle, discarding!" << std::endl;
-            continue;
+            throw std::runtime_error("Found a face which is not a triangle, discarding!");
         }
 
         auto aiIndices = face.mIndices;
-        glm::ivec3 triangle = {
-            static_cast<int>(aiIndices[0]),
-            static_cast<int>(aiIndices[1]),
-            static_cast<int>(aiIndices[2])
-        };
-        indices.push_back(triangle);
+        indices[i] = { aiIndices[0], aiIndices[1], aiIndices[2] };
     }
 
-    return { std::make_shared<TriangleMesh>(std::move(indices), std::move(positions), std::move(normals)), nullptr };
+    // Positions
+    for (unsigned i = 0; i < mesh->mNumVertices; i++) {
+        positions[i] = transform * glm::vec4(assimpVec(mesh->mVertices[i]), 1);
+    }
+
+    // Normals
+    glm::mat3 normalTransform = transform;
+    for (unsigned i = 0; i < mesh->mNumVertices; i++) {
+        normals[i] = normalTransform * glm::vec3(assimpVec(mesh->mNormals[i]));
+    }
+
+    // UV mapping
+    std::unique_ptr<glm::vec2[]> uvCoords = nullptr;
+    if (mesh->HasTextureCoords(0)) {
+        uvCoords = std::make_unique<glm::vec2[]>(mesh->mNumVertices);
+        for (unsigned i = 0; i < mesh->mNumFaces * 3; i++) {
+            uvCoords[i] = glm::vec2(assimpVec(mesh->mTextureCoords[0][i]));
+        }
+    }
+
+    return { std::make_shared<TriangleMesh>(mesh->mNumFaces, mesh->mNumVertices, std::move(indices), std::move(positions), std::move(normals), std::move(uvCoords)), nullptr };
 }
 
 std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform)
@@ -115,10 +113,8 @@ std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>>
         return {};
     }
 
-    //TODO(Mathijs): move this out of the triangle class because it should also load material information
-    // which will be stored in a SceneObject kinda way.
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(filename.data(), aiProcessPreset_TargetRealtime_MaxQuality);
+    const aiScene* scene = importer.ReadFile(filename.data(), aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_GenUVCoords);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
         std::cout << "Failed to load mesh file: " << filename << std::endl;
@@ -148,24 +144,37 @@ std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>>
     return result;
 }
 
-unsigned TriangleMesh::numPrimitives() const
+unsigned TriangleMesh::numTriangles() const
 {
-    return m_numPrimitives;
+    return m_numTriangles;
 }
 
-const gsl::span<const glm::ivec3> TriangleMesh::getIndices() const
+unsigned TriangleMesh::numVertices() const
 {
-    return m_indices;
+    return m_numVertices;
 }
 
-const gsl::span<const glm::vec3> TriangleMesh::getPositions() const
+gsl::span<const glm::ivec3> TriangleMesh::getTriangles() const
 {
-    return m_positions;
+    return gsl::make_span(m_triangles.get(), m_numTriangles);
 }
 
-const gsl::span<const glm::vec3> TriangleMesh::getNormals() const
+gsl::span<const glm::vec3> TriangleMesh::getPositions() const
 {
-    return m_normals;
+    return gsl::make_span(m_positions.get(), m_numVertices);
+}
+
+gsl::span<const glm::vec3> TriangleMesh::getNormals() const
+{
+    return gsl::make_span(m_normals.get(), m_numVertices);
+}
+
+std::optional<gsl::span<const glm::vec2>> TriangleMesh::getUVCoords() const
+{
+    if (m_uvCoords)
+        return gsl::make_span(m_uvCoords.get(), m_numVertices);
+    else
+        return {};
 }
 }
 
@@ -175,7 +184,7 @@ bool TriangleMesh::intersectMollerTrumbore(unsigned int primitiveIndex, Ray& ray
     // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
     const float EPSILON = 0.000001f;
 
-    Triangle triangle = m_indices[primitiveIndex];
+    Triangle triangle = m_triangles[primitiveIndex];
     glm::vec3 p0 = m_positions[triangle.i0];
     glm::vec3 p1 = m_positions[triangle.i1];
     glm::vec3 p2 = m_positions[triangle.i2];
@@ -216,7 +225,7 @@ bool TriangleMesh::intersectPbrt(unsigned primitiveIndex, Ray& ray) const
     // Transform the ray and triangle such that the ray origin is at (0,0,0) and its
     // direction points along the +Z axis. This makes the intersection test easy and
     // allows for watertight intersection testing.
-    Triangle triangle = m_indices[primitiveIndex];
+    Triangle triangle = m_triangles[primitiveIndex];
     glm::vec3 p0 = m_positions[triangle.i0];
     glm::vec3 p1 = m_positions[triangle.i1];
     glm::vec3 p2 = m_positions[triangle.i2];

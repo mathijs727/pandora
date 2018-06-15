@@ -30,6 +30,8 @@ struct IntersectionData {
     glm::vec3 position;
     glm::vec3 incident;
 
+    // Shading normal and geometric normal
+    glm::vec3 shadingNormal;
     glm::vec3 geometricNormal;
 
     glm::vec2 uv;
