@@ -4,11 +4,11 @@
 
 namespace pandora {
 
-struct IntersectionData;
+struct SurfaceInteraction;
 
 class Texture {
 public:
-    virtual glm::vec3 evaluate(const IntersectionData& intersection) = 0;
+    virtual glm::vec3 evaluate(const SurfaceInteraction& intersection) = 0;
 };
 
 }

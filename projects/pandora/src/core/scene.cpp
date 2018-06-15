@@ -3,9 +3,9 @@
 
 namespace pandora {
 
-void Scene::addSceneObject(const SceneObject& sceneNode)
+void Scene::addSceneObject(SceneObject&& sceneNode)
 {
-    m_sceneObject.push_back(sceneNode);
+    m_sceneObject.emplace_back(std::move(sceneNode));
 }
 
 gsl::span<const SceneObject> Scene::getSceneObjects() const

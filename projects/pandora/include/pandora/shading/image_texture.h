@@ -9,7 +9,8 @@ public:
     ImageTexture(std::string_view filename);
     ~ImageTexture() = default;
 
-    glm::vec3 evaluate(const IntersectionData& intersection) final;
+    glm::vec3 evaluate(const glm::vec2& point);
+    glm::vec3 evaluate(const SurfaceInteraction& intersection) final;
 
 private:
     glm::ivec2 m_resolution;

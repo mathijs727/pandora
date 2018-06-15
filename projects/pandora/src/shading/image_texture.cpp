@@ -1,4 +1,5 @@
 #include "pandora/shading/image_texture.h"
+#include "pandora/core/surface_interaction.h"
 #include "pandora/traversal/ray.h"
 #include <OpenImageIO/imageio.h>
 #include <string>
@@ -24,9 +25,9 @@ ImageTexture::ImageTexture(std::string_view filename)
     in->close();
 }
 
-glm::vec3 ImageTexture::evaluate(const IntersectionData& intersection)
+glm::vec3 ImageTexture::evaluate(const glm::vec2& point)
 {
-    glm::vec2 textureCoord = intersection.uv;
+    glm::vec2 textureCoord = point;
     int x = std::max(0, std::min(static_cast<int>(textureCoord.x * m_resolutionF.x + 0.5f), m_resolution.x - 1));
     int y = std::max(0, std::min(static_cast<int>(textureCoord.y * m_resolutionF.y + 0.5f), m_resolution.y - 1));
 
@@ -34,6 +35,12 @@ glm::vec3 ImageTexture::evaluate(const IntersectionData& intersection)
     const float* data = &m_pixels[(y * m_resolution.x + x) * pixelSize];
     auto result = glm::vec3(data[0], data[1], data[2]);
     return result;
+}
+
+glm::vec3 ImageTexture::evaluate(const SurfaceInteraction& surfaceInteraction)
+{
+    // TODO: mip mapping and ray differentials
+    return evaluate(surfaceInteraction.uv);
 }
 
 }

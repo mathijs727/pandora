@@ -10,7 +10,7 @@ PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor)
     : m_maxDepth(maxDepth)
     , m_scene(scene)
     , m_sensor(sensor)
-    , m_accelerationStructure(scene.getSceneObjects(), [this](const Ray& r, const IntersectionData& i, const PathState& s, const auto& h) {
+    , m_accelerationStructure(scene.getSceneObjects(), [this](const Ray& r, const SurfaceInteraction& i, const PathState& s, const auto& h) {
         //if (i.sceneObject != nullptr)
         //    m_sensor.addPixelContribution(s.pixel, glm::abs(i.geometricNormal));
 
@@ -66,9 +66,8 @@ void PathIntegrator::render(const PerspectiveCamera& camera)
 #endif
 }
 
-std::variant<PathIntegrator::NewRays, glm::vec3> PathIntegrator::performShading(glm::vec3 weight, const Ray& ray, const IntersectionData& intersection) const
+std::variant<PathIntegrator::NewRays, glm::vec3> PathIntegrator::performShading(glm::vec3 weight, const Ray& ray, const SurfaceInteraction& intersection) const
 {
-    const float epsilon = 0.00001f;
     const glm::vec3 backgroundColor = glm::vec3(1.0);
 
     if (intersection.sceneObject != nullptr) {
@@ -77,7 +76,7 @@ std::variant<PathIntegrator::NewRays, glm::vec3> PathIntegrator::performShading(
 
         glm::vec3 continuationWeight = weight * shadingResult.weight / shadingResult.pdf;
         assert(!glm::isnan(continuationWeight.x) && !glm::isnan(continuationWeight.y) && !glm::isnan(continuationWeight.z));
-        Ray continuationRay = Ray(intersection.position - epsilon * intersection.incident, shadingResult.out);
+        Ray continuationRay = Ray(intersection.position - RAY_EPSILON * intersection.wo, shadingResult.out);
         return NewRays{ continuationWeight, continuationRay };
     } else {
         return weight * backgroundColor;

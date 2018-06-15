@@ -176,6 +176,43 @@ std::optional<gsl::span<const glm::vec2>> TriangleMesh::getUVCoords() const
     else
         return {};
 }
+
+float TriangleMesh::primitiveArea(unsigned primitiveID) const
+{
+    const auto& triangle = m_triangles[primitiveID];
+    const glm::vec3& p0 = m_positions[triangle[0]];
+    const glm::vec3& p1 = m_positions[triangle[1]];
+    const glm::vec3& p2 = m_positions[triangle[2]];
+    return 0.5f * glm::cross(p1 - p0, p2 - p0).length();
+}
+
+std::pair<Interaction, float> TriangleMesh::samplePrimitive(unsigned primitiveID, const glm::vec2& randomSample) const
+{
+    // Compute uniformly sampled barycentric coordinates
+    // https://github.com/mmp/pbrt-v3/blob/master/src/shapes/triangle.cpp
+    float su0 = std::sqrt(randomSample[0]);
+    glm::vec2 b = glm::vec2(1 - su0, randomSample[1] * su0);
+
+    const auto& triangle = m_triangles[primitiveID];
+    const glm::vec3& p0 = m_positions[triangle[0]];
+    const glm::vec3& p1 = m_positions[triangle[1]];
+    const glm::vec3& p2 = m_positions[triangle[2]];
+
+    Interaction it;
+    it.position = b[0] * p0 + b[1] * p1 + (1 - b[0] - b[1]) * p2;
+    it.normal = glm::normalize(glm::cross(p1 - p0, p2 - p0));
+
+    float pdf = 1.0f / primitiveArea(primitiveID);
+
+    return { it, pdf };
+}
+
+std::pair<Interaction, float> TriangleMesh::samplePrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec2& randomSample) const
+{
+    (void)ref;
+    return samplePrimitive(primitiveID, randomSample);
+}
+
 }
 
 /*

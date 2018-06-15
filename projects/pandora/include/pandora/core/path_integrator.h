@@ -21,7 +21,7 @@ private:
         Ray continuationRay;
     };
 
-    std::variant<NewRays, glm::vec3> performShading(glm::vec3 weight, const Ray& ray, const IntersectionData& intersection) const;
+    std::variant<NewRays, glm::vec3> performShading(glm::vec3 weight, const Ray& ray, const SurfaceInteraction& intersection) const;
 
 private:
     const int m_maxDepth;

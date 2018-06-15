@@ -8,7 +8,7 @@ public:
     ConstantTexture(glm::vec3 value);
     ~ConstantTexture() = default;
 
-    glm::vec3 evaluate(const IntersectionData& intersection) final;
+    glm::vec3 evaluate(const SurfaceInteraction& intersection) final;
 
 private:
     const glm::vec3 m_value;

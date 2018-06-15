@@ -5,9 +5,14 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/core/progressive_renderer.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/scene.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/sensor.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/core/surface_interaction.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/geometry/bounds.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/geometry/triangle.cpp"
+
+        "${CMAKE_CURRENT_LIST_DIR}/lights/area_light.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/lights/environment_light.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/lights/light.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/shading/lambert_material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/shading/shading.cpp"

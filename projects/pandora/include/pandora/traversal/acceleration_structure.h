@@ -13,7 +13,7 @@ public:
     };
 
     using InsertShadingRay = std::function<void(const RayWithShadeData&)>;
-    using ShadingFunc = std::function<void(const RayWithShadeData&, const IntersectionData&, const InsertShadingRay&& ray)>;
+    using ShadingFunc = std::function<void(const RayWithShadeData&, const SurfaceInteraction&, const InsertShadingRay&& ray)>;
     void setShadingFunc(ShadingFunc&& shadingFunc);
 
     virtual void placeIntersectRequests(gsl::span<const RayWithShadeData> rays) = 0;

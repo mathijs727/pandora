@@ -25,7 +25,7 @@ void convertRays(gsl::span<const Ray> rays, RTCRayHitN* embreeRayHits)
 }
 
 template <unsigned N>
-void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<IntersectionData> intersections)
+void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<SurfaceInteraction> intersections)
 {
     RTCHitN* embreeHits = RTCRayHitN_HitN(embreeRayHits, N);
     RTCRayN* embreeRays = RTCRayHitN_RayN(embreeRayHits, N);
@@ -38,19 +38,16 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<I
 
         RTCGeometry geometry = rtcGetGeometry(scene, geomID);
         const auto* sceneObject = reinterpret_cast<const SceneObject*>(rtcGetGeometryUserData(geometry));
-        ;
         intersections[i].sceneObject = sceneObject;
 
         glm::vec3 origin = glm::vec3(RTCRayN_org_x(embreeRays, N, i), RTCRayN_org_y(embreeRays, N, i), RTCRayN_org_z(embreeRays, N, i));
         glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
         float t = RTCRayN_tfar(embreeRays, N, i);
         intersections[i].position = origin + t * direction;
-        intersections[i].incident = direction;
+        intersections[i].wo = direction;
 
-        intersections[i].geometricNormal.x = RTCHitN_Ng_x(embreeHits, N, i);
-        intersections[i].geometricNormal.y = RTCHitN_Ng_y(embreeHits, N, i);
-        intersections[i].geometricNormal.z = RTCHitN_Ng_z(embreeHits, N, i);
-        intersections[i].geometricNormal = glm::normalize(intersections[i].geometricNormal);
+        glm::vec3 geometricNormal = glm::vec3(RTCHitN_Ng_x(embreeHits, N, i), RTCHitN_Ng_y(embreeHits, N, i), RTCHitN_Ng_z(embreeHits, N, i));
+        intersections[i].normal = glm::normalize(geometricNormal);
 
         glm::vec3 shadingNormal;
         RTCInterpolateArguments arguments = {};
@@ -63,7 +60,7 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<I
         arguments.valueCount = 3;
         arguments.P = glm::value_ptr(shadingNormal);
         rtcInterpolate(&arguments);
-        intersections[i].shadingNormal = glm::normalize(shadingNormal);
+        intersections[i].shading.normal = glm::normalize(shadingNormal);
 
         if (sceneObject->mesh->getUVCoords()) {
             RTCInterpolateArguments arguments = {};
@@ -141,7 +138,7 @@ inline void EmbreeAccel<UserState>::placeIntersectRequests(gsl::span<const UserS
 {
     assert(perRayUserData.size() == rays.size());
     for (int i = 0; i < perRayUserData.size(); i++) {
-        IntersectionData intersectionData;
+        SurfaceInteraction intersectionData;
         intersect(rays[i], intersectionData);
         m_shadingCallback(rays[i], intersectionData, perRayUserData[i], nullptr);
     }
@@ -154,7 +151,7 @@ inline void EmbreeAccel<UserState>::placeIntersectRequests(gsl::span<const UserS
 }
 
 template <typename UserState>
-inline void EmbreeAccel<UserState>::intersect(const Ray& ray, IntersectionData& intersectionData) const
+inline void EmbreeAccel<UserState>::intersect(const Ray& ray, SurfaceInteraction& intersectionData) const
 {
     RTCIntersectContext context;
     rtcInitIntersectContext(&context);
@@ -168,7 +165,7 @@ inline void EmbreeAccel<UserState>::intersect(const Ray& ray, IntersectionData& 
 }
 
 template <typename UserState>
-inline void EmbreeAccel<UserState>::intersectPacket(gsl::span<const Ray, 8> rays, gsl::span<IntersectionData> intersectionData) const
+inline void EmbreeAccel<UserState>::intersectPacket(gsl::span<const Ray, 8> rays, gsl::span<SurfaceInteraction> intersectionData) const
 {
     RTCIntersectContext context;
     rtcInitIntersectContext(&context);

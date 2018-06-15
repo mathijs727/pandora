@@ -1,5 +1,6 @@
 #pragma once
-#include "pandora/traversal/ray.h" // Hit point
+#include "pandora/core/surface_interaction.h"
+#include "pandora/traversal/ray.h"
 
 namespace pandora {
 
@@ -9,14 +10,16 @@ public:
         glm::vec3 weigth;
         float pdf;
     };
-    virtual EvalResult evalBSDF(const IntersectionData& hitPoint, glm::vec3 out) const = 0;
+    virtual EvalResult evalBSDF(const SurfaceInteraction& surfaceInteraction, glm::vec3 out) const = 0;
 
     struct SampleResult {
         glm::vec3 weight;
         float pdf;
         glm::vec3 out;
     };
-    virtual SampleResult sampleBSDF(const IntersectionData& hitPoint) const = 0;
+    virtual SampleResult sampleBSDF(const SurfaceInteraction& surfaceInteraction) const = 0;
+
+    virtual glm::vec3 lightEmitted() const = 0;
 };
 
 }

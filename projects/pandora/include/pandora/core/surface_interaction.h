@@ -1,0 +1,57 @@
+#pragma once
+#include "glm/glm.hpp"
+#include "pandora/traversal/ray.h"
+
+namespace pandora {
+
+struct SceneObject;
+
+struct Interaction {
+    Interaction() = default;
+    Interaction(const glm::vec3& position, const glm::vec3& wo, const glm::vec3& normal)
+        : position(position)
+        , wo(wo)
+        , normal(normal)
+    {
+    }
+    glm::vec3 position;
+    glm::vec3 wo; // Outgoing ray
+
+    glm::vec3 normal;
+};
+
+struct SurfaceInteraction : public Interaction {
+public:
+    const SceneObject* sceneObject;
+    unsigned primitiveID;
+
+    glm::vec2 uv;
+    // glm::vec3 dpdu, dpdv;
+    // glm::vec3 dndu, dndv;
+
+    struct Shading {
+        glm::vec3 normal;
+        //glm::vec3 dpdu, dpdv;
+        //glm::vec3 dndu, dndv;
+    } shading;
+
+public:
+    SurfaceInteraction(const SceneObject& sceneObject, unsigned primitiveID, const glm::vec3& position, const glm::vec3& geometricNormal, const glm::vec3& uv, const glm::vec3& wo)
+        : Interaction(position, geometricNormal, wo)
+        , sceneObject(&sceneObject)
+        , primitiveID(primitiveID)
+        , uv(uv)
+    {
+    }
+    SurfaceInteraction()
+        : sceneObject(nullptr)
+    {
+    }
+
+    glm::vec3 lightEmitted(const glm::vec3& w) const;
+};
+
+Ray computeRayWithEpsilon(const Interaction& i1, const Interaction& i22);
+Ray computeRayWithEpsilon(const Interaction& i1, const glm::vec3& dir);
+
+}

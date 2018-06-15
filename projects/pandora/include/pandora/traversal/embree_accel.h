@@ -14,7 +14,7 @@ using EmbreeInsertHandle = void*;
 template <typename UserState>
 class EmbreeAccel {
 public:
-    using ShadingCallback = std::function<void(const Ray&, const IntersectionData&, const UserState&, const EmbreeInsertHandle&)>;
+    using ShadingCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&, const EmbreeInsertHandle&)>;
 
 public:
     EmbreeAccel(gsl::span<const SceneObject> sceneObject, ShadingCallback shadingCallback);
@@ -24,8 +24,8 @@ public:
     void placeIntersectRequests(gsl::span<const UserState> perRayUserData, gsl::span<const Ray> rays, const EmbreeInsertHandle& insertHandle);
 
 private:
-    void intersect(const Ray& ray, IntersectionData& intersectionData) const;
-    void intersectPacket(gsl::span<const Ray, 8> rays, gsl::span<IntersectionData> intersectionData) const;
+    void intersect(const Ray& ray, SurfaceInteraction& intersectionData) const;
+    void intersectPacket(gsl::span<const Ray, 8> rays, gsl::span<SurfaceInteraction> intersectionData) const;
 
     void addSceneObject(const SceneObject& sceneObject);
 

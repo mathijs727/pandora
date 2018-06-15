@@ -7,7 +7,7 @@ ConstantTexture::ConstantTexture(glm::vec3 value)
 {
 }
 
-glm::vec3 ConstantTexture::evaluate(const IntersectionData& intersection)
+glm::vec3 ConstantTexture::evaluate(const SurfaceInteraction& intersection)
 {
     return m_value;
 }
