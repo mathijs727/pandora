@@ -6,20 +6,17 @@
 
 namespace pandora {
 
-glm::vec3 uniformSampleHemisphere(glm::vec3 normal)
+glm::vec3 uniformSampleHemisphere(const glm::vec3& normal, const glm::vec2& u)
 {
     std::random_device random;
     std::default_random_engine generator(random());
     std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
 
-    const float u1 = distribution(generator);
-    const float u2 = distribution(generator);
-
     // Uniform sampling
     // http://www.rorydriscoll.com/2009/01/07/better-sampling/
-    const float r = std::sqrt(1.0f - u1 * u1);
-    const float phi = 2 * pi<float>() * u2;
-    glm::vec3 sample = glm::vec3(std::cos(phi) * r, std::sin(phi) * r, u1);
+    const float r = std::sqrt(1.0f - u[0] * u[0]);
+    const float phi = 2 * pi<float>() * u[1];
+    glm::vec3 sample = glm::vec3(std::cos(phi) * r, std::sin(phi) * r, u[0]);
 
     glm::vec3 tangent;
     if (glm::abs(glm::dot(normal, glm::vec3(0, 0, 1))) > 0.5f)

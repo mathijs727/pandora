@@ -1,6 +1,6 @@
 #include "glm/gtc/matrix_transform.hpp"
+#include "pandora/core/path_integrator.h"
 #include "pandora/core/perspective_camera.h"
-#include "pandora/core/progressive_renderer.h"
 #include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/lights/environment_light.h"
@@ -40,7 +40,6 @@ int main()
     FramebufferGL frameBuffer(width, height);
 
     glm::ivec2 resolution = glm::ivec2(width, height);
-    Sensor sensor = Sensor(resolution);
     PerspectiveCamera camera = PerspectiveCamera(resolution, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
     camera.setPosition(glm::vec3(0.0f, 0.5f, -4.0f));
@@ -71,7 +70,7 @@ int main()
             scene.addSceneObject(SceneObject{ mesh, material });
     }*/
 
-    ProgressiveRenderer renderer(scene, sensor);
+    PathIntegrator integrator(8, scene, camera.getSensor());
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
@@ -79,21 +78,24 @@ int main()
             pressedEscape = true;
     });
 
+    int samples = 0;
     while (!myWindow.shouldClose() && !pressedEscape) {
         myWindow.updateInput();
         cameraControls.tick();
 
-        if (cameraControls.cameraChanged())
-            renderer.clear();
+        //if (cameraControls.cameraChanged())
+        //    renderer.clear();
+        camera.getSensor().clear(glm::vec3(0.0f));
 
         auto prevFrameEndTime = std::chrono::high_resolution_clock::now();
-        renderer.incrementalRender(camera);
+        integrator.render(camera);
+        samples++;
         auto now = std::chrono::high_resolution_clock::now();
         auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(now - prevFrameEndTime);
         prevFrameEndTime = now;
         std::cout << "Time to render frame: " << timeDelta.count() / 1000.0f << " miliseconds" << std::endl;
 
-        frameBuffer.update(sensor, 1.0f / renderer.getSampleCount());
+        frameBuffer.update(camera.getSensor(), 1.0f);
         myWindow.swapBuffers();
     }
 

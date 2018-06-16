@@ -7,15 +7,7 @@
 
 namespace pandora {
 
-struct CameraSample {
-    CameraSample(glm::vec2 pixel_)
-        : pixel(pixel_)
-        , lens()
-    {
-    }
-    glm::vec2 pixel;
-    glm::vec2 lens;
-};
+struct CameraSample;
 
 class PerspectiveCamera {
 public:
@@ -27,9 +19,16 @@ public:
     glm::quat getOrienation() const;
     void setOrientation(glm::quat orientation);
 
+    Sensor& getSensor();
+    glm::ivec2 getResolution() const;
+
     Ray generateRay(const CameraSample& sample) const;
 
 private:
+    Sensor m_sensor;
+    glm::ivec2 m_resolution;
+    glm::vec2 m_resolutionF;
+
     glm::vec2 m_virtualScreenSize;
     float m_aspectRatio;
     float m_fovX;

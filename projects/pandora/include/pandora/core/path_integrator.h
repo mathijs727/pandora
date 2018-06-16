@@ -2,6 +2,7 @@
 #include "pandora/core/perspective_camera.h"
 #include "pandora/core/scene.h"
 #include "pandora/core/sensor.h"
+#include "pandora/sampling/uniform_sampler.h"
 #include "pandora/traversal/embree_accel.h"
 #include <tbb/concurrent_vector.h>
 #include <variant>
@@ -21,12 +22,15 @@ private:
         Ray continuationRay;
     };
 
-    std::variant<NewRays, glm::vec3> performShading(glm::vec3 weight, const Ray& ray, const SurfaceInteraction& intersection) const;
+    std::variant<NewRays, glm::vec3> performShading(const SurfaceInteraction& intersection, gsl::span<glm::vec2> samples) const;
 
+    Sampler& getSampler(const glm::ivec2& pixel);
 private:
     const int m_maxDepth;
     Sensor& m_sensor;
     const Scene& m_scene;
+
+    std::vector<UniformSampler> m_samplers;
 
     struct PathState {
         glm::ivec2 pixel;

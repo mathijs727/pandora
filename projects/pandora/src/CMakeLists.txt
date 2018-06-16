@@ -2,7 +2,6 @@ target_sources(libPandora
 	PRIVATE
         "${CMAKE_CURRENT_LIST_DIR}/core/path_integrator.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/perspective_camera.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/progressive_renderer.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/scene.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/sensor.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/surface_interaction.cpp"
@@ -13,6 +12,9 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/lights/area_light.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/lights/environment_light.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/lights/light.cpp"
+
+        "${CMAKE_CURRENT_LIST_DIR}/sampling/sampler.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/sampling/uniform_sampler.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/shading/constant_texture.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/shading/image_texture.cpp"

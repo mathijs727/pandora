@@ -6,7 +6,7 @@ namespace pandora {
 
 struct SceneObject;
 
-const float RAY_EPSILON = 0.00001f;
+const float RAY_EPSILON = 0.000001f;
 
 struct Ray {
 public:

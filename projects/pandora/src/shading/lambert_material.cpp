@@ -17,12 +17,12 @@ Material::EvalResult LambertMaterial::evalBSDF(const SurfaceInteraction& surface
     return result;
 }
 
-Material::SampleResult LambertMaterial::sampleBSDF(const SurfaceInteraction& surfaceInteraction) const
+Material::SampleResult LambertMaterial::sampleBSDF(const SurfaceInteraction& surfaceInteraction, gsl::span<glm::vec2> samples) const
 {
     Material::SampleResult result;
-    result.out = uniformSampleHemisphere(surfaceInteraction.normal);
+    result.out = uniformSampleHemisphere(surfaceInteraction.normal, samples[0]);
     result.pdf = 1.0f;
-    result.weight = m_colorTexture->evaluate(surfaceInteraction) * glm::dot(surfaceInteraction.shading.normal, result.out);
+    result.multiplier = m_colorTexture->evaluate(surfaceInteraction) * glm::dot(surfaceInteraction.shading.normal, result.out);
     return result;
 }
 

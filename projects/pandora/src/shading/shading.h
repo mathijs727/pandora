@@ -3,7 +3,7 @@
 
 namespace pandora {
 
-glm::vec3 uniformSampleHemisphere(glm::vec3 normal);
+glm::vec3 uniformSampleHemisphere(const glm::vec3& normal, const glm::vec2& u);
 
 template <typename T>
 constexpr T pi();

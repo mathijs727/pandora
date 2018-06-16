@@ -30,6 +30,9 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<S
     RTCHitN* embreeHits = RTCRayHitN_HitN(embreeRayHits, N);
     RTCRayN* embreeRays = RTCRayHitN_RayN(embreeRayHits, N);
     for (unsigned i = 0; i < N; i++) {
+        glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
+        intersections[i].wo = -direction;
+
         unsigned geomID = RTCHitN_geomID(embreeHits, N, i);
         if (RTCHitN_geomID(embreeHits, N, i) == RTC_INVALID_GEOMETRY_ID) { // No hit
             intersections[i].sceneObject = nullptr;
@@ -41,10 +44,8 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<S
         intersections[i].sceneObject = sceneObject;
 
         glm::vec3 origin = glm::vec3(RTCRayN_org_x(embreeRays, N, i), RTCRayN_org_y(embreeRays, N, i), RTCRayN_org_z(embreeRays, N, i));
-        glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
         float t = RTCRayN_tfar(embreeRays, N, i);
         intersections[i].position = origin + t * direction;
-        intersections[i].wo = direction;
 
         glm::vec3 geometricNormal = glm::vec3(RTCHitN_Ng_x(embreeHits, N, i), RTCHitN_Ng_y(embreeHits, N, i), RTCHitN_Ng_z(embreeHits, N, i));
         intersections[i].normal = glm::normalize(geometricNormal);
