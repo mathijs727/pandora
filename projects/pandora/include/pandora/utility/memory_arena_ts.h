@@ -9,11 +9,11 @@
 
 namespace pandora {
 
-class BlockedLinearAllocator {
+class MemoryArenaTS {
 public:
     static const size_t maxAlignment = 64;
 
-    BlockedLinearAllocator(size_t blockSizeBytes = 4096);
+    MemoryArenaTS(size_t blockSizeBytes = 4096);
 
     template <class T>
     T* allocate(size_t n = 1, size_t alignment = alignof(T)); // Allocate multiple items at once (contiguous in memory)
@@ -26,7 +26,7 @@ private:
 
 private:
     // Global allocation pool
-    size_t m_memoryBlockSize;
+    const size_t m_memoryBlockSize;
     tbb::concurrent_vector<std::unique_ptr<std::byte[]>> m_memoryBlocks;
 
     struct ThreadLocalData {
@@ -42,7 +42,7 @@ private:
 };
 
 template <class T>
-T* BlockedLinearAllocator::allocate(size_t n, size_t alignment)
+T* MemoryArenaTS::allocate(size_t n, size_t alignment)
 {
     // Assert that the requested alignment is a power of 2 (a requirement in C++ 17)
     // https://stackoverflow.com/questions/10585450/how-do-i-check-if-a-template-parameter-is-a-power-of-two

@@ -24,5 +24,5 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/textures/image_texture.cpp"
 		#"${CMAKE_CURRENT_LIST_DIR}/traversal/embree_accel.cpp"
 
-        #"${CMAKE_CURRENT_LIST_DIR}/utility/blocked_stack_allocator.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena_ts.cpp"
 )

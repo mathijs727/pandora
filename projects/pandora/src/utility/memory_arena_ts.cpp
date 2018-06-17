@@ -1,14 +1,14 @@
-#include "pandora/utility/blocked_linear_allocator.h"
+#include "pandora/utility/memory_arena_ts.h"
 
 namespace pandora {
-BlockedLinearAllocator::BlockedLinearAllocator(size_t blockSize)
+MemoryArenaTS::MemoryArenaTS(size_t blockSize)
     : m_memoryBlockSize(blockSize)
     , m_memoryBlocks()
     , m_threadLocalBlocks(ThreadLocalData())
 {
 }
 
-void BlockedLinearAllocator::reset()
+void MemoryArenaTS::reset()
 {
     for (auto& localBlock : m_threadLocalBlocks) {
         localBlock.data = nullptr;
@@ -19,7 +19,7 @@ void BlockedLinearAllocator::reset()
     m_memoryBlocks.clear();
 }
 
-void BlockedLinearAllocator::allocateBlock()
+void MemoryArenaTS::allocateBlock()
 {
     auto& localBlock = m_threadLocalBlocks.local();
 
@@ -29,7 +29,7 @@ void BlockedLinearAllocator::allocateBlock()
     localBlock.space = m_memoryBlockSize;
 }
 
-void* BlockedLinearAllocator::tryAlignedAllocInCurrentBlock(size_t amount, size_t alignment)
+void* MemoryArenaTS::tryAlignedAllocInCurrentBlock(size_t amount, size_t alignment)
 {
     auto& localBlock = m_threadLocalBlocks.local();
 

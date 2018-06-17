@@ -28,6 +28,11 @@ public:
 
     bool empty() { return m_currentIndex == 0; }
 
+    void clear()
+    {
+        m_currentIndex = 0;
+    }
+
 private:
     std::array<T, maxSize> m_data;
     size_t m_currentIndex;
