@@ -1,5 +1,5 @@
 #pragma once
-#include "pandora/traversal/ray.h"
+#include "pandora/core/ray.h"
 #include <functional>
 #include <gsl/span>
 

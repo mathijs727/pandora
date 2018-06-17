@@ -1,4 +1,4 @@
-#include "pandora/core/surface_interaction.h"
+#include "pandora/core/interaction.h"
 #include "pandora/core/scene.h"
 
 namespace pandora

@@ -1,5 +1,4 @@
 #include "glm/gtc/type_ptr.hpp"
-#include "pandora/traversal/embree_accel.h"
 #include <iostream>
 
 namespace pandora {

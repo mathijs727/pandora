@@ -1,7 +1,7 @@
 #pragma once
 #include "glm/glm.hpp"
-#include "pandora/core/surface_interaction.h"
-#include "pandora/traversal/ray.h"
+#include "pandora/core/interaction.h"
+#include "pandora/core/ray.h"
 #include <optional>
 
 namespace pandora {

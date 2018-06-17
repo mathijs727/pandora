@@ -1,8 +1,8 @@
 #pragma once
 #include "glm/glm.hpp"
+#include "pandora/core/material.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/lights/area_light.h"
-#include "pandora/shading/material.h"
 #include <gsl/span>
 #include <memory>
 #include <tuple>

@@ -1,4 +1,4 @@
-#include "pandora/shading/mirror_material.h"
+#include "pandora/materials/mirror_material.h"
 #include "glm/glm.hpp"
 #include "shading.h"
 

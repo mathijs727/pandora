@@ -1,8 +1,8 @@
 #pragma once
 #include "glm/glm.hpp"
-#include "pandora/core/surface_interaction.h"
+#include "pandora/core/interaction.h"
+#include "pandora/core/material.h"
 #include "pandora/geometry/bounds.h"
-#include "pandora/shading/material.h"
 #include <gsl/span>
 #include <memory>
 #include <optional>
@@ -38,7 +38,7 @@ public:
 
     float primitiveArea(unsigned primitiveID) const;
     std::pair<Interaction, float> samplePrimitive(unsigned primitiveID, const glm::vec2& randomSample) const;
-    std::pair<Interaction, float> samplePrimitive(unsigned primitiveID, const Interaction& ref,const glm::vec2& randomSample) const;
+    std::pair<Interaction, float> samplePrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec2& randomSample) const;
 
 private:
     const unsigned m_numTriangles, m_numVertices;

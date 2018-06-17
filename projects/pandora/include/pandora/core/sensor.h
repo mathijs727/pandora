@@ -1,6 +1,5 @@
 #pragma once
 #include "glm/glm.hpp"
-//#include <boost/multi_array.hpp>
 #include <gsl/gsl>
 #include <memory>
 #include <vector>

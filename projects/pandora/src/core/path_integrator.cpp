@@ -1,5 +1,5 @@
 #include "pandora/core/path_integrator.h"
-#include "pandora/shading/lambert_material.h"
+#include "pandora/materials/lambert_material.h"
 #include <tbb/concurrent_vector.h>
 #include <tbb/parallel_for.h>
 #include <tbb/tbb.h>

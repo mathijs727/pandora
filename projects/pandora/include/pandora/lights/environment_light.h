@@ -1,6 +1,6 @@
 #pragma once
-#include "pandora/lights/light.h"
-#include "pandora/shading/image_texture.h"
+#include "pandora/core/light.h"
+#include "pandora/core/texture.h"
 
 namespace pandora {
 

@@ -1,6 +1,6 @@
 #pragma once
-#include "pandora/shading/material.h"
-#include "pandora/shading/texture.h"
+#include "pandora/core/material.h"
+#include "pandora/core/texture.h"
 
 namespace pandora {
 

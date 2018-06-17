@@ -1,4 +1,4 @@
-#include "pandora/shading/lambert_material.h"
+#include "pandora/materials/lambert_material.h"
 #include "glm/glm.hpp"
 #include "shading.h"
 

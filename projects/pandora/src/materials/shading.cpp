@@ -1,6 +1,6 @@
 #include "shading.h"
+#include "glm/gtc/constants.hpp"
 #include "glm/gtc/quaternion.hpp"
-#include "glm/gtx/quaternion.hpp"
 #include <iostream>
 #include <random>
 
@@ -15,7 +15,7 @@ glm::vec3 uniformSampleHemisphere(const glm::vec3& normal, const glm::vec2& u)
     // Uniform sampling
     // http://www.rorydriscoll.com/2009/01/07/better-sampling/
     const float r = std::sqrt(1.0f - u[0] * u[0]);
-    const float phi = 2 * pi<float>() * u[1];
+    const float phi = 2 * glm::pi<float>() * u[1];
     glm::vec3 sample = glm::vec3(std::cos(phi) * r, std::sin(phi) * r, u[0]);
 
     glm::vec3 tangent;

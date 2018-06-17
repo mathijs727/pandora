@@ -1,6 +1,6 @@
 #pragma once
 #include "glm/glm.hpp"
-#include "pandora/traversal/ray.h"
+#include "pandora/core/ray.h"
 
 namespace pandora {
 

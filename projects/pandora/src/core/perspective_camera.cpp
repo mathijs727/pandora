@@ -1,6 +1,6 @@
 #include "pandora/core/perspective_camera.h"
 #include "glm/trigonometric.hpp"
-#include "pandora/sampling/sampler.h"
+#include "pandora/core/sampler.h"
 #include <cmath>
 #include <iostream>
 

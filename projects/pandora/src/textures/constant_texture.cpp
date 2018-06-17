@@ -1,4 +1,4 @@
-#include "pandora/shading/constant_texture.h"
+#include "pandora/textures/constant_texture.h"
 
 namespace pandora {
 

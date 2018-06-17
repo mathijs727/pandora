@@ -1,6 +1,6 @@
-#include "pandora/shading/image_texture.h"
-#include "pandora/core/surface_interaction.h"
-#include "pandora/traversal/ray.h"
+#include "pandora/textures/image_texture.h"
+#include "pandora/core/interaction.h"
+#include "pandora/core/ray.h"
 #include <OpenImageIO/imageio.h>
 #include <string>
 

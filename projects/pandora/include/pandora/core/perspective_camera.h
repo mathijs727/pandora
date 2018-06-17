@@ -1,8 +1,8 @@
 #pragma once
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
+#include "pandora/core/ray.h"
 #include "pandora/core/sensor.h"
-#include "pandora/traversal/ray.h"
 #include <iterator>
 
 namespace pandora {

@@ -1,6 +1,6 @@
 #pragma once
-#include "pandora/core/surface_interaction.h"
-#include "pandora/traversal/ray.h"
+#include "pandora/core/interaction.h"
+#include "pandora/core/ray.h"
 #include <gsl/gsl>
 
 namespace pandora {

@@ -1,5 +1,5 @@
 #pragma once
-#include "pandora/sampling/sampler.h"
+#include "pandora/core/sampler.h"
 #include <random>
 
 namespace pandora {
