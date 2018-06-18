@@ -13,6 +13,7 @@ PerspectiveCamera::PerspectiveCamera(glm::ivec2 resolution, float fovX)
     , m_aspectRatio((float)resolution.x / resolution.y)
     , m_fovX(fovX)
     , m_position(0.0f)
+    , m_orientation(0.0f, 0.0f, 0.0f, 0.0f)
 {
     float virtualScreenWidth = std::tan(glm::radians(m_fovX));
     float virtualScreenHeight = virtualScreenWidth / m_aspectRatio;
