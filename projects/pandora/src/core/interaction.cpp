@@ -8,7 +8,7 @@ void SurfaceInteraction::setShadingGeometry(
     const glm::vec3& dpdus,
     const glm::vec3& dpdvs,
     const glm::vec3& dndus,
-    glm::vec3& dndvs,
+    const glm::vec3& dndvs,
     bool orientationIsAuthoritative)
 {
     // Compute shading normal

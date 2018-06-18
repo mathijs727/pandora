@@ -34,8 +34,6 @@ public:
 
     gsl::span<const glm::ivec3> getTriangles() const;
     gsl::span<const glm::vec3> getPositions() const;
-    gsl::span<const glm::vec3> getNormals() const;
-    std::optional<gsl::span<const glm::vec2>> getUVCoords() const;
 
     // Temporary, to work with native Embree intersection kernels.
     // TODO: Replace this (and the getters above) with a primitive abstraction (bounds + split + intersect) so the Embree back-end uses the same intersection code as my own (TODO) kernels.

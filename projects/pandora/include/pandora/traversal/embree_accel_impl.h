@@ -29,20 +29,27 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<S
     RTCHitN* embreeHits = RTCRayHitN_HitN(embreeRayHits, N);
     RTCRayN* embreeRays = RTCRayHitN_RayN(embreeRayHits, N);
     for (unsigned i = 0; i < N; i++) {
-        glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
-        intersections[i].wo = -direction;
 
         unsigned geomID = RTCHitN_geomID(embreeHits, N, i);
         if (RTCHitN_geomID(embreeHits, N, i) == RTC_INVALID_GEOMETRY_ID) { // No hit
             intersections[i].sceneObject = nullptr;
+            glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
+            intersections[i].wo = -direction;
             return;
         }
 
         RTCGeometry geometry = rtcGetGeometry(scene, geomID);
         const auto* sceneObject = reinterpret_cast<const SceneObject*>(rtcGetGeometryUserData(geometry));
+        const auto* mesh = sceneObject->mesh.get();
+        unsigned primID = RTCHitN_primID(embreeHits, N, i);
+        glm::vec2 hitUV = glm::vec2(RTCHitN_u(embreeHits, N, i), RTCHitN_v(embreeHits, N, i));
+        intersections[i] = mesh->partialFillSurfaceInteraction(primID, hitUV);
         intersections[i].sceneObject = sceneObject;
 
-        glm::vec3 origin = glm::vec3(RTCRayN_org_x(embreeRays, N, i), RTCRayN_org_y(embreeRays, N, i), RTCRayN_org_z(embreeRays, N, i));
+        glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
+        intersections[i].wo = -direction;
+
+        /*glm::vec3 origin = glm::vec3(RTCRayN_org_x(embreeRays, N, i), RTCRayN_org_y(embreeRays, N, i), RTCRayN_org_z(embreeRays, N, i));
         float t = RTCRayN_tfar(embreeRays, N, i);
         intersections[i].position = origin + t * direction;
 
@@ -76,7 +83,7 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<S
         } else {
             intersections[i].uv.x = RTCHitN_u(embreeHits, N, i);
             intersections[i].uv.y = RTCHitN_v(embreeHits, N, i);
-        }
+        }*/
     }
 }
 
@@ -186,28 +193,14 @@ inline void EmbreeAccel<UserState>::addSceneObject(const SceneObject& sceneObjec
     const auto& triangleMesh = *sceneObject.mesh;
     auto triangles = triangleMesh.getTriangles();
     auto positions = triangleMesh.getPositions();
-    auto normals = triangleMesh.getNormals();
-    auto uvCoordsOpt = triangleMesh.getUVCoords();
 
     RTCGeometry mesh = rtcNewGeometry(m_device, RTC_GEOMETRY_TYPE_TRIANGLE);
-    rtcSetGeometryVertexAttributeCount(mesh, 1);
 
     auto indexBuffer = reinterpret_cast<glm::ivec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(glm::ivec3), triangles.size()));
     std::copy(triangles.begin(), triangles.end(), indexBuffer);
 
     auto vertexBuffer = reinterpret_cast<glm::vec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(glm::vec3), positions.size()));
     std::copy(positions.begin(), positions.end(), vertexBuffer);
-
-    auto normalBuffer = reinterpret_cast<glm::vec3*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 0, RTC_FORMAT_FLOAT3, sizeof(glm::vec3), normals.size()));
-    std::copy(normals.begin(), normals.end(), normalBuffer);
-
-    if (uvCoordsOpt) {
-        auto uvCoords = *uvCoordsOpt;
-
-        assert(uvCoords.size() == triangles.size() * 3);
-        auto uvCoordsBuffer = reinterpret_cast<glm::vec2*>(rtcSetNewGeometryBuffer(mesh, RTC_BUFFER_TYPE_FACE, 2, RTC_FORMAT_FLOAT2, sizeof(glm::vec2), uvCoords.size()));
-        std::copy(uvCoords.begin(), uvCoords.end(), uvCoordsBuffer);
-    }
 
     rtcSetGeometryUserData(mesh, const_cast<SceneObject*>(&sceneObject));
 

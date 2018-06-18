@@ -12,6 +12,10 @@ PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor)
     , m_samplers(sensor.getResolution().x * sensor.getResolution().y, 4)
     , m_sensor(sensor)
     , m_accelerationStructure(scene.getSceneObjects(), [this](const Ray& r, const SurfaceInteraction& i, const PathState& s, const auto& h) {
+        //if (i.sceneObject)
+        //    m_sensor.addPixelContribution(s.pixel, glm::abs(i.shading.normal));
+        //return;
+
         auto& sampler = getSampler(s.pixel);
         std::array samples = { sampler.get2D() };
         auto shadingResult = performShading(i, samples);

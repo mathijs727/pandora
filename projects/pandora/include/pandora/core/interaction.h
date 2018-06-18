@@ -48,7 +48,7 @@ public:
     {
     }
 
-    void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, glm::vec3& dndvs, bool orientationIsAuthoritative);
+    void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, const glm::vec3& dndvs, bool orientationIsAuthoritative);
 
     glm::vec3 lightEmitted(const glm::vec3& w) const;
 };

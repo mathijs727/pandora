@@ -104,7 +104,7 @@ std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>> TriangleMesh
     /*// UV mapping
     if (mesh->HasTextureCoords(0)) {
         uvCoords = std::make_unique<glm::vec2[]>(mesh->mNumVertices);
-        for (unsigned i = 0; i < mesh->mNumFaces * 3; i++) {
+        for (unsigned i = 0; i < mesh->mNumVertices; i++) {
             uvCoords[i] = glm::vec2(assimpVec(mesh->mTextureCoords[0][i]));
         }
     }*/
@@ -171,26 +171,13 @@ gsl::span<const glm::vec3> TriangleMesh::getPositions() const
     return gsl::make_span(m_positions.get(), m_numVertices);
 }
 
-gsl::span<const glm::vec3> TriangleMesh::getNormals() const
-{
-    return gsl::make_span(m_normals.get(), m_numVertices);
-}
-
-std::optional<gsl::span<const glm::vec2>> TriangleMesh::getUVCoords() const
-{
-    if (m_uvCoords)
-        return gsl::make_span(m_uvCoords.get(), m_numVertices);
-    else
-        return {};
-}
-
-SurfaceInteraction TriangleMesh::partialFillSurfaceInteraction(unsigned primID, const glm::vec2& hitUV) const
+SurfaceInteraction TriangleMesh::partialFillSurfaceInteraction(unsigned primID, const glm::vec2& embreeUV) const
 {
     // Barycentric coordinates
-    float b0 = hitUV.x;
-    float b1 = hitUV.y;
-    float b2 = 1.0f - b0 - b1;
-    assert(b0 + b1 < 1.0f);
+    float b0 = 1.0f - embreeUV.x - embreeUV.y;
+    float b1 = embreeUV.x;
+    float b2 = embreeUV.y;
+    assert(b0 + b1 <= 1.0f);
 
     glm::vec3 dpdu, dpdv;
     glm::vec2 uv[3];
@@ -214,8 +201,11 @@ SurfaceInteraction TriangleMesh::partialFillSurfaceInteraction(unsigned primID, 
     glm::vec3 dndu, dndv;
     dndu = dndv = glm::vec3(0.0f);
 
+    glm::vec3 hitP = b0 * p[0] + b1 * p[1] + b2 * p[2];
+    glm::vec2 hitUV = b0 * uv[0] + b1*uv[1] + b2 * uv[2];
+
     SurfaceInteraction si;
-    si.position = p[0] + hitUV.x * (p[1] - p[0]) + hitUV.y * (p[2] - p[0]); // Should be considerably more accurate than ray.o + t * ray.d
+    si.position = hitP;//p[0] + embreeUV.x * (p[1] - p[0]) + embreeUV.y * (p[2] - p[0]); // Should be considerably more accurate than ray.o + t * ray.d
     si.uv = hitUV;
     si.dpdu = dpdu;
     si.dpdv = dpdv;
