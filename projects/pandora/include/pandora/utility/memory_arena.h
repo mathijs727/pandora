@@ -2,21 +2,19 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
-#include <iostream>
 #include <memory>
-#include <tbb/concurrent_vector.h>
-#include <tbb/enumerable_thread_specific.h>
+#include <vector>
 
 namespace pandora {
 
-class MemoryArenaTS {
+class MemoryArena {
 public:
     static const size_t maxAlignment = 64;
 
-    MemoryArenaTS(size_t blockSizeBytes = 4096);
+    MemoryArena(size_t blockSizeBytes = 4096);
 
     template <class T>
-    T* allocate(size_t alignment = std::alignment_of<T>::value); // Allocate multiple items at once (contiguous in memory)
+    T* allocate(size_t alignment =  std::alignment_of<T>::value); // Allocate multiple items at once (contiguous in memory)
 
     void reset();
 
@@ -27,22 +25,14 @@ private:
 private:
     // Global allocation pool
     const size_t m_memoryBlockSize;
-    tbb::concurrent_vector<std::unique_ptr<std::byte[]>> m_memoryBlocks;
+    std::vector<std::unique_ptr<std::byte[]>> m_memoryBlocks;
 
-    struct ThreadLocalData {
-        ThreadLocalData()
-            : data(nullptr)
-            , space(0)
-        {
-        }
-        std::byte* data;
-        size_t space; // In bytes
-    };
-    tbb::enumerable_thread_specific<ThreadLocalData> m_threadLocalBlocks;
+    std::byte* m_currentBlockData;
+    size_t m_currentBlockSpace; // In bytes
 };
 
 template <class T>
-T* MemoryArenaTS::allocate(size_t alignment)
+T* MemoryArena::allocate(size_t alignment)
 {
     // Assert that the requested alignment is a power of 2 (a requirement in C++ 17)
     // https://stackoverflow.com/questions/10585450/how-do-i-check-if-a-template-parameter-is-a-power-of-two
@@ -55,7 +45,7 @@ T* MemoryArenaTS::allocate(size_t alignment)
     assert(amount <= m_memoryBlockSize);
 
     // It is never going to fit in the current block, so allocate a new block
-    if (m_threadLocalBlocks.local().space < amount) {
+    if (m_currentBlockSpace < amount) {
         allocateBlock();
     }
 

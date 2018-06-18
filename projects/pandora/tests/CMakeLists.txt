@@ -13,4 +13,4 @@ if (MSVC)
 endif()
 
 enable_testing()
-add_test(TARGET pandoraTest)
+gtest_add_tests(TARGET pandoraTest)

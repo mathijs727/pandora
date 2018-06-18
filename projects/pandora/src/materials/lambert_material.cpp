@@ -1,5 +1,6 @@
 #include "pandora/materials/lambert_material.h"
 #include "glm/glm.hpp"
+#include "pandora/core/interaction.h"
 #include "shading.h"
 
 namespace pandora {

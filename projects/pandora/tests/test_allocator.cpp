@@ -1,5 +1,7 @@
+#include "pandora/utility/memory_arena.h"
 #include "pandora/utility/memory_arena_ts.h"
 #include "gtest/gtest.h"
+#include <random>
 #include <thread>
 #include <vector>
 
@@ -12,20 +14,51 @@ struct SomeStruct24Byte // 24 byte
     double item3;
 };
 
-TEST(AllocatorTest, MemoryArenaTS1)
+TEST(MemoryArena, FixedAlignment)
 {
-    MemoryArenaTS allocator;
+    MemoryArena allocator;
 
     for (int i = 0; i < 5000; i++) {
         // Allocate and test alignment
-        auto* ptr = allocator.allocate<SomeStruct24Byte>(3, 32);
+        auto* ptr = allocator.allocate<SomeStruct24Byte>(32);
         ASSERT_EQ(reinterpret_cast<size_t>(ptr) % 32, 0);
+        std::fill(ptr, ptr + sizeof(SomeStruct24Byte), 0);
     }
 
     allocator.reset();
 }
 
-TEST(AllocatorTest, MemoryArenaTS2)
+TEST(MemoryArena, RandomAlignment)
+{
+    MemoryArena allocator;
+
+    std::random_device rd;
+    std::uniform_int_distribution<int> alignmentBitDist(1, 6);
+    for (int i = 0; i < 5000; i++) {
+        // Allocate and test random alignment
+        int alignment = 1u << alignmentBitDist(rd);
+        auto* ptr = allocator.allocate<unsigned char>(alignment);
+        ASSERT_EQ(reinterpret_cast<size_t>(ptr) % alignment, 0);
+    }
+
+    allocator.reset();
+}
+
+TEST(MemoryArenaTS, FixedSizeAlignment)
+{
+    MemoryArenaTS allocator;
+
+    for (int i = 0; i < 5000; i++) {
+        // Allocate and test alignment
+        auto* ptr = allocator.allocate<SomeStruct24Byte>(32);
+        ASSERT_EQ(reinterpret_cast<size_t>(ptr) % 32, 0);
+        std::fill(ptr, ptr + sizeof(SomeStruct24Byte), 0);
+    }
+
+    allocator.reset();
+}
+
+TEST(MemoryArenaTS, MultiThreadAllocations)
 {
     MemoryArenaTS allocator(128);
 

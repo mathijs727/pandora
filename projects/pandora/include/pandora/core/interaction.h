@@ -26,12 +26,12 @@ public:
     unsigned primitiveID;
 
     glm::vec2 uv;
-    // glm::vec3 dpdu, dpdv;
+     glm::vec3 dpdu, dpdv;
     // glm::vec3 dndu, dndv;
 
     struct Shading {
         glm::vec3 normal;
-        //glm::vec3 dpdu, dpdv;
+        glm::vec3 dpdu, dpdv;
         //glm::vec3 dndu, dndv;
     } shading;
 

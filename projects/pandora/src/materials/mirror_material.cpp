@@ -1,10 +1,11 @@
 #include "pandora/materials/mirror_material.h"
 #include "glm/glm.hpp"
+#include "pandora/core/interaction.h"
 #include "shading.h"
 
 namespace pandora {
 
-MirrorMaterial::MirrorMaterial() 
+MirrorMaterial::MirrorMaterial()
 {
 }
 
@@ -25,7 +26,7 @@ Material::SampleResult MirrorMaterial::sampleBSDF(const SurfaceInteraction& surf
     Material::SampleResult result;
     result.out = glm::reflect(-surfaceInteraction.wo, surfaceInteraction.shading.normal);
     // Resample rays going into the geometry
-    if(glm::dot(surfaceInteraction.normal, result.out) < 0.0f)
+    if (glm::dot(surfaceInteraction.normal, result.out) < 0.0f)
         result.out = glm::reflect(-surfaceInteraction.wo, surfaceInteraction.normal);
     result.pdf = 1.0f;
     result.multiplier = glm::vec3(1.0f);
