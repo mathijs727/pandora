@@ -20,9 +20,9 @@ TEST(MemoryArena, FixedAlignment)
 
     for (int i = 0; i < 5000; i++) {
         // Allocate and test alignment
-        auto* ptr = allocator.allocate<SomeStruct24Byte>(32);
+        SomeStruct24Byte* ptr = allocator.allocate<SomeStruct24Byte>(32);
         ASSERT_EQ(reinterpret_cast<size_t>(ptr) % 32, 0);
-        std::fill(ptr, ptr + sizeof(SomeStruct24Byte), 0);
+        *ptr = { 0, 0, 0.0f };
     }
 
     allocator.reset();
@@ -52,7 +52,7 @@ TEST(MemoryArenaTS, FixedSizeAlignment)
         // Allocate and test alignment
         auto* ptr = allocator.allocate<SomeStruct24Byte>(32);
         ASSERT_EQ(reinterpret_cast<size_t>(ptr) % 32, 0);
-        std::fill(ptr, ptr + sizeof(SomeStruct24Byte), 0);
+        *ptr = { 0, 0, 0.0f };
     }
 
     allocator.reset();
