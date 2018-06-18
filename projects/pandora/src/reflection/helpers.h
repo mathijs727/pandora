@@ -66,10 +66,6 @@ inline glm::vec3 reflect(const glm::vec3& wo, glm::vec3& n)
     return -wo + 2 * glm::dot(wo, n) * n;
 }
 
-inline glm::vec3 faceForward(const glm::vec3& n, const glm::vec3& v) {
-    return (glm::dot(n, v) < 0.0f) ? -n : n;
-}
-
 inline std::optional<glm::vec3> refract(const glm::vec3& wi, const glm::vec3& n, float eta)
 {
     float cosThetaI = glm::dot(n, wi);

@@ -1,13 +1,32 @@
 #include "pandora/core/interaction.h"
 #include "pandora/core/scene.h"
+#include "pandora/utility/math.h"
 
-namespace pandora
+namespace pandora {
+
+void SurfaceInteraction::setShadingGeometry(
+    const glm::vec3& dpdus,
+    const glm::vec3& dpdvs,
+    const glm::vec3& dndus,
+    glm::vec3& dndvs,
+    bool orientationIsAuthoritative)
 {
+    // Compute shading normal
+    shading.normal = glm::normalize(glm::cross(dpdus, dpdvs));
+    if (orientationIsAuthoritative)
+        normal = faceForward(normal ,shading.normal);
+    else
+        shading.normal = faceForward(shading.normal, normal);
+
+    shading.dpdu = dpdus;
+    shading.dpdv = dpdvs;
+    shading.dndu = dndus;
+    shading.dndv = dndvs;
+}
 
 glm::vec3 SurfaceInteraction::lightEmitted(const glm::vec3& w) const
 {
-    if (sceneObject->areaLightPerPrimitive)
-    {
+    if (sceneObject->areaLightPerPrimitive) {
         const auto& area = sceneObject->areaLightPerPrimitive[primitiveID];
         return area.light(*this, w);
     } else {

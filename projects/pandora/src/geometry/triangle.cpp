@@ -3,6 +3,7 @@
 #include "assimp/postprocess.h"
 #include "assimp/scene.h"
 #include "glm/mat4x4.hpp"
+#include "pandora/utility/math.h"
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -51,12 +52,14 @@ TriangleMesh::TriangleMesh(
     std::unique_ptr<glm::ivec3[]>&& triangles,
     std::unique_ptr<glm::vec3[]>&& positions,
     std::unique_ptr<glm::vec3[]>&& normals,
+    std::unique_ptr<glm::vec3[]>&& tangents,
     std::unique_ptr<glm::vec2[]>&& uvCoords)
     : m_numTriangles(numTriangles)
     , m_numVertices(numVertices)
     , m_triangles(std::move(triangles))
     , m_positions(std::move(positions))
     , m_normals(std::move(normals))
+    , m_tangents(std::move(tangents))
     , m_uvCoords(std::move(uvCoords))
 {
 }
@@ -70,7 +73,8 @@ std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>> TriangleMesh
 
     auto indices = std::make_unique<glm::ivec3[]>(mesh->mNumFaces);
     auto positions = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
-    auto normals = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
+    auto normals = std::make_unique<glm::vec3[]>(mesh->mNumVertices); // Shading normals
+    auto tangents = std::make_unique<glm::vec3[]>(mesh->mNumVertices); // Shading tangents
     std::unique_ptr<glm::vec2[]> uvCoords = nullptr;
 
     // Triangles
@@ -89,21 +93,22 @@ std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>> TriangleMesh
         positions[i] = transform * glm::vec4(assimpVec(mesh->mVertices[i]), 1);
     }
 
-    // Normals
+    // Normals & tangents
     glm::mat3 normalTransform = transform;
     for (unsigned i = 0; i < mesh->mNumVertices; i++) {
         normals[i] = normalTransform * glm::vec3(assimpVec(mesh->mNormals[i]));
+        tangents[i] = normalTransform * glm::vec3(assimpVec(mesh->mTangents[i]));
     }
 
-    /*// UV mapping
+    // UV mapping
     if (mesh->HasTextureCoords(0)) {
         uvCoords = std::make_unique<glm::vec2[]>(mesh->mNumVertices);
         for (unsigned i = 0; i < mesh->mNumFaces * 3; i++) {
             uvCoords[i] = glm::vec2(assimpVec(mesh->mTextureCoords[0][i]));
         }
-    }*/
+    }
 
-    return { std::make_shared<TriangleMesh>(mesh->mNumFaces, mesh->mNumVertices, std::move(indices), std::move(positions), std::move(normals), std::move(uvCoords)), nullptr };
+    return { std::make_shared<TriangleMesh>(mesh->mNumFaces, mesh->mNumVertices, std::move(indices), std::move(positions), std::move(normals), std::move(tangents), std::move(uvCoords)), nullptr };
 }
 
 std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform)
@@ -115,6 +120,7 @@ std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>>
 
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(filename.data(), aiProcessPreset_TargetRealtime_MaxQuality);
+    importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
         std::cout << "Failed to load mesh file: " << filename << std::endl;
@@ -177,6 +183,79 @@ std::optional<gsl::span<const glm::vec2>> TriangleMesh::getUVCoords() const
         return {};
 }
 
+SurfaceInteraction TriangleMesh::partialFillSurfaceInteraction(unsigned primID, const glm::vec2& hitUV) const
+{
+    // Barycentric coordinates
+    float b0 = hitUV.x;
+    float b1 = hitUV.y;
+    float b2 = 1.0f - b0 - b1;
+    assert(b0 + b1 < 1.0f);
+
+    glm::vec3 dpdu, dpdv;
+    glm::vec2 uv[3];
+    getUVs(primID, uv);
+    glm::vec3 p[3];
+    getPs(primID, p);
+    // Compute deltas for triangle partial derivatives
+    glm::vec2 duv02 = uv[0] - uv[2], duv12 = uv[1] - uv[2];
+    glm::vec3 dp02 = p[0] - p[2], dp12 = p[1] - p[2];
+
+    float determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
+    if (determinant == 0.0f) {
+        // Handle zero determinant for triangle partial derivative matrix
+        coordinateSystem(glm::normalize(glm::cross(p[2] - p[0], p[1] - p[0])), &dpdu, &dpdv);
+    } else {
+        float invDet = 1.0f / determinant;
+        dpdu = (duv12[1] * dp02 - duv02[1] * dp12) * invDet;
+        dpdv = (-duv12[0] * dp02 + duv02[0] * dp12) * invDet;
+    }
+
+    glm::vec3 dndu, dndv;
+    dndu = dndv = glm::vec3(0.0f);
+
+    SurfaceInteraction si;
+    si.position = p[0] + hitUV.x * (p[1] - p[0]) + hitUV.y * (p[2] - p[0]); // Should be considerably more accurate than ray.o + t * ray.d
+    si.uv = hitUV;
+    si.dpdu = dpdu;
+    si.dpdv = dpdv;
+    si.normal = si.shading.normal = glm::normalize(glm::cross(dp02, dp12));
+    si.dndu = dndu;
+    si.dndv = dndv;
+
+    // Shading normals / tangents
+    if (m_normals || m_tangents) {
+        glm::ivec3 v = m_triangles[primID];
+
+        glm::vec3 ns;
+        if (m_normals)
+            ns = glm::normalize(b0 * m_normals[v[0]] + b1 * m_normals[v[1]] + b2 * m_normals[v[2]]);
+        else
+            ns = si.normal;
+
+        glm::vec3 ss;
+        if (m_tangents)
+            ss = glm::normalize(b0 * m_tangents[v[0]] + b1 * m_tangents[v[1]] + b2 * m_tangents[v[2]]);
+        else
+            ss = glm::normalize(si.dpdu);
+
+        glm::vec3 ts = glm::cross(ss, ns);
+        if (glm::dot(ts, ts) > 0.0f) { // glm::dot(ts, ts) = length2(ts)
+            ts = glm::normalize(ts);
+            ss = glm::cross(ts, ns);
+        } else {
+            coordinateSystem(ns, &ss, &ts);
+        }
+
+        si.setShadingGeometry(ss, ts, dndu, dndv, true);
+    }
+
+    // Ensure correct orientation of the geometric normal
+    if (m_normals)
+        si.normal = faceForward(si.normal, si.shading.normal);
+
+    return si;
+}
+
 float TriangleMesh::primitiveArea(unsigned primitiveID) const
 {
     const auto& triangle = m_triangles[primitiveID];
@@ -211,6 +290,28 @@ std::pair<Interaction, float> TriangleMesh::samplePrimitive(unsigned primitiveID
 {
     (void)ref;
     return samplePrimitive(primitiveID, randomSample);
+}
+
+void TriangleMesh::getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const
+{
+    if (m_uvCoords) {
+        glm::ivec3 indices = m_triangles[primitiveID];
+        uv[0] = m_uvCoords[indices[0]];
+        uv[1] = m_uvCoords[indices[1]];
+        uv[2] = m_uvCoords[indices[2]];
+    } else {
+        uv[0] = glm::vec2(0, 0);
+        uv[1] = glm::vec2(1, 0);
+        uv[2] = glm::vec2(1, 1);
+    }
+}
+
+void TriangleMesh::getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const
+{
+    glm::ivec3 indices = m_triangles[primitiveID];
+    p[0] = m_positions[indices[0]];
+    p[1] = m_positions[indices[1]];
+    p[2] = m_positions[indices[2]];
 }
 
 }

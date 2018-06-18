@@ -1,5 +1,6 @@
 #include "specular_bxdf.h"
 #include "helpers.h"
+#include "pandora/utility/math.h"
 
 namespace pandora {
 SpecularReflection::SpecularReflection(const Spectrum& r, Fresnel& fresnel)

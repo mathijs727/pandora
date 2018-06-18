@@ -26,13 +26,13 @@ public:
     unsigned primitiveID;
 
     glm::vec2 uv;
-     glm::vec3 dpdu, dpdv;
-    // glm::vec3 dndu, dndv;
+    glm::vec3 dpdu, dpdv;
+    glm::vec3 dndu, dndv;
 
     struct Shading {
         glm::vec3 normal;
         glm::vec3 dpdu, dpdv;
-        //glm::vec3 dndu, dndv;
+        glm::vec3 dndu, dndv;
     } shading;
 
 public:
@@ -47,6 +47,8 @@ public:
         : sceneObject(nullptr)
     {
     }
+
+    void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, glm::vec3& dndvs, bool orientationIsAuthoritative);
 
     glm::vec3 lightEmitted(const glm::vec3& w) const;
 };
