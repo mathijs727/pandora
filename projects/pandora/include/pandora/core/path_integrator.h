@@ -1,44 +1,29 @@
 #pragma once
-#include "pandora/core/perspective_camera.h"
-#include "pandora/core/scene.h"
-#include "pandora/core/sensor.h"
-#include "pandora/samplers/uniform_sampler.h"
-#include "pandora/traversal/embree_accel.h"
-#include <tbb/concurrent_vector.h>
+#include "pandora/core/integrator.h"
+#include "pandora/core/pandora.h"
 #include <variant>
 
 namespace pandora {
 
-class PathIntegrator {
+struct PathIntegratorState {
+    glm::ivec2 pixel;
+    glm::vec3 weight;
+    int depth;
+};
+
+class PathIntegrator : Integrator<PathIntegratorState> {
 public:
     // WARNING: do not modify the scene in any way while the integrator is alive
     PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor);
 
-    void render(const PerspectiveCamera& camera);
+    void render(const PerspectiveCamera& camera) final;
 
-private:
-    struct NewRays {
-        glm::vec3 continuationRayWeight;
-        Ray continuationRay;
-    };
-
-    std::variant<NewRays, glm::vec3> performShading(const SurfaceInteraction& intersection, gsl::span<glm::vec2> samples) const;
-
-    Sampler& getSampler(const glm::ivec2& pixel);
+protected:
+    void rayHit(const Ray& r, const SurfaceInteraction& si, const PathIntegratorState& s, const EmbreeInsertHandle& h) final;
+    void rayMiss(const Ray& r, const PathIntegratorState& s) final;
 
 private:
     const int m_maxDepth;
-    Sensor& m_sensor;
-    const Scene& m_scene;
-
-    std::vector<UniformSampler> m_samplers;
-
-    struct PathState {
-        glm::ivec2 pixel;
-        glm::vec3 weight;
-        int depth;
-    };
-    EmbreeAccel<PathState> m_accelerationStructure;
 };
 
 }

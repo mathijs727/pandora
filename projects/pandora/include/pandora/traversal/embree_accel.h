@@ -14,10 +14,11 @@ using EmbreeInsertHandle = void*;
 template <typename UserState>
 class EmbreeAccel {
 public:
-    using ShadingCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&, const EmbreeInsertHandle&)>;
+    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&, const EmbreeInsertHandle&)>;
+    using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
 public:
-    EmbreeAccel(gsl::span<const SceneObject> sceneObject, ShadingCallback shadingCallback);
+    EmbreeAccel(gsl::span<const SceneObject> sceneObject, HitCallback hitCallback, MissCallback missCallback);
     ~EmbreeAccel();
 
     void placeIntersectRequests(gsl::span<const UserState> perRayUserData, gsl::span<const Ray> rays);
@@ -33,7 +34,8 @@ private:
     RTCDevice m_device;
     RTCScene m_scene;
 
-    ShadingCallback m_shadingCallback;
+    HitCallback m_hitCallback;
+    MissCallback m_missCallback;
 };
 
 }

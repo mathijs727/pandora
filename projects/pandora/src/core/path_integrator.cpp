@@ -1,22 +1,17 @@
 #include "pandora/core/path_integrator.h"
+#include "pandora/core/perspective_camera.h"
+#include "pandora/core/sampler.h"
+#include "pandora/core/sensor.h"
 #include "pandora/materials/lambert_material.h"
+#include <gsl/gsl>
 #include <tbb/concurrent_vector.h>
 #include <tbb/parallel_for.h>
 #include <tbb/tbb.h>
 
 namespace pandora {
 
-PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor)
-    : m_maxDepth(maxDepth)
-    , m_scene(scene)
-    , m_samplers(sensor.getResolution().x * sensor.getResolution().y, 4)
-    , m_sensor(sensor)
-    , m_accelerationStructure(scene.getSceneObjects(), [this](const Ray& r, const SurfaceInteraction& i, const PathState& s, const auto& h) {
-        //if (i.sceneObject)
-        //    m_sensor.addPixelContribution(s.pixel, glm::abs(i.shading.normal));
-        //return;
-
-        auto& sampler = getSampler(s.pixel);
+/*
+auto& sampler = getSampler(s.pixel);
         std::array samples = { sampler.get2D() };
         auto shadingResult = performShading(i, samples);
         if (std::holds_alternative<NewRays>(shadingResult)) {
@@ -34,7 +29,12 @@ PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor)
                 m_sensor.addPixelContribution(s.pixel, radiance);
             }
         }
-    })
+
+*/
+
+PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor)
+    : Integrator(scene, sensor)
+    , m_maxDepth(maxDepth)
 {
 }
 
@@ -54,7 +54,7 @@ void PathIntegrator::render(const PerspectiveCamera& camera)
             auto& sampler = getSampler(pixel);
             CameraSample sample = sampler.getCameraSample(pixel);
 
-            PathState pathState{ pixel, glm::vec3(1.0f), 0 };
+            PathIntegratorState pathState{ pixel, glm::vec3(1.0f), 0 };
             Ray ray = camera.generateRay(sample);
             m_accelerationStructure.placeIntersectRequests(gsl::make_span(&pathState, 1), gsl::make_span(&ray, 1));
         }
@@ -65,30 +65,38 @@ void PathIntegrator::render(const PerspectiveCamera& camera)
 #endif
 }
 
-std::variant<PathIntegrator::NewRays, glm::vec3> PathIntegrator::performShading(const SurfaceInteraction& intersection, gsl::span<glm::vec2> samples) const
+void PathIntegrator::rayHit(const Ray& r, const SurfaceInteraction& si, const PathIntegratorState& s, const EmbreeInsertHandle& h)
 {
-    if (intersection.sceneObject != nullptr) {
-        const Material& material = *intersection.sceneObject->material.get();
-        auto sampleResult = material.sampleBSDF(intersection, samples);
+    // TODO
+    auto& sampler = getSampler(s.pixel);
+    std::array samples = { sampler.get2D() };
 
-        glm::vec3 continuationWeight = sampleResult.multiplier / sampleResult.pdf;
-        assert(!glm::isnan(continuationWeight.x) && !glm::isnan(continuationWeight.y) && !glm::isnan(continuationWeight.z));
-        Ray continuationRay = Ray(intersection.position + RAY_EPSILON * intersection.normal, sampleResult.out);
-        return NewRays{ continuationWeight, continuationRay };
-    } else {
-        glm::vec3 radiance = glm::vec3(0.0f);
+    const Material& material = *si.sceneObject->material.get();
+    auto sampleResult = material.sampleBSDF(si, samples);
 
-        auto lights = m_scene.getInfiniteLIghts();
-        for (const auto& light : lights) {
-            radiance += light->Le(-intersection.wo);
-        }
+    glm::vec3 continuationWeight = s.weight * sampleResult.multiplier / sampleResult.pdf;
+    assert(!glm::isnan(continuationWeight.x) && !glm::isnan(continuationWeight.y) && !glm::isnan(continuationWeight.z));
 
-        return radiance;
+    PathIntegratorState state;
+    state.depth = s.depth + 1;
+    state.pixel = s.pixel;
+    state.weight = continuationWeight;
+
+    Ray ray = Ray(si.position + RAY_EPSILON * si.normal, sampleResult.out);
+    m_accelerationStructure.placeIntersectRequests(gsl::make_span(&state, 1), gsl::make_span(&ray, 1));
+}
+
+void PathIntegrator::rayMiss(const Ray& r, const PathIntegratorState& s)
+{
+    // End of path: received radiance
+    glm::vec3 radiance = glm::vec3(0.0f);
+
+    auto lights = m_scene.getInfiniteLIghts();
+    for (const auto& light : lights) {
+        radiance += light->Le(r.direction);
     }
+
+    m_sensor.addPixelContribution(s.pixel, s.weight * radiance);
 }
 
-Sampler& PathIntegrator::getSampler(const glm::ivec2& pixel)
-{
-    return m_samplers[pixel.y * m_sensor.getResolution().x + pixel.x];
-}
 }
