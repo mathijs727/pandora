@@ -15,6 +15,7 @@ public:
     virtual float get1D() = 0;
     virtual glm::vec2 get2D() = 0;
 
+    void reset();
     virtual bool startNextSample();
 
     virtual int roundCount(int n) const

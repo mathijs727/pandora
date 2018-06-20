@@ -11,6 +11,7 @@ class Integrator {
 public:
     Integrator(const Scene& scene, Sensor& sensor, int spp);
 
+    void resetSamplers();
     virtual void render(const PerspectiveCamera& camera) = 0;
 
 protected:
@@ -29,6 +30,13 @@ protected:
 private:
     std::vector<UniformSampler> m_samplers;
 };
+
+template<typename IntegratorState>
+inline void Integrator<IntegratorState>::resetSamplers()
+{
+    for (auto& sampler : m_samplers)
+        sampler.reset();
+}
 
 template <typename IntegratorState>
 inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& sensor, int spp)

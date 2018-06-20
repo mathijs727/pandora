@@ -15,6 +15,11 @@ CameraSample Sampler::getCameraSample(const glm::ivec2& rasterPixel)
     return cameraSample;
 }
 
+void Sampler::reset()
+{
+    m_currentSampleIndex = 0;
+}
+
 bool Sampler::startNextSample()
 {
     // Rest array offsets for next pixel sample

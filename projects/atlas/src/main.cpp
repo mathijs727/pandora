@@ -71,7 +71,7 @@ int main()
             scene.addSceneObject(SceneObject{ mesh, material });
     }*/
 
-    SamplerIntegrator integrator(8, scene, camera.getSensor(), 1);
+    SamplerIntegrator integrator(8, scene, camera.getSensor(), 4);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {

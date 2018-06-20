@@ -25,6 +25,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     m_cameraThisFrame = &camera;
 
     m_sensor.clear(glm::vec3(0.0f));
+    resetSamplers();
 
     // Generate camera rays
     glm::ivec2 resolution = m_sensor.getResolution();
@@ -70,6 +71,7 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
 
         // Add contribution of each light source
         for (const auto& light : m_scene.getLights()) {
+            //auto bsdfSample = si.bsdf->sampleF(wo, sampler.get2D())
             auto lightSample = light->sampleLi(si, sampler.get2D());
             if (lightSample.isBlack() || lightSample.pdf == 0.0f)
                 continue;
@@ -78,9 +80,6 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
             if (!isBlack(f)) {
                 glm::vec3 radiance = f * lightSample.radiance * glm::abs(glm::dot(lightSample.wi, n)) / lightSample.pdf;
                 spawnShadowRay(lightSample.visibilityRay, rayState, radiance);
-                //assert(glm::dot(lightSample.wi, n) >= 0.0f);
-                //glm::vec3 radiance = f * lightSample.radiance * glm::abs(glm::dot(lightSample.wi, n)) / lightSample.pdf;
-                m_sensor.addPixelContribution(rayState.pixel, rayState.weight * radiance);
             }
         }
 
@@ -107,7 +106,7 @@ void SamplerIntegrator::rayMiss(const Ray& r, const RayState& s)
         // End of path: received radiance
         glm::vec3 radiance = glm::vec3(0.0f);
 
-        auto lights = m_scene.getInfiniteLIghts();
+        auto lights = m_scene.getInfiniteLights();
         for (const auto& light : lights) {
             radiance += light->Le(r.direction);
         }

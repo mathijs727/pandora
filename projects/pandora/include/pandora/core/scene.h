@@ -27,7 +27,7 @@ public:
 
     gsl::span<const SceneObject> getSceneObjects() const;
     gsl::span<const std::shared_ptr<Light>> getLights() const;
-    gsl::span<const std::shared_ptr<Light>> getInfiniteLIghts() const;
+    gsl::span<const std::shared_ptr<Light>> getInfiniteLights() const;
 
 private:
     std::vector<SceneObject> m_sceneObject;
