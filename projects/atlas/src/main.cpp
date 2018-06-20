@@ -1,10 +1,10 @@
 #include "glm/gtc/matrix_transform.hpp"
-#include "pandora/core/path_integrator.h"
 #include "pandora/core/perspective_camera.h"
 #include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
+#include "pandora/integrators/sampler_integrator.h"
 #include "pandora/lights/environment_light.h"
-#include "pandora/materials/lambert_material.h"
+#include "pandora/materials/matte_material.h"
 #include "pandora/materials/mirror_material.h"
 #include "pandora/textures/constant_texture.h"
 #include "pandora/textures/image_texture.h"
@@ -45,17 +45,18 @@ int main()
     camera.setPosition(glm::vec3(0.0f, 0.5f, -4.0f));
 
     Scene scene;
-    auto colorTexture = std::make_shared<ImageTexture>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
+    auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(colorTexture));
 
     {
         //auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.075f));
         auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/sphere.obj", transform);
-        auto colorTexture = std::make_shared<ConstantTexture>(glm::vec3(0.6f, 0.4f, 0.9f));
+        auto colorTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1.0f));
+        auto roughnessTexture = std::make_shared<ConstantTexture<float>>(0.0f);
         //auto colorTexture = std::make_shared<ImageTexture>(projectBasePath + "assets/textures/checkerboard.jpg");
         //auto material = std::make_shared<LambertMaterial>(colorTexture);
-        auto material = std::make_shared<MirrorMaterial>();
+        auto material = std::make_shared<MatteMaterial>(colorTexture, roughnessTexture);
         for (auto [mesh, _] : meshMaterialPairs)
             scene.addSceneObject(SceneObject{ mesh, material });
     }
@@ -70,7 +71,7 @@ int main()
             scene.addSceneObject(SceneObject{ mesh, material });
     }*/
 
-    PathIntegrator integrator(8, scene, camera.getSensor());
+    SamplerIntegrator integrator(8, scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {

@@ -9,6 +9,7 @@ option(BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
 #find_package(GSL REQUIRED)# Guideline Support Library (like the Microsoft implementation)
 find_package(tbb REQUIRED)
 find_package(glm REQUIRED)
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/eastl")
 
 find_package(OpenImageIO REQUIRED)
 add_library(OpenImageIO INTERFACE)

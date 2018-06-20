@@ -8,7 +8,8 @@ using namespace std::string_literals;
 
 namespace pandora {
 
-ImageTexture::ImageTexture(std::string_view filename)
+template <class T>
+ImageTexture<T>::ImageTexture(std::string_view filename)
 {
     auto in = OIIO::ImageInput::open(std::string(filename));
     if (!in)
@@ -18,14 +19,18 @@ ImageTexture::ImageTexture(std::string_view filename)
     m_resolution = glm::ivec2(spec.width, spec.height);
     m_resolutionF = m_resolution;
     m_channels = spec.nchannels;
-    assert(m_channels >= 3);
+    if constexpr (std::is_same_v<T, float>)
+        assert(m_channels >= 1);
+    if constexpr (std::is_same_v<T, glm::vec3>)
+        assert(m_channels >= 3);
 
     m_pixels = std::make_unique<float[]>(m_resolution.x * m_resolution.y * m_channels);
     in->read_image(OIIO::TypeDesc::FLOAT, m_pixels.get()); // Converts input to float
     in->close();
 }
 
-glm::vec3 ImageTexture::evaluate(const glm::vec2& point) const
+template <class T>
+T ImageTexture<T>::evaluate(const glm::vec2& point) const
 {
     glm::vec2 textureCoord = point;
     int x = std::max(0, std::min(static_cast<int>(textureCoord.x * m_resolutionF.x + 0.5f), m_resolution.x - 1));
@@ -33,14 +38,23 @@ glm::vec3 ImageTexture::evaluate(const glm::vec2& point) const
 
     int pixelSize = m_channels;
     const float* data = &m_pixels[(y * m_resolution.x + x) * pixelSize];
-    auto result = glm::vec3(data[0], data[1], data[2]);
-    return result;
+    if constexpr (std::is_same_v<T, float>)
+        return data[0];
+    else if constexpr (std::is_same_v<T, glm::vec3>)
+        return glm::vec3(data[0], data[1], data[2]);
+    else
+        static_assert("Unknown template type in ImageTexture");
 }
 
-glm::vec3 ImageTexture::evaluate(const SurfaceInteraction& surfaceInteraction) const
+template <class T>
+T ImageTexture<T>::evaluate(const SurfaceInteraction& surfaceInteraction) const
 {
     // TODO: mip mapping and ray differentials
     return evaluate(surfaceInteraction.uv);
 }
+
+// Explicit instantiation
+template class ImageTexture<float>;
+template class ImageTexture<glm::vec3>;
 
 }

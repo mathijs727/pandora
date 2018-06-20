@@ -61,6 +61,11 @@ inline float cosDPhi(const glm::vec3& wa, const glm::vec3& wb)
         std::sqrt((wa.x * wa.x + wa.y * wa.y) * (wb.x * wb.x + wb.y*wb.y)), -1.0f, 1.0f);
 }
 
+inline bool sameHemisphere(const glm::vec3& w, const glm::vec3& wp)
+{
+    return w.z * wp.z > 0.0f;
+}
+
 inline glm::vec3 reflect(const glm::vec3& wo, glm::vec3& n)
 {
     return -wo + 2 * glm::dot(wo, n) * n;
@@ -76,5 +81,6 @@ inline std::optional<glm::vec3> refract(const glm::vec3& wi, const glm::vec3& n,
     float cosThetaT = std::sqrt(1 - sin2thetaT);
     return eta * -wi + (eta * cosThetaI - cosThetaT) * glm::vec3(n);
 }
+
 
 }

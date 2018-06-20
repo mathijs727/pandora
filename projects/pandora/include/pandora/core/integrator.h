@@ -9,7 +9,7 @@ namespace pandora {
 template <typename IntegratorState>
 class Integrator {
 public:
-    Integrator(const Scene& scene, Sensor& sensor);
+    Integrator(const Scene& scene, Sensor& sensor, int spp);
 
     virtual void render(const PerspectiveCamera& camera) = 0;
 
@@ -24,13 +24,14 @@ protected:
     EmbreeAccel<IntegratorState> m_accelerationStructure;
 
     Sensor& m_sensor;
+    int m_spp;
 
 private:
     std::vector<UniformSampler> m_samplers;
 };
 
 template <typename IntegratorState>
-inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& sensor)
+inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& sensor, int spp)
     : m_scene(scene)
     , m_accelerationStructure(
           scene.getSceneObjects(),
@@ -41,8 +42,16 @@ inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& senso
               rayMiss(r, s);
           })
     , m_sensor(sensor)
-    , m_samplers(sensor.getResolution().x * sensor.getResolution().y, 4)
+    //, m_samplers(sensor.getResolution().x * sensor.getResolution().y, spp)
+    , m_spp(spp)
 {
+    // The following would only call the constructor once and create copies (which means each sampler generates the same random numbers)
+    // m_samplers(sensor.getResolution().x * sensor.getResolution().y, spp)
+
+    int pixelCount = sensor.getResolution().x * sensor.getResolution().y;
+    m_samplers.reserve(pixelCount);
+    for (int i = 0 ; i< pixelCount; i++)
+        m_samplers.push_back(UniformSampler(spp));
 }
 
 template <typename IntegratorState>

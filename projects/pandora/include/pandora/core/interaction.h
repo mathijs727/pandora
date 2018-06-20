@@ -1,5 +1,7 @@
 #pragma once
 #include "glm/glm.hpp"
+#include "pandora/core/bxdf.h"
+#include "pandora/core/pandora.h"
 #include "pandora/core/ray.h"
 
 namespace pandora {
@@ -22,8 +24,10 @@ struct Interaction {
 
 struct SurfaceInteraction : public Interaction {
 public:
-    const SceneObject* sceneObject;
+    const SceneObject* sceneObject = nullptr;
     unsigned primitiveID;
+
+    BSDF* bsdf = nullptr;
 
     glm::vec2 uv;
     glm::vec3 dpdu, dpdv;
@@ -50,7 +54,11 @@ public:
 
     void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, const glm::vec3& dndvs, bool orientationIsAuthoritative);
 
+    void computeScatteringFunctions(const Ray& ray, MemoryArena& arena, TransportMode mode = TransportMode::Radiance, bool allowMultipleLobes = false);
+
     glm::vec3 lightEmitted(const glm::vec3& w) const;
+
+    Ray spawnRay(const glm::vec3& dir) const;
 };
 
 Ray computeRayWithEpsilon(const Interaction& i1, const Interaction& i22);

@@ -6,10 +6,11 @@ namespace pandora {
 
 struct SurfaceInteraction;
 
+template<typename T>
 class Texture {
 public:
-    virtual glm::vec3 evaluate(const glm::vec2& point) const = 0;
-    virtual glm::vec3 evaluate(const SurfaceInteraction& intersection) const = 0;
+    virtual T evaluate(const glm::vec2& point) const = 0;
+    virtual T evaluate(const SurfaceInteraction& intersection) const = 0;
 };
 
 }

@@ -4,13 +4,14 @@
 
 namespace pandora {
 
-class ImageTexture : public Texture {
+template <typename T>
+class ImageTexture : public Texture<T> {
 public:
     ImageTexture(std::string_view filename);
     ~ImageTexture() = default;
 
-    glm::vec3 evaluate(const glm::vec2& point) const;
-    glm::vec3 evaluate(const SurfaceInteraction& intersection) const final;
+    T evaluate(const glm::vec2& point) const;
+    T evaluate(const SurfaceInteraction& intersection) const final;
 
 private:
     glm::ivec2 m_resolution;

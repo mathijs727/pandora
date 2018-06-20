@@ -4,6 +4,7 @@
 
 namespace pandora {
 
+// These functions assume that they values are in the shading coordinate system (normal orientated along z-axis)
 inline glm::vec3 faceForward(const glm::vec3& n, const glm::vec3& v)
 {
     return (glm::dot(n, v) < 0.0f) ? -n : n;

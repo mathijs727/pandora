@@ -13,6 +13,10 @@ struct LightSample {
     float pdf;
 
     Ray visibilityRay;
+
+    inline bool isBlack() const {
+        return glm::dot(radiance, radiance) == 0.0f;
+    }
 };
 
 class Light {

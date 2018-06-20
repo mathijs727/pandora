@@ -21,7 +21,8 @@ target_link_libraries(libPandora PUBLIC
     OpenImageIO
 	glm
     embree
-	TBB::tbb)
+	TBB::tbb
+	EASTL)
 
 target_include_directories(libPandora PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/")
 target_include_directories(libPandora PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src/")

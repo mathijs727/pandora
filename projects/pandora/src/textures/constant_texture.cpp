@@ -2,18 +2,25 @@
 
 namespace pandora {
 
-ConstantTexture::ConstantTexture(glm::vec3 value)
+template <class T>
+ConstantTexture<T>::ConstantTexture(const T& value)
     : m_value(value)
 {
 }
 
-glm::vec3 ConstantTexture::evaluate(const glm::vec2& point) const {
+template <class T>
+T ConstantTexture<T>::evaluate(const glm::vec2& point) const {
     return m_value;
 }
 
-glm::vec3 ConstantTexture::evaluate(const SurfaceInteraction& intersection) const
+template <class T>
+T ConstantTexture<T>::evaluate(const SurfaceInteraction& intersection) const
 {
     return m_value;
 }
 
+// Explicit instantiation
+template class ConstantTexture<float>;
+template class ConstantTexture<glm::vec3>;
 }
+

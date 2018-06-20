@@ -3,6 +3,7 @@
 #include "bxdf.h"
 #include "gsl/gsl"
 #include "pandora/core/pandora.h"
+#include <optional>
 
 namespace pandora {
 
@@ -20,11 +21,16 @@ public:
     // wo and wi in world coordinates
     Spectrum f(const glm::vec3& woW, const glm::vec3& wiW, BxDFType flags = BSDF_ALL) const;
 
+    using Sample = BxDF::Sample;
+    std::optional<Sample> sampleF(const glm::vec3& woWorld, const glm::vec2& u, BxDFType type = BSDF_ALL);
+
     // Total reflection in a given direction due to constant illumination over the hemisphere
     Spectrum rho(const glm::vec3& wo, gsl::span<const glm::vec2> samples, BxDFType flags = BSDF_ALL) const;
 
     // Fraction of incident light reflected by a surface when the incident light is the same from all directions
     Spectrum rho(gsl::span<const glm::vec2> samples1, gsl::span<const glm::vec2> samples2, BxDFType flags = BSDF_ALL) const;
+
+    float pdf(const glm::vec3& wo, const glm::vec3& wi, BxDFType flags = BSDF_ALL) const;
 private:
     const float m_eta;
     const glm::vec3 m_ns, m_ng; // Shading & geometric normal
@@ -36,7 +42,7 @@ private:
 
 class Material {
 public:
-    struct EvalResult {
+    /*struct EvalResult {
         glm::vec3 weigth;
         float pdf;
     };
@@ -47,7 +53,9 @@ public:
         float pdf;
         glm::vec3 out;
     };
-    virtual SampleResult sampleBSDF(const SurfaceInteraction& surfaceInteraction, gsl::span<glm::vec2> samples) const = 0;
+    virtual SampleResult sampleBSDF(const SurfaceInteraction& surfaceInteraction, gsl::span<glm::vec2> samples) const = 0;*/
+
+    virtual void computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const = 0;
 };
 
 }

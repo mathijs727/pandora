@@ -15,7 +15,7 @@ static float sphericalPhi(const glm::vec3& v)
 
 namespace pandora {
 
-EnvironmentLight::EnvironmentLight(const std::shared_ptr<Texture>& texture)
+EnvironmentLight::EnvironmentLight(const std::shared_ptr<Texture<glm::vec3>>& texture)
     : m_texture(texture)
 {
 }
@@ -27,20 +27,27 @@ glm::vec3 EnvironmentLight::power() const
     return glm::pi<float>() * worldRadius * worldRadius * m_texture->evaluate(glm::vec2(0.5f, 0.5f));
 }
 
-LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& randomSample) const
+LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& u) const
 {
-    // TODO: importance sampling
-    float theta = randomSample[1] * glm::pi<float>();
-    float phi = randomSample[0] * glm::two_pi<float>();
+    // TODO
+    float mapPDF = 1.0f;
+
+    // http://corysimon.github.io/articles/uniformdistn-on-sphere/ ???
+    //float theta = u[1] * glm::pi<float>();
+    float theta = std::acos(1.0f - 2.0f * u[1]);
+    float phi = u[0] * glm::two_pi<float>();
     float cosTheta = std::cos(theta);
     float sinTheta = std::sin(theta);
     float sinPhi = std::sin(phi);
     float cosPhi = std::cos(phi);
 
     LightSample result;
-    result.radiance = m_texture->evaluate(randomSample);
+    result.radiance = m_texture->evaluate(u);
     result.wi = glm::vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);
-    result.pdf = sinTheta == 0.0f ? 0.0f : 2 * glm::pi<float>() * glm::pi<float>() * sinTheta;
+    if (sinTheta == 0.0f)
+        result.pdf = 0.0f;
+    else
+        result.pdf = mapPDF / (2 * glm::pi<float>() * glm::pi<float>() * sinTheta);
     result.visibilityRay = computeRayWithEpsilon(ref, result.wi);
     return result;
 }

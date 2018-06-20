@@ -3,16 +3,17 @@
 
 namespace pandora {
 
-class ConstantTexture : public Texture {
+template <class T>
+class ConstantTexture : public Texture<T> {
 public:
-    ConstantTexture(glm::vec3 value);
+    ConstantTexture(const T& value);
     ~ConstantTexture() = default;
 
-    glm::vec3 evaluate(const glm::vec2& point) const final;
-    glm::vec3 evaluate(const SurfaceInteraction& intersection) const final;
+    T evaluate(const glm::vec2& point) const final;
+    T evaluate(const SurfaceInteraction& intersection) const final;
 
 private:
-    const glm::vec3 m_value;
+    const T m_value;
 };
 
 }

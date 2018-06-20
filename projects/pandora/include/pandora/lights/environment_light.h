@@ -6,7 +6,7 @@ namespace pandora {
 
 class EnvironmentLight : public Light {
 public:
-    EnvironmentLight(const std::shared_ptr<Texture>& texture);
+    EnvironmentLight(const std::shared_ptr<Texture<glm::vec3>>& texture);
 
     glm::vec3 power() const final;
 
@@ -15,7 +15,7 @@ public:
     glm::vec3 Le(const glm::vec3& w) const final;
 
 private:
-    std::shared_ptr<Texture> m_texture;
+    std::shared_ptr<Texture<glm::vec3>> m_texture;
 };
 
 }

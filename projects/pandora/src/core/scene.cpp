@@ -19,6 +19,11 @@ gsl::span<const SceneObject> Scene::getSceneObjects() const
     return m_sceneObject;
 }
 
+gsl::span<const std::shared_ptr<Light>> Scene::getLights() const
+{
+    return m_lights;
+}
+
 gsl::span<const std::shared_ptr<Light>> Scene::getInfiniteLIghts() const
 {
     return m_infiniteLights;
