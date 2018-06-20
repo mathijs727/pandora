@@ -18,7 +18,7 @@ namespace sampler_integrator {
     using RayState = std::variant<ContinuationRayState, ShadowRayState>;
 }
 
-class SamplerIntegrator : Integrator<sampler_integrator::RayState> {
+class SamplerIntegrator : public Integrator<sampler_integrator::RayState> {
 public:
     // WARNING: do not modify the scene in any way while the integrator is alive
     SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp);

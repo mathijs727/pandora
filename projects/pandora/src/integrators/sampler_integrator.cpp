@@ -24,7 +24,6 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
 {
     m_cameraThisFrame = &camera;
 
-    m_sensor.clear(glm::vec3(0.0f));
     resetSamplers();
 
     // Generate camera rays
@@ -44,6 +43,8 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
 #else
     });
 #endif
+    m_sppThisFrame += m_sppPerCall;
+
 }
 
 void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, const RayState& s, const EmbreeInsertHandle& h)
@@ -71,16 +72,26 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
 
         // Add contribution of each light source
         for (const auto& light : m_scene.getLights()) {
-            //auto bsdfSample = si.bsdf->sampleF(wo, sampler.get2D())
-            auto lightSample = light->sampleLi(si, sampler.get2D());
+            auto bsdfSample = si.bsdf->sampleF(wo, sampler.get2D());
+            if (bsdfSample)
+            {
+                Spectrum f = si.bsdf->f(wo, bsdfSample->wi);
+                if (!isBlack(f)) {
+                    Spectrum radiance = f * light->Le(bsdfSample->wi) * glm::abs(glm::dot(bsdfSample->wi, n)) / bsdfSample->pdf;
+                    Ray visibilityRay = si.spawnRay(bsdfSample->wi);
+                    spawnShadowRay(visibilityRay, rayState, radiance);
+                }
+            }
+
+            /*auto lightSample = light->sampleLi(si, sampler.get2D());
             if (lightSample.isBlack() || lightSample.pdf == 0.0f)
                 continue;
 
             Spectrum f = si.bsdf->f(wo, lightSample.wi);
             if (!isBlack(f)) {
-                glm::vec3 radiance = f * lightSample.radiance * glm::abs(glm::dot(lightSample.wi, n)) / lightSample.pdf;
+                Spectrum radiance = f * lightSample.radiance * glm::abs(glm::dot(lightSample.wi, n)) / lightSample.pdf;
                 spawnShadowRay(lightSample.visibilityRay, rayState, radiance);
-            }
+            }*/
         }
 
         if (rayState.depth + 1 < m_maxDepth) {
@@ -100,6 +111,8 @@ void SamplerIntegrator::rayMiss(const Ray& r, const RayState& s)
     if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);
         m_sensor.addPixelContribution(rayState.pixel, rayState.contribution);
+
+        spawnNextSample(rayState.pixel);
     } else if (std::holds_alternative<ContinuationRayState>(s)) {
         const auto& rayState = std::get<ContinuationRayState>(s);
 
@@ -125,7 +138,7 @@ void SamplerIntegrator::spawnNextSample(const glm::vec2& pixel, bool initialSamp
     if (initialSample || sampler.startNextSample()) {
         CameraSample sample = sampler.getCameraSample(pixel);
 
-        ContinuationRayState rayState{ pixel, glm::vec3(1.0f / m_spp), 0 };
+        ContinuationRayState rayState{ pixel, glm::vec3(1.0f), 0 };
         RayState rayStateVariant = rayState;
 
         Ray ray = m_cameraThisFrame->generateRay(sample);

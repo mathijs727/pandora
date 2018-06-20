@@ -71,7 +71,7 @@ int main()
             scene.addSceneObject(SceneObject{ mesh, material });
     }*/
 
-    SamplerIntegrator integrator(8, scene, camera.getSensor(), 4);
+    SamplerIntegrator integrator(8, scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
@@ -84,9 +84,8 @@ int main()
         myWindow.updateInput();
         cameraControls.tick();
 
-        //if (cameraControls.cameraChanged())
-        //    renderer.clear();
-        camera.getSensor().clear(glm::vec3(0.0f));
+        if (cameraControls.cameraChanged())
+            integrator.startNewFrame();
 
         auto prevFrameEndTime = std::chrono::high_resolution_clock::now();
         integrator.render(camera);
@@ -96,7 +95,8 @@ int main()
         prevFrameEndTime = now;
         std::cout << "Time to render frame: " << timeDelta.count() / 1000.0f << " miliseconds" << std::endl;
 
-        frameBuffer.update(camera.getSensor(), 1.0f);
+        float mult =  1.0f / integrator.getCurrentFrameSpp();
+        frameBuffer.update(camera.getSensor(), mult);
         myWindow.swapBuffers();
     }
 
