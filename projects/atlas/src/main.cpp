@@ -52,7 +52,7 @@ int main()
     transform = glm::rotate(transform, -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(1.0f), 1, colorTexture));
 
-    {
+    /*{
         //auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.075f));
         auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/sphere.obj", transform);
@@ -62,17 +62,18 @@ int main()
         auto material = std::make_shared<MatteMaterial>(kd, roughness);
         for (auto [mesh, _] : meshMaterialPairs)
             scene.addSceneObject(SceneObject{ mesh, material });
-    }
+    }*/
 
-    /*{
+    {
         auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.01f));
         auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj", transform);
         //auto colorTexture = std::make_shared<ConstantTexture>(glm::vec3(0.6f, 0.4f, 0.9f));
-        auto colorTexture = std::make_shared<ImageTexture>(projectBasePath + "assets/textures/checkerboard.jpg");
-        auto material = std::make_shared<LambertMaterial>(colorTexture);
+        auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
+        auto roughness = std::make_shared<ConstantTexture<float>>(0.0f);
+        auto material = std::make_shared<MatteMaterial>(kd, roughness);
         for (auto [mesh, _] : meshMaterialPairs)
             scene.addSceneObject(SceneObject{ mesh, material });
-    }*/
+    }
 
     SamplerIntegrator integrator(8, scene, camera.getSensor(), 1);
 

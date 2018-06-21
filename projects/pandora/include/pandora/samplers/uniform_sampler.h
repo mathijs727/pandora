@@ -9,9 +9,5 @@ public:
 
     float get1D() final;
     glm::vec2 get2D() final;
-
-private:
-    std::default_random_engine m_randomEngine;
-    std::uniform_real_distribution<float> m_uniformDistribution;
 };
 }

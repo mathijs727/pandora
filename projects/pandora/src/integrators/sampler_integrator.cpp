@@ -95,16 +95,12 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
 
         if (rayState.depth + 1 < m_maxDepth) {
             // Trace rays for specular reflection and refraction
-            //specularReflect(si, sampler, arena, rayState);
-            //specularTransmit(si, sampler, arena, rayState);
+            specularReflect(si, sampler, arena, rayState);
+            specularTransmit(si, sampler, arena, rayState);
         }
     } else if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);
         // Do nothing, in shadow
-        //std::cout << "Ray start at: (" << r.origin.x << ", " << r.origin.y << ", " << r.origin.z << ")" << std::endl;
-        //std::cout << "Ray hit at:   (" << si.position.x << ", " << si.position.y << ", " << si.position.z << ")" << std::endl;
-        //std::cout << "Ray tnear: " << r.tnear << std::endl;
-        //assert(false); // TEMPORARY: no self shadowing on a sphere (or other convex shape)
     }
 }
 
