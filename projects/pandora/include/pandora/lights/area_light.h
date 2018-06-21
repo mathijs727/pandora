@@ -6,7 +6,7 @@ namespace pandora {
 
 class AreaLight : public Light {
 public:
-    AreaLight(glm::vec3 emittedLight, const TriangleMesh& mesh, unsigned primitiveID);
+    AreaLight(glm::vec3 emittedLight, int numSamples, const TriangleMesh& mesh, unsigned primitiveID);
 
     glm::vec3 power() const final;
 

@@ -3,8 +3,9 @@
 
 namespace pandora {
 
-AreaLight::AreaLight(glm::vec3 emittedLight, const TriangleMesh& mesh, unsigned primitiveID)
-    : m_emmitedLight(emittedLight)
+AreaLight::AreaLight(glm::vec3 emittedLight,  int numSamples, const TriangleMesh& mesh, unsigned primitiveID)
+    : Light((int)LightFlags::Area, glm::mat4(1.0f), numSamples)
+    , m_emmitedLight(emittedLight)
     , m_mesh(mesh)
     , m_primitiveID(primitiveID)
     , m_area(mesh.primitiveArea(primitiveID))

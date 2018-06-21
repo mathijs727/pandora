@@ -16,8 +16,10 @@ static float sphericalPhi(const glm::vec3& v)
 
 namespace pandora {
 
-EnvironmentLight::EnvironmentLight(const std::shared_ptr<Texture<glm::vec3>>& texture)
-    : m_texture(texture)
+EnvironmentLight::EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum& l, int numSamples, const std::shared_ptr<Texture<glm::vec3>>& texture)
+    : Light((int)LightFlags::Infinite, lightToWorld, numSamples),
+    m_l(l),
+    m_texture(texture)
 {
 }
 
@@ -25,7 +27,7 @@ glm::vec3 EnvironmentLight::power() const
 {
     // Approximate total power
     float worldRadius = 1.0f; // TODO: Compute bounding sphere of scene?
-    return glm::pi<float>() * worldRadius * worldRadius * m_texture->evaluate(glm::vec2(0.5f, 0.5f));
+    return glm::pi<float>() * worldRadius * worldRadius * m_l * m_texture->evaluate(glm::vec2(0.5f, 0.5f));
 }
 
 LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& u) const
@@ -42,8 +44,8 @@ LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& 
     float cosPhi = std::cos(phi);
 
     LightSample result;
-    result.wi = glm::vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta); // TODO: worldToLight()
-    result.radiance = m_texture->evaluate(uv);
+    result.wi = lightToWorld(glm::vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta));
+    result.radiance = m_l * m_texture->evaluate(uv);
     if (sinTheta == 0.0f)
         result.pdf = 0.0f;
     else
@@ -70,9 +72,9 @@ glm::vec3 EnvironmentLight::Le(const glm::vec3& dir) const
     */
 
     // PBRTv3 page 741
-    glm::vec3 w = glm::normalize(dir); // TODO: worldToLight()
+    glm::vec3 w = glm::normalize(worldToLight(dir)); // TODO: worldToLight()
     glm::vec2 st(sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_pi<float>());
-    return m_texture->evaluate(st);
+    return m_l * m_texture->evaluate(st);
 }
 
 }
