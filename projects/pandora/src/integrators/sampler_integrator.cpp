@@ -44,7 +44,6 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     });
 #endif
     m_sppThisFrame += m_sppPerCall;
-
 }
 
 void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, const RayState& s, const EmbreeInsertHandle& h)
@@ -72,7 +71,7 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
 
         // Add contribution of each light source
         for (const auto& light : m_scene.getLights()) {
-            auto bsdfSample = si.bsdf->sampleF(wo, sampler.get2D());
+            /*auto bsdfSample = si.bsdf->sampleF(wo, sampler.get2D());
             if (bsdfSample)
             {
                 Spectrum f = si.bsdf->f(wo, bsdfSample->wi);
@@ -81,17 +80,21 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
                     Ray visibilityRay = si.spawnRay(bsdfSample->wi);
                     spawnShadowRay(visibilityRay, rayState, radiance);
                 }
-            }
+            }*/
 
-            /*auto lightSample = light->sampleLi(si, sampler.get2D());
+            auto lightSample = light->sampleLi(si, sampler.get2D());
             if (lightSample.isBlack() || lightSample.pdf == 0.0f)
+                continue;
+
+            // Pointing inside the geometry
+            if (glm::dot(lightSample.wi, si.normal) <= 0.0f)
                 continue;
 
             Spectrum f = si.bsdf->f(wo, lightSample.wi);
             if (!isBlack(f)) {
                 Spectrum radiance = f * lightSample.radiance * glm::abs(glm::dot(lightSample.wi, n)) / lightSample.pdf;
                 spawnShadowRay(lightSample.visibilityRay, rayState, radiance);
-            }*/
+            }
         }
 
         if (rayState.depth + 1 < m_maxDepth) {
@@ -102,7 +105,10 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
     } else if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);
         // Do nothing, in shadow
-        assert(false); // TEMPORARY: no self shadowing on a sphere (or other convex shape)
+        //std::cout << "Ray start at: (" << r.origin.x << ", " << r.origin.y << ", " << r.origin.z << ")" << std::endl;
+        //std::cout << "Ray hit at:   (" << si.position.x << ", " << si.position.y << ", " << si.position.z << ")" << std::endl;
+        //std::cout << "Ray tnear: " << r.tnear << std::endl;
+        //assert(false); // TEMPORARY: no self shadowing on a sphere (or other convex shape)
     }
 }
 

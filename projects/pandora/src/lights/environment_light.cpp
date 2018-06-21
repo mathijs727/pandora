@@ -1,6 +1,7 @@
 #include "pandora/lights/environment_light.h"
 #include "glm/gtc/constants.hpp"
 #include <algorithm>
+#include <iostream>
 
 static float sphericalTheta(const glm::vec3& v)
 {
@@ -41,7 +42,7 @@ LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& 
     float cosPhi = std::cos(phi);
 
     LightSample result;
-    result.wi = glm::vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);// TODO: worldToLight()
+    result.wi = glm::vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta); // TODO: worldToLight()
     result.radiance = m_texture->evaluate(uv);
     if (sinTheta == 0.0f)
         result.pdf = 0.0f;
@@ -51,8 +52,6 @@ LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& 
 
     return result;
 }
-
-
 
 glm::vec3 EnvironmentLight::Le(const glm::vec3& dir) const
 {
@@ -70,10 +69,10 @@ glm::vec3 EnvironmentLight::Le(const glm::vec3& dir) const
     return m_texture->evaluate(glm::vec2(u,v));
     */
 
-    glm::vec3 w = glm::normalize(dir);// TODO: worldToLight()
-    glm::vec2 st(sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_two_pi<float>());
+    // PBRTv3 page 741
+    glm::vec3 w = glm::normalize(dir); // TODO: worldToLight()
+    glm::vec2 st(sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_pi<float>());
     return m_texture->evaluate(st);
-    //glm::vec2 textureCoords(sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_two_pi<float>());
 }
 
 }
