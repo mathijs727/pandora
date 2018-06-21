@@ -34,8 +34,8 @@ class ConstantTexture;
 template <class T>
 class ImageTexture;
 
+class SceneObject;
 class Scene;
-struct SceneObject;
 class TriangleMesh;
 struct Bounds;
 struct Ray;

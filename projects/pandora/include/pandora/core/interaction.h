@@ -6,8 +6,6 @@
 
 namespace pandora {
 
-struct SceneObject;
-
 struct Interaction {
     Interaction() = default;
     Interaction(const glm::vec3& position, const glm::vec3& wo, const glm::vec3& normal)

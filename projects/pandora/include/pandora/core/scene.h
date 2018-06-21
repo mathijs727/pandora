@@ -5,15 +5,27 @@
 #include "pandora/lights/area_light.h"
 #include <gsl/span>
 #include <memory>
+#include <optional>
 #include <tuple>
 #include <vector>
 
 namespace pandora {
 
-struct SceneObject {
-    std::shared_ptr<const TriangleMesh> mesh;
-    std::shared_ptr<const Material> material;
-    std::unique_ptr<const AreaLight*[]> areaLightPerPrimitive;
+class SceneObject {
+public:
+    SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material);
+    SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
+
+    // TODO: intersect function (with custom geometry in Embree)?
+    const TriangleMesh& getMesh() const;
+    const Material& getMaterial() const;
+
+    const AreaLight* getAreaLight(unsigned primID) const;
+    std::optional<gsl::span<const AreaLight>> getAreaLights() const;
+private:
+    std::shared_ptr<const TriangleMesh> m_mesh;
+    std::shared_ptr<const Material> m_material;
+    std::vector<AreaLight> m_areaLightPerPrimitive;
 };
 
 class Scene {
@@ -21,19 +33,20 @@ public:
     Scene() = default;
     ~Scene() = default;
 
-    void addSceneObject(SceneObject&& sceneNode);
+    void addSceneObject(std::unique_ptr<SceneObject>&& sceneNode);
 
-    void addLight(const std::shared_ptr<Light>& light);
     void addInfiniteLight(const std::shared_ptr<Light>& light);
 
-    gsl::span<const SceneObject> getSceneObjects() const;
-    gsl::span<const std::shared_ptr<Light>> getLights() const;
-    gsl::span<const std::shared_ptr<Light>> getInfiniteLights() const;
+    gsl::span<const std::unique_ptr<SceneObject>> getSceneObjects() const;
+    gsl::span<const Light* const> getLights() const;
+    gsl::span<const Light* const> getInfiniteLights() const;
 
 private:
-    std::vector<SceneObject> m_sceneObject;
-    std::vector<std::shared_ptr<Light>> m_lights;
-    std::vector<std::shared_ptr<Light>> m_infiniteLights;
+    std::vector<std::unique_ptr<SceneObject>> m_sceneObject;
+    std::vector<const Light*> m_lights;
+    std::vector<const Light*> m_infiniteLights;
+
+    std::vector<std::shared_ptr<Light>> m_lightOwningPointers;
 };
 
 }

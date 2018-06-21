@@ -2,6 +2,7 @@
 #include "pandora/core/bxdf.h"
 #include "pandora/core/material.h"
 #include "pandora/core/scene.h"
+#include "pandora/lights/area_light.h"
 #include "pandora/utility/math.h"
 #include "pandora/utility/memory_arena.h"
 
@@ -31,17 +32,16 @@ void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, MemoryArena&
 {
     // TODO: compute ray differentials
 
-    sceneObject->material->computeScatteringFunctions(*this, arena, mode, allowMultipleLobes);
+    sceneObject->getMaterial().computeScatteringFunctions(*this, arena, mode, allowMultipleLobes);
 }
 
 glm::vec3 SurfaceInteraction::lightEmitted(const glm::vec3& w) const
 {
-    if (sceneObject->areaLightPerPrimitive) {
-        const auto& area = sceneObject->areaLightPerPrimitive[primitiveID];
-        return area->light(*this, w);
-    } else {
-        return glm::vec3(0.0f);
+    if (const AreaLight* areaLight = sceneObject->getAreaLight(primitiveID); areaLight) {
+        return areaLight->light(*this, w);
     }
+
+    return glm::vec3(0.0f);
 }
 
 Ray SurfaceInteraction::spawnRay(const glm::vec3& dir) const
@@ -52,7 +52,7 @@ Ray SurfaceInteraction::spawnRay(const glm::vec3& dir) const
 // PBRTv3 page 231
 glm::vec3 offsetRayOrigin(const Interaction& i1, const glm::vec3& dir)
 {
-     glm::vec3 error(RAY_EPSILON);
+    glm::vec3 error(RAY_EPSILON);
 
     float d = glm::dot(glm::abs(i1.normal), error);
     glm::vec3 offset = d * i1.normal;
@@ -61,8 +61,7 @@ glm::vec3 offsetRayOrigin(const Interaction& i1, const glm::vec3& dir)
 
     glm::vec3 po = i1.position + offset;
     // Round offset point p0 away from p
-    for (int i = 0;i  < 3; i++)
-    {
+    for (int i = 0; i < 3; i++) {
         if (offset[i] > 0.0f)
             po[i] = nextFloatUp(po[i]);
         else if (offset[i] < 0.0f)
@@ -71,19 +70,18 @@ glm::vec3 offsetRayOrigin(const Interaction& i1, const glm::vec3& dir)
     return po;
 }
 
-
 Ray computeRayWithEpsilon(const Interaction& i1, const Interaction& i2)
 {
     glm::vec3 start = offsetRayOrigin(i1, i2.position - i1.position);
     glm::vec3 end = offsetRayOrigin(i2, i1.position - i2.position);
 
     glm::vec3 direction = glm::normalize(i2.position - i1.position);
-    return Ray(start, direction, 0.0f, (start - end).length() - RAY_EPSILON);// Extra epsilon just to make sure
+    return Ray(start, direction, 0.0f, (start - end).length() - RAY_EPSILON); // Extra epsilon just to make sure
 }
 
 Ray computeRayWithEpsilon(const Interaction& i1, const glm::vec3& dir)
 {
-   return Ray(offsetRayOrigin(i1, dir), dir);
+    return Ray(offsetRayOrigin(i1, dir), dir);
 }
 
 }

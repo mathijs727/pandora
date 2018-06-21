@@ -1,10 +1,9 @@
 #pragma once
 #include "glm/glm.hpp"
+#include "pandora/core/pandora.h"
 #include <limits>
 
 namespace pandora {
-
-struct SceneObject;
 
 const float RAY_EPSILON = 0.000001f;
 

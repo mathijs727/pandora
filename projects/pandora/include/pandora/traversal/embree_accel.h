@@ -18,7 +18,7 @@ public:
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
 public:
-    EmbreeAccel(gsl::span<const SceneObject> sceneObject, HitCallback hitCallback, MissCallback missCallback);
+    EmbreeAccel(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback);
     ~EmbreeAccel();
 
     void placeIntersectRequests(gsl::span<const UserState> perRayUserData, gsl::span<const Ray> rays);

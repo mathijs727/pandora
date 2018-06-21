@@ -40,10 +40,10 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<S
 
         RTCGeometry geometry = rtcGetGeometry(scene, geomID);
         const auto* sceneObject = reinterpret_cast<const SceneObject*>(rtcGetGeometryUserData(geometry));
-        const auto* mesh = sceneObject->mesh.get();
+        const auto& mesh = sceneObject->getMesh();
         unsigned primID = RTCHitN_primID(embreeHits, N, i);
         glm::vec2 hitUV = glm::vec2(RTCHitN_u(embreeHits, N, i), RTCHitN_v(embreeHits, N, i));
-        intersections[i] = mesh->partialFillSurfaceInteraction(primID, hitUV);
+        intersections[i] = mesh.partialFillSurfaceInteraction(primID, hitUV);
         intersections[i].sceneObject = sceneObject;
         intersections[i].primitiveID = primID;
 
@@ -82,7 +82,7 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
 }
 
 template <typename UserState>
-inline EmbreeAccel<UserState>::EmbreeAccel(gsl::span<const SceneObject> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
+inline EmbreeAccel<UserState>::EmbreeAccel(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
     : m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
 {
@@ -93,7 +93,7 @@ inline EmbreeAccel<UserState>::EmbreeAccel(gsl::span<const SceneObject> sceneObj
     rtcSetSceneBuildQuality(m_scene, RTC_BUILD_QUALITY_HIGH);
 
     for (const auto& sceneObject : sceneObjects) {
-        addSceneObject(sceneObject);
+        addSceneObject(*sceneObject);
     }
 
     rtcCommitScene(m_scene);
@@ -159,7 +159,7 @@ inline void EmbreeAccel<UserState>::intersectPacket(gsl::span<const Ray, 8> rays
 template <typename UserState>
 inline void EmbreeAccel<UserState>::addSceneObject(const SceneObject& sceneObject)
 {
-    const auto& triangleMesh = *sceneObject.mesh;
+    const auto& triangleMesh = sceneObject.getMesh();
     auto triangles = triangleMesh.getTriangles();
     auto positions = triangleMesh.getPositions();
 

@@ -42,7 +42,7 @@ int main()
     glm::ivec2 resolution = glm::ivec2(width, height);
     PerspectiveCamera camera = PerspectiveCamera(resolution, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
-    camera.setPosition(glm::vec3(0.0f, 0.5f, -4.0f));
+    camera.setPosition(glm::vec3(0.0f, 0.0f, -4.0f));
 
     Scene scene;
     //auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
@@ -65,7 +65,7 @@ int main()
     }*/
 
     {
-        auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.01f));
+        auto transform = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, -2.0f, 0.0f)), glm::vec3(0.01f));
         auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj", transform);
         //auto colorTexture = std::make_shared<ConstantTexture>(glm::vec3(0.6f, 0.4f, 0.9f));
         auto roughness = std::make_shared<ConstantTexture<float>>(0.0f);
@@ -74,20 +74,14 @@ int main()
         for (const auto& mesh : meshes) {
             if (i++ == 5) {
                 // Ceiling
+                Spectrum light(1.0f);
                 auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
                 auto material = std::make_shared<MatteMaterial>(kd, roughness);
-                auto lights = areaLightFromMesh(*mesh, Spectrum(1.0f));
-                auto lightPtrs = std::make_unique<const AreaLight*[]>(lights.size());
-                std::transform(lights.begin(), lights.end(), lightPtrs.get(), [](const std::shared_ptr<AreaLight>& ptr) -> const AreaLight* {
-                    return ptr.get();
-                });
-                scene.addSceneObject(SceneObject{ mesh, material, std::move(lightPtrs) });
-                for (const auto& light : lights)
-                    scene.addLight(light);
+                scene.addSceneObject(std::make_unique<SceneObject>(mesh, material, light));
             } else {
                 auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.3f, 0.5f, 0.8f));
                 auto material = std::make_shared<MatteMaterial>(kd, roughness);
-                scene.addSceneObject(SceneObject{ mesh, material, nullptr });
+                scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
             }
         }
     }

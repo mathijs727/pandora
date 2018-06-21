@@ -1,14 +1,15 @@
 #include "pandora/lights/area_light.h"
 #include "glm/gtc/constants.hpp"
+#include "pandora/core/scene.h"
 
 namespace pandora {
 
-AreaLight::AreaLight(glm::vec3 emittedLight,  int numSamples, const TriangleMesh& mesh, unsigned primitiveID)
-    : Light((int)LightFlags::Area, glm::mat4(1.0f), numSamples)
+AreaLight::AreaLight(glm::vec3 emittedLight, int numSamples, const SceneObject& sceneObject, unsigned primitiveID)
+    : Light((int)LightFlags::Area, numSamples)
     , m_emmitedLight(emittedLight)
-    , m_mesh(mesh)
+    , m_sceneObject(sceneObject)
     , m_primitiveID(primitiveID)
-    , m_area(mesh.primitiveArea(primitiveID))
+    , m_area(sceneObject.getMesh().primitiveArea(primitiveID))
 {
 }
 
@@ -24,7 +25,7 @@ glm::vec3 AreaLight::light(const Interaction& interaction, const glm::vec3& w) c
 
 LightSample AreaLight::sampleLi(const Interaction& ref, const glm::vec2& randomSample) const
 {
-    auto [lightSample, pdf] = m_mesh.samplePrimitive(m_primitiveID, ref, randomSample);
+    auto [lightSample, pdf] = m_sceneObject.getMesh().samplePrimitive(m_primitiveID, ref, randomSample);
 
     LightSample result;
     result.radiance = m_emmitedLight;
@@ -32,16 +33,6 @@ LightSample AreaLight::sampleLi(const Interaction& ref, const glm::vec2& randomS
     result.pdf = pdf;
     result.visibilityRay = computeRayWithEpsilon(ref, lightSample);
     return result;
-}
-
-std::vector<std::shared_ptr<AreaLight>> areaLightFromMesh(const TriangleMesh& mesh, const Spectrum& l)
-{
-    std::vector<std::shared_ptr<AreaLight>> results;
-    for (unsigned primID = 0; primID < mesh.numTriangles(); primID++)
-    {
-        results.push_back(std::make_shared<AreaLight>(l, 1, mesh, primID));
-    }
-    return results;
 }
 
 }

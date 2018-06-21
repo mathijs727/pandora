@@ -15,8 +15,14 @@ public:
     glm::vec3 Le(const glm::vec3& w) const final;
 
 private:
+    glm::vec3 lightToWorld(const glm::vec3& v) const;
+    glm::vec3 worldToLight(const glm::vec3& v) const;
+
+private:
     const Spectrum m_l;
     std::shared_ptr<Texture<glm::vec3>> m_texture;
+
+    const glm::mat4 m_lightToWorld, m_worldToLight;
 };
 
 }

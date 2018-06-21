@@ -29,7 +29,7 @@ enum class LightFlags : int {
 
 class Light {
 public:
-    Light(int flags, const glm::mat4& lightToWorld, int numSamples = 1);
+    Light(int flags, int numSamples = 1);
 
     bool isDeltaLight() const;
 
@@ -38,13 +38,8 @@ public:
 
     virtual glm::vec3 Le(const glm::vec3& w) const; // Radiance added to rays that miss the scene
 protected:
-    glm::vec3 lightToWorld(const glm::vec3& v) const;
-    glm::vec3 worldToLight(const glm::vec3& v) const;
-protected:
     const int m_flags;
     const int m_numSamples;
-private:
-    const glm::mat4 m_lightToWorld, m_worldToLight;
 };
 
 }
