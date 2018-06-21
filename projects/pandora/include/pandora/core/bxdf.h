@@ -26,7 +26,7 @@ public:
     struct Sample {
         glm::vec3 wi;
         float pdf;
-        Spectrum multiplier;
+        Spectrum f;
         BxDFType sampledType;
     };
     virtual Spectrum f(const glm::vec3& wo, const glm::vec3& wi) const = 0;

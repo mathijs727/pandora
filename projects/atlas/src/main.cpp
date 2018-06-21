@@ -46,17 +46,18 @@ int main()
 
     Scene scene;
     auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
+    //auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/red_green.png");
+    //auto colorTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1,0,0));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(colorTexture));
 
     {
         //auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.075f));
         auto meshMaterialPairs = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/sphere.obj", transform);
-        auto colorTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1.0f));
-        auto roughnessTexture = std::make_shared<ConstantTexture<float>>(0.0f);
-        //auto colorTexture = std::make_shared<ImageTexture>(projectBasePath + "assets/textures/checkerboard.jpg");
-        //auto material = std::make_shared<LambertMaterial>(colorTexture);
-        auto material = std::make_shared<MatteMaterial>(colorTexture, roughnessTexture);
+        //auto material = std::make_shared<MirrorMaterial>();
+        auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
+        auto roughness = std::make_shared<ConstantTexture<float>>(0.0f);
+        auto material = std::make_shared<MatteMaterial>(kd, roughness);
         for (auto [mesh, _] : meshMaterialPairs)
             scene.addSceneObject(SceneObject{ mesh, material });
     }

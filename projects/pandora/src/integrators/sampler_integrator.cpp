@@ -96,8 +96,8 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
 
         if (rayState.depth + 1 < m_maxDepth) {
             // Trace rays for specular reflection and refraction
-            specularReflect(si, sampler, arena, rayState);
-            specularTransmit(si, sampler, arena, rayState);
+            //specularReflect(si, sampler, arena, rayState);
+            //specularTransmit(si, sampler, arena, rayState);
         }
     } else if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);
@@ -110,6 +110,7 @@ void SamplerIntegrator::rayMiss(const Ray& r, const RayState& s)
 {
     if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);
+        assert(!std::isnan(glm::dot(rayState.contribution, rayState.contribution)) && glm::dot(rayState.contribution, rayState.contribution) > 0.0f);
         m_sensor.addPixelContribution(rayState.pixel, rayState.contribution);
 
         spawnNextSample(rayState.pixel);
@@ -124,6 +125,7 @@ void SamplerIntegrator::rayMiss(const Ray& r, const RayState& s)
             radiance += light->Le(r.direction);
         }
 
+        assert(!std::isnan(glm::dot(rayState.weight, rayState.weight)) && glm::dot(rayState.weight, rayState.weight) > 0.0f);
         m_sensor.addPixelContribution(rayState.pixel, rayState.weight * radiance);
 
         spawnNextSample(rayState.pixel);
@@ -157,14 +159,14 @@ void SamplerIntegrator::specularReflect(const SurfaceInteraction& si, Sampler& s
 
     // Return contribution of specular reflection
     const glm::vec3& ns = si.shading.normal;
-    if (sample->pdf > 0.0f && !isBlack(sample->multiplier) && glm::abs(glm::dot(sample->wi, ns)) != 0.0f) {
+    if (sample->pdf > 0.0f && !isBlack(sample->f) && glm::abs(glm::dot(sample->wi, ns)) != 0.0f) {
         // TODO: handle ray differentials
         Ray ray = si.spawnRay(sample->wi);
 
         ContinuationRayState rayState;
         rayState.depth = prevRayState.depth + 1;
         rayState.pixel = prevRayState.pixel;
-        rayState.weight = prevRayState.weight * sample->multiplier * glm::abs(glm::dot(sample->wi, ns)) / sample->pdf;
+        rayState.weight = prevRayState.weight * sample->f * glm::abs(glm::dot(sample->wi, ns)) / sample->pdf;
 
         RayState rayStateVariant = rayState;
         m_accelerationStructure.placeIntersectRequests(gsl::make_span(&rayStateVariant, 1), gsl::make_span(&ray, 1));
@@ -182,14 +184,14 @@ void SamplerIntegrator::specularTransmit(const SurfaceInteraction& si, Sampler& 
 
     // Return contribution of specular reflection
     const glm::vec3& ns = si.shading.normal;
-    if (sample->pdf > 0.0f && !isBlack(sample->multiplier) && glm::abs(glm::dot(sample->wi, ns)) != 0.0f) {
+    if (sample->pdf > 0.0f && !isBlack(sample->f) && glm::abs(glm::dot(sample->wi, ns)) != 0.0f) {
         // TODO: handle ray differentials
         Ray ray = si.spawnRay(sample->wi);
 
         ContinuationRayState rayState;
         rayState.depth = prevRayState.depth + 1;
         rayState.pixel = prevRayState.pixel;
-        rayState.weight = prevRayState.weight * sample->multiplier * glm::abs(glm::dot(sample->wi, ns)) / sample->pdf;
+        rayState.weight = prevRayState.weight * sample->f * glm::abs(glm::dot(sample->wi, ns)) / sample->pdf;
 
         RayState rayStateVariant = rayState;
         m_accelerationStructure.placeIntersectRequests(gsl::make_span(&rayStateVariant, 1), gsl::make_span(&ray, 1));

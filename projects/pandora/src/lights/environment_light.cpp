@@ -29,34 +29,37 @@ glm::vec3 EnvironmentLight::power() const
 
 LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& u) const
 {
-    // TODO
+    // TODO: importance sampling
     float mapPDF = 1.0f;
+    glm::vec2 uv = u;
 
-    // http://corysimon.github.io/articles/uniformdistn-on-sphere/ ???
-    //float theta = u[1] * glm::pi<float>();
-    float theta = std::acos(1.0f - 2.0f * u[1]);
-    float phi = u[0] * glm::two_pi<float>();
+    float theta = uv[1] * glm::pi<float>();
+    float phi = uv[0] * 2.0f * glm::pi<float>();
     float cosTheta = std::cos(theta);
     float sinTheta = std::sin(theta);
     float sinPhi = std::sin(phi);
     float cosPhi = std::cos(phi);
 
     LightSample result;
-    result.radiance = m_texture->evaluate(u);
-    result.wi = glm::vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);
+    result.wi = glm::vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);// TODO: worldToLight()
+    result.radiance = m_texture->evaluate(uv);
     if (sinTheta == 0.0f)
         result.pdf = 0.0f;
     else
         result.pdf = mapPDF / (2 * glm::pi<float>() * glm::pi<float>() * sinTheta);
     result.visibilityRay = computeRayWithEpsilon(ref, result.wi);
+
     return result;
 }
 
 
-// http://www.cs.uu.nl/docs/vakken/magr/2016-2017/slides/lecture%2009%20-%20various.pdf
-// Slide 36
-glm::vec3 EnvironmentLight::Le(const glm::vec3& w) const
+
+glm::vec3 EnvironmentLight::Le(const glm::vec3& dir) const
 {
+    /*
+    // http://www.cs.uu.nl/docs/vakken/magr/2016-2017/slides/lecture%2009%20-%20various.pdf
+    // Slide 36
+    
     // Convert unit vector to polar coordinates
     float u = 1.0f + std::atan2(w.x, -w.z) / glm::pi<float>();
     float v = std::acos(w.y) / glm::pi<float>();
@@ -65,7 +68,11 @@ glm::vec3 EnvironmentLight::Le(const glm::vec3& w) const
     u /= 2.0f;
 
     return m_texture->evaluate(glm::vec2(u,v));
+    */
 
+    glm::vec3 w = glm::normalize(dir);// TODO: worldToLight()
+    glm::vec2 st(sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_two_pi<float>());
+    return m_texture->evaluate(st);
     //glm::vec2 textureCoords(sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_two_pi<float>());
 }
 

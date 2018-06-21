@@ -24,7 +24,7 @@ BxDF::Sample SpecularReflection::sampleF(const glm::vec3& wo, const glm::vec2& s
     BxDF::Sample result;
     result.pdf = 1.0f;
     result.wi = wi;
-    result.multiplier = m_fresnel.evaluate(cosTheta(wi)) * m_r / absCosTheta(wi);
+    result.f = m_fresnel.evaluate(cosTheta(wi)) * m_r / absCosTheta(wi);
     return result;
 }
 
@@ -58,11 +58,11 @@ BxDF::Sample SpecularTransmission::sampleF(const glm::vec3& wo, const glm::vec2&
         BxDF::Sample result;
         result.pdf = 1;
         result.wi = wi;
-        result.multiplier = ft / absCosTheta(wi);
+        result.f = ft / absCosTheta(wi);
         return result;
     } else {
         BxDF::Sample result;
-        result.multiplier = glm::vec3(0.0f);
+        result.f = glm::vec3(0.0f);
         return result;
     }
 }

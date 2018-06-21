@@ -18,6 +18,14 @@ public:
         , tfar(std::numeric_limits<float>::max())
     {
     }
+     Ray(const glm::vec3& origin, const glm::vec3& direction, float tnear, float tfar = std::numeric_limits<float>::max())
+        : origin(origin)
+        , direction(direction)
+        , tnear(tnear)
+        , tfar(tfar)
+    {
+    }
+
 
     glm::vec3 origin;
     glm::vec3 direction;

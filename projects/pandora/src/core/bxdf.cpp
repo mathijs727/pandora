@@ -34,7 +34,7 @@ Spectrum BxDF::rho(const glm::vec3 & wo, gsl::span<const glm::vec2> samples) con
     for (const glm::vec2& u : samples) {
         auto sample = sampleF(wo, u);
         if (sample.pdf > 0.0f)
-            r += sample.multiplier * absCosTheta(sample.wi) / sample.pdf;
+            r += sample.f * absCosTheta(sample.wi) / sample.pdf;
     }
     return r / (float)samples.size();
 }
@@ -51,7 +51,7 @@ Spectrum BxDF::rho(gsl::span<const glm::vec2> u1, gsl::span<const glm::vec2> u2)
         auto sample = sampleF(wo, u2[i]);
         float pdfi = sample.pdf;
         if (pdfi > 0.0f)
-            r += sample.multiplier * absCosTheta(wi) * absCosTheta(wo) / (pdfo * pdfi);
+            r += sample.f * absCosTheta(wi) * absCosTheta(wo) / (pdfo * pdfi);
     }
     return r / (glm::pi<float>() * u1.size());
 }

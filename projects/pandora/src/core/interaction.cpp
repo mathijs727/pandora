@@ -53,10 +53,10 @@ Ray computeRayWithEpsilon(const Interaction& i1, const Interaction& i2)
 {
     glm::vec3 direction = i2.position - i1.position;
 
-    glm::vec3 start = glm::dot(i1.normal, direction) > 0.0f ? i1.position + i1.normal * RAY_EPSILON : i1.position - i1.normal * RAY_EPSILON;
-    glm::vec3 end = glm::dot(i2.normal, -direction) > 0.0f ? i2.position + i2.normal * RAY_EPSILON : i2.position - i2.normal * RAY_EPSILON;
+    //glm::vec3 start = glm::dot(i1.normal, direction) > 0.0f ? i1.position + i1.normal * RAY_EPSILON : i1.position - i1.normal * RAY_EPSILON;
+    //glm::vec3 end = glm::dot(i2.normal, -direction) > 0.0f ? i2.position + i2.normal * RAY_EPSILON : i2.position - i2.normal * RAY_EPSILON;
 
-    return Ray(start, glm::normalize(end - start));
+    return Ray(i1.position, glm::normalize(direction), RAY_EPSILON, direction.length() - RAY_EPSILON);
 }
 
 Ray computeRayWithEpsilon(const Interaction& i1, const glm::vec3& dir)
@@ -65,7 +65,8 @@ Ray computeRayWithEpsilon(const Interaction& i1, const glm::vec3& dir)
         return Ray(i1.position + i1.normal * RAY_EPSILON, dir);
     else
         return Ray(i1.position - i1.normal * RAY_EPSILON, dir);*/
-    return Ray(i1.position + i1.normal * RAY_EPSILON, dir);
+    //return Ray(i1.position + i1.normal * RAY_EPSILON, dir);
+    return Ray(i1.position, dir, RAY_EPSILON);
 }
 
 }

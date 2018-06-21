@@ -90,7 +90,7 @@ std::optional<BSDF::Sample> BSDF::sampleF(const glm::vec3& woWorld, const glm::v
     glm::vec3 wiWorld = localToWorld(wi);
     float pdf = sample.pdf;
     BxDFType sampledType = bxdf->getType();
-    Spectrum f = sample.multiplier;
+    Spectrum f = sample.f;
 
     // Compute overall PDF with all matching BxDFs
     if (!(bxdf->getType() & BSDF_SPECULAR) && matchingComps > 1)

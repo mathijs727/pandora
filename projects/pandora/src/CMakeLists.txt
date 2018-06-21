@@ -21,7 +21,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/samplers/uniform_sampler.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/materials/matte_material.cpp"
-        #"${CMAKE_CURRENT_LIST_DIR}/materials/mirror_material.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/materials/mirror_material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/materials/shading.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/reflection/fresnel.cpp"
