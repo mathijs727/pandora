@@ -49,24 +49,41 @@ Ray SurfaceInteraction::spawnRay(const glm::vec3& dir) const
     return computeRayWithEpsilon(*this, dir);
 }
 
+// PBRTv3 page 231
+glm::vec3 offsetRayOrigin(const Interaction& i1, const glm::vec3& dir)
+{
+     glm::vec3 error(RAY_EPSILON);
+
+    float d = glm::dot(glm::abs(i1.normal), error);
+    glm::vec3 offset = d * i1.normal;
+    if (glm::dot(i1.normal, dir) < 0.0f)
+        offset = -offset;
+
+    glm::vec3 po = i1.position + offset;
+    // Round offset point p0 away from p
+    for (int i = 0;i  < 3; i++)
+    {
+        if (offset[i] > 0.0f)
+            po[i] = nextFloatUp(po[i]);
+        else if (offset[i] < 0.0f)
+            po[i] = nextFloatDown(po[i]);
+    }
+    return po;
+}
+
+
 Ray computeRayWithEpsilon(const Interaction& i1, const Interaction& i2)
 {
-    glm::vec3 direction = i2.position - i1.position;
+    glm::vec3 start = offsetRayOrigin(i1, i2.position - i1.position);
+    glm::vec3 end = offsetRayOrigin(i2, i1.position - i2.position);
 
-    //glm::vec3 start = glm::dot(i1.normal, direction) > 0.0f ? i1.position + i1.normal * RAY_EPSILON : i1.position - i1.normal * RAY_EPSILON;
-    //glm::vec3 end = glm::dot(i2.normal, -direction) > 0.0f ? i2.position + i2.normal * RAY_EPSILON : i2.position - i2.normal * RAY_EPSILON;
-
-    return Ray(i1.position, glm::normalize(direction), RAY_EPSILON, direction.length() - RAY_EPSILON);
+    glm::vec3 direction = glm::normalize(i2.position - i1.position);
+    return Ray(start, direction, 0.0f, (start - end).length() - RAY_EPSILON);// Extra epsilon just to make sure
 }
 
 Ray computeRayWithEpsilon(const Interaction& i1, const glm::vec3& dir)
 {
-    /*if (glm::dot(i1.normal, dir) > 0.0f)
-        return Ray(i1.position + i1.normal * RAY_EPSILON, dir);
-    else
-        return Ray(i1.position - i1.normal * RAY_EPSILON, dir);*/
-    //return Ray(i1.position + i1.normal * RAY_EPSILON, dir);
-    return Ray(i1.position, dir, RAY_EPSILON);
+   return Ray(offsetRayOrigin(i1, dir), dir);
 }
 
 }
