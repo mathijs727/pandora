@@ -45,6 +45,7 @@ void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<S
         glm::vec2 hitUV = glm::vec2(RTCHitN_u(embreeHits, N, i), RTCHitN_v(embreeHits, N, i));
         intersections[i] = mesh->partialFillSurfaceInteraction(primID, hitUV);
         intersections[i].sceneObject = sceneObject;
+        intersections[i].primitiveID = primID;
 
         glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
         intersections[i].wo = -direction;

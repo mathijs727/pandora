@@ -20,4 +20,7 @@ private:
     const float m_area;
 };
 
+std::vector<std::shared_ptr<AreaLight>> areaLightFromMesh(const TriangleMesh& mesh, const Spectrum& l);
+
+
 }

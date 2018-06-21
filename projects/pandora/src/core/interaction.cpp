@@ -38,7 +38,7 @@ glm::vec3 SurfaceInteraction::lightEmitted(const glm::vec3& w) const
 {
     if (sceneObject->areaLightPerPrimitive) {
         const auto& area = sceneObject->areaLightPerPrimitive[primitiveID];
-        return area.light(*this, w);
+        return area->light(*this, w);
     } else {
         return glm::vec3(0.0f);
     }

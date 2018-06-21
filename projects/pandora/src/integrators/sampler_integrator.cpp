@@ -66,12 +66,15 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
         si.computeScatteringFunctions(r, arena);
 
         // Compute emitted light if ray hit an area light source
-        glm::vec3 radiance(0.0f);
-        radiance += si.lightEmitted(wo);
+        Spectrum emitted = si.lightEmitted(wo);
+        if (!isBlack(emitted))
+        {
+            m_sensor.addPixelContribution(rayState.pixel, rayState.weight * emitted);
+        }
 
         // Add contribution of each light source
         for (const auto& light : m_scene.getLights()) {
-            auto bsdfSample = si.bsdf->sampleF(wo, sampler.get2D());
+            /*auto bsdfSample = si.bsdf->sampleF(wo, sampler.get2D());
             if (bsdfSample)
             {
                 Spectrum f = si.bsdf->f(wo, bsdfSample->wi);
@@ -80,9 +83,9 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
                     Ray visibilityRay = si.spawnRay(bsdfSample->wi);
                     spawnShadowRay(visibilityRay, rayState, radiance);
                 }
-            }
+            }*/
 
-            /*auto lightSample = light->sampleLi(si, sampler.get2D());
+            auto lightSample = light->sampleLi(si, sampler.get2D());
             if (lightSample.isBlack() || lightSample.pdf == 0.0f || glm::dot(lightSample.wi, si.normal) <= 0.0f)
                 continue;
 
@@ -90,7 +93,7 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
             if (!isBlack(f)) {
                 Spectrum radiance = f * lightSample.radiance * glm::abs(glm::dot(lightSample.wi, n)) / lightSample.pdf;
                 spawnShadowRay(lightSample.visibilityRay, rayState, radiance);
-            }*/
+            }
         }
 
         if (rayState.depth + 1 < m_maxDepth) {

@@ -30,8 +30,18 @@ LightSample AreaLight::sampleLi(const Interaction& ref, const glm::vec2& randomS
     result.radiance = m_emmitedLight;
     result.wi = glm::normalize(lightSample.position - ref.position);
     result.pdf = pdf;
-    result.visibilityRay = computeRayWithEpsilon(ref, result.wi);
+    result.visibilityRay = computeRayWithEpsilon(ref, lightSample);
     return result;
+}
+
+std::vector<std::shared_ptr<AreaLight>> areaLightFromMesh(const TriangleMesh& mesh, const Spectrum& l)
+{
+    std::vector<std::shared_ptr<AreaLight>> results;
+    for (unsigned primID = 0; primID < mesh.numTriangles(); primID++)
+    {
+        results.push_back(std::make_shared<AreaLight>(l, 1, mesh, primID));
+    }
+    return results;
 }
 
 }

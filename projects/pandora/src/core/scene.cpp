@@ -8,6 +8,11 @@ void Scene::addSceneObject(SceneObject&& sceneNode)
     m_sceneObject.emplace_back(std::move(sceneNode));
 }
 
+void Scene::addLight(const std::shared_ptr<Light>& light)
+{
+    m_lights.push_back(light);
+}
+
 void Scene::addInfiniteLight(const std::shared_ptr<Light>& light)
 {
     m_lights.push_back(light);

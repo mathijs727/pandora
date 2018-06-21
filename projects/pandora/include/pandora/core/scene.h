@@ -13,7 +13,7 @@ namespace pandora {
 struct SceneObject {
     std::shared_ptr<const TriangleMesh> mesh;
     std::shared_ptr<const Material> material;
-    std::unique_ptr<const AreaLight[]> areaLightPerPrimitive;
+    std::unique_ptr<const AreaLight*[]> areaLightPerPrimitive;
 };
 
 class Scene {
@@ -23,6 +23,7 @@ public:
 
     void addSceneObject(SceneObject&& sceneNode);
 
+    void addLight(const std::shared_ptr<Light>& light);
     void addInfiniteLight(const std::shared_ptr<Light>& light);
 
     gsl::span<const SceneObject> getSceneObjects() const;

@@ -26,8 +26,7 @@ public:
         std::unique_ptr<glm::vec2[]>&& uvCoords);
     ~TriangleMesh() = default;
 
-    static std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>> createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform);
-    static std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1));
+    static std::vector<std::shared_ptr<TriangleMesh>> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1));
 
     unsigned numTriangles() const;
     unsigned numVertices() const;
@@ -44,6 +43,8 @@ public:
     std::pair<Interaction, float> samplePrimitive(unsigned primitiveID, const glm::vec2& randomSample) const;
     std::pair<Interaction, float> samplePrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec2& randomSample) const;
 private:
+    static std::shared_ptr<TriangleMesh> createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform);
+
     void getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const;
     void getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
 private:
