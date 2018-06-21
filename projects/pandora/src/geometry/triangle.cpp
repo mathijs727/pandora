@@ -73,8 +73,7 @@ std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>> TriangleMesh
 
     auto indices = std::make_unique<glm::ivec3[]>(mesh->mNumFaces);
     auto positions = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
-    auto normals = std::make_unique<glm::vec3[]>(mesh->mNumVertices); // Shading normals
-    //auto tangents = std::make_unique<glm::vec3[]>(mesh->mNumVertices); // Shading tangents
+    std::unique_ptr<glm::vec3[]> normals = nullptr; // Shading normals
     std::unique_ptr<glm::vec3[]> tangents = nullptr;
     std::unique_ptr<glm::vec2[]> uvCoords = nullptr;
 
@@ -95,10 +94,12 @@ std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>> TriangleMesh
     }
 
     // Normals & tangents
-    glm::mat3 normalTransform = transform;
-    for (unsigned i = 0; i < mesh->mNumVertices; i++) {
-        normals[i] = normalTransform * glm::vec3(assimpVec(mesh->mNormals[i]));
-        //tangents[i] = normalTransform * glm::vec3(assimpVec(mesh->mTangents[i]));
+    if (mesh->HasNormals()) {
+        normals = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
+        glm::mat3 normalTransform = transform;
+        for (unsigned i = 0; i < mesh->mNumVertices; i++) {
+            normals[i] = normalTransform * glm::vec3(assimpVec(mesh->mNormals[i]));
+        }
     }
 
     /*// UV mapping
@@ -120,7 +121,7 @@ std::vector<std::pair<std::shared_ptr<TriangleMesh>, std::shared_ptr<Material>>>
     }
 
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(filename.data(), aiProcessPreset_TargetRealtime_MaxQuality);
+    const aiScene* scene = importer.ReadFile(filename.data(), aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate);
     //importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
@@ -202,10 +203,10 @@ SurfaceInteraction TriangleMesh::partialFillSurfaceInteraction(unsigned primID, 
     dndu = dndv = glm::vec3(0.0f);
 
     glm::vec3 hitP = b0 * p[0] + b1 * p[1] + b2 * p[2];
-    glm::vec2 hitUV = b0 * uv[0] + b1*uv[1] + b2 * uv[2];
+    glm::vec2 hitUV = b0 * uv[0] + b1 * uv[1] + b2 * uv[2];
 
     SurfaceInteraction si;
-    si.position = hitP;//p[0] + embreeUV.x * (p[1] - p[0]) + embreeUV.y * (p[2] - p[0]); // Should be considerably more accurate than ray.o + t * ray.d
+    si.position = hitP; //p[0] + embreeUV.x * (p[1] - p[0]) + embreeUV.y * (p[2] - p[0]); // Should be considerably more accurate than ray.o + t * ray.d
     si.uv = hitUV;
     si.dpdu = dpdu;
     si.dpdv = dpdv;
@@ -236,13 +237,35 @@ SurfaceInteraction TriangleMesh::partialFillSurfaceInteraction(unsigned primID, 
         } else {
             coordinateSystem(ns, &ss, &ts);
         }
-
+        // Compute dndu and dndv for triangle shading geometry
+        glm::vec3 dndu, dndv;
+        if (m_normals) {
+            glm::vec2 duv02 = uv[0] - uv[2];
+            glm::vec2 duv12 = uv[1] - uv[2];
+            glm::vec3 dn1 = m_normals[v[0]] - m_normals[v[2]];
+            glm::vec3 dn2 = m_normals[v[1]] - m_normals[v[2]];
+            float determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
+            bool degenerateUV = std::abs(determinant) < 1e-8;
+            if (degenerateUV) {
+                dndu = dndv = glm::vec3(0.0f);
+            } else {
+                float invDet = 1.0f / determinant;
+                dndu = (duv12[1] * dn1 - duv02[1] * dn2) * invDet;
+                dndv = (-duv12[0] * dn1 + duv02[0] * dn2) * invDet;
+            }
+        } else {
+            dndu = dndv = glm::vec3(0.0f);
+        }
         si.setShadingGeometry(ss, ts, dndu, dndv, true);
+    } else {
+        si.setShadingGeometry(dpdu, dpdv, dndu, dndv, true);
     }
 
     // Ensure correct orientation of the geometric normal
     if (m_normals)
         si.normal = faceForward(si.normal, si.shading.normal);
+    else
+        si.normal = si.shading.normal = si.normal;
 
     return si;
 }

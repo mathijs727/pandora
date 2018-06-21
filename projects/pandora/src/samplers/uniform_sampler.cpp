@@ -2,13 +2,9 @@
 #include <atomic>
 #include <mutex>
 
-//static std::random_device s_randomDevice = std::random_device();
-//static std::mutex s_randomDeviceMutex;
-//static std::atomic_uint32_t m_seed = 12343;
-
+// std::default_random_engine is very large (5KB). We can save a lot of memory by only storing one instance per thread.
 static thread_local std::uniform_real_distribution<float> uniformDistribution = std::uniform_real_distribution<float>(0.0f, 1.0f);
 static thread_local std::default_random_engine randomEngine = std::default_random_engine(std::random_device()());
-
 
 namespace pandora {
 UniformSampler::UniformSampler(unsigned samplesPerPixel)

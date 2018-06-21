@@ -54,9 +54,6 @@ inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& senso
     // m_samplers(sensor.getResolution().x * sensor.getResolution().y, spp)
 
     int pixelCount = sensor.getResolution().x * sensor.getResolution().y;
-    std::cout << "Allocate " << pixelCount << " samplers at " << sizeof(UniformSampler) << " bytes each; for a total of " << (pixelCount * sizeof(UniformSampler)) << " bytes" << std::endl;
-    std::cout << "Sizeof std::uniform_real_distribution<float>: " << sizeof(std::uniform_real_distribution<float>) << "bytes" << std::endl;
-    std::cout << "Sizeof std::default_random_engine: " << sizeof(std::default_random_engine) << " bytes" << std::endl;
     m_samplers.reserve(pixelCount);
     for (int i = 0; i < pixelCount; i++)
         m_samplers.push_back(UniformSampler(sppPerCall));
