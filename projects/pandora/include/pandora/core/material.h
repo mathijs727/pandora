@@ -9,7 +9,7 @@ namespace pandora {
 
 class BSDF {
 public:
-    BSDF(const SurfaceInteraction& si, float eta = 1);
+    BSDF(const SurfaceInteraction& si);// , float eta = 1
     ~BSDF() = delete;// Should never be called if BSDF is allocated (and freed) through a memory arena
 
     void add(const BxDF* b);
@@ -32,7 +32,7 @@ public:
 
     float pdf(const glm::vec3& wo, const glm::vec3& wi, BxDFType flags = BSDF_ALL) const;
 private:
-    const float m_eta;
+    //const float m_eta;
     const glm::vec3 m_ns, m_ng; // Shading & geometric normal
     const glm::vec3 m_ss, m_ts; // Shading tangent & bitangent
 

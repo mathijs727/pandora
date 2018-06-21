@@ -13,6 +13,8 @@ using namespace pandora::sampler_integrator;
 
 namespace pandora {
 
+static thread_local MemoryArena s_memoryArena = MemoryArena(4096);
+
 SamplerIntegrator::SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp)
     : Integrator(scene, sensor, spp)
     , m_maxDepth(maxDepth)
@@ -49,6 +51,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
 void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, const RayState& s, const EmbreeInsertHandle& h)
 {
     SurfaceInteraction si = siRef;
+    s_memoryArena.reset();
 
     if (std::holds_alternative<ContinuationRayState>(s)) {
         const auto& rayState = std::get<ContinuationRayState>(s);
@@ -62,8 +65,7 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
         glm::vec3 wo = si.wo;
 
         // Compute scattering functions for surface interaction
-        MemoryArena arena;
-        si.computeScatteringFunctions(r, arena);
+        si.computeScatteringFunctions(r, s_memoryArena);
 
         // Compute emitted light if ray hit an area light source
         Spectrum emitted = si.lightEmitted(wo);
@@ -98,8 +100,8 @@ void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, co
 
         if (rayState.depth + 1 < m_maxDepth) {
             // Trace rays for specular reflection and refraction
-            specularReflect(si, sampler, arena, rayState);
-            specularTransmit(si, sampler, arena, rayState);
+            specularReflect(si, sampler, s_memoryArena, rayState);
+            specularTransmit(si, sampler, s_memoryArena, rayState);
         }
     } else if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);

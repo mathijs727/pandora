@@ -26,9 +26,12 @@ private:
     void* tryAlignedAllocInCurrentBlock(size_t amount, size_t alignment);
 
 private:
-    // Global allocation pool
+    // Currently allocated blocks
     const size_t m_memoryBlockSize;
-    std::vector<std::unique_ptr<std::byte[]>> m_memoryBlocks;
+    std::vector<std::unique_ptr<std::byte[]>> m_usedMemoryBlocks;
+
+    // Unused blocks that were allocated before a call to reset
+    std::vector<std::unique_ptr<std::byte[]>> m_unusedMemoryBlocks;
 
     std::byte* m_currentBlockData;
     size_t m_currentBlockSpace; // In bytes

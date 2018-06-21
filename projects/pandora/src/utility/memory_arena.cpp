@@ -3,7 +3,8 @@
 namespace pandora {
 MemoryArena::MemoryArena(size_t blockSize)
     : m_memoryBlockSize(blockSize)
-    , m_memoryBlocks()
+    , m_usedMemoryBlocks()
+    , m_unusedMemoryBlocks()
     , m_currentBlockData(nullptr)
     , m_currentBlockSpace(0)
 {
@@ -14,16 +15,25 @@ void MemoryArena::reset()
     m_currentBlockData = nullptr;
     m_currentBlockSpace = 0;
 
-    // Deallocate all memory associated with this allocator
-    m_memoryBlocks.clear();
+    // Move all used memory blocks to the unused pool
+    m_unusedMemoryBlocks.reserve(m_unusedMemoryBlocks.size () + m_usedMemoryBlocks.size());
+    std::move(std::begin(m_usedMemoryBlocks), std::end(m_usedMemoryBlocks), std::back_inserter(m_unusedMemoryBlocks));
+    m_usedMemoryBlocks.clear();
 }
 
 void MemoryArena::allocateBlock()
 {
-    auto data = std::make_unique<std::byte[]>(m_memoryBlockSize);
+    std::unique_ptr<std::byte[]> data;
+    if (m_unusedMemoryBlocks.empty())
+    {
+        data = std::make_unique<std::byte[]>(m_memoryBlockSize);
+    } else {
+        data = std::move(m_unusedMemoryBlocks.back());
+        m_unusedMemoryBlocks.pop_back();
+    }
     m_currentBlockData = data.get();
     m_currentBlockSpace = m_memoryBlockSize;
-    m_memoryBlocks.push_back(std::move(data));
+    m_usedMemoryBlocks.push_back(std::move(data));
 }
 
 void* MemoryArena::tryAlignedAllocInCurrentBlock(size_t amount, size_t alignment)

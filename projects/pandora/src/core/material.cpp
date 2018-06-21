@@ -3,9 +3,9 @@
 #include <iostream>
 
 namespace pandora {
-BSDF::BSDF(const SurfaceInteraction& si, float eta)
-    : m_eta(eta)
-    , m_ns(si.shading.normal)
+BSDF::BSDF(const SurfaceInteraction& si)//, float eta)
+    : // m_eta(eta),
+    m_ns(si.shading.normal)
     , m_ng(si.normal)
     , m_ss(glm::normalize(si.shading.dpdu))
     , m_ts(glm::cross(m_ns, m_ss))
@@ -51,7 +51,7 @@ Spectrum BSDF::f(const glm::vec3& woW, const glm::vec3& wiW, BxDFType flags) con
 
     Spectrum f(0.0f);
     for (const BxDF* bxdf : m_bxdfs) {
-        if (bxdf->matchesFlags(flags) && ((reflect && bxdf->getType() & BSDF_REFLECTION)) || (!reflect && bxdf->getType() & BSDF_TRANSMISSION))
+        if (bxdf->matchesFlags(flags) && (((reflect && bxdf->getType() & BSDF_REFLECTION)) || (!reflect && bxdf->getType() & BSDF_TRANSMISSION)))
             f += bxdf->f(wo, wi);
     }
 
@@ -147,8 +147,7 @@ float BSDF::pdf(const glm::vec3& woWorld, const glm::vec3& wiWorld, BxDFType fla
 
     float pdf = 0.0f;
     int matchingComps = 0;
-    for (auto bxdf : m_bxdfs)
-    {
+    for (auto bxdf : m_bxdfs) {
         if (bxdf->matchesFlags(flags)) {
             matchingComps++;
             pdf += bxdf->pdf(wo, wi);

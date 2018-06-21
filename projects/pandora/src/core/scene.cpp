@@ -47,7 +47,6 @@ std::optional<gsl::span<const AreaLight>> SceneObject::getAreaLights() const
 
 void Scene::addSceneObject(std::unique_ptr<SceneObject>&& sceneObject)
 {
-    auto areaLights = sceneObject->getAreaLights();
     if (auto areaLights = sceneObject->getAreaLights(); areaLights)
     {
         for (const auto& light : *areaLights)
