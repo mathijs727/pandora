@@ -1,5 +1,5 @@
 #include "pandora/utility/memory_arena.h"
-#include "pandora/utility/memory_arena_ts.h"
+//#include "pandora/utility/memory_arena_ts.h"
 #include "gtest/gtest.h"
 #include <random>
 #include <thread>
@@ -55,7 +55,7 @@ TEST(MemoryArena, Constructor)
     }
 
     allocator.reset();
-}*/
+}
 
 TEST(MemoryArenaTS, FixedSizeAlignment)
 {
@@ -94,4 +94,4 @@ TEST(MemoryArenaTS, MultiThreadAllocations)
         thread.join();
 
     allocator.reset();
-}
+}*/
