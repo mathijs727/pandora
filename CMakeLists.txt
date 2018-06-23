@@ -1,13 +1,12 @@
 cmake_minimum_required(VERSION 3.8)
 project(pandora)
 
-set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
 
 option(BUILD_TESTS "Build tests for Pandora" OFF)
 option(BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
 
 #find_package(GSL REQUIRED)# Guideline Support Library (like the Microsoft implementation)
-find_package(tbb REQUIRED)
 find_package(glm REQUIRED)
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/eastl")
 
@@ -21,10 +20,15 @@ add_library(assimp INTERFACE)
 target_include_directories(assimp INTERFACE "${ASSIMP_INCLUDE_DIRS}")
 target_link_libraries(assimp INTERFACE "${ASSIMP_LIBRARIES}")
 
-find_package(embree 3.0 REQUIRED)
+find_package(embree 3 REQUIRED)
 add_library(embree INTERFACE)
 target_include_directories(embree INTERFACE "${EMBREE_INCLUDE_DIRS}")
 target_link_libraries(embree INTERFACE "${EMBREE_LIBRARY}")
+
+find_package(TBB REQUIRED COMPONENTS tbbmalloc)
+add_library(tbb INTERFACE)
+target_include_directories(tbb INTERFACE "${TBB_INCLUDE_DIRS}")
+target_link_libraries(tbb INTERFACE "${TBB_LIBRARIES}")
 
 if (BUILD_TESTS)
     find_package(GTest REQUIRED)

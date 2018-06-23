@@ -11,7 +11,7 @@ if (MSVC)
 	# Surpess warnings from OpenImageIO
 	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/wd5040 /wd4244 /wd4275") 
 else()
-    target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Wno-unused-parameter -Wno-unused-private-field)
+	target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Wno-unused-parameter -Wno-unused-variable -Wno-unused-private-field)
 endif()
 target_compile_definitions(libPandora PRIVATE "ENABLE_STATIC_LIB")# Embree static lib
 
@@ -20,7 +20,7 @@ target_link_libraries(libPandora PUBLIC
     OpenImageIO
 	glm
     embree
-	TBB::tbb
+	tbb
 	EASTL)
 
 target_include_directories(libPandora PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/")
