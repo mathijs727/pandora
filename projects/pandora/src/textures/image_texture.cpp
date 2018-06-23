@@ -12,8 +12,11 @@ template <class T>
 ImageTexture<T>::ImageTexture(std::string_view filename)
 {
     auto in = OIIO::ImageInput::open(std::string(filename));
-    if (!in)
+	if (!in)
+	{
+		std::cerr << "Could not open texture file " << filename << std::endl;
         throw std::runtime_error("Could not open texture file "s + std::string(filename));
+	}
 
     const auto& spec = in->spec();
     m_resolution = glm::ivec2(spec.width, spec.height);

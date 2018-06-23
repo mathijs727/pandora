@@ -30,11 +30,7 @@ int main()
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-#ifdef WIN32
-    std::string projectBasePath = "C:/Users/Mathijs/Documents/GitHub/pandora/";
-#else
-    std::string projectBasePath = "../";
-#endif
+    std::string projectBasePath = "../../";
 
     Window myWindow(width, height, "Hello World!");
     FramebufferGL frameBuffer(width, height);
