@@ -8,6 +8,26 @@
 
 namespace pandora {
 
+// PBRTv3 page 232
+Ray Interaction::spawnRay(const glm::vec3& d) const
+{
+    return computeRayWithEpsilon(*this, d);
+}
+
+// PBRTv3 page 119
+SurfaceInteraction::SurfaceInteraction(const glm::vec3 & p, const glm::vec2 & uv, const glm::vec3 & wo, const glm::vec3 & dpdu, const glm::vec3 & dpdv, const glm::vec3 & dndu, const glm::vec3 & dndv, const TriangleMesh * shape, unsigned primitiveID) :
+	Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo), uv(uv), dpdu(dpdu), dpdv(dpdv), dndu(dndu), dndv(dndv), shape(shape), primitiveID(primitiveID)
+{
+	// Initialize shading geometry from true geometry
+	shading.normal = normal;
+	shading.dpdu = dpdu;
+	shading.dpdv = dpdv;
+	shading.dndu = dndu;
+	shading.dndv = dndv;
+
+	// TODO: adjust normal based on orientation and handedness
+}
+
 void SurfaceInteraction::setShadingGeometry(
     const glm::vec3& dpdus,
     const glm::vec3& dpdvs,
@@ -17,11 +37,13 @@ void SurfaceInteraction::setShadingGeometry(
 {
     // Compute shading normal
     shading.normal = glm::normalize(glm::cross(dpdus, dpdvs));
+	// TODO: adjust normal based on orientation and handedness (page 119)
     if (orientationIsAuthoritative)
         normal = faceForward(normal, shading.normal);
     else
         shading.normal = faceForward(shading.normal, normal);
 
+	// Initialize shading partial derivative values
     shading.dpdu = dpdus;
     shading.dpdv = dpdvs;
     shading.dndu = dndus;
@@ -33,6 +55,7 @@ void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, MemoryArena&
     // TODO: compute ray differentials
 
     sceneObject->getMaterial().computeScatteringFunctions(*this, arena, mode, allowMultipleLobes);
+	assert(this->bsdf != nullptr);
 }
 
 glm::vec3 SurfaceInteraction::lightEmitted(const glm::vec3& w) const
@@ -42,11 +65,6 @@ glm::vec3 SurfaceInteraction::lightEmitted(const glm::vec3& w) const
     }
 
     return glm::vec3(0.0f);
-}
-
-Ray SurfaceInteraction::spawnRay(const glm::vec3& dir) const
-{
-    return computeRayWithEpsilon(*this, dir);
 }
 
 // PBRTv3 page 231

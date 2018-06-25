@@ -4,12 +4,12 @@
 
 namespace pandora {
 
-AreaLight::AreaLight(glm::vec3 emittedLight, int numSamples, const SceneObject& sceneObject, unsigned primitiveID)
+AreaLight::AreaLight(glm::vec3 emittedLight, int numSamples, const TriangleMesh& shape, unsigned primitiveID)
     : Light((int)LightFlags::Area, numSamples)
     , m_emmitedLight(emittedLight)
-    , m_sceneObject(sceneObject)
+    , m_shape(shape)
     , m_primitiveID(primitiveID)
-    , m_area(sceneObject.getMesh().primitiveArea(primitiveID))
+    , m_area(m_shape.primitiveArea(primitiveID))
 {
 }
 
@@ -25,14 +25,19 @@ glm::vec3 AreaLight::light(const Interaction& interaction, const glm::vec3& w) c
 
 LightSample AreaLight::sampleLi(const Interaction& ref, const glm::vec2& randomSample) const
 {
-    auto [lightSample, pdf] = m_sceneObject.getMesh().samplePrimitive(m_primitiveID, ref, randomSample);
+    Interaction pShape = m_shape.samplePrimitive(m_primitiveID, ref, randomSample);
 
     LightSample result;
-    result.radiance = m_emmitedLight;
-    result.wi = glm::normalize(lightSample.position - ref.position);
-    result.pdf = pdf;
-    result.visibilityRay = computeRayWithEpsilon(ref, lightSample);
+    result.wi = glm::normalize(pShape.position - ref.position);
+    result.pdf = m_shape.pdfPrimitive(m_primitiveID, ref, result.wi);
+    result.visibilityRay = computeRayWithEpsilon(ref, pShape);
+    result.radiance = light(pShape, -result.wi);
     return result;
+}
+
+float AreaLight::pdfLi(const Interaction& ref, const glm::vec3& wi) const
+{
+    return m_shape.pdfPrimitive(m_primitiveID, ref, wi);
 }
 
 }

@@ -54,4 +54,15 @@ inline float cosineHemispherePdf(float cosTheta)
     return cosTheta * glm::one_over_pi<float>();
 }
 
+// PBRTv3 page 799
+inline float balanceHeuristic(int nf, float fPdf, int ng, float gPdf)
+{
+	return (nf * fPdf) / (nf * fPdf + ng * gPdf);
+}
+
+inline float powerHeuristic(int nf, float fPdf, int ng, float gPdf) {
+	float f = nf * fPdf, g = ng * gPdf;
+	return (f * f) / (f * f + g * g);
+}
+
 }

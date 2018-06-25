@@ -32,6 +32,7 @@ glm::vec3 EnvironmentLight::power() const
     return glm::pi<float>() * worldRadius * worldRadius * m_l * m_texture->evaluate(glm::vec2(0.5f, 0.5f));
 }
 
+// PBRTv3 page 849
 LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& u) const
 {
     // TODO: importance sampling
@@ -55,6 +56,18 @@ LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& 
     result.visibilityRay = computeRayWithEpsilon(ref, result.wi);
 
     return result;
+}
+
+// PBRTv3 page 850
+float EnvironmentLight::pdfLi(const Interaction& ref, const glm::vec3& wiWorld) const
+{
+	glm::vec3 wi = worldToLight(wiWorld);
+	float theta = sphericalTheta(wi), phi = sphericalTheta(wi);
+	float sinTheta = std::sin(theta);
+	if (sinTheta == 0)
+		return 0.0f;
+
+	return 1.0f / (2 * glm::pi<float>() * glm::pi<float>() * sinTheta);
 }
 
 glm::vec3 EnvironmentLight::Le(const glm::vec3& dir) const

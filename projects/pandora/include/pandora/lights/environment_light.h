@@ -11,6 +11,7 @@ public:
     glm::vec3 power() const final;
 
     LightSample sampleLi(const Interaction& ref, const glm::vec2& randomSample) const final;
+	float pdfLi(const Interaction& ref, const glm::vec3& wi) const final;
 
     glm::vec3 Le(const glm::vec3& w) const final;
 

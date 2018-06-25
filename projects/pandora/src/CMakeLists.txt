@@ -13,6 +13,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/geometry/triangle.cpp"
 
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/path_integrator.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/integrators/direct_lighting_integrator.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/sampler_integrator.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/lights/area_light.cpp"

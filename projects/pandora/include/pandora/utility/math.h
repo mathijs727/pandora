@@ -20,24 +20,29 @@ inline void coordinateSystem(const glm::vec3& v1, glm::vec3* v2, glm::vec3* v3)
 }
 
 // https://github.com/mmp/pbrt-v3/blob/book/src/core/pbrt.h
-inline uint32_t floatToBits(float f) {
+inline uint32_t floatToBits(float f)
+{
     uint32_t ui;
     memcpy(&ui, &f, sizeof(float));
     return ui;
 }
 
 // https://github.com/mmp/pbrt-v3/blob/book/src/core/pbrt.h
-inline float bitsToFloat(uint32_t ui) {
+inline float bitsToFloat(uint32_t ui)
+{
     float f;
     memcpy(&f, &ui, sizeof(uint32_t));
     return f;
 }
 
 // https://github.com/mmp/pbrt-v3/blob/book/src/core/pbrt.h
-inline float nextFloatUp(float v) {
+inline float nextFloatUp(float v)
+{
     // Handle infinity and negative zero for _NextFloatUp()_
-    if (std::isinf(v) && v > 0.) return v;
-    if (v == -0.f) v = 0.f;
+    if (std::isinf(v) && v > 0.)
+        return v;
+    if (v == -0.f)
+        v = 0.f;
 
     // Advance _v_ to next higher float
     uint32_t ui = floatToBits(v);
@@ -49,10 +54,13 @@ inline float nextFloatUp(float v) {
 }
 
 // https://github.com/mmp/pbrt-v3/blob/book/src/core/pbrt.h
-inline float nextFloatDown(float v) {
+inline float nextFloatDown(float v)
+{
     // Handle infinity and positive zero for _NextFloatDown()_
-    if (std::isinf(v) && v < 0.) return v;
-    if (v == 0.f) v = -0.f;
+    if (std::isinf(v) && v < 0.)
+        return v;
+    if (v == 0.f)
+        v = -0.f;
     uint32_t ui = floatToBits(v);
     if (v > 0)
         --ui;
@@ -61,5 +69,55 @@ inline float nextFloatDown(float v) {
     return bitsToFloat(ui);
 }
 
+// PBRTv3 page 66
+inline float lengthSquared(const glm::vec3& v)
+{
+    return glm::dot(v, v);
+}
+
+inline float distance(const glm::vec3& p0, const glm::vec3& p1)
+{
+    return glm::length(p0 - p1);
+}
+
+inline float distanceSquared(const glm::vec3& p0, const glm::vec3& p1)
+{
+    return lengthSquared(p0 - p1);
+}
+
+inline float absDot(const glm::vec3& v0, const glm::vec3& v1)
+{
+    return glm::abs(glm::dot(v0, v1));
+}
+
+inline float minComponent(const glm::vec3& v)
+{
+    return std::min(v.x, std::min(v.y, v.z));
+}
+
+inline float maxComponent(const glm::vec3& v)
+{
+    return std::max(v.x, std::max(v.y, v.z));
+}
+
+inline int maxDimension(const glm::vec3& v)
+{
+    if (v.x > v.y) {
+		if (v.x > v.z)
+			return 0;
+		else
+			return 2;
+    } else {
+		if (v.y > v.z)
+			return 1;
+		else
+			return 2;
+    }
+}
+
+inline glm::vec3 permute(const glm::vec3& p, int x, int y, int z)
+{
+    return glm::vec3(p[x], p[y], p[z]);
+}
 
 }

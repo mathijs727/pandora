@@ -7,6 +7,7 @@
 namespace pandora {
 
 struct Interaction {
+public:
     Interaction() = default;
     Interaction(const glm::vec3& position, const glm::vec3& wo, const glm::vec3& normal)
         : position(position)
@@ -14,6 +15,9 @@ struct Interaction {
         , normal(normal)
     {
     }
+
+	Ray spawnRay(const glm::vec3& d) const;
+public:
     glm::vec3 position;
     glm::vec3 wo; // Outgoing ray
 
@@ -23,7 +27,9 @@ struct Interaction {
 struct SurfaceInteraction : public Interaction {
 public:
     const SceneObject* sceneObject = nullptr;
+
     unsigned primitiveID;
+	const TriangleMesh* shape = nullptr;
 
     BSDF* bsdf = nullptr;
 
@@ -38,7 +44,12 @@ public:
     } shading;
 
 public:
-    SurfaceInteraction(const SceneObject& sceneObject, unsigned primitiveID, const glm::vec3& position, const glm::vec3& geometricNormal, const glm::vec3& uv, const glm::vec3& wo)
+	SurfaceInteraction()
+		: sceneObject(nullptr)
+	{
+	}
+	SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, const TriangleMesh* shape, unsigned primitiveID);
+    /*SurfaceInteraction(const SceneObject& sceneObject, unsigned primitiveID, const glm::vec3& position, const glm::vec3& geometricNormal, const glm::vec3& uv, const glm::vec3& wo)
         : Interaction(position, geometricNormal, wo)
         , sceneObject(&sceneObject)
         , primitiveID(primitiveID)
@@ -48,15 +59,13 @@ public:
     SurfaceInteraction()
         : sceneObject(nullptr)
     {
-    }
+    }*/
 
     void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, const glm::vec3& dndvs, bool orientationIsAuthoritative);
 
     void computeScatteringFunctions(const Ray& ray, MemoryArena& arena, TransportMode mode = TransportMode::Radiance, bool allowMultipleLobes = false);
 
     glm::vec3 lightEmitted(const glm::vec3& w) const;
-
-    Ray spawnRay(const glm::vec3& dir) const;
 };
 
 Ray computeRayWithEpsilon(const Interaction& i1, const Interaction& i22);

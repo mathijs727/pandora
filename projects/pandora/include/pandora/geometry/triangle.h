@@ -9,7 +9,6 @@
 #include <string_view>
 #include <tuple>
 #include <vector>
-#include <memory>
 
 struct aiScene;
 
@@ -40,9 +39,14 @@ public:
     // This abstraction should be higher performance than the shared_ptr for each triangle approach that PBRTv3 takes.
     SurfaceInteraction partialFillSurfaceInteraction(unsigned primID, const glm::vec2& hitUV) const;// Caller should initialize sceneObject & wo
 
+	bool intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture = true) const;
+
     float primitiveArea(unsigned primitiveID) const;
-    std::pair<Interaction, float> samplePrimitive(unsigned primitiveID, const glm::vec2& randomSample) const;
-    std::pair<Interaction, float> samplePrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec2& randomSample) const;
+    Interaction samplePrimitive(unsigned primitiveID, const glm::vec2& randomSample) const;
+    Interaction samplePrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec2& randomSample) const;
+
+	float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const;
+	float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const;
 private:
     static std::shared_ptr<TriangleMesh> createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform);
 

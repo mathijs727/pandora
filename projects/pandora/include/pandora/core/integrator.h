@@ -17,7 +17,7 @@ public:
     int getCurrentFrameSpp() const;
 
 protected:
-    virtual void rayHit(const Ray& r, const SurfaceInteraction& si, const IntegratorState& s, const EmbreeInsertHandle& h) = 0;
+    virtual void rayHit(const Ray& r, SurfaceInteraction si, const IntegratorState& s, const EmbreeInsertHandle& h) = 0;
     virtual void rayMiss(const Ray& r, const IntegratorState& s) = 0;
 
     void resetSamplers();

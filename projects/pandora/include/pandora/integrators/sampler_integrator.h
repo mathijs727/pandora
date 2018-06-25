@@ -13,7 +13,11 @@ namespace sampler_integrator {
     };
     struct ShadowRayState {
         glm::ivec2 pixel;
-        glm::vec3 contribution;
+        glm::vec3 radianceOrWeight;
+		
+		// Used for importance sampling (PBRTv3 page 861)
+		bool addContributionOnLightHit;
+		const Light* light;// If ray misses then we should only add contribution from the (infinite) light that we tried to sample (and not all infinite lights)
     };
     using RayState = std::variant<ContinuationRayState, ShadowRayState>;
 }
@@ -26,20 +30,23 @@ public:
     void render(const PerspectiveCamera& camera) final;
 
 protected:
-    void rayHit(const Ray& r, const SurfaceInteraction& si, const sampler_integrator::RayState& s, const EmbreeInsertHandle& h) final;
-    void rayMiss(const Ray& r, const sampler_integrator::RayState& s) final;
+	using RayState = sampler_integrator::RayState;
+	using ContinuationRayState = sampler_integrator::ContinuationRayState;
+	using ShadowRayState = sampler_integrator::ShadowRayState;
+    virtual void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const EmbreeInsertHandle& h) = 0;
+    virtual void rayMiss(const Ray& r, const RayState& s) = 0;
 
-private:
     void spawnNextSample(const glm::vec2& pixel, bool initialSample = false);
 
     void specularReflect(const SurfaceInteraction& si, Sampler& sampler, MemoryArena& memoryArena, const sampler_integrator::ContinuationRayState& rayState);
     void specularTransmit(const SurfaceInteraction& si, Sampler& sampler, MemoryArena& memoryArena, const sampler_integrator::ContinuationRayState& rayState);
 
-    void spawnShadowRay(const Ray& ray, const sampler_integrator::ContinuationRayState& s, const Spectrum& multiplier);
+	void spawnShadowRay(const Ray& ray, const sampler_integrator::ContinuationRayState& s, const Spectrum& weight);
+	void spawnShadowRay(const Ray& ray, const sampler_integrator::ContinuationRayState& s, const Spectrum& weight, const Light& light);
 
-private:
+protected:
     const int m_maxDepth;
-
+private:
     PerspectiveCamera const* m_cameraThisFrame;
 };
 

@@ -13,8 +13,6 @@ using namespace pandora::sampler_integrator;
 
 namespace pandora {
 
-static thread_local MemoryArena s_memoryArena = MemoryArena(4096);
-
 SamplerIntegrator::SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp)
     : Integrator(scene, sensor, spp)
     , m_maxDepth(maxDepth)
@@ -46,93 +44,6 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     });
 #endif
     m_sppThisFrame += m_sppPerCall;
-}
-
-void SamplerIntegrator::rayHit(const Ray& r, const SurfaceInteraction& siRef, const RayState& s, const EmbreeInsertHandle& h)
-{
-    SurfaceInteraction si = siRef;
-    s_memoryArena.reset();
-
-    if (std::holds_alternative<ContinuationRayState>(s)) {
-        const auto& rayState = std::get<ContinuationRayState>(s);
-
-        // TODO
-        auto& sampler = getSampler(rayState.pixel);
-        std::array samples = { sampler.get2D() };
-
-        // Initialize common variables for Whitted integrator
-        glm::vec3 n = si.shading.normal;
-        glm::vec3 wo = si.wo;
-
-        // Compute scattering functions for surface interaction
-        si.computeScatteringFunctions(r, s_memoryArena);
-
-        // Compute emitted light if ray hit an area light source
-        Spectrum emitted = si.lightEmitted(wo);
-        if (!isBlack(emitted))
-        {
-            m_sensor.addPixelContribution(rayState.pixel, rayState.weight * emitted);
-        }
-
-        // Add contribution of each light source
-        for (const auto& light : m_scene.getLights()) {
-            /*auto bsdfSample = si.bsdf->sampleF(wo, sampler.get2D());
-            if (bsdfSample)
-            {
-                Spectrum f = si.bsdf->f(wo, bsdfSample->wi);
-                if (!isBlack(f)) {
-                    Spectrum radiance = f * light->Le(bsdfSample->wi) * glm::abs(glm::dot(bsdfSample->wi, n)) / bsdfSample->pdf;
-                    Ray visibilityRay = si.spawnRay(bsdfSample->wi);
-                    spawnShadowRay(visibilityRay, rayState, radiance);
-                }
-            }*/
-
-            auto lightSample = light->sampleLi(si, sampler.get2D());
-            if (lightSample.isBlack() || lightSample.pdf == 0.0f || glm::dot(lightSample.wi, si.normal) <= 0.0f)
-                continue;
-
-            Spectrum f = si.bsdf->f(wo, lightSample.wi);
-            if (!isBlack(f)) {
-                Spectrum radiance = f * lightSample.radiance * glm::abs(glm::dot(lightSample.wi, n)) / lightSample.pdf;
-                spawnShadowRay(lightSample.visibilityRay, rayState, radiance);
-            }
-        }
-
-        if (rayState.depth + 1 < m_maxDepth) {
-            // Trace rays for specular reflection and refraction
-            specularReflect(si, sampler, s_memoryArena, rayState);
-            specularTransmit(si, sampler, s_memoryArena, rayState);
-        }
-    } else if (std::holds_alternative<ShadowRayState>(s)) {
-        const auto& rayState = std::get<ShadowRayState>(s);
-        // Do nothing, in shadow
-    }
-}
-
-void SamplerIntegrator::rayMiss(const Ray& r, const RayState& s)
-{
-    if (std::holds_alternative<ShadowRayState>(s)) {
-        const auto& rayState = std::get<ShadowRayState>(s);
-        assert(!std::isnan(glm::dot(rayState.contribution, rayState.contribution)) && glm::dot(rayState.contribution, rayState.contribution) > 0.0f);
-        m_sensor.addPixelContribution(rayState.pixel, rayState.contribution);
-
-        spawnNextSample(rayState.pixel);
-    } else if (std::holds_alternative<ContinuationRayState>(s)) {
-        const auto& rayState = std::get<ContinuationRayState>(s);
-
-        // End of path: received radiance
-        glm::vec3 radiance = glm::vec3(0.0f);
-
-        auto lights = m_scene.getInfiniteLights();
-        for (const auto& light : lights) {
-            radiance += light->Le(r.direction);
-        }
-
-        assert(!std::isnan(glm::dot(rayState.weight, rayState.weight)) && glm::dot(rayState.weight, rayState.weight) > 0.0f);
-        m_sensor.addPixelContribution(rayState.pixel, rayState.weight * radiance);
-
-        spawnNextSample(rayState.pixel);
-    }
 }
 
 void SamplerIntegrator::spawnNextSample(const glm::vec2& pixel, bool initialSample)
@@ -205,7 +116,21 @@ void SamplerIntegrator::spawnShadowRay(const Ray& ray, const ContinuationRayStat
 {
     ShadowRayState rayState;
     rayState.pixel = prevRayState.pixel;
-    rayState.contribution = prevRayState.weight * radiance;
+    rayState.radianceOrWeight = prevRayState.weight * radiance;
+    rayState.addContributionOnLightHit = false;
+    rayState.light = nullptr;
+
+    RayState rayStateVariant = rayState;
+    m_accelerationStructure.placeIntersectRequests(gsl::make_span(&rayStateVariant, 1), gsl::make_span(&ray, 1));
+}
+
+void SamplerIntegrator::spawnShadowRay(const Ray& ray, const ContinuationRayState& prevRayState, const Spectrum& weight, const Light& light)
+{
+    ShadowRayState rayState;
+    rayState.pixel = prevRayState.pixel;
+    rayState.radianceOrWeight = prevRayState.weight * weight;
+    rayState.addContributionOnLightHit = true;
+    rayState.light = &light;
 
     RayState rayStateVariant = rayState;
     m_accelerationStructure.placeIntersectRequests(gsl::make_span(&rayStateVariant, 1), gsl::make_span(&ray, 1));

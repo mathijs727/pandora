@@ -15,7 +15,7 @@ SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const 
 {
     m_areaLightPerPrimitive.reserve(m_mesh->numTriangles());
     for (unsigned i = 0; i < mesh->numTriangles(); i++) {
-        m_areaLightPerPrimitive.emplace_back(lightEmitted, 1, *this, i);
+        m_areaLightPerPrimitive.emplace_back(lightEmitted, 1, *mesh, i);
     }
 }
 

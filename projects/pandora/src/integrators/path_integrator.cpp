@@ -2,7 +2,6 @@
 #include "pandora/core/perspective_camera.h"
 #include "pandora/core/sampler.h"
 #include "pandora/core/sensor.h"
-#include "pandora/materials/lambert_material.h"
 #include <gsl/gsl>
 #include <tbb/concurrent_vector.h>
 #include <tbb/parallel_for.h>
@@ -11,39 +10,11 @@
 namespace pandora {
 
 PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp)
-    : Integrator(scene, sensor, spp)
-    , m_maxDepth(maxDepth)
+    : SamplerIntegrator(maxDepth, scene, sensor, spp)
 {
 }
 
-void PathIntegrator::render(const PerspectiveCamera& camera)
-{
-    // Generate camera rays
-    glm::ivec2 resolution = m_sensor.getResolution();
-    glm::vec2 resolutionF = resolution;
-#ifdef _DEBUG
-    for (int y = 0; y < resolution.y; y++) {
-#else
-    tbb::parallel_for(0, resolution.y, [&](int y) {
-#endif
-        for (int x = 0; x < resolution.x; x++) {
-            // Initialize camera sample for current sample
-            auto pixel = glm::ivec2(x, y);
-            auto& sampler = getSampler(pixel);
-            CameraSample sample = sampler.getCameraSample(pixel);
-
-            PathIntegratorState pathState{ pixel, glm::vec3(1.0f), 0 };
-            Ray ray = camera.generateRay(sample);
-            m_accelerationStructure.placeIntersectRequests(gsl::make_span(&pathState, 1), gsl::make_span(&ray, 1));
-        }
-#ifdef _DEBUG
-    }
-#else
-    });
-#endif
-}
-
-void PathIntegrator::rayHit(const Ray& r, const SurfaceInteraction& si, const PathIntegratorState& s, const EmbreeInsertHandle& h)
+void PathIntegrator::rayHit(const Ray& r, const SurfaceInteraction& si, const RayState& s, const EmbreeInsertHandle& h)
 {
     // TODO
     auto& sampler = getSampler(s.pixel);
@@ -64,7 +35,7 @@ void PathIntegrator::rayHit(const Ray& r, const SurfaceInteraction& si, const Pa
     m_accelerationStructure.placeIntersectRequests(gsl::make_span(&state, 1), gsl::make_span(&ray, 1));
 }
 
-void PathIntegrator::rayMiss(const Ray& r, const PathIntegratorState& s)
+void PathIntegrator::rayMiss(const Ray& r, const RayState& s)
 {
     // End of path: received radiance
     glm::vec3 radiance = glm::vec3(0.0f);
