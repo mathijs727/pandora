@@ -2,7 +2,7 @@
 #include "glm/glm.hpp"
 #include "pandora/core/interaction.h"
 #include "pandora/utility/memory_arena.h"
-#include "reflection/lambert_reflection.h"
+#include "reflection/lambert_bxdf.h"
 #include "shading.h"
 
 namespace pandora {

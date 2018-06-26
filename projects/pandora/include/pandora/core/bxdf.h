@@ -30,7 +30,6 @@ public:
         BxDFType sampledType;
     };
     virtual Spectrum f(const glm::vec3& wo, const glm::vec3& wi) const = 0;
-    virtual Sample sampleF(const glm::vec3& wo, const glm::vec2& sample, BxDFType sampledType = BSDF_ALL) const;
 
     // Total reflection in a given direction due to constant illumination over the hemisphere
     virtual Spectrum rho(const glm::vec3& wo, gsl::span<const glm::vec2> samples) const;
@@ -38,6 +37,7 @@ public:
     // Fraction of incident light reflected by a surface when the incident light is the same from all directions
     virtual Spectrum rho(gsl::span<const glm::vec2> samples1, gsl::span<const glm::vec2> samples2) const;
 
+    virtual Sample sampleF(const glm::vec3& wo, const glm::vec2& sample, BxDFType sampledType = BSDF_ALL) const;
     virtual float pdf(const glm::vec3& wo, const glm::vec3& wi) const;
 
     BxDFType getType() const;

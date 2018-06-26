@@ -7,6 +7,7 @@
 #include "pandora/lights/environment_light.h"
 #include "pandora/materials/matte_material.h"
 #include "pandora/materials/mirror_material.h"
+#include "pandora/materials/translucent_material.h"
 #include "pandora/textures/constant_texture.h"
 #include "pandora/textures/image_texture.h"
 #include "ui/fps_camera_controls.h"
@@ -76,12 +77,12 @@ int main()
                 scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
             } else if (i == 1) {
                 // Front box
-                auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.7f, 0.2f, 0.2f));
-                auto material = std::make_shared<MatteMaterial>(kd, roughness);
+                auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.7f, 0.3f, 0.2f));
+				auto material = std::make_shared<MatteMaterial>(kd, roughness);
                 scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
             } else if (i == 5) {
                 // Ceiling
-                Spectrum light(1.0f);
+                Spectrum light(2.5f);
                 auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
                 auto material = std::make_shared<MatteMaterial>(kd, roughness);
                 scene.addSceneObject(std::make_unique<SceneObject>(mesh, material, light));
@@ -94,8 +95,8 @@ int main()
         }
     }
 
-	DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleAll);
-	//NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
+	//DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleAll);
+	NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {

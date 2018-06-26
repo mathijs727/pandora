@@ -2,11 +2,11 @@
 #include "glm/glm.hpp"
 #include "pandora/core/interaction.h"
 #include "pandora/utility/memory_arena.h"
-#include "reflection/lambert_reflection.h"
+#include "reflection/lambert_bxdf.h"
 #include "shading.h"
 
 namespace pandora {
-TranslucentMaterial::TranslucentMaterial(const std::shared_ptr<Texture<Spectrum>>& kd, const std::shared_ptr<Texture<float>>& reflect, const std::shared_ptr<Texture<float>>& transmit) :
+TranslucentMaterial::TranslucentMaterial(const std::shared_ptr<Texture<Spectrum>>& kd, const std::shared_ptr<Texture<Spectrum>>& reflect, const std::shared_ptr<Texture<Spectrum>>& transmit) :
 	m_kd(kd), m_reflect(reflect), m_transmit(transmit)
 {
 }
@@ -28,7 +28,7 @@ void TranslucentMaterial::computeScatteringFunctions(SurfaceInteraction& si, Mem
 		if (!isBlack(r))
 			si.bsdf->add(arena.allocate<LambertianReflection>(r * kd));
 		if (!isBlack(t))
-			si.bsdf->add(arena.allocate<LambertTransmission>(t * kd));
+			si.bsdf->add(arena.allocate<LambertianTransmission>(t * kd));
 	}
 
 	// TODO: specular (https://github.com/mmp/pbrt-v3/blob/master/src/materials/translucent.cpp)
