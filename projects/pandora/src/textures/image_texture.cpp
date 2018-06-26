@@ -53,7 +53,7 @@ ImageTexture<T>::ImageTexture(std::string_view filename)
                 doConversion = true;
             } else if (colorSpace == "sRGB") {
                 conversionFunction = accurateSRGBToLinear;
-                //doConversion = true;
+                doConversion = true;
             } else {
                 std::cerr << "Unsupported color space \"" << colorSpace << "\"! Reinterpreting as linear." << std::endl;
                 doConversion = false;

@@ -110,7 +110,9 @@ void FramebufferGL::update(const Sensor& sensor, float multiplier)
 
     glBindVertexArray(m_vao);
 
+	glEnable(GL_FRAMEBUFFER_SRGB);
     glDrawArrays(GL_TRIANGLES, 0, 6);
+	glDisable(GL_FRAMEBUFFER_SRGB);
 }
 
 GLuint FramebufferGL::loadShader(std::string_view source, GLenum type)
