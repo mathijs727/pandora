@@ -13,6 +13,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/geometry/triangle.cpp"
 
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/path_integrator.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/integrators/naive_direct_lighting_integrator.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/direct_lighting_integrator.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/sampler_integrator.cpp"
 
@@ -23,10 +24,11 @@ target_sources(libPandora
 
         "${CMAKE_CURRENT_LIST_DIR}/materials/matte_material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/materials/mirror_material.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/materials/translucent_material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/materials/shading.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/reflection/fresnel.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/reflection/lambert_reflection.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/reflection/lambert_bxdf.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/reflection/scaled_bxdf.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/reflection/specular_bxdf.cpp"
         

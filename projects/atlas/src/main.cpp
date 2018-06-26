@@ -3,6 +3,7 @@
 #include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/integrators/direct_lighting_integrator.h"
+#include "pandora/integrators/naive_direct_lighting_integrator.h"
 #include "pandora/lights/environment_light.h"
 #include "pandora/materials/matte_material.h"
 #include "pandora/materials/mirror_material.h"
@@ -93,7 +94,8 @@ int main()
         }
     }
 
-    DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
+	DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleAll);
+	//NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {

@@ -36,6 +36,8 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
         Spectrum emitted = si.lightEmitted(wo);
         if (!isBlack(emitted)) {
             m_sensor.addPixelContribution(rayState.pixel, rayState.weight * emitted);
+			spawnNextSample(rayState.pixel);
+			return;
         }
 
         // Compute direct lighting for DirectLightingIntegrator
@@ -54,14 +56,13 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
         }
     } else if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);
-        // Do nothing, in shadow
 
-        if (rayState.addContributionOnLightHit) {
+        if (rayState.light != nullptr && si.sceneObject->getAreaLight(si.primitiveID) == rayState.light) {
             // Ray created by BSDF sampling (PBRTv3 page 861) - contains weight
             Spectrum li = si.lightEmitted(-r.direction);
             m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * li);
         }
-
+		
         spawnNextSample(rayState.pixel);
     }
 }
@@ -71,12 +72,12 @@ void DirectLightingIntegrator::rayMiss(const Ray& r, const RayState& s)
     if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);
 
-        if (rayState.addContributionOnLightHit) {
+        if (rayState.light != nullptr) {
             // Ray created by BSDF sampling (PBRTv3 page 861) - contains weight
             m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * rayState.light->Le(-r.direction));
         } else {
             // Ray created by light sampling (PBRTv3 page 858) - contains radiance
-            m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight);
+			m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight);
         }
 
         spawnNextSample(rayState.pixel);
@@ -131,9 +132,10 @@ void DirectLightingIntegrator::estimateDirect(const Spectrum& multiplier, const 
     auto lightSample = light.sampleLi(si, uLight);
     float scatteringPdf = 0.0f;
     float lightPdf = lightSample.pdf;
-    if (lightSample.pdf > 0.0f && !lightSample.isBlack()) {
+
+    if (lightPdf > 0.0f && !lightSample.isBlack()) {
         // Compute BSDF value for light sample
-        Spectrum f = si.bsdf->f(si.wo, lightSample.wi, bsdfFlags) * glm::abs(glm::dot(lightSample.wi, si.shading.normal));
+        Spectrum f = si.bsdf->f(si.wo, lightSample.wi, bsdfFlags) * absDot(lightSample.wi, si.shading.normal);
         scatteringPdf = si.bsdf->pdf(si.wo, lightSample.wi, bsdfFlags);
 
         if (!isBlack(f)) {
@@ -148,13 +150,14 @@ void DirectLightingIntegrator::estimateDirect(const Spectrum& multiplier, const 
             }
         }
     }
-
-    // Sample BSDF with multiple importance sampling
+	
+	// Sample BSDF with multiple importance sampling
     // ...
     if (!light.isDeltaLight()) {
         // Sample scattered direction for surface interaction
         if (auto bsdfSampleOpt = si.bsdf->sampleF(si.wo, uScattering, bsdfFlags); bsdfSampleOpt) {
             auto bsdfSample = *bsdfSampleOpt;
+            float scatteringPdf = bsdfSample.pdf;
 
             Spectrum f = bsdfSample.f * absDot(bsdfSample.wi, si.shading.normal);
             bool sampledSpecular = bsdfSample.sampledType & BSDF_SPECULAR;

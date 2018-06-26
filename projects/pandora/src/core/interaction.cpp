@@ -91,10 +91,10 @@ glm::vec3 offsetRayOrigin(const Interaction& i1, const glm::vec3& dir)
 Ray computeRayWithEpsilon(const Interaction& i1, const Interaction& i2)
 {
     glm::vec3 start = offsetRayOrigin(i1, i2.position - i1.position);
-    glm::vec3 end = offsetRayOrigin(i2, i1.position - i2.position);
+	glm::vec3 end = offsetRayOrigin(i2, i1.position - i2.position);
 
     glm::vec3 direction = glm::normalize(i2.position - i1.position);
-    return Ray(start, direction, 0.0f, (start - end).length() - RAY_EPSILON); // Extra epsilon just to make sure
+    return Ray(start, direction, 0, glm::length(start - end)); // Extra epsilon just to make sure
 }
 
 Ray computeRayWithEpsilon(const Interaction& i1, const glm::vec3& dir)

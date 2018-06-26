@@ -5,7 +5,7 @@
 
 namespace pandora {
 
-const float RAY_EPSILON = 0.000001f;
+const float RAY_EPSILON = 0.000005f;
 
 struct Ray {
 public:

@@ -117,7 +117,6 @@ void SamplerIntegrator::spawnShadowRay(const Ray& ray, const ContinuationRayStat
     ShadowRayState rayState;
     rayState.pixel = prevRayState.pixel;
     rayState.radianceOrWeight = prevRayState.weight * radiance;
-    rayState.addContributionOnLightHit = false;
     rayState.light = nullptr;
 
     RayState rayStateVariant = rayState;
@@ -129,7 +128,6 @@ void SamplerIntegrator::spawnShadowRay(const Ray& ray, const ContinuationRayStat
     ShadowRayState rayState;
     rayState.pixel = prevRayState.pixel;
     rayState.radianceOrWeight = prevRayState.weight * weight;
-    rayState.addContributionOnLightHit = true;
     rayState.light = &light;
 
     RayState rayStateVariant = rayState;

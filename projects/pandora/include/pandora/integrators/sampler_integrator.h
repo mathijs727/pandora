@@ -16,7 +16,6 @@ namespace sampler_integrator {
         glm::vec3 radianceOrWeight;
 		
 		// Used for importance sampling (PBRTv3 page 861)
-		bool addContributionOnLightHit;
 		const Light* light;// If ray misses then we should only add contribution from the (infinite) light that we tried to sample (and not all infinite lights)
     };
     using RayState = std::variant<ContinuationRayState, ShadowRayState>;

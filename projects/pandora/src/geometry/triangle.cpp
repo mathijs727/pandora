@@ -506,15 +506,18 @@ float TriangleMesh::pdfPrimitive(unsigned primitiveID, const Interaction& ref) c
 // PBRTv3 page 837
 float TriangleMesh::pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const
 {
+	if (glm::dot(ref.normal, wi) <= 0.0f)
+		return 0.0f;
+
     // Intersect sample ray with area light geometry
     Ray ray = ref.spawnRay(wi);
     float tHit;
     SurfaceInteraction isectLight;
-    if (!intersectPrimitive(primitiveID, ray, tHit, isectLight, false))
+	if (!intersectPrimitive(primitiveID, ray, tHit, isectLight, false))
         return 0.0f;
 
     // Convert light sample weight to solid angle measure
-    return distanceSquared(ref.position, isectLight.position) / (absDot(isectLight.normal, -wi) * primitiveArea(primitiveID));
+	return distanceSquared(ref.position, isectLight.position) / (absDot(isectLight.normal, -wi) * primitiveArea(primitiveID));
 }
 
 void TriangleMesh::getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const
