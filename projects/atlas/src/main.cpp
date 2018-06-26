@@ -44,8 +44,8 @@ int main()
     camera.setPosition(glm::vec3(0.0f, 0.0f, -4.0f));
 
     Scene scene;
-    auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
-    //auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/colors.png");
+    //auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
+    auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/colors.png");
     //auto colorTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1));
     glm::mat4 transform(1.0f);
     transform = glm::rotate(transform, -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));

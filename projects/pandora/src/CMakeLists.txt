@@ -33,6 +33,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/reflection/scaled_bxdf.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/reflection/specular_bxdf.cpp"
         
+        "${CMAKE_CURRENT_LIST_DIR}/textures/color_spaces.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/textures/constant_texture.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/textures/image_texture.cpp"
 		#"${CMAKE_CURRENT_LIST_DIR}/traversal/embree_accel.cpp"
