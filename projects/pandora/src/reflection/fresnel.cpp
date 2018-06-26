@@ -1,8 +1,7 @@
 #include "fresnel.h"
 #include <algorithm>
 
-namespace pandora
-{
+namespace pandora {
 
 float frDielectric(float cosThetaI, float etaI, float etaT)
 {
@@ -19,10 +18,11 @@ float frDielectric(float cosThetaI, float etaI, float etaT)
     // Compute cosThetatT using Snell's law
     float sinThetaI = std::sqrt(std::max(0.0f, 1.0f - cosThetaI * cosThetaI));
     float sinThetaT = etaI / etaT * sinThetaI;
+
     if (sinThetaT >= 1.0f) // Total internal reflection
         return 1.0f;
-    float cosThetaT = std::sqrt(std::max(0.0f, 1.0f - sinThetaT * sinThetaT));
 
+    float cosThetaT = std::sqrt(std::max(0.0f, 1.0f - sinThetaT * sinThetaT));
     float rparl = ((etaT * cosThetaI) - (etaI * cosThetaT)) / ((etaT * cosThetaI) + (etaI * cosThetaT));
     float rperp = ((etaI * cosThetaI) - (etaT * cosThetaT)) / ((etaI * cosThetaI) + (etaT * cosThetaT));
     return (rparl * rparl + rperp * rperp) / 2.0f;
@@ -64,7 +64,7 @@ Spectrum FresnelDielectric::evaluate(float cosThetaI) const
     return Spectrum(frDielectric(cosThetaI, m_etaI, m_etaT));
 }
 
-FresnelConductor::FresnelConductor(const Spectrum& etaI, const Spectrum& etaT, const Spectrum k)
+FresnelConductor::FresnelConductor(const Spectrum& etaI, const Spectrum& etaT, const Spectrum& k)
     : m_etaI(etaI)
     , m_etaT(etaT)
     , m_k(k)

@@ -26,7 +26,7 @@ private:
 
 class FresnelConductor : public Fresnel {
 public:
-    FresnelConductor(const Spectrum& etaI, const Spectrum& etaT, const Spectrum k);
+    FresnelConductor(const Spectrum& etaI, const Spectrum& etaT, const Spectrum& k);
 
     Spectrum evaluate(float cosThetaI) const final;
 

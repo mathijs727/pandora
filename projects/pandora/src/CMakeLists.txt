@@ -6,6 +6,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/core/material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/perspective_camera.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/sampler.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/core/spectrum.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/scene.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/sensor.cpp"
 
@@ -25,11 +26,17 @@ target_sources(libPandora
 
         "${CMAKE_CURRENT_LIST_DIR}/materials/matte_material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/materials/mirror_material.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/materials/translucent_material.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/materials/metal_material.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/materials/plastic_material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/materials/shading.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/materials/translucent_material.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/reflection/fresnel.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/reflection/fresnel_blend_bxdf.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/reflection/lambert_bxdf.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/reflection/microfacet.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/reflection/microfacet_bxdf.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/reflection/oren_nayer_bxdf.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/reflection/scaled_bxdf.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/reflection/specular_bxdf.cpp"
         

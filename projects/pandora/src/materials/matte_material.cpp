@@ -3,6 +3,7 @@
 #include "pandora/core/interaction.h"
 #include "pandora/utility/memory_arena.h"
 #include "reflection/lambert_bxdf.h"
+#include "reflection/oren_nayer_bxdf.h"
 #include "shading.h"
 
 namespace pandora {
@@ -23,9 +24,9 @@ void MatteMaterial::computeScatteringFunctions(SurfaceInteraction& si, MemoryAre
     float sigma = std::clamp(m_sigma->evaluate(si), 0.0f, 90.0f);
     if (!isBlack(r)) {
         if (sigma == 0.0f) {
-            si.bsdf->add(arena.allocate<LambertianReflection>(r));
+			si.bsdf->add(arena.allocate<LambertianReflection>(r));
         } else {
-            assert(false);// Not implemented yet!
+			si.bsdf->add(arena.allocate<OrenNayerBxDF>(r, sigma));
         }
     }
 

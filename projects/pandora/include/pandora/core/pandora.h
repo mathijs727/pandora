@@ -1,14 +1,8 @@
 #pragma once
 #include "glm/glm.hpp"
+#include "pandora/core/spectrum.h"
 
 namespace pandora {
-
-using Spectrum = glm::vec3;
-inline bool isBlack(const Spectrum& s)
-{
-    return glm::dot(s, s) == 0.0f;
-}
-
 
 // Forward declares
 struct Interaction;
