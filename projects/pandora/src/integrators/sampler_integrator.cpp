@@ -78,7 +78,7 @@ void SamplerIntegrator::specularReflect(const SurfaceInteraction& si, Sampler& s
         Ray ray = si.spawnRay(sample->wi);
 
         ContinuationRayState rayState;
-        rayState.depth = prevRayState.depth + 1;
+        rayState.bounces = prevRayState.bounces + 1;
         rayState.pixel = prevRayState.pixel;
         rayState.weight = prevRayState.weight * sample->f * glm::abs(glm::dot(sample->wi, ns)) / sample->pdf;
 
@@ -103,7 +103,7 @@ void SamplerIntegrator::specularTransmit(const SurfaceInteraction& si, Sampler& 
         Ray ray = si.spawnRay(sample->wi);
 
         ContinuationRayState rayState;
-        rayState.depth = prevRayState.depth + 1;
+        rayState.bounces = prevRayState.bounces + 1;
         rayState.pixel = prevRayState.pixel;
         rayState.weight = prevRayState.weight * sample->f * glm::abs(glm::dot(sample->wi, ns)) / sample->pdf;
 

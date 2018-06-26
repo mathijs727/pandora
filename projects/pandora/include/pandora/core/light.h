@@ -37,7 +37,7 @@ public:
     virtual LightSample sampleLi(const Interaction& interaction, const glm::vec2& randomSample) const = 0;
 	virtual float pdfLi(const Interaction& ref, const glm::vec3& wi) const = 0;
 
-    virtual glm::vec3 Le(const glm::vec3& w) const; // Radiance added to rays that miss the scene
+    virtual Spectrum Le(const Ray& w) const; // Radiance added to rays that miss the scene
 protected:
     const int m_flags;
     const int m_numSamples;

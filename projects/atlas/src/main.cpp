@@ -4,6 +4,7 @@
 #include "pandora/geometry/triangle.h"
 #include "pandora/integrators/direct_lighting_integrator.h"
 #include "pandora/integrators/naive_direct_lighting_integrator.h"
+#include "pandora/integrators/path_integrator.h"
 #include "pandora/lights/environment_light.h"
 #include "pandora/materials/matte_material.h"
 #include "pandora/materials/mirror_material.h"
@@ -82,7 +83,7 @@ int main()
                 scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
             } else if (i == 5) {
                 // Ceiling
-                Spectrum light(2.5f);
+                Spectrum light(1.0f);
                 auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
                 auto material = std::make_shared<MatteMaterial>(kd, roughness);
                 scene.addSceneObject(std::make_unique<SceneObject>(mesh, material, light));
@@ -96,7 +97,8 @@ int main()
     }
 
 	//DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleAll);
-	NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
+	//NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
+	PathIntegrator integrator(4, scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {

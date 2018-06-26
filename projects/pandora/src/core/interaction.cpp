@@ -58,7 +58,7 @@ void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, MemoryArena&
 	assert(this->bsdf != nullptr);
 }
 
-glm::vec3 SurfaceInteraction::lightEmitted(const glm::vec3& w) const
+glm::vec3 SurfaceInteraction::Le(const glm::vec3& w) const
 {
     if (const AreaLight* areaLight = sceneObject->getAreaLight(primitiveID); areaLight) {
         return areaLight->light(*this, w);

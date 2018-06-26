@@ -32,7 +32,7 @@ void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, 
         si.computeScatteringFunctions(r, s_memoryArena);
 
         // Compute emitted light if ray hit an area light source
-        Spectrum emitted = si.lightEmitted(wo);
+        Spectrum emitted = si.Le(wo);
         if (!isBlack(emitted)) {
             m_sensor.addPixelContribution(rayState.pixel, rayState.weight * emitted);
         }
@@ -48,7 +48,7 @@ void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, 
 			}
 		}
 
-        if (rayState.depth + 1 < m_maxDepth) {
+        if (rayState.bounces + 1 < m_maxDepth) {
             // Trace rays for specular reflection and refraction
             specularReflect(si, sampler, s_memoryArena, rayState);
             specularTransmit(si, sampler, s_memoryArena, rayState);
@@ -56,7 +56,7 @@ void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, 
     } else if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);
         // Do nothing, in shadow
-		m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * si.lightEmitted(-r.direction));
+		m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * si.Le(-r.direction));
     }
 }
 
@@ -66,7 +66,7 @@ void NaiveDirectLightingIntegrator::rayMiss(const Ray& r, const RayState& s)
         const auto& rayState = std::get<ShadowRayState>(s);
         assert(!std::isnan(glm::dot(rayState.radianceOrWeight, rayState.radianceOrWeight)) && glm::dot(rayState.radianceOrWeight, rayState.radianceOrWeight) > 0.0f);
 		for (const auto light : m_scene.getInfiniteLights())
-			m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * light->Le(-r.direction));
+			m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * light->Le(r));
 
         spawnNextSample(rayState.pixel);
     } else if (std::holds_alternative<ContinuationRayState>(s)) {
@@ -77,7 +77,7 @@ void NaiveDirectLightingIntegrator::rayMiss(const Ray& r, const RayState& s)
 
         auto lights = m_scene.getInfiniteLights();
         for (const auto& light : lights) {
-            radiance += light->Le(r.direction);
+            radiance += light->Le(r);
         }
 
         assert(!std::isnan(glm::dot(rayState.weight, rayState.weight)) && glm::dot(rayState.weight, rayState.weight) > 0.0f);

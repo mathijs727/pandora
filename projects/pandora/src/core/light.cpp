@@ -13,9 +13,10 @@ bool Light::isDeltaLight() const
     return m_flags & (int)LightFlags::DeltaPosition || m_flags & (int)LightFlags::DeltaDirection;
 }
 
-glm::vec3 Light::Le(const glm::vec3& w) const
+Spectrum Light::Le(const Ray& ray) const
 {
-    return glm::vec3(0.0f);
+	(void)ray;
+    return Spectrum(0.0f);
 }
 
 }

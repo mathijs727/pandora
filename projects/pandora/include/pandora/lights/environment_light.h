@@ -13,7 +13,7 @@ public:
     LightSample sampleLi(const Interaction& ref, const glm::vec2& randomSample) const final;
 	float pdfLi(const Interaction& ref, const glm::vec3& wi) const final;
 
-    glm::vec3 Le(const glm::vec3& w) const final;
+    Spectrum Le(const Ray& w) const final;
 
 private:
     glm::vec3 lightToWorld(const glm::vec3& v) const;

@@ -23,7 +23,6 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
 
         // TODO
         auto& sampler = getSampler(rayState.pixel);
-        std::array samples = { sampler.get2D() };
 
         // Initialize common variables for Whitted integrator
         glm::vec3 n = si.shading.normal;
@@ -33,7 +32,7 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
         si.computeScatteringFunctions(r, s_memoryArena);
 
         // Compute emitted light if ray hit an area light source
-        Spectrum emitted = si.lightEmitted(wo);
+        Spectrum emitted = si.Le(wo);
         if (!isBlack(emitted)) {
             m_sensor.addPixelContribution(rayState.pixel, rayState.weight * emitted);
 			spawnNextSample(rayState.pixel);
@@ -49,7 +48,7 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
             throw std::runtime_error("Unknown light strategy");
         }
 
-        if (rayState.depth + 1 < m_maxDepth) {
+        if (rayState.bounces + 1 < m_maxDepth) {
             // Trace rays for specular reflection and refraction
             specularReflect(si, sampler, s_memoryArena, rayState);
             specularTransmit(si, sampler, s_memoryArena, rayState);
@@ -59,7 +58,7 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
 
         if (rayState.light != nullptr && si.sceneObject->getAreaLight(si.primitiveID) == rayState.light) {
             // Ray created by BSDF sampling (PBRTv3 page 861) - contains weight
-            Spectrum li = si.lightEmitted(-r.direction);
+            Spectrum li = si.Le(-r.direction);
             m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * li);
         }
 		
@@ -74,7 +73,7 @@ void DirectLightingIntegrator::rayMiss(const Ray& r, const RayState& s)
 
         if (rayState.light != nullptr) {
             // Ray created by BSDF sampling (PBRTv3 page 861) - contains weight
-            m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * rayState.light->Le(-r.direction));
+            m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * rayState.light->Le(r));
         } else {
             // Ray created by light sampling (PBRTv3 page 858) - contains radiance
 			m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight);
@@ -89,7 +88,7 @@ void DirectLightingIntegrator::rayMiss(const Ray& r, const RayState& s)
 
         auto lights = m_scene.getInfiniteLights();
         for (const auto& light : lights) {
-            radiance += light->Le(r.direction);
+            radiance += light->Le(r);
         }
 
         assert(!std::isnan(glm::dot(rayState.weight, rayState.weight)) && glm::dot(rayState.weight, rayState.weight) > 0.0f);

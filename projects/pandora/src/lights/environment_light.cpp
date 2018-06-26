@@ -70,10 +70,10 @@ float EnvironmentLight::pdfLi(const Interaction& ref, const glm::vec3& wiWorld) 
 	return 1.0f / (2 * glm::pi<float>() * glm::pi<float>() * sinTheta);
 }
 
-glm::vec3 EnvironmentLight::Le(const glm::vec3& dir) const
+Spectrum EnvironmentLight::Le(const Ray& ray) const
 {
     // PBRTv3 page 741
-    glm::vec3 w = glm::normalize(worldToLight(dir)); // TODO: worldToLight()
+    glm::vec3 w = glm::normalize(worldToLight(ray.direction)); // TODO: worldToLight()
     glm::vec2 st(sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_pi<float>());
     return m_l * m_texture->evaluate(st);
 }

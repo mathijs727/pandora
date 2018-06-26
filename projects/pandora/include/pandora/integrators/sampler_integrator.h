@@ -9,7 +9,8 @@ namespace sampler_integrator {
     struct ContinuationRayState {
         glm::ivec2 pixel;
         glm::vec3 weight;
-        int depth;
+        int bounces;
+		bool specularBounce;
     };
     struct ShadowRayState {
         glm::ivec2 pixel;

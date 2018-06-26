@@ -65,7 +65,7 @@ public:
 
     void computeScatteringFunctions(const Ray& ray, MemoryArena& arena, TransportMode mode = TransportMode::Radiance, bool allowMultipleLobes = false);
 
-    glm::vec3 lightEmitted(const glm::vec3& w) const;
+    glm::vec3 Le(const glm::vec3& w) const;
 };
 
 Ray computeRayWithEpsilon(const Interaction& i1, const Interaction& i22);
