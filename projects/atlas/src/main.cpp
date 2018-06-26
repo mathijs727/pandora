@@ -49,7 +49,7 @@ int main()
     //auto colorTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1));
     glm::mat4 transform(1.0f);
     transform = glm::rotate(transform, -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
-    scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(1.0f), 1, colorTexture));
+    scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
     /*{
         //auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -78,12 +78,15 @@ int main()
                 scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
             } else if (i == 1) {
                 // Front box
-                auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.7f, 0.3f, 0.2f));
-				auto material = std::make_shared<MatteMaterial>(kd, roughness);
+				auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.7f, 0.3f, 0.2f));
+				auto r = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.9f));
+				auto t = r;// std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.5f));
+				//auto material = std::make_shared<MatteMaterial>(kd, roughness);
+				auto material = std::make_shared<MirrorMaterial>();
                 scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
             } else if (i == 5) {
                 // Ceiling
-                Spectrum light(0.8f);
+                Spectrum light(1.0f);
                 auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
                 auto material = std::make_shared<MatteMaterial>(kd, roughness);
                 scene.addSceneObject(std::make_unique<SceneObject>(mesh, material, light));
@@ -96,9 +99,9 @@ int main()
         }
     }
 
-	//DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleAll);
-	//NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-	PathIntegrator integrator(20, scene, camera.getSensor(), 1);
+    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleAll);
+    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
+    PathIntegrator integrator(20, scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {

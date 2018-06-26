@@ -56,8 +56,6 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
 			const auto& bsdfSample = *bsdfSampleOpt;
 			
 			ContinuationRayState newRayState = rayState;
-			if (glm::length(bsdfSample.f * absDot(bsdfSample.wi, si.shading.normal)) > 1.0f)
-				throw std::runtime_error("x");
 			newRayState.weight *= bsdfSample.f * absDot(bsdfSample.wi, si.shading.normal) / bsdfSample.pdf;
 			newRayState.bounces++;
 			newRayState.specularBounce = (bsdfSample.sampledType & BSDF_SPECULAR) != 0;
@@ -105,7 +103,7 @@ void PathIntegrator::rayMiss(const Ray& r, const RayState& s)
         if (rayState.bounces == 0 || rayState.specularBounce) {
             // Add emitted light at path vertex or environment
             for (const auto& light : m_scene.getInfiniteLights())
-                m_sensor.addPixelContribution(rayState.pixel, light->Le(r));
+                m_sensor.addPixelContribution(rayState.pixel, rayState.weight * light->Le(r));
         }
 
         // Terminate path if ray escaped

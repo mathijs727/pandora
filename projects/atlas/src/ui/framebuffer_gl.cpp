@@ -3,7 +3,7 @@
 #include <fstream>
 #include <iostream>
 
-static std::string vertexShaderSrc = " \
+/*static std::string vertexShaderSrc = " \
 #version 330\n \
 layout(location = 0) in vec3 pos;\n \
 layout(location = 1) in vec2 texCoords;\n \
@@ -27,7 +27,7 @@ uniform float u_multiplier;\n \
 void main()\n \
 {\n \
     o_fragColor = u_multiplier * texture(u_texture, v_texCoords);\n \
-}";
+}";*/
 
 namespace atlas {
 
@@ -74,8 +74,8 @@ FramebufferGL::FramebufferGL(int width, int height)
 
     // Load shader
     {
-        GLuint vertexShader = loadShader(vertexShaderSrc, GL_VERTEX_SHADER);
-        GLuint fragmentShader = loadShader(fragmentShaderSrc, GL_FRAGMENT_SHADER);
+        GLuint vertexShader = loadShader("atlas_output.vs", GL_VERTEX_SHADER);
+        GLuint fragmentShader = loadShader("atlas_output.fs", GL_FRAGMENT_SHADER);
 
         m_shader = glCreateProgram();
         glAttachShader(m_shader, vertexShader);
@@ -110,22 +110,21 @@ void FramebufferGL::update(const Sensor& sensor, float multiplier)
 
     glBindVertexArray(m_vao);
 
-	glEnable(GL_FRAMEBUFFER_SRGB);
+    glEnable(GL_FRAMEBUFFER_SRGB);
     glDrawArrays(GL_TRIANGLES, 0, 6);
-	glDisable(GL_FRAMEBUFFER_SRGB);
+    glDisable(GL_FRAMEBUFFER_SRGB);
 }
 
-GLuint FramebufferGL::loadShader(std::string_view source, GLenum type)
+GLuint FramebufferGL::loadShader(std::string_view fileName, GLenum type)
 {
-    /*std::ifstream file(fileName);
+    std::ifstream file = std::ifstream(std::string(fileName));
     if (!file.is_open()) {
         std::string errorMessage = "Cannot open file: ";
         errorMessage += fileName;
         std::cout << errorMessage.c_str() << std::endl;
     }
+    std::string source(std::istreambuf_iterator<char>(file), (std::istreambuf_iterator<char>()));
 
-    std::string prog(std::istreambuf_iterator<char>(file),
-        (std::istreambuf_iterator<char>()));*/
     GLuint shader = glCreateShader(type);
     const char* sourcePtr = source.data();
     GLint sourceSize = (GLint)source.length();
