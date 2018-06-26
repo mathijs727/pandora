@@ -56,10 +56,12 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
 			const auto& bsdfSample = *bsdfSampleOpt;
 			
 			ContinuationRayState newRayState = rayState;
+			if (glm::length(bsdfSample.f * absDot(bsdfSample.wi, si.shading.normal)) > 1.0f)
+				throw std::runtime_error("x");
 			newRayState.weight *= bsdfSample.f * absDot(bsdfSample.wi, si.shading.normal) / bsdfSample.pdf;
 			newRayState.bounces++;
 			newRayState.specularBounce = (bsdfSample.sampledType & BSDF_SPECULAR) != 0;
-			Ray ray = si.spawnRay(bsdfSample.wi);
+			Ray newRay = si.spawnRay(bsdfSample.wi);
 
 			// Possibly terminate the path with Russian roulette
 			if (newRayState.bounces > 3)
@@ -73,8 +75,8 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
 				newRayState.weight /= 1.0f - q;
 			}
 
-			RayState rayStateVariant = rayState;
-			//m_accelerationStructure.placeIntersectRequests(gsl::make_span(&rayStateVariant, 1), gsl::make_span(&ray, 1));
+			RayState rayStateVariant = newRayState;
+			m_accelerationStructure.placeIntersectRequests(gsl::make_span(&rayStateVariant, 1), gsl::make_span(&newRay, 1));
         } else {
             spawnNextSample(rayState.pixel);
             return;

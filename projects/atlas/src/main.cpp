@@ -88,7 +88,7 @@ int main()
                 auto material = std::make_shared<MatteMaterial>(kd, roughness);
                 scene.addSceneObject(std::make_unique<SceneObject>(mesh, material, light));
             } else {
-                auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.3f, 0.5f, 0.8f));
+                auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.8f, 0.8f, 0.8f));
                 auto material = std::make_shared<MatteMaterial>(kd, roughness);
                 scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
             }
@@ -98,7 +98,7 @@ int main()
 
 	//DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleAll);
 	//NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-	PathIntegrator integrator(4, scene, camera.getSensor(), 1);
+	PathIntegrator integrator(8, scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
