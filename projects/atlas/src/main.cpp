@@ -83,7 +83,7 @@ int main()
                 scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
             } else if (i == 5) {
                 // Ceiling
-                Spectrum light(1.0f);
+                Spectrum light(0.8f);
                 auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
                 auto material = std::make_shared<MatteMaterial>(kd, roughness);
                 scene.addSceneObject(std::make_unique<SceneObject>(mesh, material, light));
@@ -98,7 +98,7 @@ int main()
 
 	//DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleAll);
 	//NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-	PathIntegrator integrator(8, scene, camera.getSensor(), 1);
+	PathIntegrator integrator(20, scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {

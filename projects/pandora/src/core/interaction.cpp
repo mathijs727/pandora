@@ -15,17 +15,24 @@ Ray Interaction::spawnRay(const glm::vec3& d) const
 }
 
 // PBRTv3 page 119
-SurfaceInteraction::SurfaceInteraction(const glm::vec3 & p, const glm::vec2 & uv, const glm::vec3 & wo, const glm::vec3 & dpdu, const glm::vec3 & dpdv, const glm::vec3 & dndu, const glm::vec3 & dndv, const TriangleMesh * shape, unsigned primitiveID) :
-	Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo), uv(uv), dpdu(dpdu), dpdv(dpdv), dndu(dndu), dndv(dndv), shape(shape), primitiveID(primitiveID)
+SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, const TriangleMesh* shape, unsigned primitiveID)
+    : Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo)
+    , uv(uv)
+    , dpdu(dpdu)
+    , dpdv(dpdv)
+    , dndu(dndu)
+    , dndv(dndv)
+    , shape(shape)
+    , primitiveID(primitiveID)
 {
-	// Initialize shading geometry from true geometry
-	shading.normal = normal;
-	shading.dpdu = dpdu;
-	shading.dpdv = dpdv;
-	shading.dndu = dndu;
-	shading.dndv = dndv;
+    // Initialize shading geometry from true geometry
+    shading.normal = normal;
+    shading.dpdu = dpdu;
+    shading.dpdv = dpdv;
+    shading.dndu = dndu;
+    shading.dndv = dndv;
 
-	// TODO: adjust normal based on orientation and handedness
+    // TODO: adjust normal based on orientation and handedness
 }
 
 void SurfaceInteraction::setShadingGeometry(
@@ -37,13 +44,13 @@ void SurfaceInteraction::setShadingGeometry(
 {
     // Compute shading normal
     shading.normal = glm::normalize(glm::cross(dpdus, dpdvs));
-	// TODO: adjust normal based on orientation and handedness (page 119)
+    // TODO: adjust normal based on orientation and handedness (page 119)
     if (orientationIsAuthoritative)
         normal = faceForward(normal, shading.normal);
     else
         shading.normal = faceForward(shading.normal, normal);
 
-	// Initialize shading partial derivative values
+    // Initialize shading partial derivative values
     shading.dpdu = dpdus;
     shading.dpdv = dpdvs;
     shading.dndu = dndus;
@@ -55,7 +62,7 @@ void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, MemoryArena&
     // TODO: compute ray differentials
 
     sceneObject->getMaterial().computeScatteringFunctions(*this, arena, mode, allowMultipleLobes);
-	assert(this->bsdf != nullptr);
+    assert(this->bsdf != nullptr);
 }
 
 glm::vec3 SurfaceInteraction::Le(const glm::vec3& w) const
@@ -70,7 +77,8 @@ glm::vec3 SurfaceInteraction::Le(const glm::vec3& w) const
 // PBRTv3 page 231
 glm::vec3 offsetRayOrigin(const Interaction& i1, const glm::vec3& dir)
 {
-    glm::vec3 error(RAY_EPSILON);
+	// More accurate if we'd actually go through the trouble of keeping track of the error
+    /*glm::vec3 error(RAY_EPSILON);
 
     float d = glm::dot(glm::abs(i1.normal), error);
     glm::vec3 offset = d * i1.normal;
@@ -85,13 +93,19 @@ glm::vec3 offsetRayOrigin(const Interaction& i1, const glm::vec3& dir)
         else if (offset[i] < 0.0f)
             po[i] = nextFloatDown(po[i]);
     }
-    return po;
+    return po;*/
+
+    if (glm::dot(i1.normal, dir) > 0.0f) {// Faster
+        return i1.position + i1.normal * RAY_EPSILON;
+    } else {
+        return i1.position - i1.normal * RAY_EPSILON;
+    }
 }
 
 Ray computeRayWithEpsilon(const Interaction& i1, const Interaction& i2)
 {
     glm::vec3 start = offsetRayOrigin(i1, i2.position - i1.position);
-	glm::vec3 end = offsetRayOrigin(i2, i1.position - i2.position);
+    glm::vec3 end = offsetRayOrigin(i2, i1.position - i2.position);
 
     glm::vec3 direction = glm::normalize(i2.position - i1.position);
     return Ray(start, direction, 0, glm::length(start - end)); // Extra epsilon just to make sure

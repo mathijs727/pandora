@@ -5,6 +5,7 @@
 #include "pandora/utility/memory_arena.h"
 #include "utility/fix_visitor.h"
 #include <gsl/gsl>
+#include <tbb/blocked_range2d.h>
 #include <tbb/concurrent_vector.h>
 #include <tbb/parallel_for.h>
 #include <tbb/tbb.h>
@@ -30,18 +31,25 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     glm::ivec2 resolution = m_sensor.getResolution();
 #ifdef _DEBUG
     for (int y = 0; y < resolution.y; y++) {
-#else
-    tbb::parallel_for(0, resolution.y, [&](int y) {
-#endif
         for (int x = 0; x < resolution.x; x++) {
             // Initialize camera sample for current sample
             auto pixel = glm::ivec2(x, y);
             spawnNextSample(pixel, true);
         }
-#ifdef _DEBUG
     }
 #else
-    });
+	tbb::blocked_range2d<int, int> sensorRange(0, resolution.y, 0, resolution.x);
+	tbb::parallel_for(sensorRange, [&](tbb::blocked_range2d<int, int> localRange) {
+		auto rows = localRange.rows();
+		auto cols = localRange.cols();
+		for (int y = rows.begin(); y < rows.end(); y++) {
+			for (int x = cols.begin(); x < cols.end(); x++) {
+				// Initialize camera sample for current sample
+				auto pixel = glm::ivec2(x, y);
+				spawnNextSample(pixel, true);
+			}
+		}
+	});
 #endif
     m_sppThisFrame += m_sppPerCall;
 }

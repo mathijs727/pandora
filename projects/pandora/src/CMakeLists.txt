@@ -20,6 +20,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/lights/area_light.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/lights/environment_light.cpp"
 
+        "${CMAKE_CURRENT_LIST_DIR}/samplers/rng/pcg.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/samplers/uniform_sampler.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/materials/matte_material.cpp"
