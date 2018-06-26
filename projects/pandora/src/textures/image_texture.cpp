@@ -44,7 +44,7 @@ ImageTexture<T>::ImageTexture(std::string_view filename)
             std::cout << "Color space: " << colorSpace << std::endl;
 
             bool doConversion = false;
-			std::function<Spectrum(const Spectrum&)> conversionFunction;
+            std::function<Spectrum(const Spectrum&)> conversionFunction;
             if (colorSpace == "GammaCorrected") {
                 float gamma = spec.get_float_attribute("oiio:Gamma");
                 conversionFunction = [gamma](const Spectrum& p) {
@@ -54,6 +54,8 @@ ImageTexture<T>::ImageTexture(std::string_view filename)
             } else if (colorSpace == "sRGB") {
                 conversionFunction = accurateSRGBToLinear;
                 doConversion = true;
+            } else if (colorSpace == "linear" || colorSpace == "Linear") {
+                doConversion = false;
             } else {
                 std::cerr << "Unsupported color space \"" << colorSpace << "\"! Reinterpreting as linear." << std::endl;
                 doConversion = false;
