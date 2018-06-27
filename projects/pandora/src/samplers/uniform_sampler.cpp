@@ -9,7 +9,7 @@
 
 namespace pandora {
 
-static thread_local PcgRng m_randomNumberGenerator;
+static thread_local PcgRng randomNumberGenerator;
 
 UniformSampler::UniformSampler(unsigned samplesPerPixel)
     : Sampler(samplesPerPixel)
@@ -18,7 +18,8 @@ UniformSampler::UniformSampler(unsigned samplesPerPixel)
 
 float UniformSampler::get1D()
 {
-	return m_randomNumberGenerator.uniformFloat();
+    return randomNumberGenerator.uniformFloat();
+    //return uniformDistribution(randomEngine);
 }
 
 glm::vec2 UniformSampler::get2D()

@@ -64,7 +64,7 @@ TriangleMesh::TriangleMesh(
 {
 }
 
-std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform)
+std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals)
 {
     const aiMesh* mesh = scene->mMeshes[meshIndex];
 
@@ -94,7 +94,7 @@ std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scen
     }
 
     // Normals & tangents
-    if (mesh->HasNormals()) {
+    if (mesh->HasNormals() && !ignoreVertexNormals) {
         normals = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
         glm::mat3 normalTransform = transform;
         for (unsigned i = 0; i < mesh->mNumVertices; i++) {
@@ -113,7 +113,7 @@ std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scen
     return std::make_shared<TriangleMesh>(mesh->mNumFaces, mesh->mNumVertices, std::move(indices), std::move(positions), std::move(normals), std::move(tangents), std::move(uvCoords));
 }
 
-std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform)
+std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform, bool ignoreVertexNormals)
 {
     if (!fileExists(filename)) {
         std::cout << "Could not find mesh file: " << filename << std::endl;
@@ -141,7 +141,7 @@ std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std:
 
         for (unsigned i = 0; i < node->mNumMeshes; i++) {
             // Process subMesh
-            result.push_back(createMeshAssimp(scene, node->mMeshes[i], transform));
+            result.push_back(createMeshAssimp(scene, node->mMeshes[i], transform, ignoreVertexNormals));
         }
 
         for (unsigned i = 0; i < node->mNumChildren; i++) {

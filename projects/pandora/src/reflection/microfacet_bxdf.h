@@ -12,6 +12,8 @@ public:
 
     Spectrum f(const glm::vec3& wo, const glm::vec3& wi) const final;
 
+	Sample sampleF(const glm::vec3& wo, const glm::vec2& sample, BxDFType sampledType = BSDF_ALL) const override final;
+	float pdf(const glm::vec3& wo, const glm::vec3& wi) const override final;
 private:
     const Spectrum m_r;
     const MicrofacetDistribution& m_distribution;
@@ -24,6 +26,8 @@ public:
 
     Spectrum f(const glm::vec3& wo, const glm::vec3& wi) const final;
 
+	Sample sampleF(const glm::vec3& wo, const glm::vec2& sample, BxDFType sampledType = BSDF_ALL) const override final;
+	float pdf(const glm::vec3& wo, const glm::vec3& wi) const override final;
 private:
     const Spectrum m_t;
     const MicrofacetDistribution& m_distribution;

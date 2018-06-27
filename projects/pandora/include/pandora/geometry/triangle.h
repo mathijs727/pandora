@@ -26,7 +26,7 @@ public:
         std::unique_ptr<glm::vec2[]>&& uvCoords);
     ~TriangleMesh() = default;
 
-    static std::vector<std::shared_ptr<TriangleMesh>> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1));
+    static std::vector<std::shared_ptr<TriangleMesh>> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1), bool ignoreVertexNormals = false);
 
     unsigned numTriangles() const;
     unsigned numVertices() const;
@@ -48,7 +48,7 @@ public:
 	float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const;
 	float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const;
 private:
-    static std::shared_ptr<TriangleMesh> createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform);
+    static std::shared_ptr<TriangleMesh> createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
 
     void getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const;
     void getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;

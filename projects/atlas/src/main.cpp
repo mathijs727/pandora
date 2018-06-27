@@ -54,12 +54,12 @@ int main()
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
     {
-        auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		transform = glm::translate(transform, glm::vec3(0, -1, -1));
-        //auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.075f));
-        auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/monkey.obj", transform);
+        //auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));// Monkey
+        auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.05f));// Sphere
+		transform = glm::translate(transform, glm::vec3(0, -1, -2));
+        auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/sphere.obj", transform, false);
         auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
-        auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
+		auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
         //auto material = std::make_shared<MatteMaterial>(kd, roughness);
 		auto material = MetalMaterial::createCopper(roughness, true);
         for (const auto& mesh : meshes)
@@ -78,15 +78,15 @@ int main()
                 // Back box
                 auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
                 auto material = std::make_shared<MatteMaterial>(kd, roughness);
-                //scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+                scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
             } else if (i == 1) {
                 // Front box
-				//auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
+				/*//auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
 				//auto ks = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.2f, 0.9f));
 				auto roughness = std::make_shared<ConstantTexture<float>>(0.5f);
 				//auto material = std::make_shared<PlasticMaterial>(kd, ks, roughness);
 				auto material = MetalMaterial::createCopper(roughness, true);
-                //scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+                //scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));*/
             } else if (i == 5) {
                 // Ceiling
                 Spectrum light(1.0f);
@@ -102,9 +102,9 @@ int main()
         }
     }
 
-    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleAll);
-    NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    //PathIntegrator integrator(20, scene, camera.getSensor(), 1);
+    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
+    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
+    PathIntegrator integrator(20, scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
