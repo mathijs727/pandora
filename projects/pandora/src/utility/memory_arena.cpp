@@ -42,12 +42,11 @@ void* MemoryArena::tryAlignedAllocInCurrentBlock(size_t amount, size_t alignment
     // http://en.cppreference.com/w/cpp/memory/align
     void* ptr = m_currentBlockData;
     size_t space = m_currentBlockSpace;
-    std::byte* oldDataPtr = m_currentBlockData;
-    if (void* alignedPtr = std::align(alignment, amount, ptr, space)) {
-        std::byte* newDataPtr = (std::byte*)ptr + amount;
-        m_currentBlockData = newDataPtr;
-        m_currentBlockSpace -= newDataPtr - oldDataPtr;
-        return alignedPtr;
+    if (std::align(alignment, amount, ptr, space)) {
+		void* result = ptr;
+        m_currentBlockData = reinterpret_cast<std::byte*>(ptr) + amount;
+		m_currentBlockSpace = space - amount;
+        return result;
     }
 
     return nullptr;
