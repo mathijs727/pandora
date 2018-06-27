@@ -25,7 +25,7 @@ private:
     void allocateBlock();
     void* tryAlignedAllocInCurrentBlock(size_t amount, size_t alignment);
 
-private:
+private: 
     // Currently allocated blocks
     const size_t m_memoryBlockSize;
     std::vector<std::unique_ptr<std::byte[]>> m_usedMemoryBlocks;
