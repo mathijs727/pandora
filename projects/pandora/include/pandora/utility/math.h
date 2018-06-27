@@ -28,7 +28,7 @@ inline uint32_t floatToBits(float f)
 }
 
 // https://github.com/mmp/pbrt-v3/blob/book/src/core/pbrt.h
-inline float bitsToFloat(uint32_t ui)
+inline float bitsTofloat(uint32_t ui)
 {
     float f;
     memcpy(&f, &ui, sizeof(uint32_t));
@@ -36,9 +36,9 @@ inline float bitsToFloat(uint32_t ui)
 }
 
 // https://github.com/mmp/pbrt-v3/blob/book/src/core/pbrt.h
-inline float nextFloatUp(float v)
+inline float nextfloatUp(float v)
 {
-    // Handle infinity and negative zero for _NextFloatUp()_
+    // Handle infinity and negative zero for _NextfloatUp()_
     if (std::isinf(v) && v > 0.)
         return v;
     if (v == -0.f)
@@ -50,13 +50,13 @@ inline float nextFloatUp(float v)
         ++ui;
     else
         --ui;
-    return bitsToFloat(ui);
+    return bitsTofloat(ui);
 }
 
 // https://github.com/mmp/pbrt-v3/blob/book/src/core/pbrt.h
-inline float nextFloatDown(float v)
+inline float nextfloatDown(float v)
 {
-    // Handle infinity and positive zero for _NextFloatDown()_
+    // Handle infinity and positive zero for _NextfloatDown()_
     if (std::isinf(v) && v < 0.)
         return v;
     if (v == 0.f)
@@ -66,7 +66,7 @@ inline float nextFloatDown(float v)
         --ui;
     else
         ++ui;
-    return bitsToFloat(ui);
+    return bitsTofloat(ui);
 }
 
 // PBRTv3 page 66
@@ -118,6 +118,62 @@ inline int maxDimension(const glm::vec3& v)
 inline glm::vec3 permute(const glm::vec3& p, int x, int y, int z)
 {
     return glm::vec3(p[x], p[y], p[z]);
+}
+
+// https://github.com/mmp/pbrt-v3/blob/aaecc9112522cf8a791a3ecb5e3efe716ce30793/src/core/pbrt.h
+inline float erfInv(float x) {
+	float w, p;
+	x = std::clamp(x, -.99999f, .99999f);
+	w = -std::log((1 - x) * (1 + x));
+	if (w < 5) {
+		w = w - 2.5f;
+		p = 2.81022636e-08f;
+		p = 3.43273939e-07f + p * w;
+		p = -3.5233877e-06f + p * w;
+		p = -4.39150654e-06f + p * w;
+		p = 0.00021858087f + p * w;
+		p = -0.00125372503f + p * w;
+		p = -0.00417768164f + p * w;
+		p = 0.246640727f + p * w;
+		p = 1.50140941f + p * w;
+	}
+	else {
+		w = std::sqrt(w) - 3;
+		p = -0.000200214257f;
+		p = 0.000100950558f + p * w;
+		p = 0.00134934322f + p * w;
+		p = -0.00367342844f + p * w;
+		p = 0.00573950773f + p * w;
+		p = -0.0076224613f + p * w;
+		p = 0.00943887047f + p * w;
+		p = 1.00167406f + p * w;
+		p = 2.83297682f + p * w;
+	}
+	return p * x;
+}
+
+// https://github.com/mmp/pbrt-v3/blob/aaecc9112522cf8a791a3ecb5e3efe716ce30793/src/core/pbrt.h
+inline float erf(float x) {
+	// constants
+	float a1 = 0.254829592f;
+	float a2 = -0.284496736f;
+	float a3 = 1.421413741f;
+	float a4 = -1.453152027f;
+	float a5 = 1.061405429f;
+	float p = 0.3275911f;
+
+	// Save the sign of x
+	int sign = 1;
+	if (x < 0) sign = -1;
+	x = std::abs(x);
+
+	// A&S formula 7.1.26
+	float t = 1 / (1 + p * x);
+	float y =
+		1 -
+		(((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * std::exp(-x * x);
+
+	return sign * y;
 }
 
 }

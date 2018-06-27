@@ -59,7 +59,7 @@ int main()
 		transform = glm::translate(transform, glm::vec3(0, -1, -2));
         auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/sphere.obj", transform, false);
         auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
-        auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
+		auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
         //auto material = std::make_shared<MatteMaterial>(kd, roughness);
 		auto material = MetalMaterial::createCopper(roughness, true);
         for (const auto& mesh : meshes)
