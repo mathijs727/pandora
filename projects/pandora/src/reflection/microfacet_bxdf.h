@@ -1,0 +1,35 @@
+#pragma once
+#include "pandora/core/bxdf.h"
+#include "pandora/core/pandora.h"
+#include "reflection/fresnel.h"
+#include "reflection/microfacet.h"
+
+namespace pandora {
+
+class MicrofacetReflection : public BxDF {
+public:
+    MicrofacetReflection(const Spectrum& r, const MicrofacetDistribution& distribution, const Fresnel& fresnel);
+
+    Spectrum f(const glm::vec3& wo, const glm::vec3& wi) const final;
+
+private:
+    const Spectrum m_r;
+    const MicrofacetDistribution& m_distribution;
+    const Fresnel& m_fresnel;
+};
+
+class MicrofacetTransmission : public BxDF {
+public:
+    MicrofacetTransmission(const Spectrum& t, const MicrofacetDistribution& distribution, float etaA, float etaB, TransportMode mode);
+
+    Spectrum f(const glm::vec3& wo, const glm::vec3& wi) const final;
+
+private:
+    const Spectrum m_t;
+    const MicrofacetDistribution& m_distribution;
+    const float m_etaA, m_etaB;
+    const FresnelDielectric m_fresnel;
+    const TransportMode m_mode;
+};
+
+}

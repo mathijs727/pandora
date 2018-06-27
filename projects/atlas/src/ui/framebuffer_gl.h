@@ -8,13 +8,17 @@ namespace atlas {
 
 class FramebufferGL {
 public:
-    FramebufferGL();
+    FramebufferGL(int width, int height);
     ~FramebufferGL();
 
-    void clear(glm::vec3 color);
-    void update(const Sensor& sensor);
+    void update(const Sensor& sensor, float multiplier);
 
 private:
-    GLuint m_textureID;
+    GLuint loadShader(std::string_view source, GLenum type);
+
+private:
+    GLuint m_texture;
+    GLuint m_vbo, m_vao;
+    GLuint m_shader;
 };
 }

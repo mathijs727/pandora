@@ -13,6 +13,9 @@ if (MSVC)
 	set_target_properties(atlas PROPERTIES COMPILE_FLAGS "/wd4281 /wd4005") 
 endif()
 
+configure_file("${CMAKE_CURRENT_LIST_DIR}/shaders/atlas_output.fs" "${CMAKE_CURRENT_BINARY_DIR}/atlas_output.fs" COPYONLY)
+configure_file("${CMAKE_CURRENT_LIST_DIR}/shaders/atlas_output.vs" "${CMAKE_CURRENT_BINARY_DIR}/atlas_output.vs" COPYONLY)
+
 target_link_libraries(atlas PRIVATE 
 	libPandora
 	glfw

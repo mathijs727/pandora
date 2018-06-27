@@ -15,6 +15,10 @@
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
           "value": "C:\\Users\\Mathijs\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+        },
+        {
+          "name": "BUILD_TESTS",
+          "value": "ON"
         }
       ]
     },
