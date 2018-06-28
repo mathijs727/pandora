@@ -56,9 +56,9 @@ float Bounds::halfArea() const
     return extent.x * extent.y * extent.z;
 }
 
-bool Bounds::intersect(const Ray& ray, float& tmin, float& tmax)
+bool Bounds::intersect(const Ray& ray, float& tmin, float& tmax) const
 {
-    tmin = std::numeric_limits<float>::lowest();
+    tmin = 0.0f;
     tmax = std::numeric_limits<float>::max();
 
     if (ray.direction.x != 0.0f) {

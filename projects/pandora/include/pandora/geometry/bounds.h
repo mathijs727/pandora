@@ -18,7 +18,7 @@ public:
     float area() const;
     float halfArea() const;
 
-    bool intersect(const Ray& ray, float& tmin, float& tmax);
+    bool intersect(const Ray& ray, float& tmin, float& tmax) const;
 
 public:
     glm::vec3 min, max;

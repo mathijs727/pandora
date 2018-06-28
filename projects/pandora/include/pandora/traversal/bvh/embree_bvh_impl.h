@@ -2,9 +2,6 @@
 
 namespace pandora {
 
-static constexpr unsigned rayHitGeomID = 0;
-static constexpr unsigned rayMissGeomID = RTC_INVALID_GEOMETRY_ID;
-
 template <typename LeafNode>
 tbb::enumerable_thread_specific<std::pair<gsl::span<Ray>, gsl::span<SurfaceInteraction>>> EmbreeBVH<LeafNode>::m_intersectRayData;
 
@@ -24,37 +21,8 @@ void convertRays(gsl::span<const Ray> rays, RTCRayHitN* embreeRayHits)
         RTCRayN_tfar(embreeRays, N, i) = rays[i].tfar;
         RTCRayN_id(embreeRays, N, i) = i;
 
-        RTCHitN_geomID(embreeHits, N, i) = rayMissGeomID;
+        RTCHitN_geomID(embreeHits, N, i) = RTC_INVALID_GEOMETRY_ID;
         //RTCHitN_instID(embreeHits, N, i, 0) = RTC_INVALID_GEOMETRY_ID;
-    }
-}
-
-template <unsigned N>
-void convertIntersections(RTCScene scene, RTCRayHitN* embreeRayHits, gsl::span<SurfaceInteraction> intersections)
-{
-    RTCHitN* embreeHits = RTCRayHitN_HitN(embreeRayHits, N);
-    RTCRayN* embreeRays = RTCRayHitN_RayN(embreeRayHits, N);
-    for (unsigned i = 0; i < N; i++) {
-
-        unsigned geomID = RTCHitN_geomID(embreeHits, N, i);
-        if (RTCHitN_geomID(embreeHits, N, i) == rayMissGeomID) { // No hit
-            intersections[i].sceneObject = nullptr;
-            glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
-            intersections[i].wo = -direction;
-            return;
-        }
-
-        RTCGeometry geometry = rtcGetGeometry(scene, geomID);
-        const auto* sceneObject = reinterpret_cast<const SceneObject*>(rtcGetGeometryUserData(geometry));
-        const auto& mesh = sceneObject->getMesh();
-        unsigned primID = RTCHitN_primID(embreeHits, N, i);
-        glm::vec2 hitUV = glm::vec2(RTCHitN_u(embreeHits, N, i), RTCHitN_v(embreeHits, N, i));
-        intersections[i] = mesh.partialFillSurfaceInteraction(primID, hitUV);
-        intersections[i].sceneObject = sceneObject;
-        intersections[i].primitiveID = primID;
-
-        glm::vec3 direction = glm::vec3(RTCRayN_dir_x(embreeRays, N, i), RTCRayN_dir_y(embreeRays, N, i), RTCRayN_dir_z(embreeRays, N, i));
-        intersections[i].wo = -direction;
     }
 }
 
@@ -140,7 +108,7 @@ inline bool EmbreeBVH<LeafNode>::intersect(Ray& ray, SurfaceInteraction& si) con
     m_intersectRayData.local() = { rays, surfaceInteractions };
     rtcIntersect1(m_scene, &context, &embreeRayHit);
 
-    if (embreeRayHit.hit.geomID == rayHitGeomID) {
+    if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
         si.wo = -ray.direction;
         return true;
     } else {
@@ -187,7 +155,7 @@ void EmbreeBVH<LeafNode>::geometryIntersectFunc(const RTCIntersectFunctionNArgum
     if (leafNode.intersectPrimitive(args->primID, ray, si)) {
         RTCHit potentialHit = {};
         potentialHit.instID[0] = args->context->instID[0]; // Don't care for now (may need this in the future to support instancing?)
-        potentialHit.geomID = rayHitGeomID; // Indicate that we hit something
+        potentialHit.geomID = 1; // Indicate that we hit something
         embreeRay.tfar = ray.tfar;
         embreeRay.tnear = ray.tnear;
         embreeHit = potentialHit;

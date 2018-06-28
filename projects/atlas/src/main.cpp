@@ -58,7 +58,7 @@ int main()
         auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.05f));// Sphere
 		transform = glm::translate(transform, glm::vec3(0, -1, -2));
         auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/sphere.obj", transform, false);
-        auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
+        auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.1f, 0.1f, 0.5f));
 		auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
         //auto material = std::make_shared<MatteMaterial>(kd, roughness);
 		auto material = MetalMaterial::createCopper(roughness, true);
