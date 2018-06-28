@@ -95,6 +95,7 @@ inline bool InCoreAccelerationStructure<UserState>::PrimitiveLeafNode::intersect
     bool hit = sceneObject->getMesh().intersectPrimitive(primitiveID, ray, tHit, si);
 	if (hit) {
 		si.sceneObject = sceneObject;
+		si.primitiveID = primitiveID;
         ray.tfar = tHit;
 	}
     return hit;

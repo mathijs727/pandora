@@ -22,7 +22,7 @@ void convertRays(gsl::span<const Ray> rays, RTCRayHitN* embreeRayHits)
         RTCRayN_dir_z(embreeRays, N, i) = rays[i].direction.z;
         RTCRayN_tnear(embreeRays, N, i) = rays[i].tnear;
         RTCRayN_tfar(embreeRays, N, i) = rays[i].tfar;
-		RTCRayN_id(embreeRays, N, i) = i;
+        RTCRayN_id(embreeRays, N, i) = i;
 
         RTCHitN_geomID(embreeHits, N, i) = rayMissGeomID;
         //RTCHitN_instID(embreeHits, N, i, 0) = RTC_INVALID_GEOMETRY_ID;
@@ -139,7 +139,12 @@ inline bool EmbreeBVH<LeafNode>::intersect(Ray& ray, SurfaceInteraction& si) con
     m_intersectRayData.local() = { rays, surfaceInteractions };
     rtcIntersect1(m_scene, &context, &embreeRayHit);
 
-    return (embreeRayHit.hit.geomID == rayHitGeomID);
+    if (embreeRayHit.hit.geomID == rayHitGeomID) {
+        si.wo = -ray.direction;
+        return true;
+    } else {
+        return false;
+    }
 }
 
 template <typename LeafNode>
@@ -169,9 +174,9 @@ void EmbreeBVH<LeafNode>::geometryIntersectFunc(const RTCIntersectFunctionNArgum
     RTCRay& embreeRay = rayHit->ray;
     RTCHit& embreeHit = rayHit->hit;
 
-	auto[rays, surfaceInteractions] = m_intersectRayData.local();
-	Ray& ray = rays[embreeRay.id];
-	SurfaceInteraction& si = surfaceInteractions[embreeRay.id];
+    auto [rays, surfaceInteractions] = m_intersectRayData.local();
+    Ray& ray = rays[embreeRay.id];
+    SurfaceInteraction& si = surfaceInteractions[embreeRay.id];
 
     assert(args->N == 1);
 
@@ -186,7 +191,7 @@ void EmbreeBVH<LeafNode>::geometryIntersectFunc(const RTCIntersectFunctionNArgum
         potentialHit.geomID = rayHitGeomID; // Indicate that we hit something
         embreeRay.tfar = ray.tfar;
         embreeRay.tnear = ray.tnear;
-		embreeHit = potentialHit;
+        embreeHit = potentialHit;
     }
 }
 
