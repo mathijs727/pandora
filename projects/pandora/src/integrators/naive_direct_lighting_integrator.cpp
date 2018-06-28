@@ -19,10 +19,7 @@ void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, 
 
     if (std::holds_alternative<ContinuationRayState>(s)) {
         const auto& rayState = std::get<ContinuationRayState>(s);
-
-		m_sensor.addPixelContribution(rayState.pixel, Spectrum(glm::abs(si.shading.normal)));
-		return;
-
+		
         // TODO
         auto& sampler = getSampler(rayState.pixel);
         std::array samples = { sampler.get2D() };
@@ -40,16 +37,12 @@ void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, 
             m_sensor.addPixelContribution(rayState.pixel, rayState.weight * emitted);
         }
 
-		auto bsdfSample = si.bsdf->sampleF(wo, sampler.get2D());
-		if (bsdfSample)
-		{
-			Spectrum f = si.bsdf->f(wo, bsdfSample->wi);
-			if (!isBlack(f)) {
-				Spectrum radiance = f * glm::abs(glm::dot(bsdfSample->wi, n)) / bsdfSample->pdf;
-				Ray visibilityRay = si.spawnRay(bsdfSample->wi);
-				spawnShadowRay(visibilityRay, rayState, radiance);
-			}
-		}
+        auto bsdfSample = si.bsdf->sampleF(wo, sampler.get2D());
+        if (bsdfSample && !isBlack(bsdfSample->f)) {
+            Spectrum radiance = bsdfSample->f * glm::abs(glm::dot(bsdfSample->wi, n)) / bsdfSample->pdf;
+            Ray visibilityRay = si.spawnRay(bsdfSample->wi);
+            spawnShadowRay(visibilityRay, rayState, radiance);
+        }
 
         if (rayState.bounces + 1 < m_maxDepth) {
             // Trace rays for specular reflection and refraction
@@ -59,7 +52,7 @@ void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, 
     } else if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);
         // Do nothing, in shadow
-		m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * si.Le(-r.direction));
+        m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * si.Le(-r.direction));
     }
 }
 
@@ -68,8 +61,8 @@ void NaiveDirectLightingIntegrator::rayMiss(const Ray& r, const RayState& s)
     if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);
         assert(!std::isnan(glm::dot(rayState.radianceOrWeight, rayState.radianceOrWeight)) && glm::dot(rayState.radianceOrWeight, rayState.radianceOrWeight) > 0.0f);
-		for (const auto light : m_scene.getInfiniteLights())
-			m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * light->Le(r));
+        for (const auto light : m_scene.getInfiniteLights())
+            m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * light->Le(r));
 
         spawnNextSample(rayState.pixel);
     } else if (std::holds_alternative<ContinuationRayState>(s)) {
