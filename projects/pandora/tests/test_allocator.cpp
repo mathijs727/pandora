@@ -49,8 +49,9 @@ TEST(MemoryArenaTS, SingleThreadAllocation)
 
     for (int i = 0; i < 5000; i++) {
         // Allocate and test alignment
-        auto handle = allocator.allocate<uint64_t>(32);
-        ASSERT_EQ(handle.get(allocator), 32);
+        auto [handle, ptr] = allocator.allocate<uint64_t>(32);
+        ASSERT_EQ(&(handle.get(allocator)), ptr);
+        ASSERT_EQ(*ptr, 32);
     }
 
     allocator.reset();
@@ -62,14 +63,18 @@ TEST(MemoryArenaTS, SingleThreadAllocationN)
 
     for (int i = 0; i < 5000; i += 2) {
         // Allocate and test alignment
-        auto handle = allocator.allocateN<uint64_t, 2>(0);
-		auto& v1 = handle.get(allocator);
-		handle++;
-		auto& v2 = handle.get(allocator);
-		v1 = i;
-		v2 = i + 1;
-		ASSERT_EQ(v1, i);
-		ASSERT_EQ(v2, i + 1);
+        auto [handle, ptr] = allocator.allocateN<uint64_t, 2>(3);
+        auto& v1 = handle.get(allocator);
+        handle++;
+        auto& v2 = handle.get(allocator);
+
+        ASSERT_EQ(v1, 3);
+        ASSERT_EQ(v2, 3);
+
+        v1 = i;
+        v2 = i + 1;
+        ASSERT_EQ(v1, i);
+        ASSERT_EQ(v2, i + 1);
     }
 
     allocator.reset();
@@ -77,53 +82,54 @@ TEST(MemoryArenaTS, SingleThreadAllocationN)
 
 TEST(MemoryArenaTS, SingleThreadAllocationAlignment)
 {
-	MemoryArenaTS allocator(256);
-	struct alignas(32) MyStruct
-	{
-		uint64_t a1, a2, a3;// 3 * 8 bytes = 24 bytes
-	};
+    MemoryArenaTS allocator(256);
+    struct alignas(32) MyStruct {
+        uint64_t a1, a2, a3; // 3 * 8 bytes = 24 bytes
+    };
 
-	size_t alignment = std::alignment_of_v<MyStruct>;
-	(void)alignment;
+    size_t alignment = std::alignment_of_v<MyStruct>;
+    (void)alignment;
 
-	for (int i = 0; i < 500; i++) {
-		// Allocate and test alignment
-		auto handle = allocator.allocate<MyStruct>();
-		MyStruct* ptr = &handle.get(allocator);
-		ASSERT_EQ(((uintptr_t)ptr) % 32, 0);
-	}
+    for (int i = 0; i < 500; i++) {
+        // Allocate and test alignment
+        auto [handle, ptr] = allocator.allocate<MyStruct>();
+        ASSERT_EQ(&(handle.get(allocator)), ptr);
+        ASSERT_EQ(((uintptr_t)ptr) % 32, 0);
+    }
 
-	allocator.reset();
+    allocator.reset();
 }
 
 TEST(MemoryArenaTS, SingleThreadAllocationAlignmentN)
 {
-	MemoryArenaTS allocator(256);
-	struct alignas(32) MyStruct
-	{
-		uint64_t a1, a2, a3;// 3 * 8 bytes = 24 bytes
-	};
+    MemoryArenaTS allocator(256);
+    struct alignas(32) MyStruct {
+        uint64_t a1, a2, a3; // 3 * 8 bytes = 24 bytes
+    };
 
-	size_t alignment = std::alignment_of_v<MyStruct>;
-	(void)alignment;
+    size_t alignment = std::alignment_of_v<MyStruct>;
+    (void)alignment;
 
-	for (int i = 0; i < 10; i++) {
-		// Allocate and test alignment
-		auto handle = allocator.allocateN<MyStruct, 3>();
-		MyStruct& ptr1 = (handle++).get(allocator);
-		MyStruct& ptr2 = (handle++).get(allocator);
-		MyStruct& ptr3 = handle.get(allocator);
+    for (int i = 0; i < 10; i++) {
+        // Allocate and test alignment
+        auto [handle, ptr] = allocator.allocateN<MyStruct, 3>();
+        MyStruct* ptr1 = &((handle++).get(allocator));
+        MyStruct* ptr2 = &((handle++).get(allocator));
+        MyStruct* ptr3 = &(handle.get(allocator));
 
-		ASSERT_NE(&ptr1, &ptr2);
-		ASSERT_NE(&ptr2, &ptr3);
-		ASSERT_EQ(((uintptr_t)&ptr1) % alignment, 0);
-		ASSERT_EQ(((uintptr_t)&ptr2) % alignment, 0);
-		ASSERT_EQ(((uintptr_t)&ptr3) % alignment, 0);
-	}
+        ASSERT_EQ((ptr + 0), ptr1);
+        ASSERT_EQ((ptr + 1), ptr2);
+        ASSERT_EQ((ptr + 2), ptr3);
 
-	allocator.reset();
+        ASSERT_NE(ptr1, ptr2);
+        ASSERT_NE(ptr2, ptr3);
+        ASSERT_EQ(((uintptr_t)ptr1) % alignment, 0);
+        ASSERT_EQ(((uintptr_t)ptr2) % alignment, 0);
+        ASSERT_EQ(((uintptr_t)ptr3) % alignment, 0);
+    }
+
+    allocator.reset();
 }
-
 
 TEST(MemoryArenaTS, MultiThreadAllocationSafe)
 {
@@ -134,7 +140,7 @@ TEST(MemoryArenaTS, MultiThreadAllocationSafe)
         threads.push_back(std::thread([t, &allocator]() {
             std::vector<MemoryArenaTS::Handle<uint64_t>> handles;
             for (int i = 0; i < 2000; i++) {
-                auto handle = allocator.allocate<uint64_t>();
+                auto [handle, _] = allocator.allocate<uint64_t>();
                 handle.get(allocator) = t;
                 handles.push_back(handle);
             }
@@ -162,7 +168,7 @@ TEST(MemoryArenaTS, MultiThreadAllocationUnsafe)
         threads.push_back(std::thread([t, &allocator, &threadsDoneAllocating]() {
             std::vector<MemoryArenaTS::Handle<uint64_t>> handles;
             for (int i = 0; i < 2000; i++) {
-                auto handle = allocator.allocate<uint64_t>();
+                auto [handle, _] = allocator.allocate<uint64_t>();
                 handle.get(allocator) = t;
                 handles.push_back(handle);
             }

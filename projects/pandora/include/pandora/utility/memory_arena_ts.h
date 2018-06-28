@@ -6,6 +6,7 @@
 #include <memory>
 #include <mutex>
 #include <tbb/enumerable_thread_specific.h>
+#include <tuple>
 #include <vector>
 
 #ifndef NDEBUG
@@ -52,10 +53,10 @@ public:
     MemoryArenaTS(uint32_t blockSizeBytes = 4096);
 
     template <class T, class... Args>
-    Handle<T> allocate(Args... args);
+    std::pair<Handle<T>, T*> allocate(Args... args);
 
     template <class T, uint8_t N, class... Args>
-    HandleN<T> allocateN(Args... args); // Allocate multiple items at once (contiguous in memory)
+    std::pair<HandleN<T>, T*> allocateN(Args... args); // Allocate multiple items at once (contiguous in memory)
 
     void reset();
 
@@ -154,13 +155,13 @@ inline MemoryArenaTS::Handle<T> MemoryArenaTS::HandleN<T>::operator++(int)
 }
 
 template <class T, class... Args>
-inline MemoryArenaTS::Handle<T> MemoryArenaTS::allocate(Args... args)
+inline std::pair<MemoryArenaTS::Handle<T>, T*> MemoryArenaTS::allocate(Args... args)
 {
     return allocateN<T, 1, Args...>(args...);
 }
 
 template <class T, uint8_t N, class... Args>
-inline MemoryArenaTS::HandleN<T> MemoryArenaTS::allocateN(Args... args)
+inline std::pair<MemoryArenaTS::HandleN<T>, T*> MemoryArenaTS::allocateN(Args... args)
 {
     // Amount of bytes to allocate
 	constexpr size_t alignment = MemoryAlignment<T>::alignment;
@@ -185,13 +186,13 @@ inline MemoryArenaTS::HandleN<T> MemoryArenaTS::allocateN(Args... args)
 
             // Run constructors
             T* tPtr = reinterpret_cast<T*>(ptr);
-            for (uint8_t i = 0; i < N; i++, tPtr++) {
-                new (ptr) T(args...);
+            for (uint8_t i = 0; i < N; i++) {
+                new (tPtr + i) T(args...);
             }
 
             auto result = HandleN<T>(localBlock.blockIndex, (uint32_t)offsetInBytes, N);
 			assert(&result.get(*this) == ptr);
-			return result;
+			return { result, tPtr };
         }
     }
 
@@ -206,13 +207,13 @@ inline MemoryArenaTS::HandleN<T> MemoryArenaTS::allocateN(Args... args)
 
 			// Run constructors
 			T* tPtr = reinterpret_cast<T*>(ptr);
-			for (uint8_t i = 0; i < N; i++, tPtr++) {
-				new (ptr) T(args...);
+			for (uint8_t i = 0; i < N; i++) {
+				new (tPtr + i) T(args...);
 			}
 
 			auto result = HandleN<T>(localBlock.blockIndex, (uint32_t)offsetInBytes, N);
 			assert(&result.get(*this) == ptr);
-			return result;
+			return { result, tPtr };
 		}
 
 
