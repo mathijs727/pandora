@@ -9,7 +9,7 @@ namespace pandora {
 struct Interaction {
 public:
     Interaction() = default;
-    Interaction(const glm::vec3& position, const glm::vec3& wo, const glm::vec3& normal)
+    inline Interaction(const glm::vec3& position, const glm::vec3& wo, const glm::vec3& normal)
         : position(position)
         , wo(wo)
         , normal(normal)
@@ -49,17 +49,6 @@ public:
 	{
 	}
 	SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, const TriangleMesh* shape, unsigned primitiveID);
-    /*SurfaceInteraction(const SceneObject& sceneObject, unsigned primitiveID, const glm::vec3& position, const glm::vec3& geometricNormal, const glm::vec3& uv, const glm::vec3& wo)
-        : Interaction(position, geometricNormal, wo)
-        , sceneObject(&sceneObject)
-        , primitiveID(primitiveID)
-        , uv(uv)
-    {
-    }
-    SurfaceInteraction()
-        : sceneObject(nullptr)
-    {
-    }*/
 
     void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, const glm::vec3& dndvs, bool orientationIsAuthoritative);
 
@@ -67,6 +56,26 @@ public:
 
     glm::vec3 Le(const glm::vec3& w) const;
 };
+
+inline SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, const TriangleMesh* shape, unsigned primitiveID)
+	: Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo)
+	, uv(uv)
+	, dpdu(dpdu)
+	, dpdv(dpdv)
+	, dndu(dndu)
+	, dndv(dndv)
+	, shape(shape)
+	, primitiveID(primitiveID)
+{
+	// Initialize shading geometry from true geometry
+	shading.normal = normal;
+	shading.dpdu = dpdu;
+	shading.dpdv = dpdv;
+	shading.dndu = dndu;
+	shading.dndv = dndv;
+
+	// TODO: adjust normal based on orientation and handedness
+}
 
 Ray computeRayWithEpsilon(const Interaction& i1, const Interaction& i22);
 Ray computeRayWithEpsilon(const Interaction& i1, const glm::vec3& dir);

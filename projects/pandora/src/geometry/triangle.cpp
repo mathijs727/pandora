@@ -313,24 +313,20 @@ bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, floa
 	float b0 = 1 - u - v;
 	float b1 = u;
 	float b2 = v;
-	if (u + v > 1.0f)
-		throw std::runtime_error("Incorrect UV");
 #endif
 
 	// Compute triangle partial derivatives
 	glm::vec3 dpdu, dpdv;
 	glm::vec2 uv[3];
 	getUVs(primitiveID, uv);
-	glm::vec3 p[3];
-	getPs(primitiveID, p);
 	// Compute deltas for triangle partial derivatives
 	glm::vec2 duv02 = uv[0] - uv[2], duv12 = uv[1] - uv[2];
-	glm::vec3 dp02 = p[0] - p[2], dp12 = p[1] - p[2];
+	glm::vec3 dp02 = p0 - p2, dp12 = p1 - p2;
 
 	float determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
 	if (determinant == 0.0f) {
 		// Handle zero determinant for triangle partial derivative matrix
-		coordinateSystem(glm::normalize(glm::cross(p[2] - p[0], p[1] - p[0])), &dpdu, &dpdv);
+		coordinateSystem(glm::normalize(glm::cross(p2 - p0, p1 - p0)), &dpdu, &dpdv);
 	}
 	else {
 		float invDet = 1.0f / determinant;
@@ -341,7 +337,7 @@ bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, floa
 	// TODO: compute error bounds for triangle intersection
 
 	// Interpolate (u, v) parametric coordinates and hit point
-	glm::vec3 pHit = b0 * p[0] + b1 * p[1] + b2 * p[2];
+	glm::vec3 pHit = b0 * p0 + b1 * p1 + b2 * p2;
 	glm::vec2 uvHit = b0 * uv[0] + b1 * uv[1] + b2 * uv[2];
 
 	// TODO: test intersection against alpha texture, if present
