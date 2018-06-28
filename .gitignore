@@ -1,4 +1,5 @@
 # Visual Studio (Code)
+CMakeSettings.json
 .vscode
 .vs
 projects/.vs/
@@ -19,3 +20,5 @@ third_party/install/
 # Sublime
 *.sublime-project
 *.sublime-workspace
+CMakeSettings.json
+CMakeSettings.json
