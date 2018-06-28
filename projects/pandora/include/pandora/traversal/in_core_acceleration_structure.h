@@ -24,7 +24,7 @@ public:
 private:
     class LeafNode {
     public:
-        const SceneObject* sceneObject;
+        //const SceneObject* sceneObject;
         //const unsigned primitiveID;
 
     public:
@@ -47,15 +47,8 @@ inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::
     , m_bvh()
 {
     for (const auto& sceneObject : sceneObjects) {
-        /*for (unsigned primitiveID = 0; primitiveID < sceneObject->getMesh().numTriangles(); primitiveID++) {
-            PrimitiveLeafNode leaf = {
-                sceneObject.get(),
-                primitiveID
-            };
-            m_bvh.addPrimitive(leaf);
-        }*/
-		LeafNode leaf = { sceneObject.get() };
-		m_bvh.addPrimitive(leaf);
+		// Reinterpret sceneObject pointer as LeafNode pointer. This allows us to remove an unnecessary indirection (BVH -> LeafNode -> SceneObject becomes BVH -> SceneObject).
+		m_bvh.addPrimitive(*reinterpret_cast<LeafNode*>(sceneObject.get()));
     }
     m_bvh.commit();
 }
@@ -88,18 +81,25 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
 template<typename UserState>
 inline unsigned InCoreAccelerationStructure<UserState>::LeafNode::numPrimitives() const
 {
+	// this pointer is actually a pointer to the sceneObject (see constructor)
+	auto sceneObject = reinterpret_cast<const SceneObject*>(this);
 	return sceneObject->getMesh().numTriangles();
 }
 
 template <typename UserState>
 inline Bounds InCoreAccelerationStructure<UserState>::LeafNode::getPrimitiveBounds(unsigned primitiveID) const
 {
+	// this pointer is actually a pointer to the sceneObject (see constructor)
+	auto sceneObject = reinterpret_cast<const SceneObject*>(this);
     return sceneObject->getMesh().getPrimitiveBounds(primitiveID);
 }
 
 template <typename UserState>
 inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersectPrimitive(unsigned primitiveID, Ray& ray, SurfaceInteraction& si) const
 {
+	// this pointer is actually a pointer to the sceneObject (see constructor)
+	auto sceneObject = reinterpret_cast<const SceneObject*>(this);
+
     float tHit;
     bool hit = sceneObject->getMesh().intersectPrimitive(primitiveID, ray, tHit, si);
 	if (hit) {
