@@ -10,6 +10,9 @@
 #include <stack>
 #include <tuple>
 
+// Use PBRTv3 intersection code if true, otherwise use Möller-Trumbore (faster)
+#define ROBUST_INTERSECTION 0
+
 static bool fileExists(const std::string_view name)
 {
     std::ifstream f(name.data());
@@ -183,106 +186,9 @@ Bounds TriangleMesh::getPrimitiveBounds(unsigned primitiveID) const
 	return bounds;
 }
 
-SurfaceInteraction TriangleMesh::partialFillSurfaceInteraction(unsigned primID, const glm::vec2& embreeUV) const
-{
-    // Barycentric coordinates
-    float b0 = 1.0f - embreeUV.x - embreeUV.y;
-    float b1 = embreeUV.x;
-    float b2 = embreeUV.y;
-    assert(b0 + b1 <= 1.0f);
-
-    glm::vec3 dpdu, dpdv;
-    glm::vec2 uv[3];
-    getUVs(primID, uv);
-    glm::vec3 p[3];
-    getPs(primID, p);
-    // Compute deltas for triangle partial derivatives
-    glm::vec2 duv02 = uv[0] - uv[2], duv12 = uv[1] - uv[2];
-    glm::vec3 dp02 = p[0] - p[2], dp12 = p[1] - p[2];
-
-    float determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
-    if (determinant == 0.0f) {
-        // Handle zero determinant for triangle partial derivative matrix
-        coordinateSystem(glm::normalize(glm::cross(p[2] - p[0], p[1] - p[0])), &dpdu, &dpdv);
-    } else {
-        float invDet = 1.0f / determinant;
-        dpdu = (duv12[1] * dp02 - duv02[1] * dp12) * invDet;
-        dpdv = (-duv12[0] * dp02 + duv02[0] * dp12) * invDet;
-    }
-
-    glm::vec3 dndu, dndv;
-    dndu = dndv = glm::vec3(0.0f);
-
-    glm::vec3 hitP = b0 * p[0] + b1 * p[1] + b2 * p[2];
-    glm::vec2 hitUV = b0 * uv[0] + b1 * uv[1] + b2 * uv[2];
-
-    SurfaceInteraction si;
-    si.position = hitP; //p[0] + embreeUV.x * (p[1] - p[0]) + embreeUV.y * (p[2] - p[0]); // Should be considerably more accurate than ray.o + t * ray.d
-    si.uv = hitUV;
-    si.dpdu = dpdu;
-    si.dpdv = dpdv;
-    si.normal = si.shading.normal = glm::normalize(glm::cross(dp02, dp12));
-    si.dndu = dndu;
-    si.dndv = dndv;
-
-    // Shading normals / tangents
-    if (m_normals || m_tangents) {
-        glm::ivec3 v = m_triangles[primID];
-
-        glm::vec3 ns;
-        if (m_normals)
-            ns = glm::normalize(b0 * m_normals[v[0]] + b1 * m_normals[v[1]] + b2 * m_normals[v[2]]);
-        else
-            ns = si.normal;
-
-        glm::vec3 ss;
-        if (m_tangents)
-            ss = glm::normalize(b0 * m_tangents[v[0]] + b1 * m_tangents[v[1]] + b2 * m_tangents[v[2]]);
-        else
-            ss = glm::normalize(si.dpdu);
-
-        glm::vec3 ts = glm::cross(ss, ns);
-        if (glm::dot(ts, ts) > 0.0f) { // glm::dot(ts, ts) = length2(ts)
-            ts = glm::normalize(ts);
-            ss = glm::cross(ts, ns);
-        } else {
-            coordinateSystem(ns, &ss, &ts);
-        }
-        // Compute dndu and dndv for triangle shading geometry
-        glm::vec3 dndu, dndv;
-        if (m_normals) {
-            glm::vec2 duv02 = uv[0] - uv[2];
-            glm::vec2 duv12 = uv[1] - uv[2];
-            glm::vec3 dn1 = m_normals[v[0]] - m_normals[v[2]];
-            glm::vec3 dn2 = m_normals[v[1]] - m_normals[v[2]];
-            float determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
-            bool degenerateUV = std::abs(determinant) < 1e-8;
-            if (degenerateUV) {
-                dndu = dndv = glm::vec3(0.0f);
-            } else {
-                float invDet = 1.0f / determinant;
-                dndu = (duv12[1] * dn1 - duv02[1] * dn2) * invDet;
-                dndv = (-duv12[0] * dn1 + duv02[0] * dn2) * invDet;
-            }
-        } else {
-            dndu = dndv = glm::vec3(0.0f);
-        }
-        si.setShadingGeometry(ss, ts, dndu, dndv, true);
-    } else {
-        si.setShadingGeometry(dpdu, dpdv, dndu, dndv, true);
-    }
-
-    // Ensure correct orientation of the geometric normal
-    if (m_normals)
-        si.normal = faceForward(si.normal, si.shading.normal);
-    else
-        si.normal = si.shading.normal = si.normal;
-
-    return si;
-}
-
 bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture) const
 {
+#if ROBUST_INTERSECTION > 0
 	// Based on PBRT v3 triangle intersection test (page 158):
 	// https://github.com/mmp/pbrt-v3/blob/master/src/shapes/triangle.cpp
 	//
@@ -373,7 +279,43 @@ bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, floa
 	float b2 = e2 * invDet;
 	float t = tScaled * invDet;
 	assert(b0 + b1 <= 1.0f);
+#else
+	// https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
+	constexpr float EPSILON = 0.000001f;
 
+	glm::ivec3 triangle = m_triangles[primitiveID];
+	glm::vec3 p0 = m_positions[triangle[0]];
+	glm::vec3 p1 = m_positions[triangle[1]];
+	glm::vec3 p2 = m_positions[triangle[2]];
+
+	glm::vec3 e1 = p1 - p0;
+	glm::vec3 e2 = p2 - p0;
+	glm::vec3 h = cross(ray.direction, e2);
+	float a = dot(e1, h);
+	if (a > -EPSILON && a < EPSILON)
+		return false;
+
+	float f = 1.0f / a;
+	glm::vec3 s = ray.origin - p0;
+	float u = f * dot(s, h);
+	if (u < 0.0f || u > 1.0f)
+		return false;
+
+	glm::vec3 q = cross(s, e1);
+	float v = f * dot(ray.direction, q);
+	if (v < 0.0f || u + v > 1.0f)
+		return false;
+
+	float t = f * dot(e2, q);
+	if (t < ray.tnear || t > ray.tfar)
+		return false;
+
+	float b0 = 1 - u - v;
+	float b1 = u;
+	float b2 = v;
+	if (u + v > 1.0f)
+		throw std::runtime_error("Incorrect UV");
+#endif
 
 	// Compute triangle partial derivatives
 	glm::vec3 dpdu, dpdv;

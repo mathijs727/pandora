@@ -37,7 +37,7 @@ public:
     // Temporary, to work with native Embree intersection kernels.
     // TODO: Replace this (and the getters above) with a primitive abstraction (bounds + split + intersect) so the Embree back-end uses the same intersection code as my own (TODO) kernels.
     // This abstraction should be higher performance than the shared_ptr for each triangle approach that PBRTv3 takes.
-    SurfaceInteraction partialFillSurfaceInteraction(unsigned primID, const glm::vec2& hitUV) const;// Caller should initialize sceneObject & wo
+    //SurfaceInteraction partialFillSurfaceInteraction(unsigned primID, const glm::vec2& hitUV) const;// Caller should initialize sceneObject & wo
 
 	Bounds getPrimitiveBounds(unsigned primitiveID) const;
 

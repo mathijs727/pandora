@@ -103,8 +103,8 @@ int main()
     }
 
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
-    NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    //PathIntegrator integrator(20, scene, camera.getSensor(), 1);
+    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
+    PathIntegrator integrator(20, scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
