@@ -172,6 +172,17 @@ gsl::span<const glm::vec3> TriangleMesh::getPositions() const
     return gsl::make_span(m_positions.get(), m_numVertices);
 }
 
+Bounds TriangleMesh::getPrimitiveBounds(unsigned primitiveID) const
+{
+	glm::ivec3 t = m_triangles[primitiveID];
+
+	Bounds bounds;
+	bounds.grow(m_positions[t[0]]);
+	bounds.grow(m_positions[t[1]]);
+	bounds.grow(m_positions[t[2]]);
+	return bounds;
+}
+
 SurfaceInteraction TriangleMesh::partialFillSurfaceInteraction(unsigned primID, const glm::vec2& embreeUV) const
 {
     // Barycentric coordinates
@@ -350,9 +361,9 @@ bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, floa
 	p1t.z *= Sz;
 	p2t.z *= Sz;
 	float tScaled = e0 * p0t.z + e1 * p1t.z + e2 * p2t.z;
-	if (det < 0.0f && (tScaled >= 0.0f || tScaled < ray.tfar * det))
+	if (det < 0.0f && (tScaled >= ray.tnear * det || tScaled < ray.tfar * det))
 		return false;
-	else if (det > 0.0f && (tScaled <= 0.0f || tScaled > ray.tfar * det))
+	else if (det > 0.0f && (tScaled <= ray.tnear * det || tScaled > ray.tfar * det))
 		return false;
 
 	// Compute barycentric coordinates and t value for triangle intersection
@@ -403,7 +414,7 @@ bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, floa
 	if (m_normals || m_tangents) {
 		glm::ivec3 v = m_triangles[primitiveID];
 
-		// Compute shading nomral ns for triangle
+		// Compute shading normal ns for triangle
 		glm::vec3 ns;
 		if (m_normals)
 			ns = glm::normalize(b0 * m_normals[v[0]] + b1 * m_normals[v[1]] + b2 * m_normals[v[2]]);

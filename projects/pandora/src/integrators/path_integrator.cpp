@@ -20,7 +20,7 @@ PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor,
 }
 
 // PBRTv3 page 877
-void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const EmbreeInsertHandle& h)
+void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h)
 {
     s_memoryArena.reset();
 
@@ -74,7 +74,7 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
 			}
 
 			RayState rayStateVariant = newRayState;
-			m_accelerationStructure.placeIntersectRequests(gsl::make_span(&rayStateVariant, 1), gsl::make_span(&newRay, 1));
+			m_accelerationStructure.placeIntersectRequests(gsl::make_span(&newRay, 1), gsl::make_span(&rayStateVariant, 1));
         } else {
             spawnNextSample(rayState.pixel);
             return;

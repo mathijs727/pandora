@@ -14,7 +14,7 @@ DirectLightingIntegrator::DirectLightingIntegrator(int maxDepth, const Scene& sc
 {
 }
 
-void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const EmbreeInsertHandle& h)
+void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h)
 {
     s_memoryArena.reset();
 

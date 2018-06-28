@@ -97,8 +97,10 @@ template <typename T>
 inline MemoryArenaTS::HandleN<T>::HandleN(uint32_t block, uint32_t offsetInBytes, uint8_t N)
     : block(block)
     , byteInBlock(offsetInBytes)
+#if MEMORY_ARENA_TS_BOUNDS_CHECK == 1
     , N(N)
     , i(0)
+#endif
 {
 }
 

@@ -2,7 +2,8 @@
 #include "pandora/core/pandora.h"
 #include "pandora/core/scene.h"
 #include "pandora/samplers/uniform_sampler.h"
-#include "pandora/traversal/embree_accel.h"
+//#include "pandora/traversal/embree_accel.h"
+#include "pandora/traversal/in_core_acceleration_structure.h"
 
 namespace pandora {
 
@@ -17,7 +18,8 @@ public:
     int getCurrentFrameSpp() const;
 
 protected:
-    virtual void rayHit(const Ray& r, SurfaceInteraction si, const IntegratorState& s, const EmbreeInsertHandle& h) = 0;
+	using InsertHandle = typename InCoreAccelerationStructure<IntegratorState>::InsertHandle;
+    virtual void rayHit(const Ray& r, SurfaceInteraction si, const IntegratorState& s, const InsertHandle& h) = 0;
     virtual void rayMiss(const Ray& r, const IntegratorState& s) = 0;
 
     void resetSamplers();
@@ -25,7 +27,8 @@ protected:
 
 protected:
     const Scene& m_scene;
-    EmbreeAccel<IntegratorState> m_accelerationStructure;
+    //EmbreeAccel<IntegratorState> m_accelerationStructure;
+	InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
 
     Sensor& m_sensor;
     const int m_sppPerCall;
@@ -39,7 +42,7 @@ inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& senso
     : m_scene(scene)
     , m_accelerationStructure(
           scene.getSceneObjects(),
-          [this](const Ray& r, const SurfaceInteraction& si, const IntegratorState& s, const EmbreeInsertHandle& h) {
+          [this](const Ray& r, const SurfaceInteraction& si, const IntegratorState& s, const InsertHandle& h) {
               rayHit(r, si, s, h);
           },
           [this](const Ray& r, const IntegratorState& s) {

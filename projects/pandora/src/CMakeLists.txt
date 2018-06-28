@@ -43,7 +43,8 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/textures/color_spaces.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/textures/constant_texture.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/textures/image_texture.cpp"
-		#"${CMAKE_CURRENT_LIST_DIR}/traversal/embree_accel.cpp"
+		
+		#"${CMAKE_CURRENT_LIST_DIR}/traversal/bvh/embree_bvh_impl.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/utility/eastl_malloc.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena.cpp"

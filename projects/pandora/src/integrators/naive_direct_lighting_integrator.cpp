@@ -13,12 +13,15 @@ NaiveDirectLightingIntegrator::NaiveDirectLightingIntegrator(int maxDepth, const
 {
 }
 
-void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const EmbreeInsertHandle& h)
+void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h)
 {
     s_memoryArena.reset();
 
     if (std::holds_alternative<ContinuationRayState>(s)) {
         const auto& rayState = std::get<ContinuationRayState>(s);
+
+		m_sensor.addPixelContribution(rayState.pixel, Spectrum(glm::abs(si.shading.normal)));
+		return;
 
         // TODO
         auto& sampler = getSampler(rayState.pixel);
