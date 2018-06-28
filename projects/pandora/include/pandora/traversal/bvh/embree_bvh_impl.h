@@ -110,7 +110,7 @@ inline void EmbreeBVH<LeafNode>::addPrimitive(const LeafNode& leaf)
     auto leafNodeHandle = m_leafAllocator.allocate<LeafNode>(std::ref(leaf));
     RTCGeometry geom = rtcNewGeometry(m_device, RTC_GEOMETRY_TYPE_USER);
     rtcAttachGeometry(m_scene, geom); // Returns geomID
-    rtcSetGeometryUserPrimitiveCount(geom, 1);
+    rtcSetGeometryUserPrimitiveCount(geom, leaf.numPrimitives());
     rtcSetGeometryUserData(geom, &leafNodeHandle.get(m_leafAllocator));
     rtcSetGeometryBoundsFunction(geom, geometryBoundsFunc, nullptr);
     rtcSetGeometryIntersectFunction(geom, geometryIntersectFunc);
@@ -151,7 +151,7 @@ template <typename LeafNode>
 void EmbreeBVH<LeafNode>::geometryBoundsFunc(const RTCBoundsFunctionArguments* args)
 {
     const LeafNode& leafNode = *reinterpret_cast<const LeafNode*>(args->geometryUserPtr);
-    Bounds bounds = leafNode.getBounds();
+    Bounds bounds = leafNode.getPrimitiveBounds(args->primID);
 
     RTCBounds* outBounds = args->bounds_o;
     outBounds->lower_x = bounds.min.x;
@@ -166,8 +166,6 @@ template <typename LeafNode>
 void EmbreeBVH<LeafNode>::geometryIntersectFunc(const RTCIntersectFunctionNArguments* args)
 {
     const LeafNode& leafNode = *reinterpret_cast<const LeafNode*>(args->geometryUserPtr);
-    //Ray& ray = intersectData.ray;
-    //SurfaceInteraction& si = intersectData.si;
 
     int* valid = args->valid;
     RTCRayHit* rayHit = reinterpret_cast<RTCRayHit*>(args->rayhit);
@@ -185,7 +183,7 @@ void EmbreeBVH<LeafNode>::geometryIntersectFunc(const RTCIntersectFunctionNArgum
 
     ray.tnear = embreeRay.tnear;
     ray.tfar = embreeRay.tfar;
-    if (leafNode.intersect(ray, si)) {
+    if (leafNode.intersectPrimitive(args->primID, ray, si)) {
         RTCHit potentialHit = {};
         potentialHit.instID[0] = args->context->instID[0]; // Don't care for now (may need this in the future to support instancing?)
         potentialHit.geomID = rayHitGeomID; // Indicate that we hit something

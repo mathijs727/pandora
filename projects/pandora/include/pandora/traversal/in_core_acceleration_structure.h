@@ -22,18 +22,19 @@ public:
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
 
 private:
-    class PrimitiveLeafNode {
+    class LeafNode {
     public:
         const SceneObject* sceneObject;
-        const unsigned primitiveID;
+        //const unsigned primitiveID;
 
     public:
-        Bounds getBounds() const;
-        bool intersect(Ray& ray, SurfaceInteraction& si) const;
+		unsigned numPrimitives() const;
+        Bounds getPrimitiveBounds(unsigned primitiveID) const;
+        bool intersectPrimitive(unsigned primitiveID, Ray& ray, SurfaceInteraction& si) const;
     };
 
 private:
-    EmbreeBVH<PrimitiveLeafNode> m_bvh;
+    EmbreeBVH<LeafNode> m_bvh;
 
     HitCallback m_hitCallback;
     MissCallback m_missCallback;
@@ -46,13 +47,15 @@ inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::
     , m_bvh()
 {
     for (const auto& sceneObject : sceneObjects) {
-        for (unsigned primitiveID = 0; primitiveID < sceneObject->getMesh().numTriangles(); primitiveID++) {
+        /*for (unsigned primitiveID = 0; primitiveID < sceneObject->getMesh().numTriangles(); primitiveID++) {
             PrimitiveLeafNode leaf = {
                 sceneObject.get(),
                 primitiveID
             };
             m_bvh.addPrimitive(leaf);
-        }
+        }*/
+		LeafNode leaf = { sceneObject.get() };
+		m_bvh.addPrimitive(leaf);
     }
     m_bvh.commit();
 }
@@ -82,14 +85,20 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
     }
 }
 
+template<typename UserState>
+inline unsigned InCoreAccelerationStructure<UserState>::LeafNode::numPrimitives() const
+{
+	return sceneObject->getMesh().numTriangles();
+}
+
 template <typename UserState>
-inline Bounds InCoreAccelerationStructure<UserState>::PrimitiveLeafNode::getBounds() const
+inline Bounds InCoreAccelerationStructure<UserState>::LeafNode::getPrimitiveBounds(unsigned primitiveID) const
 {
     return sceneObject->getMesh().getPrimitiveBounds(primitiveID);
 }
 
 template <typename UserState>
-inline bool InCoreAccelerationStructure<UserState>::PrimitiveLeafNode::intersect(Ray& ray, SurfaceInteraction& si) const
+inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersectPrimitive(unsigned primitiveID, Ray& ray, SurfaceInteraction& si) const
 {
     float tHit;
     bool hit = sceneObject->getMesh().intersectPrimitive(primitiveID, ray, tHit, si);
