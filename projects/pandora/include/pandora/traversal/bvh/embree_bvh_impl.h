@@ -141,7 +141,7 @@ void EmbreeBVH<LeafNode>::geometryIntersectFunc(const RTCIntersectFunctionNArgum
     RTCRay& embreeRay = rayHit->ray;
     RTCHit& embreeHit = rayHit->hit;
 
-    auto [rays, surfaceInteractions] = m_intersectRayData.local();
+    const auto& [rays, surfaceInteractions] = m_intersectRayData.local();
     Ray& ray = rays[embreeRay.id];
     SurfaceInteraction& si = surfaceInteractions[embreeRay.id];
 

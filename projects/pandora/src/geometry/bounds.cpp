@@ -4,8 +4,8 @@
 namespace pandora {
 
 Bounds::Bounds()
-    : min(0)
-    , max(0)
+    : min(std::numeric_limits<float>::max())
+    , max(std::numeric_limits<float>::lowest())
 {
 }
 
@@ -17,8 +17,8 @@ Bounds::Bounds(glm::vec3 lower, glm::vec3 upper)
 
 void Bounds::reset()
 {
-    min = glm::vec3(0);
-    max = glm::vec3(0);
+    min = glm::vec3(std::numeric_limits<float>::max());
+    max = glm::vec3(std::numeric_limits<float>::lowest());
 }
 
 void Bounds::grow(glm::vec3 vec)
