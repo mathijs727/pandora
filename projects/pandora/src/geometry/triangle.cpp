@@ -3,12 +3,16 @@
 #include "assimp/postprocess.h"
 #include "assimp/scene.h"
 #include "glm/mat4x4.hpp"
+#include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
 #include <cassert>
 #include <fstream>
 #include <iostream>
 #include <stack>
+#include <string>
 #include <tuple>
+
+using namespace std::string_literals;
 
 // Use PBRTv3 intersection code if true, otherwise use Möller-Trumbore (faster)
 #define ROBUST_INTERSECTION 0
@@ -72,7 +76,7 @@ std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scen
     const aiMesh* mesh = scene->mMeshes[meshIndex];
 
     if (mesh->mNumVertices == 0 || mesh->mNumFaces == 0)
-        throw std::runtime_error("Empty mesh");
+        THROW_ERROR("Empty mesh");
 
     auto indices = std::make_unique<glm::ivec3[]>(mesh->mNumFaces);
     auto positions = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
@@ -84,7 +88,7 @@ std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scen
     for (unsigned i = 0; i < mesh->mNumFaces; i++) {
         const aiFace& face = mesh->mFaces[i];
         if (face.mNumIndices != 3) {
-            throw std::runtime_error("Found a face which is not a triangle, discarding!");
+			THROW_ERROR("Found a face which is not a triangle, discarding!");
         }
 
         auto aiIndices = face.mIndices;
@@ -119,7 +123,7 @@ std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scen
 std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform, bool ignoreVertexNormals)
 {
     if (!fileExists(filename)) {
-        std::cout << "Could not find mesh file: " << filename << std::endl;
+		LOG_WARNING("Could not find mesh file: "s + std::string(filename));
         return {};
     }
 
@@ -128,7 +132,7 @@ std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std:
     //importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
-        std::cout << "Failed to load mesh file: " << filename << std::endl;
+        LOG_WARNING("Failed to load mesh file: "s + std::string(filename));
         return {};
     }
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "pandora/utility/error_handling.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
@@ -21,6 +22,7 @@ public:
     template <typename T>
     struct HandleN {
     public:
+		HandleN() = default;
         HandleN(uint32_t block, uint32_t offsetInBytes, uint8_t N);
 
 		// These functions may be called in parallel with allocate calls
@@ -219,7 +221,8 @@ inline std::pair<MemoryArenaTS::HandleN<T>, T*> MemoryArenaTS::allocateN(Args...
 
 		// If it failed again then we either ran out of memory or the amount we tried to allocate does not fit in our memory pool
 		//return nullptr;
-		throw std::runtime_error("Could not allocate more memory!");
+		THROW_ERROR("Could not allocate more memory!");
+		return { HandleN <T>(), nullptr };
 	}
 }
 

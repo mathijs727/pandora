@@ -15,7 +15,7 @@ private:
 	void uniformSampleAllLights(const ContinuationRayState& r, const SurfaceInteraction& si, Sampler& sampler);
 	void uniformSampleOneLight(const ContinuationRayState& r, const SurfaceInteraction& si, Sampler& sampler);
 
-	void estimateDirect(const Spectrum& multiplier, const ContinuationRayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular = false);
+	void estimateDirect(float multiplier, const ContinuationRayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular = false);
 private:
 	const LightStrategy m_strategy;
 };

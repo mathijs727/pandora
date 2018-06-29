@@ -132,11 +132,11 @@ void PathIntegrator::uniformSampleOneLight(const ContinuationRayState& r, const 
 
     glm::vec2 uLight = sampler.get2D();
     glm::vec2 uScattering = sampler.get2D();
-    estimateDirect(Spectrum(numLights), r, si, uScattering, *light, uLight);
+    estimateDirect((float)numLights, r, si, uScattering, *light, uLight);
 }
 
 // PBRTv3 page 858
-void PathIntegrator::estimateDirect(const Spectrum& multiplier, const ContinuationRayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular)
+void PathIntegrator::estimateDirect(float multiplier, const ContinuationRayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular)
 {
     BxDFType bsdfFlags = specular ? BSDF_ALL : BxDFType(BSDF_ALL | ~BSDF_SPECULAR);
 

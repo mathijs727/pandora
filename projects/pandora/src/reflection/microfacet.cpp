@@ -176,9 +176,9 @@ float BeckmannDistribution::lambda(const glm::vec3& w) const
 static glm::vec2 trowbridgeReitzSample11(float cosTheta, float u1, float u2)
 {
     // special case (normal incidence)
-    if (cosTheta > .9999) {
+    if (cosTheta > .9999f) {
         float r = sqrt(u1 / (1 - u1));
-        float phi = 6.28318530718 * u2;
+        float phi = 6.28318530718f * u2;
         //*slope_x = r * cos(phi);
         //*slope_y = r * sin(phi);
         return glm::vec2(r * cos(phi), r * sin(phi));
@@ -193,8 +193,8 @@ static glm::vec2 trowbridgeReitzSample11(float cosTheta, float u1, float u2)
     // sample slope_x
     float A = 2 * u1 / G1 - 1;
     float tmp = 1.f / (A * A - 1.f);
-    if (tmp > 1e10)
-        tmp = 1e10;
+    if (tmp > 1e10f)
+        tmp = 1e10f;
     float B = tanTheta;
     float D = std::sqrt(
         std::max(float(B * B * tmp * tmp - (A * A - B * B) * tmp), float(0)));

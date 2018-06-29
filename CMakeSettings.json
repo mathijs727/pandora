@@ -22,7 +22,7 @@
         },
         {
           "name": "CMAKE_CXX_FLAGS",
-          "value": "/arch:AVX2"
+          "value": "/arch:AVX2 /EHsc /W3"
         }
       ]
     },
@@ -43,7 +43,7 @@
         },
         {
           "name": "CMAKE_CXX_FLAGS",
-          "value": "/arch:AVX2"
+          "value": "/arch:AVX2 /EHsc /W3"
         }
       ]
     },
@@ -64,7 +64,7 @@
         },
         {
           "name": "CMAKE_CXX_FLAGS",
-          "value": "/arch:AVX2"
+          "value": "/arch:AVX2 /EHsc /W3"
         }
       ]
     }

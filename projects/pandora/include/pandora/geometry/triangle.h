@@ -258,8 +258,8 @@ __forceinline bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const 
         // Compute dndu and dndv for triangle shading geometry
         glm::vec3 dndu, dndv;
         if (m_normals) {
-            glm::vec2 duv02 = uv[0] - uv[2];
-            glm::vec2 duv12 = uv[1] - uv[2];
+            //glm::vec2 duv02 = uv[0] - uv[2];
+            //glm::vec2 duv12 = uv[1] - uv[2];
             glm::vec3 dn1 = m_normals[v[0]] - m_normals[v[2]];
             glm::vec3 dn2 = m_normals[v[1]] - m_normals[v[2]];
             float determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
