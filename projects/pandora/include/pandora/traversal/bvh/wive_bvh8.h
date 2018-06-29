@@ -1,19 +1,18 @@
 #include "pandora/geometry/bounds.h"
 #include "pandora/traversal/bvh.h"
-#include "pandora/utility/memory_arena_ts.h"
+#include "pandora/utility/simd/simd_vec8.h"
 #include <EASTL/fixed_vector.h>
 #include <embree3/rtcore.h>
-#include <gsl/gsl>
 #include <tuple>
 #include <vector>
 
 namespace pandora {
 
 template <typename LeafObj>
-class SingleRayBVH : public BVH<LeafObj> {
+class WiveBVH8 : public BVH<LeafObj> {
 public:
-    SingleRayBVH();
-    ~SingleRayBVH();
+    WiveBVH8();
+    ~WiveBVH8();
 
     void addPrimitive(const LeafObj& ref) override final;
     void commit() override final;
@@ -33,35 +32,21 @@ private:
     RTCDevice m_device;
     RTCBVH m_bvh;
 
-    struct BVHNode {
-        virtual bool intersect(Ray& ray, SurfaceInteraction& si) const = 0;
-    };
-    struct LeafNode : public BVHNode {
-        eastl::fixed_vector<std::pair<const LeafObj*, unsigned>, 4> leafs;
-        //const LeafObj* leafObject;
-        //unsigned primitiveID;
-
-        bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
-    };
-    struct InnerNode : public BVHNode {
-        Bounds childBounds[2];
-        const BVHNode* children[2];
-
-        bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
+    struct BVHNode : alignas(64) {
+        SIMDVec8<float, 1> minX; // 32 bytes
+        SIMDVec8<float, 1> maxX; // 32 bytes
+        SIMDVec8<float, 1> minY; // 32 bytes
+        SIMDVec8<float, 1> maxY; // 32 bytes
+        SIMDVec8<float, 1> minZ; // 32 bytes
+        SIMDVec8<float, 1> maxZ; // 32 bytes
+		SIMDVec8<int, 1> permAndChildren;// Permutation offsets (3 bytes) + [child offsets + flags] (5 bytes)
     };
 
     const BVHNode* m_root;
-
-    /*struct BVHNode {
-        Bounds bounds;
-        uint32_t leftFirst; // Left child index / first child index
-        uint32_t count; // Number of primitives (0 for inner nodes)
-    };
-    MemoryArenaTS m_bvhNodeAllocator;*/
 };
 
 template <typename LeafObj>
-inline SingleRayBVH<LeafObj>::SingleRayBVH()
+inline WiveBVH8<LeafObj>::WiveBVH8()
 {
     m_device = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(m_device, embreeErrorFunc, nullptr);
@@ -69,14 +54,14 @@ inline SingleRayBVH<LeafObj>::SingleRayBVH()
 }
 
 template <typename LeafObj>
-inline SingleRayBVH<LeafObj>::~SingleRayBVH()
+inline WiveBVH8<LeafObj>::~WiveBVH8()
 {
     rtcReleaseBVH(m_bvh);
     rtcReleaseDevice(m_device);
 }
 
 template <typename LeafObj>
-inline void SingleRayBVH<LeafObj>::addPrimitive(const LeafObj& ref)
+inline void WiveBVH8<LeafObj>::addPrimitive(const LeafObj& ref)
 {
     for (unsigned primitiveID = 0; primitiveID < ref.numPrimitives(); primitiveID++) {
         auto bounds = ref.getPrimitiveBounds(primitiveID);
@@ -97,7 +82,7 @@ inline void SingleRayBVH<LeafObj>::addPrimitive(const LeafObj& ref)
 }
 
 template <typename LeafObj>
-inline void SingleRayBVH<LeafObj>::commit()
+inline void WiveBVH8<LeafObj>::commit()
 {
     RTCBuildArguments arguments = rtcDefaultBuildArguments();
     arguments.byteSize = sizeof(arguments);
@@ -123,7 +108,7 @@ inline void SingleRayBVH<LeafObj>::commit()
 }
 
 template <typename LeafObj>
-inline bool SingleRayBVH<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
+inline bool WiveBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 {
     bool hit = m_root->intersect(ray, si);
     si.wo = -ray.direction;
@@ -131,20 +116,20 @@ inline bool SingleRayBVH<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) c
 }
 
 template <typename LeafObj>
-inline void* SingleRayBVH<LeafObj>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
+inline void* WiveBVH8<LeafObj>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
 {
     assert(numChildren == 2);
 
-    auto* self = reinterpret_cast<SingleRayBVH<LeafObj>*>(userPtr);
+    auto* self = reinterpret_cast<WiveBVH8<LeafObj>*>(userPtr);
     void* ptr = rtcThreadLocalAlloc(alloc, sizeof(InnerNode), 16);
     return reinterpret_cast<void*>(new (ptr) InnerNode);
 }
 
 template <typename LeafObj>
-inline void SingleRayBVH<LeafObj>::innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr)
+inline void WiveBVH8<LeafObj>::innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr)
 {
     assert(numChildren == 2);
-    //auto* self = reinterpret_cast<SingleRayBVH<LeafObj>*>(userPtr);
+    //auto* self = reinterpret_cast<WiveBVH8<LeafObj>*>(userPtr);
     (void)userPtr;
 
     auto* node = reinterpret_cast<InnerNode*>(nodePtr);
@@ -155,10 +140,10 @@ inline void SingleRayBVH<LeafObj>::innerNodeSetChildren(void* nodePtr, void** ch
 }
 
 template <typename LeafObj>
-inline void SingleRayBVH<LeafObj>::innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr)
+inline void WiveBVH8<LeafObj>::innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr)
 {
     assert(numChildren == 2);
-    //auto* self = reinterpret_cast<SingleRayBVH<LeafObj>*>(userPtr);
+    //auto* self = reinterpret_cast<WiveBVH8<LeafObj>*>(userPtr);
     (void)userPtr;
 
     auto* node = reinterpret_cast<InnerNode*>(nodePtr);
@@ -171,24 +156,24 @@ inline void SingleRayBVH<LeafObj>::innerNodeSetBounds(void* nodePtr, const RTCBo
 }
 
 template <typename LeafObj>
-inline void* SingleRayBVH<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
+inline void* WiveBVH8<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
 {
     assert(numPrims <= 4);
 
-    auto* self = reinterpret_cast<SingleRayBVH<LeafObj>*>(userPtr);
+    auto* self = reinterpret_cast<WiveBVH8<LeafObj>*>(userPtr);
     void* ptr = rtcThreadLocalAlloc(alloc, sizeof(LeafNode), 16);
 
     LeafNode* leafNode = new (ptr) LeafNode();
-	for (size_t i = 0; i < numPrims; i++) {
-		leafNode->leafs.push_back({ self->m_leafObjects[prims[i].geomID], prims[i].primID });
-	}
+    for (size_t i = 0; i < numPrims; i++) {
+        leafNode->leafs.push_back({ self->m_leafObjects[prims[i].geomID], prims[i].primID });
+    }
     //leafNode->leafObject = self->m_leafObjects[prims[0].geomID];
     //leafNode->primitiveID = prims[0].primID;
     return ptr;
 }
 
 template <typename LeafObj>
-inline bool SingleRayBVH<LeafObj>::InnerNode::intersect(Ray& ray, SurfaceInteraction& si) const
+inline bool WiveBVH8<LeafObj>::InnerNode::intersect(Ray& ray, SurfaceInteraction& si) const
 {
     float tmin0, tmax0;
     float tmin1, tmax1;
@@ -216,13 +201,13 @@ inline bool SingleRayBVH<LeafObj>::InnerNode::intersect(Ray& ray, SurfaceInterac
 }
 
 template <typename LeafObj>
-inline bool SingleRayBVH<LeafObj>::LeafNode::intersect(Ray& ray, SurfaceInteraction& si) const
+inline bool WiveBVH8<LeafObj>::LeafNode::intersect(Ray& ray, SurfaceInteraction& si) const
 {
-	bool hit = false;
-	for (auto&[leafObject, primitiveID] : leafs) {
-		hit |= leafObject->intersectPrimitive(primitiveID, ray, si);
-	}
-	return hit;
+    bool hit = false;
+    for (auto& [leafObject, primitiveID] : leafs) {
+        hit |= leafObject->intersectPrimitive(primitiveID, ray, si);
+    }
+    return hit;
     //return leafObject->intersectPrimitive(primitiveID, ray, si);
 }
 
