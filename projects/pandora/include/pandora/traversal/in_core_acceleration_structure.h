@@ -31,7 +31,7 @@ private:
     public:
 		unsigned numPrimitives() const;
         Bounds getPrimitiveBounds(unsigned primitiveID) const;
-        bool intersectPrimitive(unsigned primitiveID, Ray& ray, SurfaceInteraction& si) const;
+		inline bool intersectPrimitive(unsigned primitiveID, Ray& ray, SurfaceInteraction& si) const;
     };
 
 private:

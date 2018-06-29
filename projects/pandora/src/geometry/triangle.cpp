@@ -186,7 +186,7 @@ Bounds TriangleMesh::getPrimitiveBounds(unsigned primitiveID) const
 	return bounds;
 }
 
-bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture) const
+/*bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture) const
 {
 #if ROBUST_INTERSECTION > 0
 	// Based on PBRT v3 triangle intersection test (page 158):
@@ -408,7 +408,7 @@ bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, floa
 
 	tHit = t;
 	return true;
-}
+}*/
 
 float TriangleMesh::primitiveArea(unsigned primitiveID) const
 {

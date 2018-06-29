@@ -19,7 +19,7 @@ SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const 
     }
 }
 
-const TriangleMesh& SceneObject::getMesh() const
+/*const TriangleMesh& SceneObject::getMesh() const
 {
     return *m_mesh;
 }
@@ -27,7 +27,7 @@ const TriangleMesh& SceneObject::getMesh() const
 const Material& SceneObject::getMaterial() const
 {
     return *m_material;
-}
+}*/
 
 const AreaLight* SceneObject::getAreaLight(unsigned primID) const
 {

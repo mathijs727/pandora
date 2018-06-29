@@ -19,6 +19,10 @@
         {
           "name": "BUILD_TESTS",
           "value": "ON"
+        },
+        {
+          "name": "CMAKE_CXX_FLAGS",
+          "value": "/arch:AVX2"
         }
       ]
     },
@@ -36,6 +40,10 @@
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
           "value": "C:\\Users\\Mathijs\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+        },
+        {
+          "name": "CMAKE_CXX_FLAGS",
+          "value": "/arch:AVX2"
         }
       ]
     },
@@ -53,6 +61,10 @@
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
           "value": "C:\\Users\\Mathijs\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+        },
+        {
+          "name": "CMAKE_CXX_FLAGS",
+          "value": "/arch:AVX2"
         }
       ]
     }
