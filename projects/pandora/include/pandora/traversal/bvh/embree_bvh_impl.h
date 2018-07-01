@@ -73,14 +73,14 @@ EmbreeBVH<LeafNode>::~EmbreeBVH()
 }
 
 template <typename LeafNode>
-inline void EmbreeBVH<LeafNode>::addPrimitive(const LeafNode& ref)
+inline void EmbreeBVH<LeafNode>::addObject(const LeafNode* objectPtr)
 {
     //auto leafNodeHandle = m_leafAllocator.allocate<LeafNode>(std::ref(leaf));
     RTCGeometry geom = rtcNewGeometry(m_device, RTC_GEOMETRY_TYPE_USER);
     rtcAttachGeometry(m_scene, geom); // Returns geomID
-    rtcSetGeometryUserPrimitiveCount(geom, ref.numPrimitives());
+    rtcSetGeometryUserPrimitiveCount(geom, objectPtr->numPrimitives());
 	//rtcSetGeometryUserData(geom, &leafNodeHandle.get(m_leafAllocator));
-	rtcSetGeometryUserData(geom, (void*)&ref);
+	rtcSetGeometryUserData(geom, (void*)objectPtr);
     rtcSetGeometryBoundsFunction(geom, geometryBoundsFunc, nullptr);
     rtcSetGeometryIntersectFunction(geom, geometryIntersectFunc);
     rtcCommitGeometry(geom);

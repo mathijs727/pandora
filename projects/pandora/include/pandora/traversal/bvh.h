@@ -9,7 +9,7 @@ template <typename LeafNode>
 class BVH
 {
 public:
-	virtual void addPrimitive(const LeafNode& ref) = 0;
+	virtual void addObject(const LeafNode* objectPtr) = 0;
 	virtual void commit() = 0;
 
 	virtual bool intersect(Ray& ray, SurfaceInteraction& si) const = 0;

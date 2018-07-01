@@ -15,8 +15,7 @@ public:
     Bounds extended(const Bounds& other) const;
 
     glm::vec3 center() const;
-    float area() const;
-    float halfArea() const;
+    float surfaceArea() const;
 
     bool intersect(const Ray& ray, float& tmin, float& tmax) const;
 

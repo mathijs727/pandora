@@ -14,7 +14,7 @@ public:
 	EmbreeBVH();
 	~EmbreeBVH();
 
-	void addPrimitive(const LeafNode& ref) override final;
+	void addObject(const LeafNode* objectPtr) override final;
 	void commit() override final;
 
 	bool intersect(Ray& ray, SurfaceInteraction& si) const override final;

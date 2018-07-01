@@ -15,7 +15,7 @@ public:
     NaiveSingleRayBVH2();
     ~NaiveSingleRayBVH2();
 
-    void addPrimitive(const LeafObj& ref) override final;
+    void addObject(const LeafObj* addObject) override final;
     void commit() override final;
 
     bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
@@ -67,10 +67,10 @@ inline NaiveSingleRayBVH2<LeafObj>::~NaiveSingleRayBVH2()
 }
 
 template <typename LeafObj>
-inline void NaiveSingleRayBVH2<LeafObj>::addPrimitive(const LeafObj& ref)
+inline void NaiveSingleRayBVH2<LeafObj>::addObject(const LeafObj* addObject)
 {
-    for (unsigned primitiveID = 0; primitiveID < ref.numPrimitives(); primitiveID++) {
-        auto bounds = ref.getPrimitiveBounds(primitiveID);
+    for (unsigned primitiveID = 0; primitiveID < addObject->numPrimitives(); primitiveID++) {
+        auto bounds = addObject->getPrimitiveBounds(primitiveID);
 
         RTCBuildPrimitive primitive;
         primitive.lower_x = bounds.min.x;
@@ -83,7 +83,7 @@ inline void NaiveSingleRayBVH2<LeafObj>::addPrimitive(const LeafObj& ref)
         primitive.geomID = (unsigned)m_leafObjects.size();
 
         m_primitives.push_back(primitive);
-        m_leafObjects.push_back(&ref); // Vector of references is a nightmare
+        m_leafObjects.push_back(addObject); // Vector of references is a nightmare
     }
 }
 
@@ -154,7 +154,7 @@ inline void NaiveSingleRayBVH2<LeafObj>::innerNodeSetBounds(void* nodePtr, const
 
     auto* node = reinterpret_cast<InnerNode*>(nodePtr);
     for (unsigned childID = 0; childID < numChildren; childID++) {
-        auto* embreeBounds = bounds[childID];
+        const RTCBounds* embreeBounds = bounds[childID];
         node->childBounds[childID] = Bounds(
             glm::vec3(embreeBounds->lower_x, embreeBounds->lower_y, embreeBounds->lower_z),
             glm::vec3(embreeBounds->upper_x, embreeBounds->upper_y, embreeBounds->upper_z));
@@ -173,8 +173,6 @@ inline void* NaiveSingleRayBVH2<LeafObj>::leafCreate(RTCThreadLocalAllocator all
 	for (size_t i = 0; i < numPrims; i++) {
 		leafNode->leafs.push_back({ self->m_leafObjects[prims[i].geomID], prims[i].primID });
 	}
-    //leafNode->leafObject = self->m_leafObjects[prims[0].geomID];
-    //leafNode->primitiveID = prims[0].primID;
     return ptr;
 }
 

@@ -45,15 +45,10 @@ glm::vec3 Bounds::center() const
     return (min + max) / 2.0f;
 }
 
-float Bounds::area() const
+float Bounds::surfaceArea() const
 {
-    return 2 * halfArea();
-}
-
-float Bounds::halfArea() const
-{
-    glm::vec3 extent = max - min;
-    return extent.x * extent.y * extent.z;
+	glm::vec3 extent = max - min;
+	return 2.0f * (extent.x * extent.y + extent.y * extent.z + extent.z * extent.x);
 }
 
 bool Bounds::intersect(const Ray& ray, float& tmin, float& tmax) const
