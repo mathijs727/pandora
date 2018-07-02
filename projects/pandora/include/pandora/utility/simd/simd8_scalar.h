@@ -67,6 +67,10 @@ public:
         m_values[7] = v7;
     }
 
+	inline T operator[](int i) const {
+		return m_values[i];
+	}
+
     inline void load(gsl::span<const T, 8> v)
     {
         std::copy(std::begin(v), std::end(v), std::begin(m_values));
@@ -126,10 +130,13 @@ public:
     inline vec8<T, 1> compress(mask8<1> mask) const
     {
         vec8<T, 1> result;
-        for (int i = 0, j = 0; i < 8; i++) {
+		int j = 0;
+        for (int i = 0; i < 8; i++) {
             if (mask.m_values[i])
                 result.m_values[j++] = m_values[i];
         }
+		for (; j < 8; j++)
+			result.m_values[j] = 0;
         return result;
     }
 

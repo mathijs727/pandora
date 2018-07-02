@@ -37,7 +37,7 @@ private:
 	struct BVHNode;
 	struct BVHLeaf;
 	void traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_u32& outChildTypes, simd::vec8_f32& outDistances, uint32_t& outNumChildren) const;
-	void intersectLeaf(const BVHLeaf* n, Ray& ray, SurfaceInteraction& si) const;
+	bool intersectLeaf(const BVHLeaf* n, Ray& ray, SurfaceInteraction& si) const;
 
     static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
     static void innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr);
@@ -62,7 +62,7 @@ private:
 
     struct ConstructionInnerNode : public ConstructionBVHNode {
         Bounds childBounds[2];
-        const ConstructionBVHNode* children[2];
+        ConstructionBVHNode* children[2];
         int splitAxis = 0;
     };
 
@@ -92,6 +92,7 @@ private:
     uint32_t m_rootHandle;
 
 private:
+	void orderChildrenConstructionBVH( ConstructionBVHNode* node);
     std::pair<uint32_t, const WiveBVH8<LeafObj>::BVHNode*> collapseTreelet(const ConstructionInnerNode* treeletRoot, const Bounds& rootBounds);
     //static BVHNode* convertBinaryTree(const ConstructionInnerNode* root, ContiguousAllocatorTS<BVHNode>& innerNodeAlloc, ContiguousAllocatorTS<LeafNode>& leafNodeAlloc);
 

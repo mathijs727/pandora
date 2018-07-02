@@ -20,7 +20,8 @@ inline WiveBVH8<LeafObj>::~WiveBVH8()
 template <typename LeafObj>
 inline bool WiveBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 {
-	si.sceneObject = nullptr;
+    si.sceneObject = nullptr;
+    bool hit = false;
 
     SIMDRay simdRay;
     simdRay.originX = simd::vec8_f32(ray.origin.x);
@@ -39,7 +40,7 @@ inline bool WiveBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
         bool isLeaf;
     };
     eastl::fixed_vector<StackItem, 10> stack;
-    stack.push_back(StackItem { m_rootHandle, 0.0f, false });
+    stack.push_back(StackItem{ m_rootHandle, 0.0f, false });
     while (!stack.empty()) {
         StackItem item = stack.back();
         stack.pop_back();
@@ -62,20 +63,24 @@ inline bool WiveBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
             childTypesSIMD.store(childTypes);
             distancesSIMD.store(distances);
             for (uint32_t i = 0; i < numChildren; i++) {
-                assert(childTypes[i] == NodeType::InnerNode || childTypes[i] == NodeType::LeafNode);
+                //assert(childTypes[i] == NodeType::InnerNode || childTypes[i] == NodeType::LeafNode);
 
                 bool isLeaf = (childTypes[i] == NodeType::LeafNode);
+                /*if (isLeaf)
+					assert(children[i] < m_leafNodeAllocator->size());
+				else
+					assert(children[i] < m_innerNodeAllocator->size());*/
                 stack.push_back(StackItem{ children[i], distances[i], isLeaf });
             }
         } else {
             // Leaf node
-            intersectLeaf(&m_leafNodeAllocator->get(item.nodeHandle), ray, si);
+            hit |= intersectLeaf(&m_leafNodeAllocator->get(item.nodeHandle), ray, si);
             simdRay.tfar.broadcast(ray.tfar);
         }
     }
 
     si.wo = -ray.direction;
-    return false;
+    return hit;
 }
 
 template <typename LeafObj>
@@ -96,30 +101,64 @@ inline void WiveBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& 
     simd::vec8_f32 tmin = simd::max(ray.tnear, simd::max(txMin, simd::max(tyMin, tzMin)));
     simd::vec8_f32 tmax = simd::min(ray.tfar, simd::min(txMax, simd::min(tyMax, tzMax)));
 
+    /*std::array<uint32_t, 8> permsAndFlags;
+	n->permOffsetsAndFlags.store(permsAndFlags);
+	int maxNumChildren = 0;
+	for (uint32_t i = 0; i < 8; i++) {
+		if (isLeafNode(permsAndFlags[i]) || isInnerNode(permsAndFlags[i]))
+			maxNumChildren++;
+	}
+
+	for (int i = 0; i < maxNumChildren; i++) {
+		Bounds bounds;
+		bounds.grow(glm::vec3(n->minX[i], n->minY[i], n->minZ[i]));
+		bounds.grow(glm::vec3(n->maxX[i], n->maxY[i], n->maxZ[i]));
+		Ray scalarRay;
+		scalarRay.origin = glm::vec3(ray.originX[0], ray.originY[0], ray.originZ[0]);
+		scalarRay.direction = glm::vec3(1.0f / ray.invDirectionX[0], 1.0f / ray.invDirectionY[0], 1.0f / ray.invDirectionZ[0]);
+		//scalarRay.tnear = ray.tnear[0];
+		//scalarRay.tfar = ray.tfar[0];
+		float tminScalar, tmaxScalar;
+		if (bounds.intersect(scalarRay, tminScalar, tmaxScalar))
+		{
+			tminScalar = std::max(tminScalar, ray.tnear[0]);
+			tmaxScalar = std::min(tmaxScalar, ray.tfar[0]);
+			assert(std::abs(tminScalar - tmin[i]) < 0.0001f);
+			assert(std::abs(tmaxScalar - tmax[i]) < 0.0001f);
+		}
+	}*/
+
     const static simd::vec8_u32 indexMask(0b111);
     const static simd::vec8_u32 simd24(24);
     simd::vec8_u32 index = (n->permOffsetsAndFlags >> ray.raySignShiftAmount) & indexMask;
+    /*auto tminBak = tmin;
+	auto tmaxBak = tmax;
+	(void)tminBak;
+	(void)tmaxBak;*/
+
     tmin = tmin.permute(index);
     tmax = tmax.permute(index);
     simd::mask8 mask = tmin < tmax;
-	auto tmp = n->children.permute(index);
-    outChildren = tmp.compress(mask);
-    outChildTypes = n->permOffsetsAndFlags >> simd24;
+    outChildren = n->children.permute(index).compress(mask);
+    outChildTypes = (n->permOffsetsAndFlags >> simd24).permute(index).compress(mask);
     outDistances = tmin.compress(mask);
+    //assert(mask.count() <= maxNumChildren);
     outNumChildren = mask.count();
 }
 
 template <typename LeafObj>
-inline void WiveBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, Ray& ray, SurfaceInteraction& si) const
+inline bool WiveBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, Ray& ray, SurfaceInteraction& si) const
 {
+    bool hit = false;
     const auto* leafObjectIDs = n->leafObjectIDs;
     const auto* primitiveIDs = n->primitiveIDs;
     for (int i = 0; i < 4; i++) {
         if (leafObjectIDs[i] == emptyHandle)
             break;
 
-        m_leafObjects[i]->intersectPrimitive(primitiveIDs[i], ray, si);
+        hit |= m_leafObjects[i]->intersectPrimitive(primitiveIDs[i], ray, si);
     }
+    return hit;
 }
 
 template <typename LeafObj>
@@ -169,15 +208,17 @@ inline void WiveBVH8<LeafObj>::commit()
 
     auto* constructionTreeRootNode = reinterpret_cast<ConstructionInnerNode*>(rtcBuildBVH(&arguments));
 
-	m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHNode>>((uint32_t)m_primitives.size() * 2, 16);
+    m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHNode>>((uint32_t)m_primitives.size() * 2, 16);
     m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHLeaf>>((uint32_t)m_primitives.size() * 2, 16);
     //.m_leafNodeAllocator  = new ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::LeafNode>(1,2);
+
+	orderChildrenConstructionBVH(constructionTreeRootNode);
 
     Bounds rootBounds;
     rootBounds.extend(constructionTreeRootNode->childBounds[0]);
     rootBounds.extend(constructionTreeRootNode->childBounds[1]);
     auto [rootHandle, rootPtr] = collapseTreelet(constructionTreeRootNode, rootBounds);
-	m_rootHandle = rootHandle;
+    m_rootHandle = rootHandle;
 
     rtcReleaseBVH(bvh);
     rtcReleaseDevice(device);
@@ -251,7 +292,7 @@ inline void WiveBVH8<LeafObj>::innerNodeSetChildren(void* nodePtr, void** childP
 
     auto* node = reinterpret_cast<ConstructionInnerNode*>(nodePtr);
     for (unsigned childID = 0; childID < numChildren; childID++) {
-        auto* child = reinterpret_cast<const ConstructionBVHNode*>(childPtr[childID]);
+        auto* child = reinterpret_cast<ConstructionBVHNode*>(childPtr[childID]);
         node->children[childID] = child;
     }
 }
@@ -286,6 +327,21 @@ inline void* WiveBVH8<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, const 
         leafNode->leafs.push_back({ prims[i].geomID, prims[i].primID });
     }
     return ptr;
+}
+
+template <typename LeafObj>
+inline void WiveBVH8<LeafObj>::orderChildrenConstructionBVH(ConstructionBVHNode* p)
+{
+	if (auto nodePtr = dynamic_cast<ConstructionInnerNode*>(p)) {
+		if (nodePtr->childBounds[0].min[nodePtr->splitAxis] > nodePtr->childBounds[1].min[nodePtr->splitAxis])
+		{
+			// Switch children
+			std::swap(nodePtr->childBounds[0], nodePtr->childBounds[1]);
+			std::swap(nodePtr->children[0], nodePtr->children[1]);
+		}
+		orderChildrenConstructionBVH(nodePtr->children[0]);
+		orderChildrenConstructionBVH(nodePtr->children[1]);
+	}
 }
 
 template <typename LeafObj>
@@ -329,7 +385,7 @@ inline std::pair<uint32_t, const typename WiveBVH8<LeafObj>::BVHNode*> WiveBVH8<
         // It becomes an inner node of the treelet -> create a copy in the treelet copy
         int copiedNodeIndex = (int)treeletCopy.size();
         treeletCopy.push_back(*(leafToTraverse.node));
-        const ConstructionInnerNode* largestLeafCopyPtr = treeletCopy.data() + copiedNodeIndex;
+        ConstructionInnerNode* largestLeafCopyPtr = treeletCopy.data() + copiedNodeIndex;
 
         // Update the child pointer of the [copied] parent node
         ConstructionInnerNode& parent = treeletCopy[leafToTraverse.parentIndexInTreeletCopy];
@@ -400,14 +456,14 @@ inline std::pair<uint32_t, const typename WiveBVH8<LeafObj>::BVHNode*> WiveBVH8<
                     }
                     permOffsetsAndFlags[treeletLeafsFound] = createFlagsLeaf();
                     children[treeletLeafsFound] = leafHandle;
-                    leafToChildIndexMapping[nodePtr->children[childID]] = leafHandle;
+                    leafToChildIndexMapping[nodePtr->children[childID]] = treeletLeafsFound;
                 } else {
                     // Recurse to get the child index in the final BVH
                     permOffsetsAndFlags[treeletLeafsFound] = createFlagsInner();
                     auto childPtr = dynamic_cast<const ConstructionInnerNode*>(nodePtr->children[childID]);
                     auto [intermediateLeafHandle, _] = collapseTreelet(childPtr, bounds);
                     children[treeletLeafsFound] = intermediateLeafHandle;
-                    leafToChildIndexMapping[nodePtr->children[childID]] = intermediateLeafHandle;
+                    leafToChildIndexMapping[nodePtr->children[childID]] = treeletLeafsFound;
                 }
 
                 treeletLeafsFound++;
@@ -417,8 +473,15 @@ inline std::pair<uint32_t, const typename WiveBVH8<LeafObj>::BVHNode*> WiveBVH8<
             }
         }
     }
-    for (int i = treeletLeafsFound; i < 8; i++)
-        permOffsetsAndFlags[i] = 0u;
+    for (int i = treeletLeafsFound; i < 8; i++) {
+        permOffsetsAndFlags[i] = createFlagsEmpty();
+        minX[i] = 0.0f;
+        minY[i] = 0.0f;
+        minZ[i] = 0.0f;
+        maxX[i] = 0.0f;
+        maxY[i] = 0.0f;
+        maxZ[i] = 0.0f;
+    }
 
     // Compute permutation offsets
     for (int x = -1; x <= 1; x += 2) {
@@ -431,7 +494,7 @@ inline std::pair<uint32_t, const typename WiveBVH8<LeafObj>::BVHNode*> WiveBVH8<
                 eastl::fixed_vector<uint32_t, 8> permutationOffsets;
 
                 stack.clear();
-				stack.push_back(&treeletCopy[0]);
+                stack.push_back(&treeletCopy[0]);
                 while (!stack.empty()) {
                     const auto* nodePtr = stack.back();
                     stack.pop_back();
@@ -439,29 +502,43 @@ inline std::pair<uint32_t, const typename WiveBVH8<LeafObj>::BVHNode*> WiveBVH8<
                     if ((nodePtr->splitAxis == 0 && flipX) || (nodePtr->splitAxis == 1 && flipY) || (nodePtr->splitAxis == 2 && flipZ)) {
                         if (auto childPtr = dynamic_cast<const ConstructionInnerNode*>(nodePtr->children[1]); isTreeletNode(childPtr))
                             stack.push_back(childPtr);
-                        else
+                        else {
+                            assert(leafToChildIndexMapping.find(nodePtr->children[1]) != leafToChildIndexMapping.end());
                             permutationOffsets.push_back(leafToChildIndexMapping[nodePtr->children[1]]);
+                        }
 
                         if (auto childPtr = dynamic_cast<const ConstructionInnerNode*>(nodePtr->children[0]); isTreeletNode(childPtr))
                             stack.push_back(childPtr);
-                        else
+                        else {
+                            assert(leafToChildIndexMapping.find(nodePtr->children[0]) != leafToChildIndexMapping.end());
                             permutationOffsets.push_back(leafToChildIndexMapping[nodePtr->children[0]]);
+                        }
                     } else {
                         if (auto childPtr = dynamic_cast<const ConstructionInnerNode*>(nodePtr->children[0]); isTreeletNode(childPtr))
                             stack.push_back(childPtr);
-                        else
+                        else {
+                            assert(leafToChildIndexMapping.find(nodePtr->children[0]) != leafToChildIndexMapping.end());
                             permutationOffsets.push_back(leafToChildIndexMapping[nodePtr->children[0]]);
+                        }
 
                         if (auto childPtr = dynamic_cast<const ConstructionInnerNode*>(nodePtr->children[1]); isTreeletNode(childPtr))
                             stack.push_back(childPtr);
-                        else
+                        else {
+                            assert(leafToChildIndexMapping.find(nodePtr->children[1]) != leafToChildIndexMapping.end());
                             permutationOffsets.push_back(leafToChildIndexMapping[nodePtr->children[1]]);
+                        }
                     }
                 }
 
+                assert(permutationOffsets.size() == (size_t)treeletLeafsFound);
                 uint32_t shiftAmount = signShiftAmount(x > 0, y > 0, z > 0);
-                for (int i = 0; i < 8; i++) {
-                    permOffsetsAndFlags[i] |= (permutationOffsets[i] & 0b111) << shiftAmount;
+                assert(shiftAmount <= (24 - 3));
+                for (int i = 0; i < treeletLeafsFound; i++) {
+                    assert((int)permutationOffsets[i] <= treeletLeafsFound);
+                    //permOffsetsAndFlags[i] |= (permutationOffsets[i] & 0b111) << shiftAmount;
+                }
+                for (int i = 0; i < treeletLeafsFound; i++) {
+                    permOffsetsAndFlags[i] |= (i & 0b111) << shiftAmount;
                 }
             }
         }

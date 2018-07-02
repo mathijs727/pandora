@@ -22,6 +22,7 @@ public:
 
     inline T& get(Handle handle) const { return m_start[handle]; };
 
+	size_t size() const { return m_maxSize; };
 private:
 	uint32_t allocateBlock();
 
