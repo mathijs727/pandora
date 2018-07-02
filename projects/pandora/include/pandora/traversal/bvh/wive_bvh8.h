@@ -32,12 +32,12 @@ private:
 
 		simd::vec8_f32 tnear;
 		simd::vec8_f32 tfar;
-		simd::vec8_i32 raySignShiftAmount;
+		simd::vec8_u32 raySignShiftAmount;
 	};
 	struct BVHNode;
 	struct BVHLeaf;
-	void traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances, uint32_t& outNumChildren) const;
-	void intersectLeaf(const BVHLeaf* n, const Ray& ray);
+	void traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_u32& outChildTypes, simd::vec8_f32& outDistances, uint32_t& outNumChildren) const;
+	void intersectLeaf(const BVHLeaf* n, Ray& ray, SurfaceInteraction& si) const;
 
     static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
     static void innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr);
@@ -81,15 +81,15 @@ private:
         simd::vec8_u32 children; // Child indices
     };
 
-	const uint32_t emptyHandle = 0xFFFFFFFF;
+	const static uint32_t emptyHandle = 0xFFFFFFFF;
     struct alignas(32) BVHLeaf {
         uint32_t leafObjectIDs[4];
         uint32_t primitiveIDs[4];
     };
 
-    ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHNode>* m_innerNodeAllocator;
-    ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHLeaf>* m_leafNodeAllocator;
-    const BVHNode* m_root;
+    std::unique_ptr<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHNode>> m_innerNodeAllocator;
+    std::unique_ptr<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHLeaf>> m_leafNodeAllocator;
+    uint32_t m_rootHandle;
 
 private:
     std::pair<uint32_t, const WiveBVH8<LeafObj>::BVHNode*> collapseTreelet(const ConstructionInnerNode* treeletRoot, const Bounds& rootBounds);

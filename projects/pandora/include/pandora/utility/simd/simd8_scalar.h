@@ -1,5 +1,11 @@
 #pragma once
 
+template <typename T>
+vec8<T, 1> min(const vec8<T, 1>& a, const vec8<T, 1>& b);
+
+template <typename T>
+vec8<T, 1> max(const vec8<T, 1>& a, const vec8<T, 1>& b);
+
 template <>
 class mask8<1> {
 public:
@@ -71,6 +77,11 @@ public:
         std::copy(std::begin(m_values), std::end(m_values), std::begin(v));
     }
 
+    inline void broadcast(const T& v)
+    {
+        std::fill(std::begin(m_values), std::end(m_values), v);
+    }
+
     inline vec8<T, 1> operator+(const vec8<T, 1>& other) const
     {
         vec8<T, 1> result;
@@ -95,15 +106,15 @@ public:
         return result;
     }
 
-	inline mask8<1> operator<(const vec8<T, 1>& other) const
-	{
-		mask8<1> mask;
-		for (int i = 0; i < 8; i++)
-			mask.m_values[i] = (m_values[i] < other.m_values[i]);
-		return mask;
-	}
+    inline mask8<1> operator<(const vec8<T, 1>& other) const
+    {
+        mask8<1> mask;
+        for (int i = 0; i < 8; i++)
+            mask.m_values[i] = (m_values[i] < other.m_values[i]);
+        return mask;
+    }
 
-    inline vec8<T, 1> permute(const vec8<int, 1>& index) const
+    inline vec8<T, 1> permute(const vec8<uint32_t, 1>& index) const
     {
         vec8<T, 1> result;
         for (int i = 0; i < 8; i++) {
@@ -122,27 +133,12 @@ public:
         return result;
     }
 
+    friend vec8<T, 1> min<T>(const vec8<T, 1>& a, const vec8<T, 1>& b);
+    friend vec8<T, 1> max<T>(const vec8<T, 1>& a, const vec8<T, 1>& b);
+
 protected:
     std::array<T, 8> m_values;
 };
-
-template <typename T>
- vec8<T, 1> min(const vec8<T, 1>& a, const vec8<T, 1>& b)
-{
-	vec8<T, 1> result;
-	for (int i = 0; i < 8; i++)
-		result.m_values[i] = std::min(a.m_values[i], b.m_values[i]);
-	return result;
-}
-
-template <typename T>
-vec8<T, 1> max(const vec8<T, 1>& a, const vec8<T, 1>& b)
-{
-	vec8<T, 1> result;
-	for (int i = 0; i < 8; i++)
-		result.m_values[i] = std::max(a.m_values[i], b.m_values[i]);
-	return result;
-}
 
 template <>
 class vec8<float, 1> : public vec8_base<float, 1> {
@@ -161,40 +157,14 @@ public:
 };
 
 template <>
-class vec8<int32_t, 1> : public vec8_base<int32_t, 1> {
-public:
-	// Inherit constructors
-	using vec8_base<int32_t, 1>::vec8_base;
-	friend class vec8_base<float, 1>; // Make friend so it can access us in permute & compress operations
-	friend class vec8<uint32_t, 1>; // Make friend so it can access us in bitshift operations
-
-	inline vec8<int32_t, 1> operator<<(const vec8<int32_t, 1>& amount) const
-	{
-		vec8<int32_t, 1> result;
-		for (int i = 0; i < 8; i++) {
-			result.m_values[i] = m_values[i] << amount.m_values[i];
-		}
-		return result;
-	}
-
-	inline vec8<int32_t, 1> operator>>(const vec8<int32_t, 1>& amount) const
-	{
-		vec8<int32_t, 1> result;
-		for (int i = 0; i < 8; i++) {
-			result.m_values[i] = m_values[i] >> amount.m_values[i];
-		}
-		return result;
-	}
-};
-
-template <>
 class vec8<uint32_t, 1> : public vec8_base<uint32_t, 1> {
 public:
     // Inherit constructors
     using vec8_base<uint32_t, 1>::vec8_base;
     friend class vec8_base<float, 1>; // Make friend so it can access us in permute & compress operations
+    friend class vec8<int32_t, 1>; // Make friend so it can access us in bitshift operations
 
-    inline vec8<uint32_t, 1> operator<<(const vec8<int32_t, 1>& amount) const
+    inline vec8<uint32_t, 1> operator<<(const vec8<uint32_t, 1>& amount) const
     {
         vec8<uint32_t, 1> result;
         for (int i = 0; i < 8; i++) {
@@ -203,7 +173,7 @@ public:
         return result;
     }
 
-    inline vec8<uint32_t, 1> operator>>(const vec8<int32_t, 1>& amount) const
+    inline vec8<uint32_t, 1> operator>>(const vec8<uint32_t, 1>& amount) const
     {
         vec8<uint32_t, 1> result;
         for (int i = 0; i < 8; i++) {
@@ -211,4 +181,57 @@ public:
         }
         return result;
     }
+
+    inline vec8<uint32_t, 1> operator&(const vec8<uint32_t, 1>& other) const
+    {
+        vec8<uint32_t, 1> result;
+        for (int i = 0; i < 8; i++) {
+            result.m_values[i] = m_values[i] & other.m_values[i];
+        }
+        return result;
+    }
 };
+
+template <>
+class vec8<int32_t, 1> : public vec8_base<int32_t, 1> {
+public:
+    // Inherit constructors
+    using vec8_base<int32_t, 1>::vec8_base;
+    friend class vec8_base<float, 1>; // Make friend so it can access us in permute & compress operations
+
+    inline vec8<int32_t, 1> operator<<(const vec8<uint32_t, 1>& amount) const
+    {
+        vec8<int32_t, 1> result;
+        for (int i = 0; i < 8; i++) {
+            result.m_values[i] = m_values[i] << amount.m_values[i];
+        }
+        return result;
+    }
+
+    inline vec8<int32_t, 1> operator>>(const vec8<uint32_t, 1>& amount) const
+    {
+        vec8<int32_t, 1> result;
+        for (int i = 0; i < 8; i++) {
+            result.m_values[i] = m_values[i] >> amount.m_values[i];
+        }
+        return result;
+    }
+};
+
+template <typename T>
+inline vec8<T, 1> min(const vec8<T, 1>& a, const vec8<T, 1>& b)
+{
+	vec8<T, 1> result;
+	for (int i = 0; i < 8; i++)
+		result.m_values[i] = std::min(a.m_values[i], b.m_values[i]);
+	return result;
+}
+
+template <typename T>
+inline vec8<T, 1> max(const vec8<T, 1>& a, const vec8<T, 1>& b)
+{
+	vec8<T, 1> result;
+	for (int i = 0; i < 8; i++)
+		result.m_values[i] = std::max(a.m_values[i], b.m_values[i]);
+	return result;
+}
