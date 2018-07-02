@@ -61,7 +61,12 @@ public:
         m_values[7] = v7;
     }
 
-    inline void store(gsl::span<T, 8> v)
+    inline void load(gsl::span<const T, 8> v)
+    {
+        std::copy(std::begin(v), std::end(v), std::begin(m_values));
+    }
+
+    inline void store(gsl::span<T, 8> v) const
     {
         std::copy(std::begin(m_values), std::end(m_values), std::begin(v));
     }
@@ -90,29 +95,13 @@ public:
         return result;
     }
 
-    inline mask8<1> operator<(const vec8<T, 1>& other) const
-    {
-        mask8<1> mask;
-        for (int i = 0; i < 8; i++)
-            mask.m_values[i] = (m_values[i] < other.m_values[i]);
-        return mask;
-    }
-
-    inline static vec8<T, 1> min(const vec8<T, 1>& a, const vec8<T, 1>& b)
-    {
-        vec8<T, 1> result;
-        for (int i = 0; i < 8; i++)
-            result.m_values[i] = std::min(a.m_values[i], b.m_values[i]);
-        return result;
-    }
-
-    inline static vec8<T, 1> max(const vec8<T, 1>& a, const vec8<T, 1>& b)
-    {
-        vec8<T, 1> result;
-        for (int i = 0; i < 8; i++)
-            result.m_values[i] = std::max(a.m_values[i], b.m_values[i]);
-        return result;
-    }
+	inline mask8<1> operator<(const vec8<T, 1>& other) const
+	{
+		mask8<1> mask;
+		for (int i = 0; i < 8; i++)
+			mask.m_values[i] = (m_values[i] < other.m_values[i]);
+		return mask;
+	}
 
     inline vec8<T, 1> permute(const vec8<int, 1>& index) const
     {
@@ -137,6 +126,24 @@ protected:
     std::array<T, 8> m_values;
 };
 
+template <typename T>
+ vec8<T, 1> min(const vec8<T, 1>& a, const vec8<T, 1>& b)
+{
+	vec8<T, 1> result;
+	for (int i = 0; i < 8; i++)
+		result.m_values[i] = std::min(a.m_values[i], b.m_values[i]);
+	return result;
+}
+
+template <typename T>
+vec8<T, 1> max(const vec8<T, 1>& a, const vec8<T, 1>& b)
+{
+	vec8<T, 1> result;
+	for (int i = 0; i < 8; i++)
+		result.m_values[i] = std::max(a.m_values[i], b.m_values[i]);
+	return result;
+}
+
 template <>
 class vec8<float, 1> : public vec8_base<float, 1> {
 public:
@@ -154,24 +161,51 @@ public:
 };
 
 template <>
-class vec8<int, 1> : public vec8_base<int, 1> {
+class vec8<int32_t, 1> : public vec8_base<int32_t, 1> {
+public:
+	// Inherit constructors
+	using vec8_base<int32_t, 1>::vec8_base;
+	friend class vec8_base<float, 1>; // Make friend so it can access us in permute & compress operations
+	friend class vec8<uint32_t, 1>; // Make friend so it can access us in bitshift operations
+
+	inline vec8<int32_t, 1> operator<<(const vec8<int32_t, 1>& amount) const
+	{
+		vec8<int32_t, 1> result;
+		for (int i = 0; i < 8; i++) {
+			result.m_values[i] = m_values[i] << amount.m_values[i];
+		}
+		return result;
+	}
+
+	inline vec8<int32_t, 1> operator>>(const vec8<int32_t, 1>& amount) const
+	{
+		vec8<int32_t, 1> result;
+		for (int i = 0; i < 8; i++) {
+			result.m_values[i] = m_values[i] >> amount.m_values[i];
+		}
+		return result;
+	}
+};
+
+template <>
+class vec8<uint32_t, 1> : public vec8_base<uint32_t, 1> {
 public:
     // Inherit constructors
-    using vec8_base<int, 1>::vec8_base;
+    using vec8_base<uint32_t, 1>::vec8_base;
     friend class vec8_base<float, 1>; // Make friend so it can access us in permute & compress operations
 
-    inline vec8<int, 1> operator<<(const vec8<int, 1>& amount) const
+    inline vec8<uint32_t, 1> operator<<(const vec8<int32_t, 1>& amount) const
     {
-        vec8<int, 1> result;
+        vec8<uint32_t, 1> result;
         for (int i = 0; i < 8; i++) {
             result.m_values[i] = m_values[i] << amount.m_values[i];
         }
         return result;
     }
 
-    inline vec8<int, 1> operator>>(const vec8<int, 1>& amount) const
+    inline vec8<uint32_t, 1> operator>>(const vec8<int32_t, 1>& amount) const
     {
-        vec8<int, 1> result;
+        vec8<uint32_t, 1> result;
         for (int i = 0; i < 8; i++) {
             result.m_values[i] = m_values[i] >> amount.m_values[i];
         }

@@ -8,6 +8,9 @@ namespace pandora
 inline void THROW_ERROR(std::string_view errorMessage)
 {
 	std::cerr << errorMessage << std::endl;
+	int i;
+	std::cin >> i;
+	(void)i;
 	exit(-1);
 }
 
