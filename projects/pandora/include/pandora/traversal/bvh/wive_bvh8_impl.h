@@ -143,6 +143,8 @@ inline void WiveBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& 
     outChildTypes = (n->permOffsetsAndFlags >> simd24).permute(index).compress(mask);
     outDistances = tmin.compress(mask);
     //assert(mask.count() <= maxNumChildren);
+	if (mask.count() > 4)
+		assert(mask.count() <= 8);
     outNumChildren = mask.count();
 }
 
@@ -487,9 +489,9 @@ inline std::pair<uint32_t, const typename WiveBVH8<LeafObj>::BVHNode*> WiveBVH8<
     for (int x = -1; x <= 1; x += 2) {
         for (int y = -1; y <= 1; y += 2) {
             for (int z = -1; z <= 1; z += 2) {
-                bool flipX = x > 0;
-                bool flipY = y > 0;
-                bool flipZ = z > 0;
+                bool flipX = x < 0;
+                bool flipY = y < 0;
+                bool flipZ = z < 0;
 
                 eastl::fixed_vector<uint32_t, 8> permutationOffsets;
 
@@ -535,9 +537,10 @@ inline std::pair<uint32_t, const typename WiveBVH8<LeafObj>::BVHNode*> WiveBVH8<
                 assert(shiftAmount <= (24 - 3));
                 for (int i = 0; i < treeletLeafsFound; i++) {
                     assert((int)permutationOffsets[i] <= treeletLeafsFound);
-                    //permOffsetsAndFlags[i] |= (permutationOffsets[i] & 0b111) << shiftAmount;
+                    permOffsetsAndFlags[i] |= (permutationOffsets[i] & 0b111) << shiftAmount;
                 }
-                for (int i = 0; i < treeletLeafsFound; i++) {
+				
+                for (int i = treeletLeafsFound; i < 8; i++) {
                     permOffsetsAndFlags[i] |= (i & 0b111) << shiftAmount;
                 }
             }
