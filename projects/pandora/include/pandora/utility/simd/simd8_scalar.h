@@ -161,7 +161,9 @@ class vec8<uint32_t, 1> : public vec8_base<uint32_t, 1> {
 public:
     // Inherit constructors
     using vec8_base<uint32_t, 1>::vec8_base;
-    friend class vec8_base<float, 1>; // Make friend so it can access us in permute & compress operations
+	friend class vec8_base<float, 1>; // Make friend so it can access us in permute & compress operations
+	friend class vec8_base<int32_t, 1>; // Make friend so it can access us in permute & compress operations
+	friend class vec8_base<uint32_t, 1>; // Make friend so it can access us in permute & compress operations
     friend class vec8<int32_t, 1>; // Make friend so it can access us in bitshift operations
 
     inline vec8<uint32_t, 1> operator<<(const vec8<uint32_t, 1>& amount) const

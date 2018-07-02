@@ -20,6 +20,8 @@ inline WiveBVH8<LeafObj>::~WiveBVH8()
 template <typename LeafObj>
 inline bool WiveBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 {
+	si.sceneObject = nullptr;
+
     SIMDRay simdRay;
     simdRay.originX = simd::vec8_f32(ray.origin.x);
     simdRay.originY = simd::vec8_f32(ray.origin.y);
@@ -36,7 +38,7 @@ inline bool WiveBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
         float distance;
         bool isLeaf;
     };
-    eastl::vector<StackItem> stack;
+    eastl::fixed_vector<StackItem, 10> stack;
     stack.push_back(StackItem { m_rootHandle, 0.0f, false });
     while (!stack.empty()) {
         StackItem item = stack.back();
@@ -185,10 +187,10 @@ inline void WiveBVH8<LeafObj>::commit()
     m_primitives.shrink_to_fit();
 
     testBVH();
-    std::cout << "PRESS ANY KEY TO CONTINUE" << std::endl;
-    int i;
-    std::cin >> i;
-    (void)i;
+    //std::cout << "PRESS ANY KEY TO CONTINUE" << std::endl;
+    //int i;
+    //std::cin >> i;
+    //(void)i;
 }
 
 template <typename LeafObj>
@@ -429,6 +431,7 @@ inline std::pair<uint32_t, const typename WiveBVH8<LeafObj>::BVHNode*> WiveBVH8<
                 eastl::fixed_vector<uint32_t, 8> permutationOffsets;
 
                 stack.clear();
+				stack.push_back(&treeletCopy[0]);
                 while (!stack.empty()) {
                     const auto* nodePtr = stack.back();
                     stack.pop_back();

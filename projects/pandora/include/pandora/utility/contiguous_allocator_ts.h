@@ -46,7 +46,6 @@ inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(uint32_t maxSize, uint32_
     , m_start(new T[maxSize])
     , m_currentSize(0)
 {
-    assert(maxSize % blockSize == 0);
 }
 
 template<typename T>

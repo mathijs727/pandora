@@ -68,16 +68,16 @@ void simd8Tests()
         auto v3 = v1 + v2;
 
         std::array<T, 8> values;
-		simd::vec8<T, S>::min(v2, v3).store(values);
+		simd::min(v2, v3).store(values);
         for (int i = 0; i < 8; i++)
             ASSERT_EQ_T(values[i], (T)4 + i);
 
-		simd::vec8<T, S>::max(v2, v3).store(values);
+		simd::max(v2, v3).store(values);
         for (int i = 0; i < 8; i++)
             ASSERT_EQ_T(values[i], (T)6 + i);
     }
 
-    if constexpr (std::is_same_v<T, int>) {
+    if constexpr (std::is_same_v<T, uint32_t>) {
         auto v3 = v2 << v1;
         std::array<T, 8> values;
         v3.store(values);
@@ -85,7 +85,7 @@ void simd8Tests()
             ASSERT_EQ_T(values[i], (4 + i) << 2);
     }
 
-    if constexpr (std::is_same_v<T, int>) {
+    if constexpr (std::is_same_v<T, uint32_t>) {
         auto v3 = v2 >> v1;
         std::array<T, 8> values;
         v3.store(values);
@@ -94,7 +94,7 @@ void simd8Tests()
     }
 
     {
-		simd::vec8<int, S> index(7, 6, 5, 4, 3, 2, 1, 0);
+		simd::vec8<uint32_t, S> index(7, 6, 5, 4, 3, 2, 1, 0);
         auto v3 = v2.permute(index);
         std::array<T, 8> values;
         v3.store(values);
@@ -103,7 +103,7 @@ void simd8Tests()
     }
 
     {
-		simd::vec8<S> mask(false, false, true, false, true, true, false, true);
+		simd::mask8<S> mask(false, false, true, false, true, true, false, true);
         auto v3 = v2.compress(mask);
         std::array<T, 8> values;
         v3.store(values);
@@ -115,8 +115,8 @@ void simd8Tests()
     }
 
     {
-        auto v3 = SIMDVec8<T, S>(1, 42, 1, 1, 1, 42, 1, 42);
-		simd::vec8<S> mask = v2 < v3;
+        auto v3 = simd::vec8<T, S>(1, 42, 1, 1, 1, 42, 1, 42);
+		simd::mask8<S> mask = v2 < v3;
 		ASSERT_EQ(mask.count(), 3);
     }
 }
