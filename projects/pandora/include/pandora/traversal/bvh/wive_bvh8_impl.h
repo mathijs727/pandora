@@ -25,12 +25,11 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
     simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
 
     struct StackItem {
-        uint32_t nodeHandle;
+        uint32_t compressedNodeHandle;
         float distance;
-        bool isLeaf;
     };
-    eastl::fixed_vector<StackItem, 10> stack;
-    stack.push_back(StackItem{ m_rootHandle, 0.0f, false });
+    eastl::fixed_vector<StackItem, 16> stack;
+    stack.push_back(StackItem{ compressHandleInner(m_rootHandle), 0.0f });
     while (!stack.empty()) {
         StackItem item = stack.back();
         stack.pop_back();
@@ -38,33 +37,30 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
         if (ray.tfar < item.distance)
             continue;
 
-        if (!item.isLeaf) {
+        //std::cout << "Visiting (compressed): " << std::bitset<32>(item.compressedNodeHandle) << std::endl;
+        uint32_t handle = decompressNodeHandle(item.compressedNodeHandle);
+        if (isInnerNode(item.compressedNodeHandle)) {
             // Inner node
             simd::vec8_u32 childrenSIMD;
-            simd::vec8_u32 childTypesSIMD;
             simd::vec8_f32 distancesSIMD;
             uint32_t numChildren;
-            traverseCluster(&m_innerNodeAllocator->get(item.nodeHandle), simdRay, childrenSIMD, childTypesSIMD, distancesSIMD, numChildren);
+            traverseCluster(&m_innerNodeAllocator->get(handle), simdRay, childrenSIMD, distancesSIMD, numChildren);
 
             std::array<uint32_t, 8> children;
-            std::array<uint32_t, 8> childTypes;
             std::array<float, 8> distances;
             childrenSIMD.store(children);
-            childTypesSIMD.store(childTypes);
             distancesSIMD.store(distances);
             for (uint32_t i = 0; i < numChildren; i++) {
-                //assert(childTypes[i] == NodeType::InnerNode || childTypes[i] == NodeType::LeafNode);
-
-                bool isLeaf = (childTypes[i] == NodeType::LeafNode);
-                /*if (isLeaf)
-					assert(children[i] < m_leafNodeAllocator->size());
-				else
-					assert(children[i] < m_innerNodeAllocator->size());*/
-                stack.push_back(StackItem{ children[i], distances[i], isLeaf });
+                stack.push_back(StackItem{ children[i], distances[i] });
             }
         } else {
+#ifndef NDEBUG
+            if (isEmptyNode(item.compressedNodeHandle))
+                THROW_ERROR("Empty node in traversal");
+            assert(isLeafNode(item.compressedNodeHandle));
+#endif
             // Leaf node
-            hit |= intersectLeaf(&m_leafNodeAllocator->get(item.nodeHandle), ray, si);
+            hit |= intersectLeaf(&m_leafNodeAllocator->get(handle), leafNodePrimitiveCount(item.compressedNodeHandle), ray, si);
             simdRay.tfar.broadcast(ray.tfar);
         }
     }
@@ -74,7 +70,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 }
 
 template <typename LeafObj>
-inline void WiVeBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_u32& outChildTypes, simd::vec8_f32& outDistances, uint32_t& outNumChildren) const
+inline void WiVeBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances, uint32_t& outNumChildren) const
 {
     simd::vec8_f32 tx1 = (n->minX - ray.originX) * ray.invDirectionX;
     simd::vec8_f32 tx2 = (n->maxX - ray.originX) * ray.invDirectionX;
@@ -91,59 +87,27 @@ inline void WiVeBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& 
     simd::vec8_f32 tmin = simd::max(ray.tnear, simd::max(txMin, simd::max(tyMin, tzMin)));
     simd::vec8_f32 tmax = simd::min(ray.tfar, simd::min(txMax, simd::min(tyMax, tzMax)));
 
-    /*std::array<uint32_t, 8> permsAndFlags;
-	n->permOffsetsAndFlags.store(permsAndFlags);
-	int maxNumChildren = 0;
-	for (uint32_t i = 0; i < 8; i++) {
-		if (isLeafNode(permsAndFlags[i]) || isInnerNode(permsAndFlags[i]))
-			maxNumChildren++;
-	}
-
-	for (int i = 0; i < maxNumChildren; i++) {
-		Bounds bounds;
-		bounds.grow(glm::vec3(n->minX[i], n->minY[i], n->minZ[i]));
-		bounds.grow(glm::vec3(n->maxX[i], n->maxY[i], n->maxZ[i]));
-		Ray scalarRay;
-		scalarRay.origin = glm::vec3(ray.originX[0], ray.originY[0], ray.originZ[0]);
-		scalarRay.direction = glm::vec3(1.0f / ray.invDirectionX[0], 1.0f / ray.invDirectionY[0], 1.0f / ray.invDirectionZ[0]);
-		//scalarRay.tnear = ray.tnear[0];
-		//scalarRay.tfar = ray.tfar[0];
-		float tminScalar, tmaxScalar;
-		if (bounds.intersect(scalarRay, tminScalar, tmaxScalar))
-		{
-			tminScalar = std::max(tminScalar, ray.tnear[0]);
-			tmaxScalar = std::min(tmaxScalar, ray.tfar[0]);
-			assert(std::abs(tminScalar - tmin[i]) < 0.0001f);
-			assert(std::abs(tmaxScalar - tmax[i]) < 0.0001f);
-		}
-	}*/
-
     const static simd::vec8_u32 indexMask(0b111);
     const static simd::vec8_u32 simd24(24);
-    simd::vec8_u32 index = (n->permOffsetsAndFlags >> ray.raySignShiftAmount) & indexMask;
+    simd::vec8_u32 index = (n->permutationOffsets >> ray.raySignShiftAmount) & indexMask;
 
     tmin = tmin.permute(index);
     tmax = tmax.permute(index);
     simd::mask8 mask = tmin < tmax;
     outChildren = n->children.permute(index).compress(mask);
-    outChildTypes = (n->permOffsetsAndFlags >> simd24).permute(index).compress(mask);
     outDistances = tmin.compress(mask);
-    //assert(mask.count() <= maxNumChildren);
-    if (mask.count() > 4)
-        assert(mask.count() <= 8);
     outNumChildren = mask.count();
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, Ray& ray, SurfaceInteraction& si) const
+inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, SurfaceInteraction& si) const
 {
     bool hit = false;
     const auto* leafObjectIDs = n->leafObjectIDs;
     const auto* primitiveIDs = n->primitiveIDs;
-    for (int i = 0; i < 4; i++) {
-        if (leafObjectIDs[i] == emptyHandle)
-            break;
-
+    for (uint32_t i = 0; i < 4; i++) {
+		if (leafObjectIDs[i] == emptyHandle)
+			break;
         hit |= m_leafObjects[i]->intersectPrimitive(primitiveIDs[i], ray, si);
     }
     return hit;
@@ -153,15 +117,13 @@ template <typename LeafObj>
 inline void WiVeBVH8<LeafObj>::testBVH() const
 {
     TestBVHData results;
-    results.numPrimitives = 0;
-    for (int i = 0; i < 9; i++)
-        results.numChildrenHistogram[i] = 0;
-    testBVHRecurse(&m_innerNodeAllocator->get(m_rootHandle), results);
+    testBVHRecurse(&m_innerNodeAllocator->get(m_rootHandle), 1, results);
 
     std::cout << std::endl;
     std::cout << " <<< BVH Build results >>> " << std::endl;
     std::cout << "===========================" << std::endl;
     std::cout << "Primitives reached: " << results.numPrimitives << std::endl;
+    std::cout << "Max depth:          " << results.maxDepth << std::endl;
     std::cout << "\nChild count histogram:\n";
     for (int i = 0; i < 8; i++)
         std::cout << i << ": " << results.numChildrenHistogram[i] << std::endl;
@@ -169,24 +131,24 @@ inline void WiVeBVH8<LeafObj>::testBVH() const
 }
 
 template <typename LeafObj>
-inline void WiVeBVH8<LeafObj>::testBVHRecurse(const BVHNode* node, TestBVHData& out) const
+inline void WiVeBVH8<LeafObj>::testBVHRecurse(const BVHNode* node, int depth, TestBVHData& out) const
 {
-    std::array<uint32_t, 8> permOffsetsAndFlags;
     std::array<uint32_t, 8> children;
-    node->permOffsetsAndFlags.store(permOffsetsAndFlags);
     node->children.store(children);
 
     int numChildren = 0;
     for (int i = 0; i < 8; i++) {
-        if (isLeafNode(permOffsetsAndFlags[i])) {
-            out.numPrimitives += leafNodeChildCount(children[i]);
-        } else if (isInnerNode(permOffsetsAndFlags[i])) {
-            testBVHRecurse(&m_innerNodeAllocator->get(children[i]), out);
+        if (isLeafNode(children[i])) {
+            out.numPrimitives += leafNodePrimitiveCount(children[i]);
+        } else if (isInnerNode(children[i])) {
+
+            testBVHRecurse(&m_innerNodeAllocator->get(decompressNodeHandle(children[i])), depth + 1, out);
         }
 
-        if (!isEmptyNode(permOffsetsAndFlags[i]))
+        if (!isEmptyNode(children[i]))
             numChildren++;
     }
+    out.maxDepth = std::max(out.maxDepth, depth);
     out.numChildrenHistogram[numChildren]++;
 }
 
@@ -212,49 +174,56 @@ inline void WiVeBVH8<LeafObj>::addObject(const LeafObj* addObject)
 }
 
 template <typename LeafObj>
-inline uint32_t WiVeBVH8<LeafObj>::createFlagsInner()
+inline uint32_t WiVeBVH8<LeafObj>::compressHandleInner(uint32_t handle)
 {
-    return NodeType::InnerNode << 24;
+    assert(handle < (1 << 29) - 1);
+    return (handle & ((1 << 29) - 1)) | (0b010 << 29);
 }
 
 template <typename LeafObj>
-inline uint32_t WiVeBVH8<LeafObj>::createFlagsLeaf()
+inline uint32_t WiVeBVH8<LeafObj>::compressHandleLeaf(uint32_t handle, uint32_t primCount)
 {
-    return NodeType::LeafNode << 24;
+    assert(primCount > 0 && primCount <= 4);
+    assert(handle < (1 << 29) - 1);
+    return (handle & ((1 << 29) - 1)) | ((0b100 | (primCount - 1)) << 29);
 }
 
 template <typename LeafObj>
-inline uint32_t WiVeBVH8<LeafObj>::createFlagsEmpty()
+inline uint32_t WiVeBVH8<LeafObj>::compressHandleEmpty()
 {
-    return NodeType::EmptyNode << 24;
+    return 0u; // 0 | (0b000 << 29)
+}
+
+#include <bitset>
+#include <iostream>
+template <typename LeafObj>
+inline bool WiVeBVH8<LeafObj>::isLeafNode(uint32_t compressedHandle)
+{
+    return ((compressedHandle >> 29) & 0b100) == 0b100; // Other 2 bits are used to store the primitive count
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::isLeafNode(uint32_t nodePermsAndFlags)
+inline bool WiVeBVH8<LeafObj>::isInnerNode(uint32_t compressedHandle)
 {
-    return (nodePermsAndFlags >> 24) == NodeType::LeafNode;
+    return ((compressedHandle >> 29) & 0b111) == 0b010;
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::isInnerNode(uint32_t nodePermsAndFlags)
+inline bool WiVeBVH8<LeafObj>::isEmptyNode(uint32_t compressedHandle)
 {
-    return (nodePermsAndFlags >> 24) == NodeType::InnerNode;
+    return ((compressedHandle >> 29) & 0b111) == 0b000;
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::isEmptyNode(uint32_t nodePermsAndFlags)
+inline uint32_t WiVeBVH8<LeafObj>::decompressNodeHandle(uint32_t compressedHandle)
 {
-    return (nodePermsAndFlags >> 24) == NodeType::EmptyNode;
+    return compressedHandle & ((1u << 29) - 1);
 }
 
 template <typename LeafObj>
-inline uint32_t WiVeBVH8<LeafObj>::leafNodeChildCount(uint32_t nodeHandle) const
+inline uint32_t WiVeBVH8<LeafObj>::leafNodePrimitiveCount(uint32_t compressedHandle)
 {
-    const auto& node = m_leafNodeAllocator->get(nodeHandle);
-    uint32_t count = 0;
-    for (int i = 0; i < 4; i++)
-        count += (node.leafObjectIDs[i] != emptyHandle ? 1 : 0);
-    return count;
+    return ((compressedHandle >> 29) & 0b011) + 1;
 }
 
 template <typename LeafObj>

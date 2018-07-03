@@ -9,6 +9,10 @@
 #include <tuple>
 #include <vector>
 
+
+#include <bitset>
+#include <iostream>
+
 namespace pandora {
 
 template <typename LeafObj>
@@ -24,51 +28,54 @@ public:
 protected:
     void testBVH() const;
 
-    static uint32_t createFlagsInner();
-    static uint32_t createFlagsLeaf();
-    static uint32_t createFlagsEmpty();
-    static bool isLeafNode(uint32_t nodePermsAndFlags);
-    static bool isInnerNode(uint32_t nodePermsAndFlags);
-    static bool isEmptyNode(uint32_t nodePermsAndFlags);
+    // 32 bits for node + flags
+    // 29 bit node handle: ~500.000.000 inner nodes / leaf nodes (counting seperately) max -> should be enough
+    // 3 bit flags: [000] = empty node, [010] = inner node, [1xx] is leaf node where xx = number of primitives - 1
+    // [flags+prim count (3 bits) - handle (29 bits)]
+    static uint32_t compressHandleInner(uint32_t handle);
+    static uint32_t compressHandleLeaf(uint32_t handle, uint32_t primCount);
+    static uint32_t compressHandleEmpty();
+    static bool isLeafNode(uint32_t compressedHandle);
+    static bool isInnerNode(uint32_t compressedHandle);
+    static bool isEmptyNode(uint32_t compressedHandle);
+    static uint32_t decompressNodeHandle(uint32_t compressedHandle);
+    static uint32_t leafNodePrimitiveCount(uint32_t compressedHandle);
 
-    uint32_t leafNodeChildCount(uint32_t nodeHandle) const;
     static uint32_t signShiftAmount(bool posX, bool posY, bool posZ);
+
 protected:
-	struct BVHNode;
-	struct BVHLeaf;
+    struct BVHNode;
+    struct BVHLeaf;
+
 private:
-	struct SIMDRay;
-    void traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_u32& outChildTypes, simd::vec8_f32& outDistances, uint32_t& outNumChildren) const;
-    bool intersectLeaf(const BVHLeaf* n, Ray& ray, SurfaceInteraction& si) const;
+    struct SIMDRay;
+    void traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances, uint32_t& outNumChildren) const;
+    bool intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, SurfaceInteraction& si) const;
 
     struct TestBVHData {
-        int numPrimitives;
-        std::array<int, 9> numChildrenHistogram;
+        int numPrimitives = 0;
+        int maxDepth = 0;
+        std::array<int, 9> numChildrenHistogram = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     };
-    void testBVHRecurse(const BVHNode* node, TestBVHData& out) const;
+    void testBVHRecurse(const BVHNode* node, int depth, TestBVHData& out) const;
 
 protected:
-	enum NodeType : uint32_t {
-		EmptyNode = 0b00,
-		InnerNode = 0b01,
-		LeafNode = 0b10
-	};
+    struct alignas(64) BVHNode { // 256 bytes (4 cache lines)
+        simd::vec8_f32 minX; // 32 bytes
+        simd::vec8_f32 maxX; // 32 bytes
+        simd::vec8_f32 minY; // 32 bytes
+        simd::vec8_f32 maxY; // 32 bytes
+        simd::vec8_f32 minZ; // 32 bytes
+        simd::vec8_f32 maxZ; // 32 bytes
+        simd::vec8_u32 children; // Child indices
+        //simd::vec8_u32 permOffsetsAndFlags; // Per child: [child flags (1 byte) - permutation offsets (3 bytes)]
+        simd::vec8_u32 permutationOffsets; // 3 bytes. Can use the other byte for flags but storing it on the stack during traversal is expensive
+    };
 
-	struct alignas(64) BVHNode { // 256 bytes (4 cache lines)
-		simd::vec8_f32 minX; // 32 bytes
-		simd::vec8_f32 maxX; // 32 bytes
-		simd::vec8_f32 minY; // 32 bytes
-		simd::vec8_f32 maxY; // 32 bytes
-		simd::vec8_f32 minZ; // 32 bytes
-		simd::vec8_f32 maxZ; // 32 bytes
-		simd::vec8_u32 children; // Child indices
-		simd::vec8_u32 permOffsetsAndFlags; // Per child: [child flags (1 byte) - permutation offsets (3 bytes)]
-	};
-
-	struct alignas(32) BVHLeaf {
-		uint32_t leafObjectIDs[4];
-		uint32_t primitiveIDs[4];
-	};
+    struct alignas(32) BVHLeaf {
+        uint32_t leafObjectIDs[4];
+        uint32_t primitiveIDs[4];
+    };
 
     const static uint32_t emptyHandle = 0xFFFFFFFF;
 
@@ -80,19 +87,19 @@ protected:
     uint32_t m_rootHandle;
 
 private:
-	struct SIMDRay {
-		simd::vec8_f32 originX;
-		simd::vec8_f32 originY;
-		simd::vec8_f32 originZ;
+    struct SIMDRay {
+        simd::vec8_f32 originX;
+        simd::vec8_f32 originY;
+        simd::vec8_f32 originZ;
 
-		simd::vec8_f32 invDirectionX;
-		simd::vec8_f32 invDirectionY;
-		simd::vec8_f32 invDirectionZ;
+        simd::vec8_f32 invDirectionX;
+        simd::vec8_f32 invDirectionY;
+        simd::vec8_f32 invDirectionZ;
 
-		simd::vec8_f32 tnear;
-		simd::vec8_f32 tfar;
-		simd::vec8_u32 raySignShiftAmount;
-	};
+        simd::vec8_f32 tnear;
+        simd::vec8_f32 tfar;
+        simd::vec8_u32 raySignShiftAmount;
+    };
 };
 
 }

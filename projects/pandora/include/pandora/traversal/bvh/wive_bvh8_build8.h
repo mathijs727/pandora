@@ -1,5 +1,6 @@
 #pragma once
 #include "wive_bvh8.h"
+#include <variant>
 
 namespace pandora {
 
@@ -10,7 +11,16 @@ public:
 private:
 	// Pair: [handle, isLeaf]
 	struct ConstructionBVHNode;
-	std::pair<uint32_t, bool> finalTreeFromConstructionTree(const ConstructionBVHNode* node);
+	struct InnerNodeHandle
+	{
+		uint32_t handle;
+	};
+	struct LeafNodeHandle
+	{
+		uint32_t handle;
+		uint32_t primitiveCount;
+	};
+	std::variant<InnerNodeHandle, LeafNodeHandle> finalTreeFromConstructionTree(const ConstructionBVHNode* node);
 	static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
 	static void innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr);
 	static void innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr);

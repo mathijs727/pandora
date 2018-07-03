@@ -1,3 +1,5 @@
+#include "pandora/utility/error_handling.h"
+
 template <typename LeafObj>
 inline void WiVeBVH8Build8<LeafObj>::commit()
 {
@@ -27,9 +29,11 @@ inline void WiVeBVH8Build8<LeafObj>::commit()
 	m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>((uint32_t)m_primitives.size() * 2, 16);
 	m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>((uint32_t)m_primitives.size() * 2, 16);
 
-	auto[rootHandle, isLeaf] = finalTreeFromConstructionTree(constructionTreeRootNode);
-	assert(!isLeaf);
-	m_rootHandle = rootHandle;
+	auto nodeInfo = finalTreeFromConstructionTree(constructionTreeRootNode);
+	if (!std::holds_alternative<InnerNodeHandle>(nodeInfo))
+		THROW_ERROR("BVH root node may not be a leaf node!");
+
+	m_rootHandle = std::get<InnerNodeHandle>(nodeInfo).handle;
 
 	rtcReleaseBVH(bvh);
 	rtcReleaseDevice(device);
@@ -42,7 +46,7 @@ inline void WiVeBVH8Build8<LeafObj>::commit()
 }
 
 template <typename LeafObj>
-inline std::pair<uint32_t, bool> WiVeBVH8Build8<LeafObj>::finalTreeFromConstructionTree(const ConstructionBVHNode* p)
+inline std::variant<typename WiVeBVH8Build8<LeafObj>::InnerNodeHandle, typename WiVeBVH8Build8<LeafObj>::LeafNodeHandle> WiVeBVH8Build8<LeafObj>::finalTreeFromConstructionTree(const ConstructionBVHNode* p)
 {
 	if (const auto* nodePtr = dynamic_cast<const ConstructionInnerNode*>(p)) {
 		// Allocate node
@@ -51,7 +55,7 @@ inline std::pair<uint32_t, bool> WiVeBVH8Build8<LeafObj>::finalTreeFromConstruct
 
 		// Copy child data
 		std::array<float, 8> minX, minY, minZ, maxX, maxY, maxZ;
-		std::array<uint32_t, 8> children, permOffsetsAndFlags; // Permutation offsets and child flags
+		std::array<uint32_t, 8> children, permutationOffsets; // Permutation offsets and child flags
 		for (size_t i = 0; i < numChildren; i++) {
 			minX[i] = nodePtr->childBounds[i].min.x;
 			minY[i] = nodePtr->childBounds[i].min.y;
@@ -59,17 +63,21 @@ inline std::pair<uint32_t, bool> WiVeBVH8Build8<LeafObj>::finalTreeFromConstruct
 			maxX[i] = nodePtr->childBounds[i].max.x;
 			maxY[i] = nodePtr->childBounds[i].max.y;
 			maxZ[i] = nodePtr->childBounds[i].max.z;
-			auto[childHandle, childIsLeaf] = finalTreeFromConstructionTree(nodePtr->children[i]);
-			children[i] = childHandle;
-			permOffsetsAndFlags[i] = (childIsLeaf ? NodeType::LeafNode : NodeType::InnerNode) << 24;
+			auto childInfo = finalTreeFromConstructionTree(nodePtr->children[i]);
+			if (std::holds_alternative<InnerNodeHandle>(childInfo)) {
+				children[i] = compressHandleInner(std::get<InnerNodeHandle>(childInfo).handle);
+			} else {
+				const auto& leafInfo = std::get<LeafNodeHandle>(childInfo);
+				children[i] = compressHandleLeaf(leafInfo.handle, leafInfo.primitiveCount);
+			}
 		}
 		for (size_t i = numChildren; i < 8; i++) {
 			minX[i] = minY[i] = minZ[i] = maxX[i] = maxY[i] = maxZ[i] = 0.0f;
-			children[i] = emptyHandle;
-			permOffsetsAndFlags[i] = NodeType::EmptyNode << 24;
+			children[i] = compressHandleEmpty();
 		}
 
 		// Create permutations
+		std::fill(std::begin(permutationOffsets), std::end(permutationOffsets), 0);
 		for (int x = -1; x <= 1; x += 2) {
 			for (int y = -1; y <= 1; y += 2) {
 				for (int z = -1; z <= 1; z += 2) {
@@ -93,7 +101,7 @@ inline std::pair<uint32_t, bool> WiVeBVH8Build8<LeafObj>::finalTreeFromConstruct
 
 					uint32_t shiftAmount = signShiftAmount(x > 0, y > 0, z > 0);
 					for (int i = 0; i < 8; i++)
-						permOffsetsAndFlags[i] |= indices[i] << shiftAmount;
+						permutationOffsets[i] |= indices[i] << shiftAmount;
 				}
 			}
 		}
@@ -106,22 +114,23 @@ inline std::pair<uint32_t, bool> WiVeBVH8Build8<LeafObj>::finalTreeFromConstruct
 		finalNodePtr->maxY.load(maxY);
 		finalNodePtr->maxZ.load(maxZ);
 		finalNodePtr->children.load(children);
-		finalNodePtr->permOffsetsAndFlags.load(permOffsetsAndFlags);
-		return { finalNodeHandle, false };
+		finalNodePtr->permutationOffsets.load(permutationOffsets);
+		return InnerNodeHandle { finalNodeHandle };
 	} else if (const auto* nodePtr = dynamic_cast<const ConstructionLeafNode*>(p)) {
 		auto[finalNodeHandle, finalNodePtr] = m_leafNodeAllocator->allocate();
-		for (size_t i = 0; i < nodePtr->leafs.size(); i++) {
+		uint32_t primitiveCount = (uint32_t)nodePtr->leafs.size();
+		for (uint32_t i = 0; i < primitiveCount; i++) {
 			finalNodePtr->leafObjectIDs[i] = std::get<0>(nodePtr->leafs[i]);
 			finalNodePtr->primitiveIDs[i] = std::get<1>(nodePtr->leafs[i]);
 		}
-		for (size_t i = nodePtr->leafs.size(); i < 4; i++) {
+		for (uint32_t i = primitiveCount; i < 4; i++) {
 			finalNodePtr->leafObjectIDs[i] = emptyHandle;
 			finalNodePtr->primitiveIDs[i] = emptyHandle;
 		}
-		return { finalNodeHandle, true };
+		return LeafNodeHandle{ finalNodeHandle, primitiveCount };
 	} else {
 		THROW_ERROR("Unknown WiVe BVH construction node type!");
-		return { -1, false };
+		return InnerNodeHandle{ 0 };
 	}
 }
 
