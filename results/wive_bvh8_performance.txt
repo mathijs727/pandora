@@ -8,6 +8,10 @@ WiVe build8 AVX2 (initial)
 Release: 73~74ms
 RelWithDebInfo: 83~84ms
 
+WiVe build8 AVX2 (compress with LUT)
+Release: ~73ms
+RelWithDebInfo: ~82ms
+
 Embree (single ray, custom geom)
 Release: ~71ms
 RelWithDebInfo: 84~85ms
