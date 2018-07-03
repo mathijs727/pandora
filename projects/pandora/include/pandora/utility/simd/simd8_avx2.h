@@ -34,18 +34,13 @@ public:
             v2 ? 0xFFFFFFFF : 0x0,
             v1 ? 0xFFFFFFFF : 0x0,
             v0 ? 0xFFFFFFFF : 0x0);
+		m_mask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value));
     }
 
     inline int count()
     {
         unsigned mask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value)); // SEt bit to 1 for each mask entry that is 0xFFFFFFFF
         return _mm_popcnt_u32(mask);
-        /*alignas(16) std::array<uint32_t, 8> values;
-		_mm256_store_si256(reinterpret_cast<__m256i*>(values.data()), m_value);
-        int c = 0;
-        for (uint32_t v : values)
-            c += v & 0b1;
-        return c;*/
     }
 
 private:

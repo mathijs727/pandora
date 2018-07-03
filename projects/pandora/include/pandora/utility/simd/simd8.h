@@ -1,5 +1,6 @@
 #pragma once
 #include <gsl/span>
+#include <iostream>
 
 constexpr static int SIMD_WIDTH = 1;
 

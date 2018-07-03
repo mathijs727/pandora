@@ -115,18 +115,18 @@ void simd8Tests()
 
     {
         auto v3 = simd::vec8<T, S>(1, 42, 1, 1, 1, 42, 1, 42);
-		simd::mask8<S> mask = v2 < v3;
-		ASSERT_EQ(mask.count(), 3);
+        simd::mask8<S> mask = v2 < v3;
+        ASSERT_EQ(mask.count(), 3);
     }
 
-	{
-		auto v3 = simd::vec8<T, S>(1, 42, 1, 1, 1, 42, 1, 42);
-		simd::mask8<S> mask = v2 > v3;
-		ASSERT_EQ(mask.count(), 5);
-	}
+    {
+        auto v3 = simd::vec8<T, S>(1, 42, 1, 1, 1, 42, 1, 42);
+        simd::mask8<S> mask = v2 > v3;
+        ASSERT_EQ(mask.count(), 5);
+    }
 
-	/*{
-		simd::mask8<S> mask(false, false, true, false, true, true, false, true);
+    {
+        simd::mask8<S> mask(false, false, true, false, true, true, false, true);
         auto v3 = v2.compress(mask);
         std::array<T, 8> values;
         v3.store(values);
@@ -135,7 +135,7 @@ void simd8Tests()
         ASSERT_EQ_T(values[2], 9);
         ASSERT_EQ_T(values[3], 11);
         ASSERT_EQ(mask.count(), 4);
-    }*/
+    }
 }
 
 TEST(SIMD8, Scalar)
