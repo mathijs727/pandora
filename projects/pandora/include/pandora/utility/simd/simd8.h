@@ -2,7 +2,7 @@
 #include <gsl/span>
 #include <iostream>
 
-constexpr static int SIMD_WIDTH = 1;
+constexpr static int SIMD_WIDTH = 8;
 
 namespace pandora::simd {
 template <int S = SIMD_WIDTH>

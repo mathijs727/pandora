@@ -99,6 +99,16 @@ void simd8Tests()
             ASSERT_EQ_T(values[i], (4 + i) >> 2);
     }
 
+    if constexpr (std::is_same_v<T, uint32_t>) {
+        simd::vec8<uint32_t, S> mask(0xFF, 0x0F, 0xF0, 0x0, 0x1, 0x2, 0x3, 0xF0F0F);
+        simd::vec8<uint32_t, S> source(123, 0xF3, 0xDD, 0xFFFFFFFF, 0b0101, 0b0101, 0xFF, 0xABCDE);
+        std::array<uint32_t, 8> expectedResults = { 123, 0x3, 0xD0, 0x0, 0x1, 0x0, 0x3, 0xA0C0E };
+        std::array<T, 8> values;
+        (source & mask).store(values);
+        for (int i = 0; i < 8; i++)
+            ASSERT_EQ_T(values[i], expectedResults[i]);
+    }
+
     {
         simd::vec8<uint32_t, S> index(7, 6, 5, 4, 3, 2, 1, 0);
         auto v3 = v2.permute(index);

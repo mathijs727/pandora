@@ -82,7 +82,7 @@ public:
             m_value = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(v.data()));
     }
 
-    inline void store(gsl::span<uint32_t, 8> v)
+    inline void store(gsl::span<uint32_t, 8> v) const
     {
         if (((uintptr_t)v.data()) % 32 == 0)
             _mm256_store_si256(reinterpret_cast<__m256i*>(v.data()), m_value);
@@ -121,6 +121,11 @@ public:
     {
 		return vec8(_mm256_srlv_epi32(m_value, amount.m_value));
     }
+
+	inline vec8<uint32_t, 8> operator&(const vec8<uint32_t, 8>& other) const
+	{
+		return vec8(_mm256_and_si256(m_value, other.m_value));
+	}
 
     inline mask8<8> operator<(const vec8<uint32_t, 8>& other) const
     {
@@ -192,7 +197,7 @@ public:
             m_value = _mm256_loadu_ps(v.data());
     }
 
-    inline void store(gsl::span<float, 8> v)
+    inline void store(gsl::span<float, 8> v) const
     {
         if (((uintptr_t)v.data()) % 32 == 0)
             _mm256_store_ps(v.data(), m_value);
