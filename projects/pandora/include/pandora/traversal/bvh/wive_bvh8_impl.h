@@ -8,7 +8,7 @@
 namespace pandora {
 
 template <typename LeafObj>
-inline bool WiveBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
+inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 {
     si.sceneObject = nullptr;
     bool hit = false;
@@ -74,7 +74,7 @@ inline bool WiveBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 }
 
 template <typename LeafObj>
-inline void WiveBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_u32& outChildTypes, simd::vec8_f32& outDistances, uint32_t& outNumChildren) const
+inline void WiVeBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_u32& outChildTypes, simd::vec8_f32& outDistances, uint32_t& outNumChildren) const
 {
     simd::vec8_f32 tx1 = (n->minX - ray.originX) * ray.invDirectionX;
     simd::vec8_f32 tx2 = (n->maxX - ray.originX) * ray.invDirectionX;
@@ -135,7 +135,7 @@ inline void WiveBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& 
 }
 
 template <typename LeafObj>
-inline bool WiveBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, Ray& ray, SurfaceInteraction& si) const
+inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, Ray& ray, SurfaceInteraction& si) const
 {
     bool hit = false;
     const auto* leafObjectIDs = n->leafObjectIDs;
@@ -150,7 +150,7 @@ inline bool WiveBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, Ray& ray, Surface
 }
 
 template <typename LeafObj>
-inline void WiveBVH8<LeafObj>::testBVH() const
+inline void WiVeBVH8<LeafObj>::testBVH() const
 {
     TestBVHData results;
     results.numPrimitives = 0;
@@ -169,7 +169,7 @@ inline void WiveBVH8<LeafObj>::testBVH() const
 }
 
 template <typename LeafObj>
-inline void WiveBVH8<LeafObj>::testBVHRecurse(const BVHNode* node, TestBVHData& out) const
+inline void WiVeBVH8<LeafObj>::testBVHRecurse(const BVHNode* node, TestBVHData& out) const
 {
     std::array<uint32_t, 8> permOffsetsAndFlags;
     std::array<uint32_t, 8> children;
@@ -191,7 +191,7 @@ inline void WiveBVH8<LeafObj>::testBVHRecurse(const BVHNode* node, TestBVHData& 
 }
 
 template <typename LeafObj>
-inline void WiveBVH8<LeafObj>::addObject(const LeafObj* addObject)
+inline void WiVeBVH8<LeafObj>::addObject(const LeafObj* addObject)
 {
     for (unsigned primitiveID = 0; primitiveID < addObject->numPrimitives(); primitiveID++) {
         auto bounds = addObject->getPrimitiveBounds(primitiveID);
@@ -212,43 +212,43 @@ inline void WiveBVH8<LeafObj>::addObject(const LeafObj* addObject)
 }
 
 template <typename LeafObj>
-inline uint32_t WiveBVH8<LeafObj>::createFlagsInner()
+inline uint32_t WiVeBVH8<LeafObj>::createFlagsInner()
 {
     return NodeType::InnerNode << 24;
 }
 
 template <typename LeafObj>
-inline uint32_t WiveBVH8<LeafObj>::createFlagsLeaf()
+inline uint32_t WiVeBVH8<LeafObj>::createFlagsLeaf()
 {
     return NodeType::LeafNode << 24;
 }
 
 template <typename LeafObj>
-inline uint32_t WiveBVH8<LeafObj>::createFlagsEmpty()
+inline uint32_t WiVeBVH8<LeafObj>::createFlagsEmpty()
 {
     return NodeType::EmptyNode << 24;
 }
 
 template <typename LeafObj>
-inline bool WiveBVH8<LeafObj>::isLeafNode(uint32_t nodePermsAndFlags)
+inline bool WiVeBVH8<LeafObj>::isLeafNode(uint32_t nodePermsAndFlags)
 {
     return (nodePermsAndFlags >> 24) == NodeType::LeafNode;
 }
 
 template <typename LeafObj>
-inline bool WiveBVH8<LeafObj>::isInnerNode(uint32_t nodePermsAndFlags)
+inline bool WiVeBVH8<LeafObj>::isInnerNode(uint32_t nodePermsAndFlags)
 {
     return (nodePermsAndFlags >> 24) == NodeType::InnerNode;
 }
 
 template <typename LeafObj>
-inline bool WiveBVH8<LeafObj>::isEmptyNode(uint32_t nodePermsAndFlags)
+inline bool WiVeBVH8<LeafObj>::isEmptyNode(uint32_t nodePermsAndFlags)
 {
     return (nodePermsAndFlags >> 24) == NodeType::EmptyNode;
 }
 
 template <typename LeafObj>
-inline uint32_t WiveBVH8<LeafObj>::leafNodeChildCount(uint32_t nodeHandle) const
+inline uint32_t WiVeBVH8<LeafObj>::leafNodeChildCount(uint32_t nodeHandle) const
 {
     const auto& node = m_leafNodeAllocator->get(nodeHandle);
     uint32_t count = 0;
@@ -258,7 +258,7 @@ inline uint32_t WiveBVH8<LeafObj>::leafNodeChildCount(uint32_t nodeHandle) const
 }
 
 template <typename LeafObj>
-inline uint32_t WiveBVH8<LeafObj>::signShiftAmount(bool positiveX, bool positiveY, bool positiveZ)
+inline uint32_t WiVeBVH8<LeafObj>::signShiftAmount(bool positiveX, bool positiveY, bool positiveZ)
 {
     return ((positiveX ? 0b001 : 0u) | (positiveY ? 0b010 : 0u) | (positiveZ ? 0b100 : 0u)) * 3;
 }

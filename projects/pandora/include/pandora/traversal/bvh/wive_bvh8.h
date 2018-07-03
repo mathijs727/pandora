@@ -12,10 +12,10 @@
 namespace pandora {
 
 template <typename LeafObj>
-class WiveBVH8 : public BVH<LeafObj> {
+class WiVeBVH8 : public BVH<LeafObj> {
 public:
-    WiveBVH8() = default;
-    ~WiveBVH8() = default;
+    WiVeBVH8() = default;
+    ~WiVeBVH8() = default;
 
     void addObject(const LeafObj* addObject) override final;
 
@@ -75,8 +75,8 @@ protected:
     std::vector<const LeafObj*> m_leafObjects;
     std::vector<RTCBuildPrimitive> m_primitives;
 
-    std::unique_ptr<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHNode>> m_innerNodeAllocator;
-    std::unique_ptr<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHLeaf>> m_leafNodeAllocator;
+    std::unique_ptr<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>> m_innerNodeAllocator;
+    std::unique_ptr<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>> m_leafNodeAllocator;
     uint32_t m_rootHandle;
 
 private:

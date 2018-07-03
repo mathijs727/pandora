@@ -4,7 +4,7 @@
 namespace pandora {
 
 template <typename LeafObj>
-class WiveBVH8Build2 : public WiveBVH8<LeafObj> {
+class WiVeBVH8Build2 : public WiVeBVH8<LeafObj> {
 public:
     void commit() override final;
 
@@ -30,7 +30,7 @@ private:
     static void* leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr);
 
     void orderChildrenConstructionBVH(ConstructionBVHNode* node);
-    std::pair<uint32_t, const WiveBVH8<LeafObj>::BVHNode*> collapseTreelet(const ConstructionInnerNode* treeletRoot, const Bounds& rootBounds);
+    std::pair<uint32_t, const WiVeBVH8<LeafObj>::BVHNode*> collapseTreelet(const ConstructionInnerNode* treeletRoot, const Bounds& rootBounds);
 };
 
 #include "wive_bvh8_build2_impl.h"

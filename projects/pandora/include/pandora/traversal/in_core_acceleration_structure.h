@@ -35,7 +35,7 @@ private:
 private:
     //EmbreeBVH<LeafNode> m_bvh;
 	//NaiveSingleRayBVH2<LeafNode> m_bvh;
-	WiveBVH8Build2<LeafNode> m_bvh;
+	WiVeBVH8Build8<LeafNode> m_bvh;
 
     HitCallback m_hitCallback;
     MissCallback m_missCallback;

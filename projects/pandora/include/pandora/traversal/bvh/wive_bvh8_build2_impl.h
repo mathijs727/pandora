@@ -1,7 +1,7 @@
 
 
 template <typename LeafObj>
-inline void WiveBVH8Build2<LeafObj>::commit()
+inline void WiVeBVH8Build2<LeafObj>::commit()
 {
 	RTCDevice device = rtcNewDevice(nullptr);
 	rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);
@@ -26,9 +26,9 @@ inline void WiveBVH8Build2<LeafObj>::commit()
 
 	auto* constructionTreeRootNode = reinterpret_cast<ConstructionInnerNode*>(rtcBuildBVH(&arguments));
 
-	m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHNode>>((uint32_t)m_primitives.size() * 2, 16);
-	m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHLeaf>>((uint32_t)m_primitives.size() * 2, 16);
-	//.m_leafNodeAllocator  = new ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::LeafNode>(1,2);
+	m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>((uint32_t)m_primitives.size() * 2, 16);
+	m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>((uint32_t)m_primitives.size() * 2, 16);
+	//.m_leafNodeAllocator  = new ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::LeafNode>(1,2);
 
 	orderChildrenConstructionBVH(constructionTreeRootNode);
 
@@ -49,17 +49,17 @@ inline void WiveBVH8Build2<LeafObj>::commit()
 }
 
 template <typename LeafObj>
-inline void* WiveBVH8Build2<LeafObj>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
+inline void* WiVeBVH8Build2<LeafObj>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
 {
 	assert(numChildren == 2);
 
-	auto* self = reinterpret_cast<WiveBVH8<LeafObj>*>(userPtr);
+	auto* self = reinterpret_cast<WiVeBVH8<LeafObj>*>(userPtr);
 	void* ptr = rtcThreadLocalAlloc(alloc, sizeof(ConstructionInnerNode), std::alignment_of_v<ConstructionInnerNode>);
 	return reinterpret_cast<void*>(new (ptr) ConstructionInnerNode);
 }
 
 template <typename LeafObj>
-inline void WiveBVH8Build2<LeafObj>::innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr)
+inline void WiVeBVH8Build2<LeafObj>::innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr)
 {
 	assert(numChildren == 2);
 
@@ -71,7 +71,7 @@ inline void WiveBVH8Build2<LeafObj>::innerNodeSetChildren(void* nodePtr, void** 
 }
 
 template <typename LeafObj>
-inline void WiveBVH8Build2<LeafObj>::innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr)
+inline void WiVeBVH8Build2<LeafObj>::innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr)
 {
 	assert(numChildren == 2);
 
@@ -88,11 +88,11 @@ inline void WiveBVH8Build2<LeafObj>::innerNodeSetBounds(void* nodePtr, const RTC
 }
 
 template <typename LeafObj>
-inline void* WiveBVH8Build2<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
+inline void* WiVeBVH8Build2<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
 {
 	assert(numPrims <= 4);
 
-	auto* self = reinterpret_cast<WiveBVH8<LeafObj>*>(userPtr);
+	auto* self = reinterpret_cast<WiVeBVH8<LeafObj>*>(userPtr);
 	void* ptr = rtcThreadLocalAlloc(alloc, sizeof(ConstructionLeafNode), std::alignment_of_v<ConstructionLeafNode>);
 
 	ConstructionLeafNode* leafNode = new (ptr) ConstructionLeafNode();
@@ -103,7 +103,7 @@ inline void* WiveBVH8Build2<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, 
 }
 
 template <typename LeafObj>
-inline void WiveBVH8Build2<LeafObj>::orderChildrenConstructionBVH(ConstructionBVHNode* p)
+inline void WiVeBVH8Build2<LeafObj>::orderChildrenConstructionBVH(ConstructionBVHNode* p)
 {
 	if (auto nodePtr = dynamic_cast<ConstructionInnerNode*>(p)) {
 		if (nodePtr->childBounds[0].min[nodePtr->splitAxis] > nodePtr->childBounds[1].min[nodePtr->splitAxis]) {
@@ -117,7 +117,7 @@ inline void WiveBVH8Build2<LeafObj>::orderChildrenConstructionBVH(ConstructionBV
 }
 
 template <typename LeafObj>
-inline std::pair<uint32_t, const typename WiveBVH8<LeafObj>::BVHNode*> WiveBVH8Build2<LeafObj>::collapseTreelet(const ConstructionInnerNode* treeletRoot, const Bounds& rootBounds)
+inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8Build2<LeafObj>::collapseTreelet(const ConstructionInnerNode* treeletRoot, const Bounds& rootBounds)
 {
 	struct Child {
 		Child(const ConstructionInnerNode* n, int parentIndexInTreeletCopy, int childIndexInParent, const Bounds& bounds)

@@ -1,5 +1,5 @@
 template <typename LeafObj>
-inline void WiveBVH8Build8<LeafObj>::commit()
+inline void WiVeBVH8Build8<LeafObj>::commit()
 {
 	RTCDevice device = rtcNewDevice(nullptr);
 	rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);
@@ -24,8 +24,8 @@ inline void WiveBVH8Build8<LeafObj>::commit()
 
 	auto* constructionTreeRootNode = reinterpret_cast<ConstructionBVHNode*>(rtcBuildBVH(&arguments));
 
-	m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHNode>>((uint32_t)m_primitives.size() * 2, 16);
-	m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHLeaf>>((uint32_t)m_primitives.size() * 2, 16);
+	m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>((uint32_t)m_primitives.size() * 2, 16);
+	m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>((uint32_t)m_primitives.size() * 2, 16);
 
 	auto[rootHandle, isLeaf] = finalTreeFromConstructionTree(constructionTreeRootNode);
 	assert(!isLeaf);
@@ -42,7 +42,7 @@ inline void WiveBVH8Build8<LeafObj>::commit()
 }
 
 template <typename LeafObj>
-inline std::pair<uint32_t, bool> WiveBVH8Build8<LeafObj>::finalTreeFromConstructionTree(const ConstructionBVHNode* p)
+inline std::pair<uint32_t, bool> WiVeBVH8Build8<LeafObj>::finalTreeFromConstructionTree(const ConstructionBVHNode* p)
 {
 	if (const auto* nodePtr = dynamic_cast<const ConstructionInnerNode*>(p)) {
 		// Allocate node
@@ -126,17 +126,17 @@ inline std::pair<uint32_t, bool> WiveBVH8Build8<LeafObj>::finalTreeFromConstruct
 }
 
 template <typename LeafObj>
-inline void* WiveBVH8Build8<LeafObj>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
+inline void* WiVeBVH8Build8<LeafObj>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
 {
 	assert(numChildren <= 8);
 
-	auto* self = reinterpret_cast<WiveBVH8<LeafObj>*>(userPtr);
+	auto* self = reinterpret_cast<WiVeBVH8<LeafObj>*>(userPtr);
 	void* ptr = rtcThreadLocalAlloc(alloc, sizeof(ConstructionInnerNode), std::alignment_of_v<ConstructionInnerNode>);
 	return reinterpret_cast<void*>(new (ptr) ConstructionInnerNode);
 }
 
 template <typename LeafObj>
-inline void WiveBVH8Build8<LeafObj>::innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr)
+inline void WiVeBVH8Build8<LeafObj>::innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr)
 {
 	assert(numChildren <= 8);
 
@@ -148,7 +148,7 @@ inline void WiveBVH8Build8<LeafObj>::innerNodeSetChildren(void* nodePtr, void** 
 }
 
 template <typename LeafObj>
-inline void WiveBVH8Build8<LeafObj>::innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr)
+inline void WiVeBVH8Build8<LeafObj>::innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr)
 {
 	assert(numChildren <= 8);
 
@@ -162,11 +162,11 @@ inline void WiveBVH8Build8<LeafObj>::innerNodeSetBounds(void* nodePtr, const RTC
 }
 
 template <typename LeafObj>
-inline void* WiveBVH8Build8<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
+inline void* WiVeBVH8Build8<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
 {
 	assert(numPrims <= 4);
 
-	auto* self = reinterpret_cast<WiveBVH8<LeafObj>*>(userPtr);
+	auto* self = reinterpret_cast<WiVeBVH8<LeafObj>*>(userPtr);
 	void* ptr = rtcThreadLocalAlloc(alloc, sizeof(ConstructionLeafNode), std::alignment_of_v<ConstructionLeafNode>);
 
 	ConstructionLeafNode* leafNode = new (ptr) ConstructionLeafNode();
