@@ -132,10 +132,6 @@ inline void WiveBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& 
     const static simd::vec8_u32 indexMask(0b111);
     const static simd::vec8_u32 simd24(24);
     simd::vec8_u32 index = (n->permOffsetsAndFlags >> ray.raySignShiftAmount) & indexMask;
-    /*auto tminBak = tmin;
-	auto tmaxBak = tmax;
-	(void)tminBak;
-	(void)tmaxBak;*/
 
     tmin = tmin.permute(index);
     tmax = tmax.permute(index);

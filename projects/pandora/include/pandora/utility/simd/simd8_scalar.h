@@ -118,6 +118,14 @@ public:
         return mask;
     }
 
+	inline mask8<1> operator>(const vec8<T, 1>& other) const
+	{
+		mask8<1> mask;
+		for (int i = 0; i < 8; i++)
+			mask.m_values[i] = (m_values[i] > other.m_values[i]);
+		return mask;
+	}
+
     inline vec8<T, 1> permute(const vec8<uint32_t, 1>& index) const
     {
         vec8<T, 1> result;
