@@ -3,7 +3,8 @@
 #include "pandora/geometry/triangle.h"
 #include "pandora/traversal/bvh/embree_bvh.h"
 #include "pandora/traversal/bvh/naive_single_bvh2.h"
-#include "pandora/traversal/bvh/wive_bvh8.h"
+#include "pandora/traversal/bvh/wive_bvh8_build2.h"
+#include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/utility/memory_arena_ts.h"
 #include <gsl/gsl>
 #include <memory>
@@ -34,7 +35,7 @@ private:
 private:
     //EmbreeBVH<LeafNode> m_bvh;
 	//NaiveSingleRayBVH2<LeafNode> m_bvh;
-	WiveBVH8<LeafNode> m_bvh;
+	WiveBVH8Build2<LeafNode> m_bvh;
 
     HitCallback m_hitCallback;
     MissCallback m_missCallback;

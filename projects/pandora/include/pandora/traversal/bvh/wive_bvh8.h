@@ -1,3 +1,4 @@
+#pragma once
 #include "pandora/geometry/bounds.h"
 #include "pandora/traversal/bvh.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
@@ -13,118 +14,15 @@ namespace pandora {
 template <typename LeafObj>
 class WiveBVH8 : public BVH<LeafObj> {
 public:
-    WiveBVH8();
-    ~WiveBVH8();
+    WiveBVH8() = default;
+    ~WiveBVH8() = default;
 
     void addObject(const LeafObj* addObject) override final;
-    void commit() override final;
 
     bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
 
-private:
-    struct SIMDRay {
-        simd::vec8_f32 originX;
-        simd::vec8_f32 originY;
-        simd::vec8_f32 originZ;
-
-        simd::vec8_f32 invDirectionX;
-        simd::vec8_f32 invDirectionY;
-        simd::vec8_f32 invDirectionZ;
-
-        simd::vec8_f32 tnear;
-        simd::vec8_f32 tfar;
-        simd::vec8_u32 raySignShiftAmount;
-    };
-    struct BVHNode;
-    struct BVHLeaf;
-    void traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_u32& outChildTypes, simd::vec8_f32& outDistances, uint32_t& outNumChildren) const;
-    bool intersectLeaf(const BVHLeaf* n, Ray& ray, SurfaceInteraction& si) const;
-
-private:
-    void commit8();
-	// Pair: [handle, isLeaf]
-	struct ConstructionBVHNode8;
-	std::pair<uint32_t, bool> constructionToFinal8(const ConstructionBVHNode8* node);
-    static void* innerNodeCreate8(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
-    static void innerNodeSetChildren8(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr);
-    static void innerNodeSetBounds8(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr);
-    static void* leafCreate8(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr);
-
-    void commit2();
-    static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
-    static void innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr);
-    static void innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr);
-    static void* leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr);
-
-    struct TestBVHData {
-        int numPrimitives;
-        std::array<int, 9> numChildrenHistogram;
-    };
+protected:
     void testBVH() const;
-    void testBVHRecurse(const BVHNode* node, TestBVHData& out) const;
-
-private:
-    std::vector<const LeafObj*> m_leafObjects;
-    std::vector<RTCBuildPrimitive> m_primitives;
-
-    struct ConstructionBVHNode8 {
-        virtual void f(){}; // Need a virtual function to use dynamic_cast
-    };
-
-    struct ConstructionInnerNode8 : public ConstructionBVHNode8 {
-        eastl::fixed_vector<Bounds, 8> childBounds;
-        eastl::fixed_vector<ConstructionBVHNode8*, 8> children;
-    };
-
-    struct ConstructionLeafNode8 : public ConstructionBVHNode8 {
-        eastl::fixed_vector<std::pair<uint32_t, uint32_t>, 4> leafs;
-    };
-
-    struct ConstructionBVHNode {
-        virtual void f(){}; // Need a virtual function to use dynamic_cast
-    };
-
-    struct ConstructionInnerNode : public ConstructionBVHNode {
-        Bounds childBounds[2];
-        ConstructionBVHNode* children[2];
-        int splitAxis = 0;
-    };
-
-    struct ConstructionLeafNode : public ConstructionBVHNode {
-        eastl::fixed_vector<std::pair<uint32_t, uint32_t>, 4> leafs;
-    };
-
-    struct alignas(64) BVHNode { // 256 bytes (4 cache lines)
-        simd::vec8_f32 minX; // 32 bytes
-        simd::vec8_f32 maxX; // 32 bytes
-        simd::vec8_f32 minY; // 32 bytes
-        simd::vec8_f32 maxY; // 32 bytes
-        simd::vec8_f32 minZ; // 32 bytes
-        simd::vec8_f32 maxZ; // 32 bytes
-        simd::vec8_u32 children; // Child indices
-        simd::vec8_u32 permOffsetsAndFlags; // Per child: [child flags (1 byte) - permutation offsets (3 bytes)]
-    };
-
-    const static uint32_t emptyHandle = 0xFFFFFFFF;
-    struct alignas(32) BVHLeaf {
-        uint32_t leafObjectIDs[4];
-        uint32_t primitiveIDs[4];
-    };
-
-    std::unique_ptr<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHNode>> m_innerNodeAllocator;
-    std::unique_ptr<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHLeaf>> m_leafNodeAllocator;
-    uint32_t m_rootHandle;
-
-private:
-    void orderChildrenConstructionBVH(ConstructionBVHNode* node);
-    std::pair<uint32_t, const WiveBVH8<LeafObj>::BVHNode*> collapseTreelet(const ConstructionInnerNode* treeletRoot, const Bounds& rootBounds);
-    //static BVHNode* convertBinaryTree(const ConstructionInnerNode* root, ContiguousAllocatorTS<BVHNode>& innerNodeAlloc, ContiguousAllocatorTS<LeafNode>& leafNodeAlloc);
-
-    enum NodeType : uint32_t {
-        EmptyNode = 0b00,
-        InnerNode = 0b01,
-        LeafNode = 0b10
-    };
 
     static uint32_t createFlagsInner();
     static uint32_t createFlagsLeaf();
@@ -135,6 +33,66 @@ private:
 
     uint32_t leafNodeChildCount(uint32_t nodeHandle) const;
     static uint32_t signShiftAmount(bool posX, bool posY, bool posZ);
+protected:
+	struct BVHNode;
+	struct BVHLeaf;
+private:
+	struct SIMDRay;
+    void traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_u32& outChildTypes, simd::vec8_f32& outDistances, uint32_t& outNumChildren) const;
+    bool intersectLeaf(const BVHLeaf* n, Ray& ray, SurfaceInteraction& si) const;
+
+    struct TestBVHData {
+        int numPrimitives;
+        std::array<int, 9> numChildrenHistogram;
+    };
+    void testBVHRecurse(const BVHNode* node, TestBVHData& out) const;
+
+protected:
+	enum NodeType : uint32_t {
+		EmptyNode = 0b00,
+		InnerNode = 0b01,
+		LeafNode = 0b10
+	};
+
+	struct alignas(64) BVHNode { // 256 bytes (4 cache lines)
+		simd::vec8_f32 minX; // 32 bytes
+		simd::vec8_f32 maxX; // 32 bytes
+		simd::vec8_f32 minY; // 32 bytes
+		simd::vec8_f32 maxY; // 32 bytes
+		simd::vec8_f32 minZ; // 32 bytes
+		simd::vec8_f32 maxZ; // 32 bytes
+		simd::vec8_u32 children; // Child indices
+		simd::vec8_u32 permOffsetsAndFlags; // Per child: [child flags (1 byte) - permutation offsets (3 bytes)]
+	};
+
+	struct alignas(32) BVHLeaf {
+		uint32_t leafObjectIDs[4];
+		uint32_t primitiveIDs[4];
+	};
+
+    const static uint32_t emptyHandle = 0xFFFFFFFF;
+
+    std::vector<const LeafObj*> m_leafObjects;
+    std::vector<RTCBuildPrimitive> m_primitives;
+
+    std::unique_ptr<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHNode>> m_innerNodeAllocator;
+    std::unique_ptr<ContiguousAllocatorTS<typename WiveBVH8<LeafObj>::BVHLeaf>> m_leafNodeAllocator;
+    uint32_t m_rootHandle;
+
+private:
+	struct SIMDRay {
+		simd::vec8_f32 originX;
+		simd::vec8_f32 originY;
+		simd::vec8_f32 originZ;
+
+		simd::vec8_f32 invDirectionX;
+		simd::vec8_f32 invDirectionY;
+		simd::vec8_f32 invDirectionZ;
+
+		simd::vec8_f32 tnear;
+		simd::vec8_f32 tfar;
+		simd::vec8_u32 raySignShiftAmount;
+	};
 };
 
 }
