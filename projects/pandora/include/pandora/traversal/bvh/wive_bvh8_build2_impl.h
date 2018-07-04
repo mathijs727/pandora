@@ -37,12 +37,18 @@ inline void WiVeBVH8Build2<LeafObj>::commit()
     auto [rootHandle, rootPtr] = collapseTreelet(constructionTreeRootNode, rootBounds);
     m_rootHandle = rootHandle;
 
+	// Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);
     rtcReleaseDevice(device);
 
+	// Release temporary (Embree) primitive memory
     std::cout << "Actual prim count: " << m_primitives.size() << std::endl;
     m_primitives.clear();
     m_primitives.shrink_to_fit();
+
+	// Shrink to fit BVH allocators
+	m_innerNodeAllocator->compact();
+	m_leafNodeAllocator->compact();
 
     testBVH();
 }
