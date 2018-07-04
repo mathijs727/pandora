@@ -50,8 +50,9 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
             std::array<float, 8> distances;
             childrenSIMD.store(children);
             distancesSIMD.store(distances);
-            for (uint32_t i = 0; i < numChildren; i++) {
-                stack.push_back(StackItem{ children[i], distances[i] });
+			for (uint32_t i = 0; i < numChildren; i++) {
+				//stack.push_back(StackItem{ children[i], distances[i] });
+                stack.push_back(StackItem{ children[numChildren - i - 1], distances[numChildren - i - 1] });
             }
         } else {
 #ifndef NDEBUG

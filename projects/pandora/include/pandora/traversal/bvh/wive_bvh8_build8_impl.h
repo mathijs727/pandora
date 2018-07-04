@@ -96,7 +96,7 @@ inline std::variant<typename WiVeBVH8Build8<LeafObj>::InnerNodeHandle, typename 
 					});
 					// Sort bounding boxes based on their closest intersection to the (moving) plane in the given direction
 					std::sort(std::begin(indices), std::end(indices), [&](uint32_t a, uint32_t b) -> bool {
-						return distances[a] > distances[b];
+						return distances[a] < distances[b];
 					});
 
 					uint32_t shiftAmount = signShiftAmount(x > 0, y > 0, z > 0);

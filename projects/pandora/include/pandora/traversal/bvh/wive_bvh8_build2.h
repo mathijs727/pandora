@@ -1,5 +1,11 @@
 #pragma once
+#include "pandora/utility/error_handling.h"
 #include "wive_bvh8.h"
+#include <algorithm>
+#include <limits>
+#include <optional>
+#include <tuple>
+#include <variant>
 
 namespace pandora {
 
@@ -16,7 +22,7 @@ private:
     struct ConstructionInnerNode : public ConstructionBVHNode {
         Bounds childBounds[2];
         ConstructionBVHNode* children[2];
-        int splitAxis = 0;
+        int splitAxis;
     };
 
     struct ConstructionLeafNode : public ConstructionBVHNode {
