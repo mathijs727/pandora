@@ -22,6 +22,17 @@ public:
         m_values[7] = v7;
     }
 
+	inline int count(unsigned validMask)
+	{
+		int c = 0;
+		for (bool v : m_values) {
+			if (v && (validMask & 0b1) == 0b1)
+				c++;
+			validMask >>= 1;
+		}
+		return c;
+	}
+
     inline int count()
     {
         int c = 0;

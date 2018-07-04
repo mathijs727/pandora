@@ -56,6 +56,13 @@ public:
         m_bitMask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value));
     }
 
+	inline int count(unsigned validMask)
+	{
+		unsigned mask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value)); // SEt bit to 1 for each mask entry that is 0xFFFFFFFF
+		mask &= validMask;
+		return _mm_popcnt_u32(mask);
+	}
+
     inline int count()
     {
         unsigned mask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value)); // SEt bit to 1 for each mask entry that is 0xFFFFFFFF

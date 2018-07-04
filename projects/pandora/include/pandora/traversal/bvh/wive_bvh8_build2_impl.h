@@ -132,7 +132,7 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
     };
 
     // Find the surface area of the smallest (7th largest) inner node of the treelet
-	eastl::fixed_set<const ConstructionInnerNode*, 8> treeletInnerConstructionNodes;
+    eastl::fixed_set<const ConstructionInnerNode*, 8> treeletInnerConstructionNodes;
 
     eastl::fixed_set<Child, 8> traversalSet; // Only contains inner nodes (actual leaf nodes (with primitives) cant be traversed)
     traversalSet.insert(Child{ treeletRoot, rootBounds });
@@ -143,7 +143,7 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
         Child largestNode = *largestNodeIter;
 
         //surfaceAreaSmallestInnerNode = std::min(largestNode.surfaceArea, surfaceAreaSmallestInnerNode); // Should always be largestNode.surfaceArea because the nodes are ordered
-		treeletInnerConstructionNodes.insert(largestNode.node);
+        treeletInnerConstructionNodes.insert(largestNode.node);
 
         // Add the nodes children to the list of nodes to potentially be traversed
         for (int i = 0; i < 2; i++) {
@@ -172,7 +172,7 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
         [&](const ConstructionBVHNode* p, const Bounds& bounds) -> std::pair<uint32_t, bool> {
         if (const auto* node = dynamic_cast<const ConstructionInnerNode*>(p)) {
             if (treeletInnerConstructionNodes.find(node) != treeletInnerConstructionNodes.end()) {
-				// Construction node is part of the treelet
+                // Construction node is part of the treelet
                 auto [leftChild, leftIsTreeletLeaf] = createTreelet(node->children[0], node->childBounds[0]);
                 auto [rightChild, rightIsTreeletLeaf] = createTreelet(node->children[1], node->childBounds[1]);
 
@@ -183,7 +183,7 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
                     node->splitAxis });
                 return { treeletNodeID, false };
             } else {
-				// Construction node is not part of the treelet
+                // Construction node is not part of the treelet
                 uint32_t treeletNodeID = (uint32_t)treeletLeafNodes.size();
                 treeletLeafNodes.push_back(TreeletLeafNode{
                     std::get<0>(collapseTreelet(node, bounds)),
@@ -275,7 +275,7 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
                         }
                     }
                 };
-				generatePermutation(treeletRootNodeID, false);
+                generatePermutation(treeletRootNodeID, false);
             }
         }
     }
@@ -292,4 +292,3 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
     bvh8NodePtr->children.load(children);
     return { bvh8NodeHandle, bvh8NodePtr };
 }
-

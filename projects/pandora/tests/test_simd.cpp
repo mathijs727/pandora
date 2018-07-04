@@ -145,6 +145,9 @@ void simd8Tests()
         ASSERT_EQ_T(values[2], 9);
         ASSERT_EQ_T(values[3], 11);
         ASSERT_EQ(mask.count(), 4);
+
+		unsigned validMask = 0b10011001;
+		ASSERT_EQ(mask.count(validMask), 2);
     }
 }
 
