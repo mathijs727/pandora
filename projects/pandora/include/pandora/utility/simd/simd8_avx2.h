@@ -58,15 +58,13 @@ public:
 
 	inline int count(unsigned validMask) const
 	{
-		unsigned mask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value)); // SEt bit to 1 for each mask entry that is 0xFFFFFFFF
-		mask &= validMask;
+		uint32_t mask = m_bitMask & validMask;
 		return _mm_popcnt_u32(mask);
 	}
 
     inline int count() const
     {
-        unsigned mask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value)); // SEt bit to 1 for each mask entry that is 0xFFFFFFFF
-        return _mm_popcnt_u32(mask);
+        return _mm_popcnt_u32(m_bitMask);
     }
 
 	inline __m256i computeCompressPermutation() const

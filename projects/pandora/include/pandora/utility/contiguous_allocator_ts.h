@@ -23,11 +23,13 @@ public:
     inline T& get(Handle handle) const { return m_start[handle]; };
 
 	size_t size() const { return m_maxSize; };
+
+	void compact();
 private:
 	uint32_t allocateBlock();
 
 private:
-    const uint32_t m_maxSize;
+    uint32_t m_maxSize;
     const uint32_t m_blockSize;
 
     std::unique_ptr<T[]> m_start;
@@ -86,6 +88,15 @@ inline uint32_t ContiguousAllocatorTS<T>::allocateBlock()
 	if (index + m_blockSize > m_maxSize)
 		THROW_ERROR("ContiguousAllocator ran out of memory!");
 	return index;
+}
+
+template<typename T>
+inline void ContiguousAllocatorTS<T>::compact()
+{
+	auto compactedData = std::make_unique<T[]>(m_currentSize);
+	std::memcpy(compactedData.get(), m_start.get(), m_currentSize * sizeof(T));
+	m_start = std::move(compactedData);
+	m_maxSize = m_currentSize;
 }
 
 }

@@ -72,6 +72,7 @@ int main()
             pressedEscape = true;
     });
 
+	auto previousTimestamp = std::chrono::high_resolution_clock::now();
     int samples = 0;
     while (!myWindow.shouldClose() && !pressedEscape) {
         myWindow.updateInput();
@@ -80,13 +81,16 @@ int main()
         if (cameraControls.cameraChanged())
             integrator.startNewFrame();
 
-        auto prevFrameEndTime = std::chrono::high_resolution_clock::now();
         integrator.render(camera);
         samples++;
-        auto now = std::chrono::high_resolution_clock::now();
-        auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(now - prevFrameEndTime);
-        prevFrameEndTime = now;
-        std::cout << "Time to render frame: " << timeDelta.count() / 1000.0f << " miliseconds" << std::endl;
+
+		if (samples % 20 == 0)
+		{
+			auto now = std::chrono::high_resolution_clock::now();
+			auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(now - previousTimestamp);
+			std::cout << "Time time per frame (over last 20 frames): " << timeDelta.count() / 20.0f / 1000.0f << " miliseconds" << std::endl;
+			previousTimestamp = now;
+		}
 
         float mult = 1.0f / integrator.getCurrentFrameSpp();
         frameBuffer.update(camera.getSensor(), mult);

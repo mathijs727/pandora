@@ -44,16 +44,17 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
         //    continue;
 
         uint32_t handle = decompressNodeHandle(compressedNodeHandle);
+		const auto* node = &m_innerNodeAllocator->get(handle);
         if (isInnerNode(compressedNodeHandle)) {
             // Inner node
             simd::vec8_u32 childrenSIMD;
             simd::vec8_f32 distancesSIMD;
-            uint32_t numChildren;
-            traverseCluster(&m_innerNodeAllocator->get(handle), simdRay, childrenSIMD, distancesSIMD, numChildren);
+			uint32_t numChildren = traverseCluster(node, simdRay, childrenSIMD, distancesSIMD);
 
             if (numChildren > 0) {
                 childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
                 distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
+
                 stackPtr += numChildren;
             }
         } else {
@@ -98,7 +99,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 }
 
 template <typename LeafObj>
-inline void WiVeBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances, uint32_t& outNumChildren) const
+inline uint32_t WiVeBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const
 {
     simd::vec8_f32 tx1 = (n->minX - ray.originX) * ray.invDirectionX;
     simd::vec8_f32 tx2 = (n->maxX - ray.originX) * ray.invDirectionX;
@@ -125,7 +126,8 @@ inline void WiVeBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& 
 	simd::vec8_u32 compressPermuteIndices(mask.computeCompressPermutation());
     outChildren = n->children.permute(index).permute(compressPermuteIndices);
     outDistances = tmin.permute(compressPermuteIndices);
-    outNumChildren = mask.count();
+    //outNumChildren = mask.count();
+	return mask.count();
 }
 
 template <typename LeafObj>

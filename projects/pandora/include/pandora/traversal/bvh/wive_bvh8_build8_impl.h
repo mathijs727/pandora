@@ -26,8 +26,8 @@ inline void WiVeBVH8Build8<LeafObj>::commit()
 
 	auto* constructionTreeRootNode = reinterpret_cast<ConstructionBVHNode*>(rtcBuildBVH(&arguments));
 
-	m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>((uint32_t)m_primitives.size() * 2, 16);
-	m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>((uint32_t)m_primitives.size() * 2, 16);
+	m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>((uint32_t)m_primitives.size() / 4, 16);
+	m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>((uint32_t)m_primitives.size(), 16);
 
 	auto nodeInfo = finalTreeFromConstructionTree(constructionTreeRootNode);
 	if (!std::holds_alternative<InnerNodeHandle>(nodeInfo))
@@ -35,12 +35,16 @@ inline void WiVeBVH8Build8<LeafObj>::commit()
 
 	m_rootHandle = std::get<InnerNodeHandle>(nodeInfo).handle;
 
+	// Releases Embree memory (including the temporary BVH)
 	rtcReleaseBVH(bvh);
 	rtcReleaseDevice(device);
 
 	std::cout << "Actual prim count: " << m_primitives.size() << std::endl;
 	m_primitives.clear();
 	m_primitives.shrink_to_fit();
+
+	m_innerNodeAllocator->compact();// Shrink to fit BVH allocators
+	m_leafNodeAllocator->compact();// Shrink to fit BVH allocators
 
 	testBVH();
 }
