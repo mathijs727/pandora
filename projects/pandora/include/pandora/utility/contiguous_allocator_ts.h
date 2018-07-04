@@ -4,6 +4,7 @@
 #include <cassert>
 #include <memory>
 #include <tbb/enumerable_thread_specific.h>
+#include <thread>
 #include <tuple>
 
 namespace pandora {
@@ -44,9 +45,9 @@ private:
 
 template <typename T>
 inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(uint32_t maxSize, uint32_t blockSize)
-    : m_maxSize(maxSize)
+    : m_maxSize((uint32_t)std::thread::hardware_concurrency() * blockSize + maxSize)
     , m_blockSize(blockSize)
-    , m_start(new T[maxSize])
+    , m_start(new T[m_maxSize])
     , m_currentSize(0)
 {
 }
