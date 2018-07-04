@@ -78,8 +78,8 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 					
 					simd::mask8 distMask = distancesSIMD < simdRay.tfar;
 					simd::vec8_u32 compressPermuteIndices(distMask.computeCompressPermutation());// Compute permute indices that represent the compression (so we only have to calculate them once)
-					distancesSIMD.permute(compressPermuteIndices);
-					nodesSIMD.permute(compressPermuteIndices);
+					distancesSIMD = distancesSIMD.permute(compressPermuteIndices);
+					nodesSIMD = nodesSIMD.permute(compressPermuteIndices);
 					
 					distancesSIMD.store(gsl::make_span(stackDistances.data() + outStackPtr, 8));
 					nodesSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + outStackPtr, 8));

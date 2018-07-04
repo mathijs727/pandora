@@ -33,6 +33,7 @@ const int height = 720;
 const std::string projectBasePath = "../../"s;
 
 void addStanfordBunny(Scene& scene);
+void addStanfordDragon(Scene& scene);
 void addCornellBox(Scene& scene);
 
 int main()
@@ -58,11 +59,12 @@ int main()
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
 	//addCornellBox(scene);
-	addStanfordBunny(scene);
+	//addStanfordBunny(scene);
+	addStanfordDragon(scene);
     
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
-    NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    //PathIntegrator integrator(20, scene, camera.getSensor(), 1);
+    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
+    PathIntegrator integrator(20, scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
@@ -100,6 +102,21 @@ void addStanfordBunny(Scene& scene)
 	transform = glm::scale(transform, glm::vec3(8));
 	//transform = glm::translate(transform, glm::vec3(0, -1, 0));
 	auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/bun_zipper.ply", transform, false);
+	auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.1f, 0.1f, 0.5f));
+	auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
+	//auto material = std::make_shared<MatteMaterial>(kd, roughness);
+	auto material = MetalMaterial::createCopper(roughness, true);
+	for (const auto& mesh : meshes)
+		scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+}
+
+void addStanfordDragon(Scene& scene)
+{
+	auto transform = glm::mat4(1.0f);
+	transform = glm::translate(transform, glm::vec3(0, -0.3f, 0));
+	transform = glm::scale(transform, glm::vec3(8));
+	transform = glm::rotate(transform, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply", transform, false);
 	auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.1f, 0.1f, 0.5f));
 	auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
 	//auto material = std::make_shared<MatteMaterial>(kd, roughness);
