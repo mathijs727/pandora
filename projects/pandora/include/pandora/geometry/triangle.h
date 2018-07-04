@@ -13,6 +13,9 @@
 
 struct aiScene;
 
+// 0 = Moller Trumbore, 1 = PBRT triangle intersection code. Moller Trumbore has some serious precision issues (might be an implementation bug?).
+#define PBRT_INTERSECTION 1
+
 namespace pandora {
 
 class TriangleMesh {
@@ -69,7 +72,7 @@ private:
 
 __forceinline bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture) const
 {
-#if ROBUST_INTERSECTION > 0
+#if PBRT_INTERSECTION > 0
     // Based on PBRT v3 triangle intersection test (page 158):
     // https://github.com/mmp/pbrt-v3/blob/master/src/shapes/triangle.cpp
     //
