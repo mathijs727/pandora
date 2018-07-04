@@ -248,7 +248,7 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
         children[i] = compressHandleEmpty();
     }
 
-    // Generate permutations
+    // Generate permutations by creating an approximate back-to-front order (so the stack can grow to the right)
     std::fill(std::begin(permutationOffsets), std::end(permutationOffsets), 0u);
     for (int x = -1; x <= 1; x += 2) {
         for (int y = -1; y <= 1; y += 2) {
@@ -265,7 +265,7 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
                         outIndex++;
                     } else {
                         const auto& node = treeletInnerNodes[nodeID];
-                        if ((node.splitAxis == 0 && !posX) || (node.splitAxis == 1 && !posY) || (node.splitAxis == 2 && !posZ)) {
+                        if ((node.splitAxis == 0 && posX) || (node.splitAxis == 1 && posY) || (node.splitAxis == 2 && posZ)) {
                             // Flip order
                             generatePermutation(node.rightChild, node.rightIsTreeletLeaf);
                             generatePermutation(node.leftChild, node.leftIsTreeletLeaf);

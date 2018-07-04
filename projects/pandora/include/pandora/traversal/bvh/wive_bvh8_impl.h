@@ -24,7 +24,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
     simdRay.tfar = simd::vec8_f32(ray.tfar);
     simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
 
-    /*// Stack
+    // Stack
     alignas(32) std::array<uint32_t, 32> stackCompressedNodeHandles;
     alignas(32) std::array<float, 32> stackDistances;
     std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
@@ -38,22 +38,10 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
     while (stackPtr > 0) {
         stackPtr--;
         uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
-        float distance = stackDistances[stackPtr];*/
-    struct StackItem {
-        uint32_t compressedNodeHandle;
-        float distance;
-    };
-    eastl::fixed_vector<StackItem, 16> stack;
-    stack.push_back(StackItem{ compressHandleInner(m_rootHandle), 0.0f });
-    while (!stack.empty()) {
-        StackItem item = stack.back();
-        stack.pop_back();
+        float distance = stackDistances[stackPtr];
 
-        uint32_t compressedNodeHandle = item.compressedNodeHandle;
-        float distance = item.distance;
-
-        if (ray.tfar < distance)
-            continue;
+        //if (ray.tfar < distance)
+        //    continue;
 
         uint32_t handle = decompressNodeHandle(compressedNodeHandle);
         if (isInnerNode(compressedNodeHandle)) {
@@ -64,18 +52,9 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
             traverseCluster(&m_innerNodeAllocator->get(handle), simdRay, childrenSIMD, distancesSIMD, numChildren);
 
             if (numChildren > 0) {
-                //childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
-                //distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
-                //stackPtr += numChildren;
-                std::array<uint32_t, 8> children;
-                std::array<float, 8> distances;
-                childrenSIMD.store(children);
-                distancesSIMD.store(distances);
-                for (uint32_t i = 0; i < numChildren; i++) {
-                    stack.push_back(StackItem{
-                        children [numChildren - i - 1],
-                        distances[numChildren - i - 1] });
-                }
+                childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
+                distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
+                stackPtr += numChildren;
             }
         } else {
 #ifndef NDEBUG
@@ -88,21 +67,20 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
                 hit = true;
                 simdRay.tfar.broadcast(ray.tfar);
 
-                /*// Compress stack
+                // Compress stack
 				size_t outStackPtr = 0;
 				for (size_t i = 0; i < stackPtr; i += 8)
 				{
-					// TODO: separate functions to store/load aligned (no unnecessary if statements)
 					simd::vec8_u32 nodesSIMD;
 					simd::vec8_f32 distancesSIMD;
-					distancesSIMD.load(gsl::make_span(stackDistances.data() + i, 8));
-					nodesSIMD.load(gsl::make_span(stackCompressedNodeHandles.data() + i, 8));
+					distancesSIMD.loadAligned(gsl::make_span(stackDistances.data() + i, 8));
+					nodesSIMD.loadAligned(gsl::make_span(stackCompressedNodeHandles.data() + i, 8));
 					
 					simd::mask8 distMask = distancesSIMD < simdRay.tfar;
-					distancesSIMD.compress(distMask);// TODO: look up compress permutation once
-					nodesSIMD.compress(distMask);
+					simd::vec8_u32 compressPermuteIndices(distMask.computeCompressPermutation());// Compute permute indices that represent the compression (so we only have to calculate them once)
+					distancesSIMD.permute(compressPermuteIndices);
+					nodesSIMD.permute(compressPermuteIndices);
 					
-					// TODO: separate functions to store/load aligned (no unnecessary if statements)
 					distancesSIMD.store(gsl::make_span(stackDistances.data() + outStackPtr, 8));
 					nodesSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + outStackPtr, 8));
 
@@ -110,7 +88,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 					unsigned validMask = (1 << numItems) - 1;
 					outStackPtr += distMask.count(validMask);
 				}
-				stackPtr = outStackPtr;*/
+				stackPtr = outStackPtr;
             }
         }
     }
@@ -144,8 +122,9 @@ inline void WiVeBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& 
     tmin = tmin.permute(index);
     tmax = tmax.permute(index);
     simd::mask8 mask = tmin < tmax;
-    outChildren = n->children.permute(index).compress(mask); // TODO: look up compress permutation once
-    outDistances = tmin.compress(mask);
+	simd::vec8_u32 compressPermuteIndices(mask.computeCompressPermutation());
+    outChildren = n->children.permute(index).permute(compressPermuteIndices);
+    outDistances = tmin.permute(compressPermuteIndices);
     outNumChildren = mask.count();
 }
 

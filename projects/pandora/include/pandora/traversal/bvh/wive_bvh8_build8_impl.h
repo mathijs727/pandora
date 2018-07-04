@@ -94,9 +94,9 @@ inline std::variant<typename WiVeBVH8Build8<LeafObj>::InnerNodeHandle, typename 
 						glm::vec3 extremePoint(x == -1 ? bounds.min[0] : bounds.max[0], y == -1 ? bounds.min[1] : bounds.max[1], z == -1 ? bounds.min[2] : bounds.max[2]);
 						return glm::dot(extremePoint, direction);
 					});
-					// Sort bounding boxes based on their closest intersection to the (moving) plane in the given direction
+					// Sort bounding boxes back-to-front as seen from the normal plane of the direction vector
 					std::sort(std::begin(indices), std::end(indices), [&](uint32_t a, uint32_t b) -> bool {
-						return distances[a] < distances[b];
+						return distances[a] > distances[b];
 					});
 
 					uint32_t shiftAmount = signShiftAmount(x > 0, y > 0, z > 0);

@@ -56,18 +56,35 @@ public:
         m_bitMask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value));
     }
 
-	inline int count(unsigned validMask)
+	inline int count(unsigned validMask) const
 	{
 		unsigned mask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value)); // SEt bit to 1 for each mask entry that is 0xFFFFFFFF
 		mask &= validMask;
 		return _mm_popcnt_u32(mask);
 	}
 
-    inline int count()
+    inline int count() const
     {
         unsigned mask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value)); // SEt bit to 1 for each mask entry that is 0xFFFFFFFF
         return _mm_popcnt_u32(mask);
     }
+
+	inline __m256i computeCompressPermutation() const
+	{
+		uint64_t wantedIndices = s_indicesLUT[m_bitMask];
+
+		/*// https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask/36951611
+		// Emulate compress operation since it is not part of AVX2 (only AVX512)
+		uint64_t expandedMask = _pdep_u64(mask.m_bitMask, 0x0101010101010101); // Unpack each bit to a byte
+		expandedMask *= 0xFF; // mask |= mask<<1 | mask<<2 | ... | mask<<7;
+		// ABC... -> AAAAAAAABBBBBBBBCCCCCCCC...: replicate each bit to fill its byte
+
+		const uint64_t identityIndices = 0x0706050403020100; // The identity shuffle for vpermps, packed to one index per byte
+		uint64_t wantedIndices = _pext_u64(identityIndices, expandedMask);*/
+
+		__m128i byteVec = _mm_cvtsi64_si128(wantedIndices);
+		return _mm256_cvtepu8_epi32(byteVec);
+	}
 
 private:
     __m256i m_value;
@@ -100,20 +117,24 @@ public:
     {
     }
 
+	inline void loadAligned(gsl::span<const uint32_t, 8> v)
+	{
+		m_value = _mm256_load_si256(reinterpret_cast<const __m256i*>(v.data()));
+	}
+
+	inline void storeAligned(gsl::span<uint32_t, 8> v) const
+	{
+		_mm256_store_si256(reinterpret_cast<__m256i*>(v.data()), m_value);
+	}
+
     inline void load(gsl::span<const uint32_t, 8> v)
     {
-        if (((uintptr_t)v.data()) % 32 == 0)
-            m_value = _mm256_load_si256(reinterpret_cast<const __m256i*>(v.data()));
-        else
-            m_value = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(v.data()));
+        m_value = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(v.data()));
     }
 
     inline void store(gsl::span<uint32_t, 8> v) const
     {
-        if (((uintptr_t)v.data()) % 32 == 0)
-            _mm256_store_si256(reinterpret_cast<__m256i*>(v.data()), m_value);
-        else
-            _mm256_storeu_si256(reinterpret_cast<__m256i*>(v.data()), m_value);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(v.data()), m_value);
     }
 
     inline void broadcast(uint32_t value)
@@ -170,19 +191,7 @@ public:
 
     inline vec8<uint32_t, 8> compress(const mask8<8>& mask) const
     {
-        uint64_t wantedIndices = s_indicesLUT[mask.m_bitMask];
-
-        /*// https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask/36951611
-        // Emulate compress operation since it is not part of AVX2 (only AVX512)
-        uint64_t expandedMask = _pdep_u64(mask.m_bitMask, 0x0101010101010101); // Unpack each bit to a byte
-        expandedMask *= 0xFF; // mask |= mask<<1 | mask<<2 | ... | mask<<7;
-        // ABC... -> AAAAAAAABBBBBBBBCCCCCCCC...: replicate each bit to fill its byte
-
-        const uint64_t identityIndices = 0x0706050403020100; // The identity shuffle for vpermps, packed to one index per byte
-        uint64_t wantedIndices = _pext_u64(identityIndices, expandedMask);*/
-
-        __m128i byteVec = _mm_cvtsi64_si128(wantedIndices);
-        __m256i shuffleMask = _mm256_cvtepu8_epi32(byteVec);
+		__m256i shuffleMask = mask.computeCompressPermutation();
         return vec8(_mm256_permutevar8x32_epi32(m_value, shuffleMask));
     }
 
@@ -214,20 +223,24 @@ public:
     {
     }
 
+	inline void loadAligned(gsl::span<const float, 8> v)
+	{
+		m_value = _mm256_load_ps(v.data());
+	}
+
+	inline void storeAligned(gsl::span<float, 8> v) const
+	{
+		_mm256_store_ps(v.data(), m_value);
+	}
+
     inline void load(gsl::span<const float, 8> v)
     {
-        if (((uintptr_t)v.data()) % 32 == 0)
-            m_value = _mm256_load_ps(v.data());
-        else
-            m_value = _mm256_loadu_ps(v.data());
+        m_value = _mm256_loadu_ps(v.data());
     }
 
     inline void store(gsl::span<float, 8> v) const
     {
-        if (((uintptr_t)v.data()) % 32 == 0)
-            _mm256_store_ps(v.data(), m_value);
-        else
-            _mm256_storeu_ps(v.data(), m_value);
+        _mm256_storeu_ps(v.data(), m_value);
     }
 
     inline void broadcast(float value)
@@ -272,19 +285,7 @@ public:
 
     inline vec8<float, 8> compress(const mask8<8>& mask) const
     {
-        uint64_t wantedIndices = s_indicesLUT[mask.m_bitMask];
-
-        /*// https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask/36951611
-		// Emulate compress operation since it is not part of AVX2 (only AVX512)
-		uint64_t expandedMask = _pdep_u64(mask.m_bitMask, 0x0101010101010101); // Unpack each bit to a byte
-		expandedMask *= 0xFF; // mask |= mask<<1 | mask<<2 | ... | mask<<7;
-							  // ABC... -> AAAAAAAABBBBBBBBCCCCCCCC...: replicate each bit to fill its byte
-
-		const uint64_t identityIndices = 0x0706050403020100; // The identity shuffle for vpermps, packed to one index per byte
-		uint64_t wantedIndices = _pext_u64(identityIndices, expandedMask);*/
-
-        __m128i byteVec = _mm_cvtsi64_si128(wantedIndices);
-        __m256i shuffleMask = _mm256_cvtepu8_epi32(byteVec);
+		__m256i shuffleMask = mask.computeCompressPermutation();
         return vec8(_mm256_permutevar8x32_ps(m_value, shuffleMask));
     }
 

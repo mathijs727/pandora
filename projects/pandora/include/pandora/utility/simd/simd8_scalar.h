@@ -22,7 +22,7 @@ public:
         m_values[7] = v7;
     }
 
-	inline int count(unsigned validMask)
+	inline int count(unsigned validMask) const
 	{
 		int c = 0;
 		for (bool v : m_values) {
@@ -33,7 +33,7 @@ public:
 		return c;
 	}
 
-    inline int count()
+    inline int count() const
     {
         int c = 0;
         for (bool v : m_values)
@@ -41,6 +41,19 @@ public:
                 c++;
         return c;
     }
+
+	inline std::array<uint32_t, 8> computeCompressPermutation() const
+	{
+		std::array<uint32_t, 8> result;
+		int j = 0;
+		for (int i = 0; i < 8; i++) {
+			if (m_values[i])
+				result[j++] = i;
+		}
+		for (; j < 8; j++)
+			result[j] = 0;
+		return result;
+	}
 
 private:
     std::array<bool, 8> m_values;
@@ -82,12 +95,22 @@ public:
 		return m_values[i];
 	}
 
-    inline void load(gsl::span<const T, 8> v)
+	inline void load(gsl::span<const T, 8> v)
+	{
+		std::copy(std::begin(v), std::end(v), std::begin(m_values));
+	}
+
+	inline void store(gsl::span<T, 8> v) const
+	{
+		std::copy(std::begin(m_values), std::end(m_values), std::begin(v));
+	}
+
+    inline void loadAligned(gsl::span<const T, 8> v)
     {
         std::copy(std::begin(v), std::end(v), std::begin(m_values));
     }
 
-    inline void store(gsl::span<T, 8> v) const
+    inline void storeAligned(gsl::span<T, 8> v) const
     {
         std::copy(std::begin(m_values), std::end(m_values), std::begin(v));
     }

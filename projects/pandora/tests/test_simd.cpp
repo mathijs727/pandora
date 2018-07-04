@@ -149,6 +149,22 @@ void simd8Tests()
 		unsigned validMask = 0b10011001;
 		ASSERT_EQ(mask.count(validMask), 2);
     }
+
+	{
+		simd::mask8<S> mask(false, false, true, false, true, true, false, true);
+		auto v3 = v2.compress(mask);
+		simd::vec8<uint32_t, S> indices(mask.computeCompressPermutation());
+		auto v4 = v2.permute(indices);
+
+		std::array<T, 8> valuesCompress;
+		std::array<T, 8> valuesPermuteCompress;
+		v3.store(valuesCompress);
+		v4.store(valuesPermuteCompress);
+
+		for (int i = 0; i < mask.count(); i++) {
+			ASSERT_EQ(valuesCompress[i], valuesPermuteCompress[i]);
+		}
+	}
 }
 
 TEST(SIMD8, Scalar)
