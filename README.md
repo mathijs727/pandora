@@ -12,6 +12,7 @@ To build Pandora, CMake, Python and a C++17 compiler are required. The build scr
 Pandora uses the following third-party libraries:
  - Guideline Support Library (implemented by Microsoft)
  - Intel Threaded Building Blocks
+ - Embree
  - glm
  - Assimp
  - Open Image IO
