@@ -7,15 +7,14 @@
 namespace pandora
 {
 
-template <typename LeafNode>
-class EmbreeBVH : public BVH<LeafNode>
+template <typename LeafObj>
+class EmbreeBVH : public BVH<LeafObj>
 {
 public:
 	EmbreeBVH();
 	~EmbreeBVH();
 
-	void addObject(const LeafNode* objectPtr) override final;
-	void commit() override final;
+	void build(gsl::span<const LeafObj*> objects) override final;
 
 	bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
 

@@ -11,7 +11,7 @@ namespace pandora {
 
 template <typename LeafObj>
 class WiVeBVH8Build2 : public WiVeBVH8<LeafObj> {
-public:
+protected:
     void commit() override final;
 
 private:

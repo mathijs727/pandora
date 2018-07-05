@@ -21,11 +21,13 @@ public:
     WiVeBVH8() = default;
     ~WiVeBVH8() = default;
 
-    void addObject(const LeafObj* addObject) override final;
+    void build(gsl::span<const LeafObj*> objects) override final;
 
     bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
 
 protected:
+	virtual void commit() = 0;
+
     void testBVH() const;
 
     // 32 bits for node + flags

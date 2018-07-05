@@ -183,25 +183,30 @@ inline void WiVeBVH8<LeafObj>::testBVHRecurse(const BVHNode* node, int depth, Te
 }
 
 template <typename LeafObj>
-inline void WiVeBVH8<LeafObj>::addObject(const LeafObj* addObject)
+inline void WiVeBVH8<LeafObj>::build(gsl::span<const LeafObj*> objects)
 {
-	uint32_t leafObjectID = (uint32_t)m_leafObjects.size();
-    m_leafObjects.push_back(addObject); // Vector of references is a nightmare
+	for (const auto* objectPtr : objects)
+	{
+		uint32_t leafObjectID = (uint32_t)m_leafObjects.size();
+		m_leafObjects.push_back(objectPtr); // Vector of references is a nightmare
 
-    for (unsigned primitiveID = 0; primitiveID < addObject->numPrimitives(); primitiveID++) {
-        auto bounds = addObject->getPrimitiveBounds(primitiveID);
+		for (unsigned primitiveID = 0; primitiveID < objectPtr->numPrimitives(); primitiveID++) {
+			auto bounds = objectPtr->getPrimitiveBounds(primitiveID);
 
-        RTCBuildPrimitive primitive;
-        primitive.lower_x = bounds.min.x;
-        primitive.lower_y = bounds.min.y;
-        primitive.lower_z = bounds.min.z;
-        primitive.upper_x = bounds.max.x;
-        primitive.upper_y = bounds.max.y;
-        primitive.upper_z = bounds.max.z;
-        primitive.primID = primitiveID;
-		primitive.geomID = leafObjectID;
-        m_primitives.push_back(primitive);
-    }
+			RTCBuildPrimitive primitive;
+			primitive.lower_x = bounds.min.x;
+			primitive.lower_y = bounds.min.y;
+			primitive.lower_z = bounds.min.z;
+			primitive.upper_x = bounds.max.x;
+			primitive.upper_y = bounds.max.y;
+			primitive.upper_z = bounds.max.z;
+			primitive.primID = primitiveID;
+			primitive.geomID = leafObjectID;
+			m_primitives.push_back(primitive);
+		}
+	}
+
+	commit();
 }
 
 template <typename LeafObj>

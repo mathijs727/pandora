@@ -3,7 +3,7 @@
 #include "pandora/utility/memory_arena_ts.h"
 #include <EASTL/fixed_vector.h>
 #include <embree3/rtcore.h>
-#include <gsl/gsl>
+#include <gsl/span>
 #include <tuple>
 #include <vector>
 
@@ -15,8 +15,7 @@ public:
     NaiveSingleRayBVH2();
     ~NaiveSingleRayBVH2();
 
-    void addObject(const LeafObj* addObject) override final;
-    void commit() override final;
+    void build(gsl::span<const LeafObj*> objects) override final;
 
     bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
 
@@ -67,29 +66,28 @@ inline NaiveSingleRayBVH2<LeafObj>::~NaiveSingleRayBVH2()
 }
 
 template <typename LeafObj>
-inline void NaiveSingleRayBVH2<LeafObj>::addObject(const LeafObj* addObject)
+inline void NaiveSingleRayBVH2<LeafObj>::build(gsl::span<const LeafObj*> objects)
 {
-    for (unsigned primitiveID = 0; primitiveID < addObject->numPrimitives(); primitiveID++) {
-        auto bounds = addObject->getPrimitiveBounds(primitiveID);
+	for (const auto* objectPtr : objects)
+	{
+		for (unsigned primitiveID = 0; primitiveID < objectPtr->numPrimitives(); primitiveID++) {
+			auto bounds = objectPtr->getPrimitiveBounds(primitiveID);
 
-        RTCBuildPrimitive primitive;
-        primitive.lower_x = bounds.min.x;
-        primitive.lower_y = bounds.min.y;
-        primitive.lower_z = bounds.min.z;
-        primitive.upper_x = bounds.max.x;
-        primitive.upper_y = bounds.max.y;
-        primitive.upper_z = bounds.max.z;
-        primitive.primID = primitiveID;
-        primitive.geomID = (unsigned)m_leafObjects.size();
+			RTCBuildPrimitive primitive;
+			primitive.lower_x = bounds.min.x;
+			primitive.lower_y = bounds.min.y;
+			primitive.lower_z = bounds.min.z;
+			primitive.upper_x = bounds.max.x;
+			primitive.upper_y = bounds.max.y;
+			primitive.upper_z = bounds.max.z;
+			primitive.primID = primitiveID;
+			primitive.geomID = (unsigned)m_leafObjects.size();
 
-        m_primitives.push_back(primitive);
-        m_leafObjects.push_back(addObject); // Vector of references is a nightmare
-    }
-}
+			m_primitives.push_back(primitive);
+			m_leafObjects.push_back(objectPtr); // Vector of references is a nightmare
+		}
+	}
 
-template <typename LeafObj>
-inline void NaiveSingleRayBVH2<LeafObj>::commit()
-{
     RTCBuildArguments arguments = rtcDefaultBuildArguments();
     arguments.byteSize = sizeof(arguments);
     arguments.buildFlags = RTC_BUILD_FLAG_NONE;

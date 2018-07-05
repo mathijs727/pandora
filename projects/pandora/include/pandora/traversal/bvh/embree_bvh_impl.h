@@ -2,8 +2,8 @@
 
 namespace pandora {
 
-template <typename LeafNode>
-tbb::enumerable_thread_specific<std::pair<gsl::span<Ray>, gsl::span<SurfaceInteraction>>> EmbreeBVH<LeafNode>::m_intersectRayData;
+template <typename LeafObj>
+tbb::enumerable_thread_specific<std::pair<gsl::span<Ray>, gsl::span<SurfaceInteraction>>> EmbreeBVH<LeafObj>::m_intersectRayData;
 
 template <unsigned N>
 void convertRays(gsl::span<const Ray> rays, RTCRayHitN* embreeRayHits)
@@ -55,8 +55,8 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
     std::cout << ": " << str << std::endl;
 }
 
-template <typename LeafNode>
-EmbreeBVH<LeafNode>::EmbreeBVH()
+template <typename LeafObj>
+EmbreeBVH<LeafObj>::EmbreeBVH()
 {
     m_device = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(m_device, embreeErrorFunc, nullptr);
@@ -65,36 +65,32 @@ EmbreeBVH<LeafNode>::EmbreeBVH()
     rtcSetSceneBuildQuality(m_scene, RTC_BUILD_QUALITY_HIGH);
 }
 
-template <typename LeafNode>
-EmbreeBVH<LeafNode>::~EmbreeBVH()
+template <typename LeafObj>
+EmbreeBVH<LeafObj>::~EmbreeBVH()
 {
     rtcReleaseScene(m_scene);
     rtcReleaseDevice(m_device);
 }
 
-template <typename LeafNode>
-inline void EmbreeBVH<LeafNode>::addObject(const LeafNode* objectPtr)
+template <typename LeafObj>
+inline void EmbreeBVH<LeafObj>::build(gsl::span<const LeafObj*> objects)
 {
-    //auto leafNodeHandle = m_leafAllocator.allocate<LeafNode>(std::ref(leaf));
-    RTCGeometry geom = rtcNewGeometry(m_device, RTC_GEOMETRY_TYPE_USER);
-    rtcAttachGeometry(m_scene, geom); // Returns geomID
-    rtcSetGeometryUserPrimitiveCount(geom, objectPtr->numPrimitives());
-	//rtcSetGeometryUserData(geom, &leafNodeHandle.get(m_leafAllocator));
-	rtcSetGeometryUserData(geom, (void*)objectPtr);
-    rtcSetGeometryBoundsFunction(geom, geometryBoundsFunc, nullptr);
-    rtcSetGeometryIntersectFunction(geom, geometryIntersectFunc);
-    rtcCommitGeometry(geom);
-    rtcReleaseGeometry(geom);
-}
-
-template <typename LeafNode>
-inline void EmbreeBVH<LeafNode>::commit()
-{
+	for (const auto* objectPtr : objects)
+	{
+		RTCGeometry geom = rtcNewGeometry(m_device, RTC_GEOMETRY_TYPE_USER);
+		rtcAttachGeometry(m_scene, geom); // Returns geomID
+		rtcSetGeometryUserPrimitiveCount(geom, objectPtr->numPrimitives());
+		rtcSetGeometryUserData(geom, (void*)objectPtr);
+		rtcSetGeometryBoundsFunction(geom, geometryBoundsFunc, nullptr);
+		rtcSetGeometryIntersectFunction(geom, geometryIntersectFunc);
+		rtcCommitGeometry(geom);
+		rtcReleaseGeometry(geom);
+	}
     rtcCommitScene(m_scene);
 }
 
-template <typename LeafNode>
-inline bool EmbreeBVH<LeafNode>::intersect(Ray& ray, SurfaceInteraction& si) const
+template <typename LeafObj>
+inline bool EmbreeBVH<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 {
     auto rays = gsl::make_span(&ray, 1);
     auto surfaceInteractions = gsl::make_span(&si, 1);
@@ -116,10 +112,10 @@ inline bool EmbreeBVH<LeafNode>::intersect(Ray& ray, SurfaceInteraction& si) con
     }
 }
 
-template <typename LeafNode>
-void EmbreeBVH<LeafNode>::geometryBoundsFunc(const RTCBoundsFunctionArguments* args)
+template <typename LeafObj>
+void EmbreeBVH<LeafObj>::geometryBoundsFunc(const RTCBoundsFunctionArguments* args)
 {
-    const LeafNode& leafNode = *reinterpret_cast<const LeafNode*>(args->geometryUserPtr);
+    const LeafObj& leafNode = *reinterpret_cast<const LeafObj*>(args->geometryUserPtr);
     Bounds bounds = leafNode.getPrimitiveBounds(args->primID);
 
     RTCBounds* outBounds = args->bounds_o;
@@ -131,10 +127,10 @@ void EmbreeBVH<LeafNode>::geometryBoundsFunc(const RTCBoundsFunctionArguments* a
     outBounds->upper_z = bounds.max.z;
 }
 
-template <typename LeafNode>
-void EmbreeBVH<LeafNode>::geometryIntersectFunc(const RTCIntersectFunctionNArguments* args)
+template <typename LeafObj>
+void EmbreeBVH<LeafObj>::geometryIntersectFunc(const RTCIntersectFunctionNArguments* args)
 {
-    const LeafNode& leafNode = *reinterpret_cast<const LeafNode*>(args->geometryUserPtr);
+    const LeafObj& leafNode = *reinterpret_cast<const LeafObj*>(args->geometryUserPtr);
 
     int* valid = args->valid;
     RTCRayHit* rayHit = reinterpret_cast<RTCRayHit*>(args->rayhit);

@@ -47,11 +47,12 @@ inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::
     , m_missCallback(missCallback)
     , m_bvh()
 {
+	std::vector<const LeafNode*> leafs;
     for (const auto& sceneObject : sceneObjects) {
         // Reinterpret sceneObject pointer as LeafNode pointer. This allows us to remove an unnecessary indirection (BVH -> LeafNode -> SceneObject becomes BVH -> SceneObject).
-        m_bvh.addObject(reinterpret_cast<LeafNode*>(sceneObject.get()));
+		leafs.push_back(reinterpret_cast<const LeafNode*>(sceneObject.get()));
     }
-    m_bvh.commit();
+    m_bvh.build(leafs);
 }
 
 template <typename UserState>
