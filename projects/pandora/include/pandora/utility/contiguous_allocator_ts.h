@@ -12,16 +12,16 @@ namespace pandora {
 template <typename T>
 class ContiguousAllocatorTS {
 public:
-    ContiguousAllocatorTS(uint32_t maxSize, uint32_t blockSize = std::min(4096, maxSize));
+	ContiguousAllocatorTS(uint32_t maxSize, uint32_t blockSize = 4096);
 
-    using Handle = uint32_t;
+	using Handle = uint32_t;
 	template <typename... Args>
 	std::pair<Handle, T*> allocate(Args... args);
 
 	template <int N, typename... Args>
 	std::pair<Handle, T*> allocateN(Args... args);
 
-    inline T& get(Handle handle) const { return m_start[handle]; };
+	inline T& get(Handle handle) const { return m_start[handle]; };
 
 	size_t size() const { return m_maxSize; };
 
@@ -30,25 +30,25 @@ private:
 	uint32_t allocateBlock();
 
 private:
-    uint32_t m_maxSize;
-    const uint32_t m_blockSize;
+	uint32_t m_maxSize;
+	const uint32_t m_blockSize;
 
-    std::unique_ptr<T[]> m_start;
-    std::atomic_uint32_t m_currentSize;
+	std::unique_ptr<T[]> m_start;
+	std::atomic_uint32_t m_currentSize;
 
-    struct ThreadLocalData {
+	struct ThreadLocalData {
 		uint32_t index = 0;
 		uint32_t space = 0;
-    };
-    tbb::enumerable_thread_specific<ThreadLocalData> m_threadLocalBlocks;
+	};
+	tbb::enumerable_thread_specific<ThreadLocalData> m_threadLocalBlocks;
 };
 
 template <typename T>
 inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(uint32_t maxSize, uint32_t blockSize)
-    : m_maxSize((uint32_t)std::thread::hardware_concurrency() * blockSize + maxSize)
-    , m_blockSize(blockSize)
-    , m_start(new T[m_maxSize])
-    , m_currentSize(0)
+	: m_maxSize((uint32_t)std::thread::hardware_concurrency() * std::min(maxSize, blockSize) + maxSize)
+	, m_blockSize(std::min(maxSize, blockSize))
+	, m_start(new T[m_maxSize])
+	, m_currentSize(0)
 {
 }
 

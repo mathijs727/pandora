@@ -6,8 +6,7 @@ if (MSVC)
 	target_compile_definitions(libPandora PUBLIC "NOMINMAX")
 
 	# Surpess warnings from OpenImageIO
-	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/wd5040 /wd4244 /wd4275")
-	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/arch:AVX2 /wd5040 /wd4244 /wd4275")
 else()
 	target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Wno-unused-parameter -Wno-unused-variable -Wno-unused-private-field)
 endif()
