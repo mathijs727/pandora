@@ -43,9 +43,6 @@ inline void WiVeBVH8Build8<LeafObj>::commit()
     m_leafNodeAllocator->compact();
 
     testBVH();
-
-	m_innerNodeAllocator->saveToFile("cornell_inner.bvh");
-	m_leafNodeAllocator->saveToFile("cornell_leafs.bvh");
 }
 
 template <typename LeafObj>

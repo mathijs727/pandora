@@ -1,9 +1,11 @@
+#include "pandora/flatbuffers/wive_bvh8_generated.h"
 #include <EASTL/fixed_map.h>
 #include <EASTL/fixed_set.h>
 #include <EASTL/fixed_vector.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <mio/mmap.hpp>
 
 namespace pandora {
 
@@ -44,12 +46,12 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
         //    continue;
 
         uint32_t handle = decompressNodeHandle(compressedNodeHandle);
-		const auto* node = &m_innerNodeAllocator->get(handle);
+        const auto* node = &m_innerNodeAllocator->get(handle);
         if (isInnerNode(compressedNodeHandle)) {
             // Inner node
             simd::vec8_u32 childrenSIMD;
             simd::vec8_f32 distancesSIMD;
-			uint32_t numChildren = traverseCluster(node, simdRay, childrenSIMD, distancesSIMD);
+            uint32_t numChildren = traverseCluster(node, simdRay, childrenSIMD, distancesSIMD);
 
             if (numChildren > 0) {
                 childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
@@ -69,27 +71,26 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
                 simdRay.tfar.broadcast(ray.tfar);
 
                 // Compress stack
-				size_t outStackPtr = 0;
-				for (size_t i = 0; i < stackPtr; i += 8)
-				{
-					simd::vec8_u32 nodesSIMD;
-					simd::vec8_f32 distancesSIMD;
-					distancesSIMD.loadAligned(gsl::make_span(stackDistances.data() + i, 8));
-					nodesSIMD.loadAligned(gsl::make_span(stackCompressedNodeHandles.data() + i, 8));
-					
-					simd::mask8 distMask = distancesSIMD < simdRay.tfar;
-					simd::vec8_u32 compressPermuteIndices(distMask.computeCompressPermutation());// Compute permute indices that represent the compression (so we only have to calculate them once)
-					distancesSIMD = distancesSIMD.permute(compressPermuteIndices);
-					nodesSIMD = nodesSIMD.permute(compressPermuteIndices);
-					
-					distancesSIMD.store(gsl::make_span(stackDistances.data() + outStackPtr, 8));
-					nodesSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + outStackPtr, 8));
+                size_t outStackPtr = 0;
+                for (size_t i = 0; i < stackPtr; i += 8) {
+                    simd::vec8_u32 nodesSIMD;
+                    simd::vec8_f32 distancesSIMD;
+                    distancesSIMD.loadAligned(gsl::make_span(stackDistances.data() + i, 8));
+                    nodesSIMD.loadAligned(gsl::make_span(stackCompressedNodeHandles.data() + i, 8));
 
-					size_t numItems = std::min(8ull, stackPtr - i);
-					unsigned validMask = (1 << numItems) - 1;
-					outStackPtr += distMask.count(validMask);
-				}
-				stackPtr = outStackPtr;
+                    simd::mask8 distMask = distancesSIMD < simdRay.tfar;
+                    simd::vec8_u32 compressPermuteIndices(distMask.computeCompressPermutation()); // Compute permute indices that represent the compression (so we only have to calculate them once)
+                    distancesSIMD = distancesSIMD.permute(compressPermuteIndices);
+                    nodesSIMD = nodesSIMD.permute(compressPermuteIndices);
+
+                    distancesSIMD.store(gsl::make_span(stackDistances.data() + outStackPtr, 8));
+                    nodesSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + outStackPtr, 8));
+
+                    size_t numItems = std::min(8ull, stackPtr - i);
+                    unsigned validMask = (1 << numItems) - 1;
+                    outStackPtr += distMask.count(validMask);
+                }
+                stackPtr = outStackPtr;
             }
         }
     }
@@ -122,11 +123,11 @@ inline uint32_t WiVeBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDR
 
     tmin = tmin.permute(index);
     tmax = tmax.permute(index);
-	simd::mask8 mask = tmin <= tmax;
-	simd::vec8_u32 compressPermuteIndices(mask.computeCompressPermutation());
+    simd::mask8 mask = tmin <= tmax;
+    simd::vec8_u32 compressPermuteIndices(mask.computeCompressPermutation());
     outChildren = n->children.permute(index).permute(compressPermuteIndices);
     outDistances = tmin.permute(compressPermuteIndices);
-	return mask.count();
+    return mask.count();
 }
 
 template <typename LeafObj>
@@ -142,13 +143,52 @@ inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, uint32_t primitiv
 }
 
 template <typename LeafObj>
+inline void WiVeBVH8<LeafObj>::loadFromFile(std::string_view filename, gsl::span<const LeafObj*> objects)
+{
+	auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
+	auto bvh = GetSerializedWiveBVH8(mmapFile.data());
+
+	m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(bvh->innerNodeAllocator());
+	m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>(bvh->leafNodeAllocator());
+	m_compressedRootHandle = bvh->compressedRootHandle();
+
+	if ((uint32_t)objects.size() != bvh->numLeafObjects())
+		THROW_ERROR("Number of leaf objects does not match that of the serialized BVH");
+
+	m_leafObjects.resize(objects.size());
+	std::copy(std::begin(objects), std::end(objects), std::begin(m_leafObjects));
+
+	mmapFile.unmap();
+}
+
+template <typename LeafObj>
+inline void WiVeBVH8<LeafObj>::saveToFile(std::string_view filename)
+{
+    flatbuffers::FlatBufferBuilder builder(1024 + m_innerNodeAllocator->size() * sizeof(BVHNode) + m_leafNodeAllocator->size() * sizeof(BVHLeaf));
+    auto serializedInnerNodeAllocator = m_innerNodeAllocator->serialize(builder);
+    auto serializedLeafNodeAllocator = m_leafNodeAllocator->serialize(builder);
+    auto wiveBVH8 = CreateSerializedWiveBVH8(
+        builder,
+        serializedInnerNodeAllocator,
+        serializedLeafNodeAllocator,
+        m_compressedRootHandle,
+        static_cast<uint32_t>(m_leafObjects.size()));
+    builder.Finish(wiveBVH8);
+
+    std::ofstream file;
+    file.open(filename.data(), std::ios::out | std::ios::binary | std::ios::trunc);
+    file.write(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
+	file.close();
+}
+
+template <typename LeafObj>
 inline void WiVeBVH8<LeafObj>::testBVH() const
 {
     TestBVHData results;
-	if (isInnerNode(m_compressedRootHandle))
-		testBVHRecurse(&m_innerNodeAllocator->get(decompressNodeHandle(m_compressedRootHandle)), 1, results);
-	else
-		std::cout << "ROOT IS LEAF NODE" << std::endl;
+    if (isInnerNode(m_compressedRootHandle))
+        testBVHRecurse(&m_innerNodeAllocator->get(decompressNodeHandle(m_compressedRootHandle)), 1, results);
+    else
+        std::cout << "ROOT IS LEAF NODE" << std::endl;
 
     std::cout << std::endl;
     std::cout << " <<< BVH Build results >>> " << std::endl;
@@ -185,28 +225,27 @@ inline void WiVeBVH8<LeafObj>::testBVHRecurse(const BVHNode* node, int depth, Te
 template <typename LeafObj>
 inline void WiVeBVH8<LeafObj>::build(gsl::span<const LeafObj*> objects)
 {
-	for (const auto* objectPtr : objects)
-	{
-		uint32_t leafObjectID = (uint32_t)m_leafObjects.size();
-		m_leafObjects.push_back(objectPtr); // Vector of references is a nightmare
+    for (const auto* objectPtr : objects) {
+        uint32_t leafObjectID = (uint32_t)m_leafObjects.size();
+        m_leafObjects.push_back(objectPtr); // Vector of references is a nightmare
 
-		for (unsigned primitiveID = 0; primitiveID < objectPtr->numPrimitives(); primitiveID++) {
-			auto bounds = objectPtr->getPrimitiveBounds(primitiveID);
+        for (unsigned primitiveID = 0; primitiveID < objectPtr->numPrimitives(); primitiveID++) {
+            auto bounds = objectPtr->getPrimitiveBounds(primitiveID);
 
-			RTCBuildPrimitive primitive;
-			primitive.lower_x = bounds.min.x;
-			primitive.lower_y = bounds.min.y;
-			primitive.lower_z = bounds.min.z;
-			primitive.upper_x = bounds.max.x;
-			primitive.upper_y = bounds.max.y;
-			primitive.upper_z = bounds.max.z;
-			primitive.primID = primitiveID;
-			primitive.geomID = leafObjectID;
-			m_primitives.push_back(primitive);
-		}
-	}
+            RTCBuildPrimitive primitive;
+            primitive.lower_x = bounds.min.x;
+            primitive.lower_y = bounds.min.y;
+            primitive.lower_z = bounds.min.z;
+            primitive.upper_x = bounds.max.x;
+            primitive.upper_y = bounds.max.y;
+            primitive.upper_z = bounds.max.z;
+            primitive.primID = primitiveID;
+            primitive.geomID = leafObjectID;
+            m_primitives.push_back(primitive);
+        }
+    }
 
-	commit();
+    commit();
 }
 
 template <typename LeafObj>
@@ -230,8 +269,6 @@ inline uint32_t WiVeBVH8<LeafObj>::compressHandleEmpty()
     return 0u; // 0 | (0b000 << 29)
 }
 
-#include <bitset>
-#include <iostream>
 template <typename LeafObj>
 inline bool WiVeBVH8<LeafObj>::isLeafNode(uint32_t compressedHandle)
 {

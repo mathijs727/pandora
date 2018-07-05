@@ -21,7 +21,8 @@ namespace pandora {
 class TriangleMesh {
 public:
     // Public constructor because std::make_shared does not work on private constructors
-    TriangleMesh(unsigned numTriangles,
+    TriangleMesh(
+		unsigned numTriangles,
         unsigned numVertices,
         std::unique_ptr<glm::ivec3[]>&& triangles,
         std::unique_ptr<glm::vec3[]>&& positions,

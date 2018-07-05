@@ -52,7 +52,9 @@ inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::
         // Reinterpret sceneObject pointer as LeafNode pointer. This allows us to remove an unnecessary indirection (BVH -> LeafNode -> SceneObject becomes BVH -> SceneObject).
 		leafs.push_back(reinterpret_cast<const LeafNode*>(sceneObject.get()));
     }
-    m_bvh.build(leafs);
+    //m_bvh.build(leafs);
+	//m_bvh.saveToFile("scene.bvh");
+	m_bvh.loadFromFile("scene.bvh", leafs);
 }
 
 template <typename UserState>

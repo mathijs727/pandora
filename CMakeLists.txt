@@ -30,6 +30,12 @@ add_library(tbb INTERFACE)
 target_include_directories(tbb INTERFACE "${TBB_INCLUDE_DIRS}")
 target_link_libraries(tbb INTERFACE "${TBB_LIBRARIES}")
 
+find_package(Flatbuffers CONFIG REQUIRED)
+
+# https://github.com/mandreyel/mio
+add_library(mio INTERFACE)
+target_include_directories(mio INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/mio/include/")
+
 if (BUILD_TESTS)
     find_package(GTest REQUIRED)
 endif ()

@@ -1,0 +1,7 @@
+table SerializedContiguousAllocator
+{
+	maxSize: uint32;
+	blockSize: uint32;
+	currentSize: uint32;
+	data: [byte];
+}

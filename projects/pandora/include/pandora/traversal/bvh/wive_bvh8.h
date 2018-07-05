@@ -5,13 +5,11 @@
 #include "pandora/utility/simd/simd8.h"
 #include <EASTL/fixed_vector.h>
 #include <embree3/rtcore.h>
+#include <iostream>
 #include <memory>
+#include <string_view>
 #include <tuple>
 #include <vector>
-
-
-#include <bitset>
-#include <iostream>
 
 namespace pandora {
 
@@ -25,6 +23,8 @@ public:
 
     bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
 
+	void loadFromFile(std::string_view filename, gsl::span<const LeafObj*> objects);
+	void saveToFile(std::string_view filename);
 protected:
 	virtual void commit() = 0;
 
@@ -50,6 +50,7 @@ protected:
     struct BVHLeaf;
 
 private:
+
     struct SIMDRay;
     uint32_t traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
     bool intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, SurfaceInteraction& si) const;

@@ -13,12 +13,14 @@ endif()
 target_compile_definitions(libPandora PRIVATE "ENABLE_STATIC_LIB")# Embree static lib
 
 target_link_libraries(libPandora PUBLIC
-    assimp
-    OpenImageIO
-	glm
-    embree
-	tbb
-	EASTL)
+    assimp # Loading 3D models
+    OpenImageIO # Loading textures
+	glm # Vector math
+    embree # BVH builder and reference BVH traversal
+	tbb # Multithreading
+	EASTL # Stack based STL containers <3
+	flatbuffers::flatbuffers# Fast serialization
+	mio)# Memory-mapped file IO for serialization
 
 target_include_directories(libPandora PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/")
 target_include_directories(libPandora PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src/")
