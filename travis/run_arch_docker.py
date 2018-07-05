@@ -38,4 +38,4 @@ with open(".travis.yml") as file:
         {} \
         mikkeloscar/arch-travis".format(project_dir, config_repos, config_packages, config_build_scripts, env_vars_args)
     print(docker_cmd)
-    os.system(docker_cmd)
+    return os.system(docker_cmd)

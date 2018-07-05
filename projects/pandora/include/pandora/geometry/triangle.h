@@ -45,7 +45,7 @@ public:
 
     Bounds getPrimitiveBounds(unsigned primitiveID) const;
 
-    __forceinline bool intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture = true) const;
+    inline bool intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture = true) const;
 
     float primitiveArea(unsigned primitiveID) const;
     Interaction samplePrimitive(unsigned primitiveID, const glm::vec2& randomSample) const;
@@ -70,7 +70,7 @@ private:
     const std::unique_ptr<glm::vec2[]> m_uvCoords;
 };
 
-__forceinline bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture) const
+inline bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture) const
 {
 #if PBRT_INTERSECTION > 0
     // Based on PBRT v3 triangle intersection test (page 158):
