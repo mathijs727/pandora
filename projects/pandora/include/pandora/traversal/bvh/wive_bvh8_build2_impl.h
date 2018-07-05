@@ -34,8 +34,8 @@ inline void WiVeBVH8Build2<LeafObj>::commit()
     Bounds rootBounds;
     rootBounds.extend(constructionTreeRootNode->childBounds[0]);
     rootBounds.extend(constructionTreeRootNode->childBounds[1]);
-    auto [rootHandle, rootPtr] = collapseTreelet(constructionTreeRootNode, rootBounds);
-    m_rootHandle = rootHandle;
+    auto [compressedRootHandle, rootPtr] = collapseTreelet(constructionTreeRootNode, rootBounds);
+	m_compressedRootHandle = compressedRootHandle;
 
 	// Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);
@@ -296,5 +296,5 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
     bvh8NodePtr->maxZ.load(maxZ);
     bvh8NodePtr->permutationOffsets.load(permutationOffsets);
     bvh8NodePtr->children.load(children);
-    return { bvh8NodeHandle, bvh8NodePtr };
+    return { compressHandleInner(bvh8NodeHandle), bvh8NodePtr };
 }

@@ -58,7 +58,7 @@ int main()
 	auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
-	//addCornellBox(scene);
+	addCornellBox(scene);
 	//addStanfordBunny(scene);
 	addStanfordDragon(scene);
     
@@ -117,8 +117,8 @@ void addStanfordBunny(Scene& scene)
 void addStanfordDragon(Scene& scene)
 {
 	auto transform = glm::mat4(1.0f);
-	transform = glm::translate(transform, glm::vec3(0, -0.3f, 0));
-	transform = glm::scale(transform, glm::vec3(8));
+	transform = glm::translate(transform, glm::vec3(0, -0.5f, 0));
+	transform = glm::scale(transform, glm::vec3(10));
 	transform = glm::rotate(transform, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply", transform, false);
 	auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.1f, 0.1f, 0.5f));

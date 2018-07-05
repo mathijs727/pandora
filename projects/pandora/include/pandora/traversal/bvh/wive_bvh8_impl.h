@@ -31,7 +31,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
     size_t stackPtr = 0;
 
     // Push root node onto the stack
-    stackCompressedNodeHandles[stackPtr] = compressHandleInner(m_rootHandle);
+    stackCompressedNodeHandles[stackPtr] = m_compressedRootHandle;
     stackDistances[stackPtr] = 0.0f;
     stackPtr++;
 
@@ -122,11 +122,10 @@ inline uint32_t WiVeBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDR
 
     tmin = tmin.permute(index);
     tmax = tmax.permute(index);
-    simd::mask8 mask = tmin < tmax;
+	simd::mask8 mask = tmin <= tmax;
 	simd::vec8_u32 compressPermuteIndices(mask.computeCompressPermutation());
     outChildren = n->children.permute(index).permute(compressPermuteIndices);
     outDistances = tmin.permute(compressPermuteIndices);
-    //outNumChildren = mask.count();
 	return mask.count();
 }
 
@@ -136,10 +135,8 @@ inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, uint32_t primitiv
     bool hit = false;
     const auto* leafObjectIDs = n->leafObjectIDs;
     const auto* primitiveIDs = n->primitiveIDs;
-    for (uint32_t i = 0; i < 4; i++) {
-        if (leafObjectIDs[i] == emptyHandle)
-            break;
-        hit |= m_leafObjects[i]->intersectPrimitive(primitiveIDs[i], ray, si);
+    for (uint32_t i = 0; i < primitiveCount; i++) {
+        hit |= m_leafObjects[leafObjectIDs[i]]->intersectPrimitive(primitiveIDs[i], ray, si);
     }
     return hit;
 }
@@ -148,7 +145,10 @@ template <typename LeafObj>
 inline void WiVeBVH8<LeafObj>::testBVH() const
 {
     TestBVHData results;
-    testBVHRecurse(&m_innerNodeAllocator->get(m_rootHandle), 1, results);
+	if (isInnerNode(m_compressedRootHandle))
+		testBVHRecurse(&m_innerNodeAllocator->get(decompressNodeHandle(m_compressedRootHandle)), 1, results);
+	else
+		std::cout << "ROOT IS LEAF NODE" << std::endl;
 
     std::cout << std::endl;
     std::cout << " <<< BVH Build results >>> " << std::endl;
@@ -156,7 +156,7 @@ inline void WiVeBVH8<LeafObj>::testBVH() const
     std::cout << "Primitives reached: " << results.numPrimitives << std::endl;
     std::cout << "Max depth:          " << results.maxDepth << std::endl;
     std::cout << "\nChild count histogram:\n";
-    for (int i = 0; i < 8; i++)
+    for (size_t i = 0; i < results.numChildrenHistogram.size(); i++)
         std::cout << i << ": " << results.numChildrenHistogram[i] << std::endl;
     std::cout << std::endl;
 }
@@ -172,7 +172,6 @@ inline void WiVeBVH8<LeafObj>::testBVHRecurse(const BVHNode* node, int depth, Te
         if (isLeafNode(children[i])) {
             out.numPrimitives += leafNodePrimitiveCount(children[i]);
         } else if (isInnerNode(children[i])) {
-
             testBVHRecurse(&m_innerNodeAllocator->get(decompressNodeHandle(children[i])), depth + 1, out);
         }
 
@@ -186,6 +185,9 @@ inline void WiVeBVH8<LeafObj>::testBVHRecurse(const BVHNode* node, int depth, Te
 template <typename LeafObj>
 inline void WiVeBVH8<LeafObj>::addObject(const LeafObj* addObject)
 {
+	uint32_t leafObjectID = (uint32_t)m_leafObjects.size();
+    m_leafObjects.push_back(addObject); // Vector of references is a nightmare
+
     for (unsigned primitiveID = 0; primitiveID < addObject->numPrimitives(); primitiveID++) {
         auto bounds = addObject->getPrimitiveBounds(primitiveID);
 
@@ -197,10 +199,8 @@ inline void WiVeBVH8<LeafObj>::addObject(const LeafObj* addObject)
         primitive.upper_y = bounds.max.y;
         primitive.upper_z = bounds.max.z;
         primitive.primID = primitiveID;
-        primitive.geomID = (unsigned)m_leafObjects.size();
-
+		primitive.geomID = leafObjectID;
         m_primitives.push_back(primitive);
-        m_leafObjects.push_back(addObject); // Vector of references is a nightmare
     }
 }
 

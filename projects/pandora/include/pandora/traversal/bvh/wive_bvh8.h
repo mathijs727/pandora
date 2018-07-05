@@ -84,7 +84,7 @@ protected:
 
     std::unique_ptr<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>> m_innerNodeAllocator;
     std::unique_ptr<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>> m_leafNodeAllocator;
-    uint32_t m_rootHandle;
+    uint32_t m_compressedRootHandle;
 
 private:
     struct SIMDRay {

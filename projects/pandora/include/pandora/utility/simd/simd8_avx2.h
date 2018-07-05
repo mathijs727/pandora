@@ -21,6 +21,7 @@ static constexpr std::array<uint64_t, 256> genCompressLUT()
     return result;
 }
 static constexpr std::array<uint64_t, 256> s_indicesLUT = genCompressLUT();
+static const __m256i s_avxMaskOnes = _mm256_set1_epi32(0xFFFFFFFF);
 
 template <typename T, int S>
 class vec8;
@@ -177,10 +178,24 @@ public:
         return mask8<8>(_mm256_cmpgt_epi32(other.m_value, m_value));
     }
 
+	inline mask8<8> operator<=(const vec8<uint32_t, 8>& other) const
+	{
+		__m256i greaterThan = _mm256_cmpgt_epi32(m_value, other.m_value);
+		__m256i notGreaterThan = _mm256_xor_si256(greaterThan, s_avxMaskOnes);
+		return mask8<8>(notGreaterThan);
+	}
+
     inline mask8<8> operator>(const vec8<uint32_t, 8>& other) const
     {
         return mask8<8>(_mm256_cmpgt_epi32(m_value, other.m_value));
     }
+
+	inline mask8<8> operator>=(const vec8<uint32_t, 8>& other) const
+	{
+		__m256i lessThan = _mm256_cmpgt_epi32(other.m_value, m_value);
+		__m256i notLessThan = _mm256_xor_si256(lessThan, s_avxMaskOnes);
+		return mask8<8>(notLessThan);
+	}
 
     inline vec8<uint32_t, 8> permute(const vec8<uint32_t, 8>& index) const
     {
@@ -268,13 +283,23 @@ public:
 
     inline mask8<8> operator<(const vec8<float, 8>& other) const
     {
-        return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_LT_OS));
+		return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_LT_OS));
     }
+
+	inline mask8<8> operator<=(const vec8<float, 8>& other) const
+	{
+		return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_LE_OS));
+	}
 
     inline mask8<8> operator>(const vec8<float, 8>& other) const
     {
         return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_GT_OS));
     }
+
+	inline mask8<8> operator>=(const vec8<float, 8>& other) const
+	{
+		return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_GE_OS));
+	}
 
     inline vec8<float, 8> permute(const vec8<uint32_t, 8>& index) const
     {

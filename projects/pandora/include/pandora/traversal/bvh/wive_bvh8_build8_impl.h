@@ -27,7 +27,7 @@ inline void WiVeBVH8Build8<LeafObj>::commit()
     m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>((uint32_t)m_primitives.size() / 4, 16);
     m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>((uint32_t)m_primitives.size(), 16);
 
-    m_rootHandle = decompressNodeHandle(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rtcBuildBVH(&arguments))));
+    m_compressedRootHandle = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rtcBuildBVH(&arguments)));
 
     // Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);

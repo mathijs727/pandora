@@ -124,16 +124,28 @@ void simd8Tests()
     }
 
     {
-        auto v3 = simd::vec8<T, S>(1, 42, 1, 1, 1, 42, 1, 42);
+        auto v3 = simd::vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
         simd::mask8<S> mask = v2 < v3;
         ASSERT_EQ(mask.count(), 3);
     }
 
     {
-        auto v3 = simd::vec8<T, S>(1, 42, 1, 1, 1, 42, 1, 42);
-        simd::mask8<S> mask = v2 > v3;
+        auto v3 = simd::vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
+        simd::mask8<S> mask = v2 <= v3;
         ASSERT_EQ(mask.count(), 5);
     }
+
+    {
+        auto v3 = simd::vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
+        simd::mask8<S> mask = v2 > v3;
+        ASSERT_EQ(mask.count(), 3);
+    }
+
+	{
+		auto v3 = simd::vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
+		simd::mask8<S> mask = v2 >= v3;
+		ASSERT_EQ(mask.count(), 5);
+	}
 
     {
         simd::mask8<S> mask(false, false, true, false, true, true, false, true);
@@ -146,25 +158,25 @@ void simd8Tests()
         ASSERT_EQ_T(values[3], 11);
         ASSERT_EQ(mask.count(), 4);
 
-		unsigned validMask = 0b10011001;
-		ASSERT_EQ(mask.count(validMask), 2);
+        unsigned validMask = 0b10011001;
+        ASSERT_EQ(mask.count(validMask), 2);
     }
 
-	{
-		simd::mask8<S> mask(false, false, true, false, true, true, false, true);
-		auto v3 = v2.compress(mask);
-		simd::vec8<uint32_t, S> indices(mask.computeCompressPermutation());
-		auto v4 = v2.permute(indices);
+    {
+        simd::mask8<S> mask(false, false, true, false, true, true, false, true);
+        auto v3 = v2.compress(mask);
+        simd::vec8<uint32_t, S> indices(mask.computeCompressPermutation());
+        auto v4 = v2.permute(indices);
 
-		std::array<T, 8> valuesCompress;
-		std::array<T, 8> valuesPermuteCompress;
-		v3.store(valuesCompress);
-		v4.store(valuesPermuteCompress);
+        std::array<T, 8> valuesCompress;
+        std::array<T, 8> valuesPermuteCompress;
+        v3.store(valuesCompress);
+        v4.store(valuesPermuteCompress);
 
-		for (int i = 0; i < mask.count(); i++) {
-			ASSERT_EQ(valuesCompress[i], valuesPermuteCompress[i]);
-		}
-	}
+        for (int i = 0; i < mask.count(); i++) {
+            ASSERT_EQ(valuesCompress[i], valuesPermuteCompress[i]);
+        }
+    }
 }
 
 TEST(SIMD8, Scalar)

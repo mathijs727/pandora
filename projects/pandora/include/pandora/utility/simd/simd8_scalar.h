@@ -10,6 +10,10 @@ template <>
 class mask8<1> {
 public:
     mask8() = default;
+	mask8(bool v)
+	{
+		std::fill(std::begin(m_values), std::end(m_values), v);
+	}
     mask8(bool v0, bool v1, bool v2, bool v3, bool v4, bool v5, bool v6, bool v7)
     {
         m_values[0] = v0;
@@ -152,11 +156,27 @@ public:
         return mask;
     }
 
+	inline mask8<1> operator<=(const vec8<T, 1>& other) const
+	{
+		mask8<1> mask;
+		for (int i = 0; i < 8; i++)
+			mask.m_values[i] = (m_values[i] <= other.m_values[i]);
+		return mask;
+	}
+
 	inline mask8<1> operator>(const vec8<T, 1>& other) const
 	{
 		mask8<1> mask;
 		for (int i = 0; i < 8; i++)
 			mask.m_values[i] = (m_values[i] > other.m_values[i]);
+		return mask;
+	}
+
+	inline mask8<1> operator>=(const vec8<T, 1>& other) const
+	{
+		mask8<1> mask;
+		for (int i = 0; i < 8; i++)
+			mask.m_values[i] = (m_values[i] >= other.m_values[i]);
 		return mask;
 	}
 
