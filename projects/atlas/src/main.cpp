@@ -33,7 +33,7 @@ const int height = 720;
 const std::string projectBasePath = "../../"s;
 
 void addStanfordBunny(Scene& scene);
-void addStanfordDragon(Scene& scene);
+void addStanfordDragon(Scene& scene, bool loadFromCache = false);
 void addCornellBox(Scene& scene);
 
 int main()
@@ -60,7 +60,7 @@ int main()
 
 	addCornellBox(scene);
 	//addStanfordBunny(scene);
-	addStanfordDragon(scene);
+	addStanfordDragon(scene, false);
     
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
@@ -114,19 +114,26 @@ void addStanfordBunny(Scene& scene)
 		scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
 }
 
-void addStanfordDragon(Scene& scene)
+void addStanfordDragon(Scene& scene, bool loadFromCache)
 {
 	auto transform = glm::mat4(1.0f);
 	transform = glm::translate(transform, glm::vec3(0, -0.5f, 0));
 	transform = glm::scale(transform, glm::vec3(10));
 	transform = glm::rotate(transform, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply", transform, false);
 	auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.1f, 0.1f, 0.5f));
 	auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
 	//auto material = std::make_shared<MatteMaterial>(kd, roughness);
 	auto material = MetalMaterial::createCopper(roughness, true);
-	for (const auto& mesh : meshes)
+	if (loadFromCache) {
+		auto mesh = TriangleMesh::loadFromCacheFile("dragon.geom");
 		scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+	} else {
+		auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply", transform, false);
+		meshes[0]->saveToFile("dragon.geom");// Only a single mesh
+		for (const auto& mesh : meshes) {
+			scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+		}
+	}
 }
 
 void addCornellBox(Scene& scene)

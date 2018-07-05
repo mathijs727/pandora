@@ -10,9 +10,9 @@
 
 namespace pandora {
 
-struct SerializedWiveBVH8;
+struct SerializedWiVeBVH8;
 
-struct SerializedWiveBVH8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct SerializedWiVeBVH8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum {
     VT_INNERNODEALLOCATOR = 4,
     VT_LEAFNODEALLOCATOR = 6,
@@ -43,40 +43,40 @@ struct SerializedWiveBVH8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct SerializedWiveBVH8Builder {
+struct SerializedWiVeBVH8Builder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_innerNodeAllocator(flatbuffers::Offset<SerializedContiguousAllocator> innerNodeAllocator) {
-    fbb_.AddOffset(SerializedWiveBVH8::VT_INNERNODEALLOCATOR, innerNodeAllocator);
+    fbb_.AddOffset(SerializedWiVeBVH8::VT_INNERNODEALLOCATOR, innerNodeAllocator);
   }
   void add_leafNodeAllocator(flatbuffers::Offset<SerializedContiguousAllocator> leafNodeAllocator) {
-    fbb_.AddOffset(SerializedWiveBVH8::VT_LEAFNODEALLOCATOR, leafNodeAllocator);
+    fbb_.AddOffset(SerializedWiVeBVH8::VT_LEAFNODEALLOCATOR, leafNodeAllocator);
   }
   void add_compressedRootHandle(uint32_t compressedRootHandle) {
-    fbb_.AddElement<uint32_t>(SerializedWiveBVH8::VT_COMPRESSEDROOTHANDLE, compressedRootHandle, 0);
+    fbb_.AddElement<uint32_t>(SerializedWiVeBVH8::VT_COMPRESSEDROOTHANDLE, compressedRootHandle, 0);
   }
   void add_numLeafObjects(uint32_t numLeafObjects) {
-    fbb_.AddElement<uint32_t>(SerializedWiveBVH8::VT_NUMLEAFOBJECTS, numLeafObjects, 0);
+    fbb_.AddElement<uint32_t>(SerializedWiVeBVH8::VT_NUMLEAFOBJECTS, numLeafObjects, 0);
   }
-  explicit SerializedWiveBVH8Builder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit SerializedWiVeBVH8Builder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  SerializedWiveBVH8Builder &operator=(const SerializedWiveBVH8Builder &);
-  flatbuffers::Offset<SerializedWiveBVH8> Finish() {
+  SerializedWiVeBVH8Builder &operator=(const SerializedWiVeBVH8Builder &);
+  flatbuffers::Offset<SerializedWiVeBVH8> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<SerializedWiveBVH8>(end);
+    auto o = flatbuffers::Offset<SerializedWiVeBVH8>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<SerializedWiveBVH8> CreateSerializedWiveBVH8(
+inline flatbuffers::Offset<SerializedWiVeBVH8> CreateSerializedWiVeBVH8(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<SerializedContiguousAllocator> innerNodeAllocator = 0,
     flatbuffers::Offset<SerializedContiguousAllocator> leafNodeAllocator = 0,
     uint32_t compressedRootHandle = 0,
     uint32_t numLeafObjects = 0) {
-  SerializedWiveBVH8Builder builder_(_fbb);
+  SerializedWiVeBVH8Builder builder_(_fbb);
   builder_.add_numLeafObjects(numLeafObjects);
   builder_.add_compressedRootHandle(compressedRootHandle);
   builder_.add_leafNodeAllocator(leafNodeAllocator);
@@ -84,33 +84,33 @@ inline flatbuffers::Offset<SerializedWiveBVH8> CreateSerializedWiveBVH8(
   return builder_.Finish();
 }
 
-inline const pandora::SerializedWiveBVH8 *GetSerializedWiveBVH8(const void *buf) {
-  return flatbuffers::GetRoot<pandora::SerializedWiveBVH8>(buf);
+inline const pandora::SerializedWiVeBVH8 *GetSerializedWiVeBVH8(const void *buf) {
+  return flatbuffers::GetRoot<pandora::SerializedWiVeBVH8>(buf);
 }
 
-inline const pandora::SerializedWiveBVH8 *GetSizePrefixedSerializedWiveBVH8(const void *buf) {
-  return flatbuffers::GetSizePrefixedRoot<pandora::SerializedWiveBVH8>(buf);
+inline const pandora::SerializedWiVeBVH8 *GetSizePrefixedSerializedWiVeBVH8(const void *buf) {
+  return flatbuffers::GetSizePrefixedRoot<pandora::SerializedWiVeBVH8>(buf);
 }
 
-inline bool VerifySerializedWiveBVH8Buffer(
+inline bool VerifySerializedWiVeBVH8Buffer(
     flatbuffers::Verifier &verifier) {
-  return verifier.VerifyBuffer<pandora::SerializedWiveBVH8>(nullptr);
+  return verifier.VerifyBuffer<pandora::SerializedWiVeBVH8>(nullptr);
 }
 
-inline bool VerifySizePrefixedSerializedWiveBVH8Buffer(
+inline bool VerifySizePrefixedSerializedWiVeBVH8Buffer(
     flatbuffers::Verifier &verifier) {
-  return verifier.VerifySizePrefixedBuffer<pandora::SerializedWiveBVH8>(nullptr);
+  return verifier.VerifySizePrefixedBuffer<pandora::SerializedWiVeBVH8>(nullptr);
 }
 
-inline void FinishSerializedWiveBVH8Buffer(
+inline void FinishSerializedWiVeBVH8Buffer(
     flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<pandora::SerializedWiveBVH8> root) {
+    flatbuffers::Offset<pandora::SerializedWiVeBVH8> root) {
   fbb.Finish(root);
 }
 
-inline void FinishSizePrefixedSerializedWiveBVH8Buffer(
+inline void FinishSizePrefixedSerializedWiVeBVH8Buffer(
     flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<pandora::SerializedWiveBVH8> root) {
+    flatbuffers::Offset<pandora::SerializedWiVeBVH8> root) {
   fbb.FinishSizePrefixed(root);
 }
 

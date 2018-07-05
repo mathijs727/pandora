@@ -1,0 +1,14 @@
+namespace pandora.serialization;
+
+table TriangleMesh
+{
+	numTriangles: uint32;
+	numVertices: uint32;
+	triangles: [byte];
+	positions: [byte];
+	normals: [byte];
+	tangents: [byte];
+	uvCoords: [byte];
+}
+
+root_type TriangleMesh;

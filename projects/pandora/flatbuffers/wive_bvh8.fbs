@@ -2,7 +2,7 @@ include "contiguous_allocator.fbs";
 
 namespace pandora;
 
-table SerializedWiveBVH8
+table SerializedWiVeBVH8
 {
 	innerNodeAllocator: SerializedContiguousAllocator;
 	leafNodeAllocator: SerializedContiguousAllocator;
@@ -10,4 +10,4 @@ table SerializedWiveBVH8
 	numLeafObjects: uint32;
 }
 
-root_type SerializedWiveBVH8;
+root_type SerializedWiVeBVH8;
