@@ -1,4 +1,6 @@
-table SerializedContiguousAllocator
+namespace pandora.serialization;
+
+table ContiguousAllocator
 {
 	maxSize: uint32;
 	blockSize: uint32;

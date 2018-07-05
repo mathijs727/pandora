@@ -17,7 +17,7 @@ template <typename T>
 class ContiguousAllocatorTS {
 public:
     ContiguousAllocatorTS(uint32_t maxSize, uint32_t blockSize = 4096);
-    ContiguousAllocatorTS(const SerializedContiguousAllocator* serializedAllocator);
+    ContiguousAllocatorTS(const serialization::ContiguousAllocator* serializedAllocator);
 
     using Handle = uint32_t;
     template <typename... Args>
@@ -32,7 +32,7 @@ public:
 
     void compact();
 
-    flatbuffers::Offset<SerializedContiguousAllocator> serialize(flatbuffers::FlatBufferBuilder& builder) const;
+    flatbuffers::Offset<serialization::ContiguousAllocator> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
 private:
     uint32_t allocateBlock();
@@ -61,7 +61,7 @@ inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(uint32_t maxSize, uint32_
 }
 
 template <typename T>
-inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(const SerializedContiguousAllocator* serializedAllocator)
+inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(const serialization::ContiguousAllocator* serializedAllocator)
     : m_maxSize(serializedAllocator->maxSize())
     , m_blockSize(serializedAllocator->blockSize())
     , m_start(new T[serializedAllocator->maxSize()])
@@ -119,10 +119,10 @@ inline void ContiguousAllocatorTS<T>::compact()
 }
 
 template <typename T>
-inline flatbuffers::Offset<SerializedContiguousAllocator> ContiguousAllocatorTS<T>::serialize(flatbuffers::FlatBufferBuilder& builder) const
+inline flatbuffers::Offset<serialization::ContiguousAllocator> ContiguousAllocatorTS<T>::serialize(flatbuffers::FlatBufferBuilder& builder) const
 {
     auto serializedData = builder.CreateVector(reinterpret_cast<const int8_t*>(m_start.get()), m_currentSize * sizeof(T));
-    return CreateSerializedContiguousAllocator(builder, m_maxSize, m_blockSize, m_currentSize, serializedData);
+    return serialization::CreateContiguousAllocator(builder, m_maxSize, m_blockSize, m_currentSize, serializedData);
 }
 
 }

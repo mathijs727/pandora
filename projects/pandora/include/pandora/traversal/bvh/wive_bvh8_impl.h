@@ -146,7 +146,7 @@ template <typename LeafObj>
 inline void WiVeBVH8<LeafObj>::loadFromFile(std::string_view filename, gsl::span<const LeafObj*> objects)
 {
 	auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
-	auto bvh = GetSerializedWiVeBVH8(mmapFile.data());
+	auto bvh = serialization::GetWiVeBVH8(mmapFile.data());
 
 	m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(bvh->innerNodeAllocator());
 	m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>(bvh->leafNodeAllocator());
@@ -167,7 +167,7 @@ inline void WiVeBVH8<LeafObj>::saveToFile(std::string_view filename)
     flatbuffers::FlatBufferBuilder builder(1024 + m_innerNodeAllocator->size() * sizeof(BVHNode) + m_leafNodeAllocator->size() * sizeof(BVHLeaf));
     auto serializedInnerNodeAllocator = m_innerNodeAllocator->serialize(builder);
     auto serializedLeafNodeAllocator = m_leafNodeAllocator->serialize(builder);
-    auto wiveBVH8 = CreateSerializedWiVeBVH8(
+    auto wiveBVH8 = serialization::CreateWiVeBVH8(
         builder,
         serializedInnerNodeAllocator,
         serializedLeafNodeAllocator,
