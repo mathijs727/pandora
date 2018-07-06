@@ -30,7 +30,7 @@ template <int S>
 class mask8;
 
 template <>
-class mask8<8> {
+class alignas(32) mask8<8> {
 public:
     //mask8() = default;
     inline mask8(const __m256i& value)
@@ -94,7 +94,7 @@ private:
 };
 
 template <>
-class vec8<uint32_t, 8> {
+class alignas(32) vec8<uint32_t, 8> {
 public:
     friend class vec8<float, 8>; // Make friend so it can access us in permute & compress operations
 
@@ -216,7 +216,7 @@ private:
 };
 
 template <>
-class vec8<float, 8> {
+class alignas(32) vec8<float, 8> {
 public:
     vec8() = default;
     inline vec8(gsl::span<const float, 8> v)

@@ -36,7 +36,7 @@ private:
     static void* leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr);
 
     void orderChildrenConstructionBVH(ConstructionBVHNode* node);
-    std::pair<uint32_t, const WiVeBVH8<LeafObj>::BVHNode*> collapseTreelet(const ConstructionInnerNode* treeletRoot, const Bounds& rootBounds);
+    std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> collapseTreelet(const ConstructionInnerNode* treeletRoot, const Bounds& rootBounds);
 };
 
 #include "wive_bvh8_build2_impl.h"

@@ -180,15 +180,6 @@ public:
 		return mask;
 	}
 
-    inline vec8<T, 1> permute(const vec8<uint32_t, 1>& index) const
-    {
-        vec8<T, 1> result;
-        for (int i = 0; i < 8; i++) {
-            result.m_values[i] = m_values[index.m_values[i]];
-        }
-        return result;
-    }
-
     inline vec8<T, 1> compress(mask8<1> mask) const
     {
         vec8<T, 1> result;
@@ -210,30 +201,11 @@ protected:
 };
 
 template <>
-class vec8<float, 1> : public vec8_base<float, 1> {
-public:
-    // Inherit constructors
-    using vec8_base<float, 1>::vec8_base;
-
-    // Not in base class because we will not support it on integers
-    inline vec8<float, 1> operator/(const vec8<float, 1>& other) const
-    {
-        vec8<float, 1> result;
-        for (int i = 0; i < 8; i++)
-            result.m_values[i] = m_values[i] / other.m_values[i];
-        return result;
-    }
-};
-
-template <>
 class vec8<uint32_t, 1> : public vec8_base<uint32_t, 1> {
 public:
     // Inherit constructors
     using vec8_base<uint32_t, 1>::vec8_base;
-	friend class vec8_base<float, 1>; // Make friend so it can access us in permute & compress operations
-	friend class vec8_base<int32_t, 1>; // Make friend so it can access us in permute & compress operations
-	friend class vec8_base<uint32_t, 1>; // Make friend so it can access us in permute & compress operations
-    friend class vec8<int32_t, 1>; // Make friend so it can access us in bitshift operations
+    friend class vec8<float, 1>; // Make friend so it can access us in permute & compress operations
 
     inline vec8<uint32_t, 1> operator<<(const vec8<uint32_t, 1>& amount) const
     {
@@ -261,9 +233,43 @@ public:
         }
         return result;
     }
+
+    inline vec8<uint32_t, 1> permute(const vec8<uint32_t, 1>& index) const
+    {
+        vec8<uint32_t, 1> result;
+        for (int i = 0; i < 8; i++) {
+            result.m_values[i] = m_values[index.m_values[i]];
+        }
+        return result;
+    }
 };
 
 template <>
+class vec8<float, 1> : public vec8_base<float, 1> {
+public:
+    // Inherit constructors
+    using vec8_base<float, 1>::vec8_base;
+
+    // Not in base class because we will not support it on integers
+    inline vec8<float, 1> operator/(const vec8<float, 1>& other) const
+    {
+        vec8<float, 1> result;
+        for (int i = 0; i < 8; i++)
+            result.m_values[i] = m_values[i] / other.m_values[i];
+        return result;
+    }
+
+    inline vec8<float, 1> permute(const vec8<uint32_t, 1>& index) const
+    {
+        vec8<float, 1> result;
+        for (int i = 0; i < 8; i++) {
+            result.m_values[i] = m_values[index.m_values[i]];
+        }
+        return result;
+    }
+};
+
+/*template <>
 class vec8<int32_t, 1> : public vec8_base<int32_t, 1> {
 public:
     // Inherit constructors
@@ -287,7 +293,7 @@ public:
         }
         return result;
     }
-};
+};*/
 
 template <typename T>
 inline vec8<T, 1> min(const vec8<T, 1>& a, const vec8<T, 1>& b)

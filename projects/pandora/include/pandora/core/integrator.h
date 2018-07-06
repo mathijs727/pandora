@@ -2,6 +2,7 @@
 #include "pandora/core/pandora.h"
 #include "pandora/core/scene.h"
 #include "pandora/samplers/uniform_sampler.h"
+#include "pandora/core/sensor.h"
 //#include "pandora/traversal/embree_accel.h"
 #include "pandora/traversal/in_core_acceleration_structure.h"
 

@@ -86,7 +86,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
                     distancesSIMD.store(gsl::make_span(stackDistances.data() + outStackPtr, 8));
                     nodesSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + outStackPtr, 8));
 
-                    size_t numItems = std::min(8ull, stackPtr - i);
+                    size_t numItems = std::min((size_t)8, stackPtr - i);
                     unsigned validMask = (1 << numItems) - 1;
                     outStackPtr += distMask.count(validMask);
                 }

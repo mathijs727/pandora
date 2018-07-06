@@ -16,6 +16,6 @@ private:
     static void* leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr);
 };
 
-#include "wive_bvh8_build8_impl.h"
-
 }
+
+#include "wive_bvh8_build8_impl.h"
