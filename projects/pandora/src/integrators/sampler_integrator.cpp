@@ -62,7 +62,7 @@ void SamplerIntegrator::spawnNextSample(const glm::vec2& pixel, bool initialSamp
     if (initialSample || sampler.startNextSample()) {
         CameraSample sample = sampler.getCameraSample(pixel);
 
-        ContinuationRayState rayState{ pixel, glm::vec3(1.0f), 0 };
+        ContinuationRayState rayState{ pixel, glm::vec3(1.0f), 0, false };
         RayState rayStateVariant = rayState;
 
         Ray ray = m_cameraThisFrame->generateRay(sample);

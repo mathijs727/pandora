@@ -2026,10 +2026,10 @@
 				EA_RESTORE_VC_WARNING();
 		#else
 			#define EA_NON_COPYABLE(EAClass_)               \
-				EA_DISABLE_VC_WARNING(4822);	/* local class member function does not have a body	*/		\
+				EA_DISABLE_VC_WARNING(4822)	/* local class member function does not have a body	*/		\
 				EAClass_(const EAClass_&) = delete;         \
 				void operator=(const EAClass_&) = delete;	\
-				EA_RESTORE_VC_WARNING();
+				EA_RESTORE_VC_WARNING()
 		#endif
 	#endif
 

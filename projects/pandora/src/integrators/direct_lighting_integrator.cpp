@@ -26,7 +26,6 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
         auto& sampler = getSampler(rayState.pixel);
 
         // Initialize common variables for Whitted integrator
-        glm::vec3 n = si.shading.normal;
         glm::vec3 wo = si.wo;
 
         // Compute scattering functions for surface interaction

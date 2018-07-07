@@ -43,9 +43,9 @@ private:
 
 template <typename UserState>
 inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
-    : m_hitCallback(hitCallback)
+    : m_bvh()
+    , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
-    , m_bvh()
 {
 	std::vector<const LeafNode*> leafs;
     for (const auto& sceneObject : sceneObjects) {
