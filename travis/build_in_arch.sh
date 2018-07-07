@@ -4,7 +4,7 @@ sudo cp -f ./travis/openexr_patches/ImathVec.h /usr/include/OpenEXR/
 
 sudo mkdir build
 cd build
-sudo cmake -GNinja -DBUILD_TESTS=ON -DBUILD_ATLAS=OFF ../
+sudo cmake -GNinja -DBUILD_TESTS=ON -DBUILD_ATLAS=OFF -DCMAKE_CXX_FLAGS="-W -Wall -Wpedantic -Werror -Wno-unused-parameter -Wno-unused-variable -Wno-unused-private-field" ../
 sudo ninja -j1
 ctest --output-on-failure
 cd ../

@@ -98,11 +98,13 @@ private:
 
 template <typename T>
 inline MemoryArenaTS::HandleN<T>::HandleN(uint32_t block, uint32_t offsetInBytes, uint8_t N)
-    : block(block)
-    , byteInBlock(offsetInBytes)
+    : byteInBlock(offsetInBytes)
 #if MEMORY_ARENA_TS_BOUNDS_CHECK == 1
-    , N(N)
+    , block(static_cast<uint16_t>(block))
     , i(0)
+    , N(N)
+#else
+    , block(block)
 #endif
 {
 }
