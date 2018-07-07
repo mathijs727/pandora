@@ -16,9 +16,9 @@ target_include_directories(OpenImageIO INTERFACE "${OIIO_INCLUDE_DIR}")
 target_link_libraries(OpenImageIO INTERFACE "${OIIO_OpenImageIO_LIBRARY}")
 
 find_package(assimp REQUIRED)
-add_library(assimp INTERFACE)
-target_include_directories(assimp INTERFACE "${ASSIMP_INCLUDE_DIRS}")
-target_link_libraries(assimp INTERFACE "${ASSIMP_LIBRARIES}")
+add_library(assimp_target INTERFACE)
+target_include_directories(assimp_target INTERFACE "${ASSIMP_INCLUDE_DIRS}")
+target_link_libraries(assimp_target INTERFACE "${ASSIMP_LIBRARIES}")
 
 find_package(embree 3 REQUIRED)
 add_library(embree INTERFACE)
@@ -29,6 +29,10 @@ find_package(TBB REQUIRED COMPONENTS tbbmalloc)
 add_library(tbb INTERFACE)
 target_include_directories(tbb INTERFACE "${TBB_INCLUDE_DIRS}")
 target_link_libraries(tbb INTERFACE "${TBB_LIBRARIES}")
+
+# https://github.com/mandreyel/mio
+add_library(mio INTERFACE)
+target_include_directories(mio INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/mio/include/")
 
 if (BUILD_TESTS)
     find_package(GTest REQUIRED)

@@ -10,13 +10,15 @@ High performance computing is something that has interested me for a long time b
 To build Pandora, CMake, Python and a C++17 compiler are required. The build script is set up such that all third party libraries are downloaded and compiled automatically (using Python). Both Python 2 and 3 are supported.
 
 Pandora uses the following third-party libraries:
- - Boost
  - Guideline Support Library (implemented by Microsoft)
  - Intel Threaded Building Blocks
+ - Embree
  - glm
  - Assimp
  - Open Image IO
  - EASTL
+ - mandreyel\mio (memory mapped file IO)
+ - flatbuffers
  - Google Test (only when testing is enabled)
 
 In addition Atlas, the real-time viewer, requires:
@@ -47,8 +49,8 @@ mkdir build
 cd build
 cmake -G Ninja ../
 cmake --build . -- -j<yourcorecounthere>
-```  
-  
+```
+
 Compile with:  
 ```
 cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS="-stdlib=libc++ -fsanitize=address" ../

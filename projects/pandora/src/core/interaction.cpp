@@ -14,7 +14,7 @@ Ray Interaction::spawnRay(const glm::vec3& d) const
     return computeRayWithEpsilon(*this, d);
 }
 
-// PBRTv3 page 119
+/*// PBRTv3 page 119
 SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, const TriangleMesh* shape, unsigned primitiveID)
     : Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo)
     , uv(uv)
@@ -33,7 +33,7 @@ SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, 
     shading.dndv = dndv;
 
     // TODO: adjust normal based on orientation and handedness
-}
+}*/
 
 void SurfaceInteraction::setShadingGeometry(
     const glm::vec3& dpdus,

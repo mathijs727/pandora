@@ -115,6 +115,21 @@ inline int maxDimension(const glm::vec3& v)
     }
 }
 
+inline int minDimension(const glm::vec3& v)
+{
+	if (v.x < v.y) {
+		if (v.x < v.z)
+			return 0;
+		else
+			return 2;
+	} else {
+		if (v.y < v.z)
+			return 1;
+		else
+			return 2;
+	}
+}
+
 inline glm::vec3 permute(const glm::vec3& p, int x, int y, int z)
 {
     return glm::vec3(p[x], p[y], p[z]);

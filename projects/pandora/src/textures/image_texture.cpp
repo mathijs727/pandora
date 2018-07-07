@@ -1,6 +1,7 @@
 #include "pandora/textures/image_texture.h"
 #include "pandora/core/interaction.h"
 #include "pandora/core/ray.h"
+#include "pandora/utility/error_handling.h"
 #include "textures/color_spaces.h"
 #include <OpenImageIO/imageio.h>
 #include <string>
@@ -16,8 +17,7 @@ ImageTexture<T>::ImageTexture(std::string_view filename)
 {
     auto in = OIIO::ImageInput::open(std::string(filename));
     if (!in) {
-        std::cerr << "Could not open texture file " << filename << std::endl;
-        throw std::runtime_error("Could not open texture file "s + std::string(filename));
+        THROW_ERROR("Could not open texture file "s + std::string(filename));
     }
 
     const auto& spec = in->spec();
@@ -32,16 +32,12 @@ ImageTexture<T>::ImageTexture(std::string_view filename)
     m_pixels = std::make_unique<float[]>(m_resolution.x * m_resolution.y * m_channels);
     in->read_image(OIIO::TypeDesc::FLOAT, m_pixels.get()); // Converts input to float
 
-    //for (auto paramValue : spec.extra_attribs) {
-    //	std::cout << paramValue.name() << std::endl;
-    //}
-
     // Convert input to linear color space
     if constexpr (std::is_same_v<T, Spectrum>) {
 
         if (auto paramValue = spec.find_attribute("oiio:ColorSpace"); paramValue) {
             auto colorSpace = paramValue->get_string();
-            std::cout << "Color space: " << colorSpace << std::endl;
+			LOG_INFO("Color space: "s + colorSpace);
 
             bool doConversion = false;
             std::function<Spectrum(const Spectrum&)> conversionFunction;
@@ -57,7 +53,7 @@ ImageTexture<T>::ImageTexture(std::string_view filename)
             } else if (colorSpace == "linear" || colorSpace == "Linear") {
                 doConversion = false;
             } else {
-                std::cerr << "Unsupported color space \"" << colorSpace << "\"! Reinterpreting as linear." << std::endl;
+                LOG_WARNING("Unsupported color space \""s + colorSpace + "\"! Reinterpreting as linear."s);
                 doConversion = false;
             }
 
@@ -72,7 +68,7 @@ ImageTexture<T>::ImageTexture(std::string_view filename)
             }
 
         } else {
-            std::cerr << "Unknown color space! Assuming linear." << std::endl;
+            LOG_WARNING("Unknown color space! Assuming linear.");
         }
     }
 

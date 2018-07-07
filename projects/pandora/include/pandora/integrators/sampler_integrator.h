@@ -33,7 +33,7 @@ protected:
 	using RayState = sampler_integrator::RayState;
 	using ContinuationRayState = sampler_integrator::ContinuationRayState;
 	using ShadowRayState = sampler_integrator::ShadowRayState;
-    virtual void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const EmbreeInsertHandle& h) = 0;
+    virtual void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h) = 0;
     virtual void rayMiss(const Ray& r, const RayState& s) = 0;
 
     void spawnNextSample(const glm::vec2& pixel, bool initialSample = false);

@@ -19,11 +19,15 @@
         {
           "name": "BUILD_TESTS",
           "value": "ON"
+        },
+        {
+          "name": "CMAKE_CXX_FLAGS",
+          "value": "/arch:AVX2 /EHsc /W3"
         }
       ]
     },
     {
-      "name": "x64-Release",
+      "name": "x64-RelWithDebInfo",
       "generator": "Ninja",
       "configurationType": "RelWithDebInfo",
       "inheritEnvironments": [ "msvc_x64_x64" ],
@@ -36,6 +40,31 @@
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
           "value": "C:\\Users\\Mathijs\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+        },
+        {
+          "name": "CMAKE_CXX_FLAGS",
+          "value": "/arch:AVX2 /EHsc /W3"
+        }
+      ]
+    },
+    {
+      "name": "x64-Release",
+      "generator": "Ninja",
+      "configurationType": "Release",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "buildRoot": "${workspaceRoot}\\build\\${name}",
+      "installRoot": "${env.USERPROFILE}\\CMakeBuilds\\${workspaceHash}\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "-v",
+      "ctestCommandArgs": "",
+      "variables": [
+        {
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "C:\\Users\\Mathijs\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+        },
+        {
+          "name": "CMAKE_CXX_FLAGS",
+          "value": "/arch:AVX2 /EHsc /W3"
         }
       ]
     }

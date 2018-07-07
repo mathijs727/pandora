@@ -1,0 +1,9 @@
+namespace pandora.serialization;
+
+table ContiguousAllocator
+{
+	maxSize: uint32;
+	blockSize: uint32;
+	currentSize: uint32;
+	data: [byte];
+}

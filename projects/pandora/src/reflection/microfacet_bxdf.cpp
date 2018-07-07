@@ -84,7 +84,7 @@ Spectrum MicrofacetTransmission::f(const glm::vec3& wo, const glm::vec3& wi) con
 
     float cosThetaO = cosTheta(wo);
     float cosThetaI = cosTheta(wi);
-    if (cosThetaI = 0.0f || cosThetaO == 0.0f)
+    if (cosThetaI == 0.0f || cosThetaO == 0.0f)
         return Spectrum(0.0f);
 
     // Compute wh from wo and wi from microfacet distribution

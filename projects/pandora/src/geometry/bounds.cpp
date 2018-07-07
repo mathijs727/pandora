@@ -4,8 +4,8 @@
 namespace pandora {
 
 Bounds::Bounds()
-    : min(0)
-    , max(0)
+    : min(std::numeric_limits<float>::max())
+    , max(std::numeric_limits<float>::lowest())
 {
 }
 
@@ -17,8 +17,8 @@ Bounds::Bounds(glm::vec3 lower, glm::vec3 upper)
 
 void Bounds::reset()
 {
-    min = glm::vec3(0);
-    max = glm::vec3(0);
+    min = glm::vec3(std::numeric_limits<float>::max());
+    max = glm::vec3(std::numeric_limits<float>::lowest());
 }
 
 void Bounds::grow(glm::vec3 vec)
@@ -45,20 +45,15 @@ glm::vec3 Bounds::center() const
     return (min + max) / 2.0f;
 }
 
-float Bounds::area() const
+float Bounds::surfaceArea() const
 {
-    return 2 * halfArea();
+	glm::vec3 extent = max - min;
+	return 2.0f * (extent.x * extent.y + extent.y * extent.z + extent.z * extent.x);
 }
 
-float Bounds::halfArea() const
+bool Bounds::intersect(const Ray& ray, float& tmin, float& tmax) const
 {
-    glm::vec3 extent = max - min;
-    return extent.x * extent.y * extent.z;
-}
-
-bool Bounds::intersect(const Ray& ray, float& tmin, float& tmax)
-{
-    tmin = std::numeric_limits<float>::lowest();
+    tmin = 0.0f;
     tmax = std::numeric_limits<float>::max();
 
     if (ray.direction.x != 0.0f) {

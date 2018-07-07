@@ -10,12 +10,12 @@ public:
     PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp);
 
 protected:
-    void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const EmbreeInsertHandle& h) override final;
+    void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h) override final;
     void rayMiss(const Ray& r, const RayState& s) override final;
 
 	// Copy-pasta from DirectLightingIntegrator but I don't want to extent from it since the ray hit / miss handlers make assumptions based on the rays spawned by these functions
 	void uniformSampleOneLight(const ContinuationRayState& r, const SurfaceInteraction& si, Sampler& sampler);
-	void estimateDirect(const Spectrum& multiplier, const ContinuationRayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular = false);
+	void estimateDirect(float multiplier, const ContinuationRayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular = false);
 };
 
 }

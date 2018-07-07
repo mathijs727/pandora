@@ -1,6 +1,7 @@
 #include "pandora/integrators/direct_lighting_integrator.h"
 #include "core/sampling.h"
 #include "pandora/core/sensor.h"
+#include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
 #include "pandora/utility/memory_arena.h"
 
@@ -14,7 +15,7 @@ DirectLightingIntegrator::DirectLightingIntegrator(int maxDepth, const Scene& sc
 {
 }
 
-void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const EmbreeInsertHandle& h)
+void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h)
 {
     s_memoryArena.reset();
 
@@ -25,7 +26,6 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
         auto& sampler = getSampler(rayState.pixel);
 
         // Initialize common variables for Whitted integrator
-        glm::vec3 n = si.shading.normal;
         glm::vec3 wo = si.wo;
 
         // Compute scattering functions for surface interaction
@@ -45,7 +45,7 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
         } else if (m_strategy == LightStrategy::UniformSampleOne) {
             uniformSampleOneLight(rayState, si, sampler);
         } else {
-            throw std::runtime_error("Unknown light strategy");
+            THROW_ERROR("Unknown light strategy");
         }
 
         if (rayState.bounces + 1 < m_maxDepth) {
@@ -104,7 +104,7 @@ void DirectLightingIntegrator::uniformSampleAllLights(const ContinuationRayState
     for (const auto& light : m_scene.getLights()) {
         glm::vec2 uLight = sampler.get2D();
         glm::vec2 uScattering = sampler.get2D();
-        estimateDirect(Spectrum(1.0f), r, si, uScattering, *light, uLight);
+        estimateDirect(1.0f, r, si, uScattering, *light, uLight);
     }
 }
 
@@ -119,11 +119,11 @@ void DirectLightingIntegrator::uniformSampleOneLight(const ContinuationRayState&
 
     glm::vec2 uLight = sampler.get2D();
     glm::vec2 uScattering = sampler.get2D();
-    estimateDirect(Spectrum(numLights), r, si, uScattering, *light, uLight);
+    estimateDirect((float)numLights, r, si, uScattering, *light, uLight);
 }
 
 // PBRTv3 page 858
-void DirectLightingIntegrator::estimateDirect(const Spectrum& multiplier, const ContinuationRayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular)
+void DirectLightingIntegrator::estimateDirect(float multiplier, const ContinuationRayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular)
 {
     BxDFType bsdfFlags = specular ? BSDF_ALL : BxDFType(BSDF_ALL | ~BSDF_SPECULAR);
 

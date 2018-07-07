@@ -1,0 +1,21 @@
+Stanford Bunny:
+
+WiVe build2 AVX2 (initial)
+Release: ~78ms
+RelWithDebInfo: ~87ms
+
+WiVe build8 AVX2 (initial)
+Release: 73~74ms
+RelWithDebInfo: 83~84ms
+
+WiVe build8 AVX2 (compress with LUT)
+Release: ~73ms
+RelWithDebInfo: ~82ms
+
+WiVe build8 AVX2 (stack compression & single lookup for compress)
+Release: 68~69ms
+RelWithDebInfo: 79~80ms
+
+Embree (single ray, custom geom)
+Release: ~71ms
+RelWithDebInfo: 84~85ms

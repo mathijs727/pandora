@@ -8,7 +8,7 @@ namespace pandora {
 // These functions assume the shading coordinate system proposed in PBRTv3 with the normal vector always being (0,0,1)
 
 // Theta: angle between vector and surface plane
-inline float cosTheta(const glm::vec3& w){ return w.z; };
+inline float cosTheta(const glm::vec3& w){ return w.z; }
 inline float cos2theta(const glm::vec3& w) { return w.z * w.z; }
 inline float absCosTheta(const glm::vec3& w) { return std::abs(w.z); }
 

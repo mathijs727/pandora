@@ -17,16 +17,24 @@
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
 
-#include "tbb/tbb.h"
 #include <iostream>
 #include <pmmintrin.h>
+#include <string>
+#include <tbb/tbb.h>
 #include <xmmintrin.h>
 
 using namespace pandora;
 using namespace atlas;
+using namespace std::string_literals;
 
 const int width = 1280;
 const int height = 720;
+
+const std::string projectBasePath = "../../"s;
+
+void addStanfordBunny(Scene& scene);
+void addStanfordDragon(Scene& scene, bool loadFromCache = false);
+void addCornellBox(Scene& scene);
 
 int main()
 {
@@ -35,73 +43,25 @@ int main()
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-    std::string projectBasePath = "../../";
-
     Window myWindow(width, height, "Hello World!");
     FramebufferGL frameBuffer(width, height);
 
     glm::ivec2 resolution = glm::ivec2(width, height);
     PerspectiveCamera camera = PerspectiveCamera(resolution, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
-    camera.setPosition(glm::vec3(0.0f, 0.0f, -4.0f));
+    camera.setPosition(glm::vec3(0.25f, 0.8f, -1.5f));
 
     Scene scene;
+
+	// Skydome
     auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
-    //auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/colors.png");
-    //auto colorTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1));
-    glm::mat4 transform(1.0f);
-    transform = glm::rotate(transform, -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
+	auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
-    {
-        //auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));// Monkey
-        auto transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.05f));// Sphere
-		transform = glm::translate(transform, glm::vec3(0, -1, -2));
-        auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/sphere.obj", transform, false);
-        auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
-		auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
-        //auto material = std::make_shared<MatteMaterial>(kd, roughness);
-		auto material = MetalMaterial::createCopper(roughness, true);
-        for (const auto& mesh : meshes)
-            scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
-    }
-
-    {
-        auto transform = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, -2.0f, 0.0f)), glm::vec3(0.01f));
-        auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj", transform);
-        //auto colorTexture = std::make_shared<ConstantTexture>(glm::vec3(0.6f, 0.4f, 0.9f));
-        auto roughness = std::make_shared<ConstantTexture<float>>(0.0f);
-
-        int i = 0;
-        for (const auto& mesh : meshes) {
-            if (i == 0) {
-                // Back box
-                auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
-                auto material = std::make_shared<MatteMaterial>(kd, roughness);
-                scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
-            } else if (i == 1) {
-                // Front box
-				/*//auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
-				//auto ks = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.2f, 0.9f));
-				auto roughness = std::make_shared<ConstantTexture<float>>(0.5f);
-				//auto material = std::make_shared<PlasticMaterial>(kd, ks, roughness);
-				auto material = MetalMaterial::createCopper(roughness, true);
-                //scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));*/
-            } else if (i == 5) {
-                // Ceiling
-                Spectrum light(1.0f);
-                auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
-                auto material = std::make_shared<MatteMaterial>(kd, roughness);
-                scene.addSceneObject(std::make_unique<SceneObject>(mesh, material, light));
-            } else {
-                auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.8f, 0.8f, 0.8f));
-                auto material = std::make_shared<MatteMaterial>(kd, roughness);
-                scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
-            }
-            i++;
-        }
-    }
-
+	addCornellBox(scene);
+	//addStanfordBunny(scene);
+	addStanfordDragon(scene, false);
+    
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
     PathIntegrator integrator(20, scene, camera.getSensor(), 1);
@@ -112,6 +72,7 @@ int main()
             pressedEscape = true;
     });
 
+	auto previousTimestamp = std::chrono::high_resolution_clock::now();
     int samples = 0;
     while (!myWindow.shouldClose() && !pressedEscape) {
         myWindow.updateInput();
@@ -120,13 +81,16 @@ int main()
         if (cameraControls.cameraChanged())
             integrator.startNewFrame();
 
-        auto prevFrameEndTime = std::chrono::high_resolution_clock::now();
         integrator.render(camera);
         samples++;
-        auto now = std::chrono::high_resolution_clock::now();
-        auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(now - prevFrameEndTime);
-        prevFrameEndTime = now;
-        std::cout << "Time to render frame: " << timeDelta.count() / 1000.0f << " miliseconds" << std::endl;
+
+		if (samples % 20 == 0)
+		{
+			auto now = std::chrono::high_resolution_clock::now();
+			auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(now - previousTimestamp);
+			std::cout << "Time time per frame (over last 20 frames): " << timeDelta.count() / 20.0f / 1000.0f << " miliseconds" << std::endl;
+			previousTimestamp = now;
+		}
 
         float mult = 1.0f / integrator.getCurrentFrameSpp();
         frameBuffer.update(camera.getSensor(), mult);
@@ -134,4 +98,77 @@ int main()
     }
 
     return 0;
+}
+
+void addStanfordBunny(Scene& scene)
+{
+	auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	transform = glm::scale(transform, glm::vec3(8));
+	//transform = glm::translate(transform, glm::vec3(0, -1, 0));
+	auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/bun_zipper.ply", transform, false);
+	auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.1f, 0.1f, 0.5f));
+	auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
+	//auto material = std::make_shared<MatteMaterial>(kd, roughness);
+	auto material = MetalMaterial::createCopper(roughness, true);
+	for (const auto& mesh : meshes)
+		scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+}
+
+void addStanfordDragon(Scene& scene, bool loadFromCache)
+{
+	auto transform = glm::mat4(1.0f);
+	transform = glm::translate(transform, glm::vec3(0, -0.5f, 0));
+	transform = glm::scale(transform, glm::vec3(10));
+	transform = glm::rotate(transform, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.1f, 0.1f, 0.5f));
+	auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
+	//auto material = std::make_shared<MatteMaterial>(kd, roughness);
+	auto material = MetalMaterial::createCopper(roughness, true);
+	if (loadFromCache) {
+		auto mesh = TriangleMesh::loadFromCacheFile("dragon.geom");
+		scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+	} else {
+		auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply", transform, false);
+		meshes[0]->saveToFile("dragon.geom");// Only a single mesh
+		for (const auto& mesh : meshes) {
+			scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+		}
+	}
+}
+
+void addCornellBox(Scene& scene)
+{
+    auto transform = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, -2.0f, 0.0f)), glm::vec3(0.01f));
+    auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj", transform);
+    //auto colorTexture = std::make_shared<ConstantTexture>(glm::vec3(0.6f, 0.4f, 0.9f));
+    auto roughness = std::make_shared<ConstantTexture<float>>(0.0f);
+
+    for (size_t i = 0; i < meshes.size(); i++) {
+        const auto& mesh = meshes[i];
+
+        if (i == 0) {
+            // Back box
+            auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
+            auto material = std::make_shared<MatteMaterial>(kd, roughness);
+            scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+        } else if (i == 1) {
+            continue;
+
+            // Front box
+            auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
+            auto ks = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.2f, 0.9f));
+            auto material = std::make_shared<PlasticMaterial>(kd, ks, roughness);
+            scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+        } else if (i == 5) {
+            // Ceiling
+            Spectrum light(1.0f);
+            auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
+            auto material = std::make_shared<MatteMaterial>(kd, roughness);
+            scene.addSceneObject(std::make_unique<SceneObject>(mesh, material, light));
+        } else {
+            auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.8f, 0.8f, 0.8f));
+            auto material = std::make_shared<MatteMaterial>(kd, roughness);
+            scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+        }
+    }
 }

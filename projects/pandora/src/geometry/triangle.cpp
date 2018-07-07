@@ -3,12 +3,18 @@
 #include "assimp/postprocess.h"
 #include "assimp/scene.h"
 #include "glm/mat4x4.hpp"
+#include "pandora/flatbuffers/triangle_mesh_generated.h"
+#include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
 #include <cassert>
 #include <fstream>
 #include <iostream>
+#include <mio/mmap.hpp>
 #include <stack>
+#include <string>
 #include <tuple>
+
+using namespace std::string_literals;
 
 static bool fileExists(const std::string_view name)
 {
@@ -69,7 +75,7 @@ std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scen
     const aiMesh* mesh = scene->mMeshes[meshIndex];
 
     if (mesh->mNumVertices == 0 || mesh->mNumFaces == 0)
-        throw std::runtime_error("Empty mesh");
+        THROW_ERROR("Empty mesh");
 
     auto indices = std::make_unique<glm::ivec3[]>(mesh->mNumFaces);
     auto positions = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
@@ -81,7 +87,7 @@ std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scen
     for (unsigned i = 0; i < mesh->mNumFaces; i++) {
         const aiFace& face = mesh->mFaces[i];
         if (face.mNumIndices != 3) {
-            throw std::runtime_error("Found a face which is not a triangle, discarding!");
+            THROW_ERROR("Found a face which is not a triangle, discarding!");
         }
 
         auto aiIndices = face.mIndices;
@@ -110,13 +116,21 @@ std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scen
         }
     }*/
 
-    return std::make_shared<TriangleMesh>(mesh->mNumFaces, mesh->mNumVertices, std::move(indices), std::move(positions), std::move(normals), std::move(tangents), std::move(uvCoords));
+    return std::shared_ptr<TriangleMesh>(
+        new TriangleMesh(
+            mesh->mNumFaces,
+            mesh->mNumVertices,
+            std::move(indices),
+            std::move(positions),
+            std::move(normals),
+            std::move(tangents),
+            std::move(uvCoords)));
 }
 
 std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform, bool ignoreVertexNormals)
 {
     if (!fileExists(filename)) {
-        std::cout << "Could not find mesh file: " << filename << std::endl;
+        LOG_WARNING("Could not find mesh file: "s + std::string(filename));
         return {};
     }
 
@@ -125,7 +139,7 @@ std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std:
     //importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
-        std::cout << "Failed to load mesh file: " << filename << std::endl;
+        LOG_WARNING("Failed to load mesh file: "s + std::string(filename));
         return {};
     }
 
@@ -152,6 +166,90 @@ std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std:
     return result;
 }
 
+std::shared_ptr<TriangleMesh> TriangleMesh::loadFromCacheFile(const std::string_view filename)
+{
+    auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
+    auto triangleMesh = serialization::GetTriangleMesh(mmapFile.data());
+    unsigned numTriangles = triangleMesh->numTriangles();
+    unsigned numVertices = triangleMesh->numVertices();
+
+    std::unique_ptr<glm::ivec3[]> triangles = std::make_unique<glm::ivec3[]>(numTriangles);
+    std::memcpy(triangles.get(), triangleMesh->triangles()->data(), triangleMesh->triangles()->size());
+
+    std::unique_ptr<glm::vec3[]> positions = std::make_unique<glm::vec3[]>(numVertices);
+    std::memcpy(positions.get(), triangleMesh->positions()->data(), triangleMesh->positions()->size());
+
+    std::unique_ptr<glm::vec3[]> normals;
+    if (triangleMesh->normals()) {
+        normals = std::make_unique<glm::vec3[]>(numVertices);
+        std::memcpy(normals.get(), triangleMesh->normals()->data(), triangleMesh->normals()->size());
+    }
+
+    std::unique_ptr<glm::vec3[]> tangents;
+    if (triangleMesh->tangents()) {
+        tangents = std::make_unique<glm::vec3[]>(numVertices);
+        std::memcpy(tangents.get(), triangleMesh->tangents()->data(), triangleMesh->tangents()->size());
+    }
+
+    std::unique_ptr<glm::vec2[]> uvCoords;
+    if (triangleMesh->uvCoords()) {
+        uvCoords = std::make_unique<glm::vec2[]>(numVertices);
+        std::memcpy(uvCoords.get(), triangleMesh->uvCoords()->data(), triangleMesh->uvCoords()->size());
+    }
+
+    mmapFile.unmap();
+
+    return std::shared_ptr<TriangleMesh>(
+        new TriangleMesh(
+            numTriangles,
+            numVertices,
+            std::move(triangles),
+            std::move(positions),
+            std::move(normals),
+            std::move(tangents),
+            std::move(uvCoords)));
+}
+
+void TriangleMesh::saveToFile(const std::string_view filename)
+{
+    size_t estimatedSize = 1024 + m_numTriangles * sizeof(glm::ivec3) + m_numVertices * sizeof(glm::vec3);
+    if (m_normals)
+        estimatedSize += m_numVertices * sizeof(glm::vec3);
+    if (m_tangents)
+        estimatedSize += m_numVertices * sizeof(glm::vec3);
+    if (m_uvCoords)
+        estimatedSize += m_numVertices * sizeof(glm::vec2);
+
+    flatbuffers::FlatBufferBuilder builder(estimatedSize);
+    auto triangles = builder.CreateVector(reinterpret_cast<const int8_t*>(m_triangles.get()), m_numTriangles * sizeof(glm::ivec3));
+    auto positions = builder.CreateVector(reinterpret_cast<const int8_t*>(m_positions.get()), m_numVertices * sizeof(glm::vec3));
+    flatbuffers::Offset<flatbuffers::Vector<int8_t>> normals = 0;
+    if (m_normals)
+        normals = builder.CreateVector(reinterpret_cast<const int8_t*>(m_normals.get()), m_numVertices * sizeof(glm::vec3));
+    flatbuffers::Offset<flatbuffers::Vector<int8_t>> tangents = 0;
+    if (m_tangents)
+        tangents = builder.CreateVector(reinterpret_cast<const int8_t*>(m_tangents.get()), m_numVertices * sizeof(glm::vec3));
+    flatbuffers::Offset<flatbuffers::Vector<int8_t>> uvCoords = 0;
+    if (m_uvCoords)
+        uvCoords = builder.CreateVector(reinterpret_cast<const int8_t*>(m_uvCoords.get()), m_numVertices * sizeof(glm::vec2));
+
+    auto triangleMesh = serialization::CreateTriangleMesh(
+        builder,
+        m_numTriangles,
+        m_numVertices,
+        triangles,
+        positions,
+        normals,
+        tangents,
+        uvCoords);
+    builder.Finish(triangleMesh);
+
+    std::ofstream file;
+    file.open(filename.data(), std::ios::out | std::ios::binary | std::ios::trunc);
+    file.write(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
+    file.close();
+}
+
 unsigned TriangleMesh::numTriangles() const
 {
     return m_numTriangles;
@@ -172,293 +270,15 @@ gsl::span<const glm::vec3> TriangleMesh::getPositions() const
     return gsl::make_span(m_positions.get(), m_numVertices);
 }
 
-SurfaceInteraction TriangleMesh::partialFillSurfaceInteraction(unsigned primID, const glm::vec2& embreeUV) const
+Bounds TriangleMesh::getPrimitiveBounds(unsigned primitiveID) const
 {
-    // Barycentric coordinates
-    float b0 = 1.0f - embreeUV.x - embreeUV.y;
-    float b1 = embreeUV.x;
-    float b2 = embreeUV.y;
-    assert(b0 + b1 <= 1.0f);
+    glm::ivec3 t = m_triangles[primitiveID];
 
-    glm::vec3 dpdu, dpdv;
-    glm::vec2 uv[3];
-    getUVs(primID, uv);
-    glm::vec3 p[3];
-    getPs(primID, p);
-    // Compute deltas for triangle partial derivatives
-    glm::vec2 duv02 = uv[0] - uv[2], duv12 = uv[1] - uv[2];
-    glm::vec3 dp02 = p[0] - p[2], dp12 = p[1] - p[2];
-
-    float determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
-    if (determinant == 0.0f) {
-        // Handle zero determinant for triangle partial derivative matrix
-        coordinateSystem(glm::normalize(glm::cross(p[2] - p[0], p[1] - p[0])), &dpdu, &dpdv);
-    } else {
-        float invDet = 1.0f / determinant;
-        dpdu = (duv12[1] * dp02 - duv02[1] * dp12) * invDet;
-        dpdv = (-duv12[0] * dp02 + duv02[0] * dp12) * invDet;
-    }
-
-    glm::vec3 dndu, dndv;
-    dndu = dndv = glm::vec3(0.0f);
-
-    glm::vec3 hitP = b0 * p[0] + b1 * p[1] + b2 * p[2];
-    glm::vec2 hitUV = b0 * uv[0] + b1 * uv[1] + b2 * uv[2];
-
-    SurfaceInteraction si;
-    si.position = hitP; //p[0] + embreeUV.x * (p[1] - p[0]) + embreeUV.y * (p[2] - p[0]); // Should be considerably more accurate than ray.o + t * ray.d
-    si.uv = hitUV;
-    si.dpdu = dpdu;
-    si.dpdv = dpdv;
-    si.normal = si.shading.normal = glm::normalize(glm::cross(dp02, dp12));
-    si.dndu = dndu;
-    si.dndv = dndv;
-
-    // Shading normals / tangents
-    if (m_normals || m_tangents) {
-        glm::ivec3 v = m_triangles[primID];
-
-        glm::vec3 ns;
-        if (m_normals)
-            ns = glm::normalize(b0 * m_normals[v[0]] + b1 * m_normals[v[1]] + b2 * m_normals[v[2]]);
-        else
-            ns = si.normal;
-
-        glm::vec3 ss;
-        if (m_tangents)
-            ss = glm::normalize(b0 * m_tangents[v[0]] + b1 * m_tangents[v[1]] + b2 * m_tangents[v[2]]);
-        else
-            ss = glm::normalize(si.dpdu);
-
-        glm::vec3 ts = glm::cross(ss, ns);
-        if (glm::dot(ts, ts) > 0.0f) { // glm::dot(ts, ts) = length2(ts)
-            ts = glm::normalize(ts);
-            ss = glm::cross(ts, ns);
-        } else {
-            coordinateSystem(ns, &ss, &ts);
-        }
-        // Compute dndu and dndv for triangle shading geometry
-        glm::vec3 dndu, dndv;
-        if (m_normals) {
-            glm::vec2 duv02 = uv[0] - uv[2];
-            glm::vec2 duv12 = uv[1] - uv[2];
-            glm::vec3 dn1 = m_normals[v[0]] - m_normals[v[2]];
-            glm::vec3 dn2 = m_normals[v[1]] - m_normals[v[2]];
-            float determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
-            bool degenerateUV = std::abs(determinant) < 1e-8;
-            if (degenerateUV) {
-                dndu = dndv = glm::vec3(0.0f);
-            } else {
-                float invDet = 1.0f / determinant;
-                dndu = (duv12[1] * dn1 - duv02[1] * dn2) * invDet;
-                dndv = (-duv12[0] * dn1 + duv02[0] * dn2) * invDet;
-            }
-        } else {
-            dndu = dndv = glm::vec3(0.0f);
-        }
-        si.setShadingGeometry(ss, ts, dndu, dndv, true);
-    } else {
-        si.setShadingGeometry(dpdu, dpdv, dndu, dndv, true);
-    }
-
-    // Ensure correct orientation of the geometric normal
-    if (m_normals)
-        si.normal = faceForward(si.normal, si.shading.normal);
-    else
-        si.normal = si.shading.normal = si.normal;
-
-    return si;
-}
-
-bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture) const
-{
-	// Based on PBRT v3 triangle intersection test (page 158):
-	// https://github.com/mmp/pbrt-v3/blob/master/src/shapes/triangle.cpp
-	//
-	// Transform the ray and triangle such that the ray origin is at (0,0,0) and its
-	// direction points along the +Z axis. This makes the intersection test easy and
-	// allows for watertight intersection testing.
-	glm::ivec3 triangle = m_triangles[primitiveID];
-	glm::vec3 p0 = m_positions[triangle[0]];
-	glm::vec3 p1 = m_positions[triangle[1]];
-	glm::vec3 p2 = m_positions[triangle[2]];
-
-	// Translate vertices based on ray origin
-	glm::vec3 p0t = p0 - ray.origin;
-	glm::vec3 p1t = p1 - ray.origin;
-	glm::vec3 p2t = p2 - ray.origin;
-
-	// Permutate components of triangle vertices and ray direction
-	int kz = maxDimension(glm::abs(ray.direction));
-	int kx = kz + 1;
-	if (kx == 3)
-		kx = 0;
-	int ky = kx + 1;
-	if (ky == 3)
-		ky = 0;
-	glm::vec3 d = permute(ray.direction, kx, ky, kz);
-	p0t = permute(p0t, kx, ky, kz);
-	p1t = permute(p1t, kx, ky, kz);
-	p2t = permute(p2t, kx, ky, kz);
-
-	// Apply shear transformation to translated vertex positions.
-	// Aligns the ray direction with the +z axis. Only shear x and y dimensions,
-	// we can wait and shear the z dimension only if the ray actually intersects
-	// the triangle.
-	//TODO(Mathijs): consider precomputing and storing the shear values in the ray.
-	float Sx = -d.x / d.z;
-	float Sy = -d.y / d.z;
-	float Sz = 1.0f / d.z;
-	p0t.x += Sx * p0t.z;
-	p0t.y += Sy * p0t.z;
-	p1t.x += Sx * p1t.z;
-	p1t.y += Sy * p1t.z;
-	p2t.x += Sx * p2t.z;
-	p2t.y += Sy * p2t.z;
-
-	// Compute edge function coefficients
-	float e0 = p1t.x * p2t.y - p1t.y * p2t.x;
-	float e1 = p2t.x * p0t.y - p2t.y * p0t.x;
-	float e2 = p0t.x * p1t.y - p0t.y * p1t.x;
-
-	// Fall back to double precision test at triangle edges
-	if (e0 == 0.0f || e1 == 0.0f || e2 == 0.0f) {
-		double p2txp1ty = (double)p2t.x * (double)p1t.y;
-		double p2typ1tx = (double)p2t.y * (double)p1t.x;
-		e0 = (float)(p2typ1tx - p2txp1ty);
-		double p0txp2ty = (double)p0t.x * (double)p2t.y;
-		double p0typ2tx = (double)p0t.y * (double)p2t.x;
-		e1 = (float)(p0typ2tx - p0txp2ty);
-		double p1txp0ty = (double)p1t.x * (double)p0t.y;
-		double p1typ0tx = (double)p1t.y * (double)p0t.x;
-		e2 = (float)(p1typ0tx - p1txp0ty);
-	}
-
-	// If the signs of the edge function values differ, then the point (0, 0) is not
-	// on the same side of all three edges and therefor is outside the triangle.
-	if ((e0 < 0.0f || e1 < 0.0f || e2 < 0.0f) && ((e0 > 0.0f || e1 > 0.0f || e2 > 0.0f)))
-		return false;
-
-	// If the sum of the three ege function values is zero, then the ray is
-	// approaching the triangle edge-on, and we report no intersection.
-	float det = e0 + e1 + e2;
-	if (det == 0.0f)
-		return false;
-
-	// Compute scaled hit distance to triangle and test against t range
-	p0t.z *= Sz;
-	p1t.z *= Sz;
-	p2t.z *= Sz;
-	float tScaled = e0 * p0t.z + e1 * p1t.z + e2 * p2t.z;
-	if (det < 0.0f && (tScaled >= 0.0f || tScaled < ray.tfar * det))
-		return false;
-	else if (det > 0.0f && (tScaled <= 0.0f || tScaled > ray.tfar * det))
-		return false;
-
-	// Compute barycentric coordinates and t value for triangle intersection
-	float invDet = 1.0f / det;
-	float b0 = e0 * invDet;
-	float b1 = e1 * invDet;
-	float b2 = e2 * invDet;
-	float t = tScaled * invDet;
-	assert(b0 + b1 <= 1.0f);
-
-
-	// Compute triangle partial derivatives
-	glm::vec3 dpdu, dpdv;
-	glm::vec2 uv[3];
-	getUVs(primitiveID, uv);
-	glm::vec3 p[3];
-	getPs(primitiveID, p);
-	// Compute deltas for triangle partial derivatives
-	glm::vec2 duv02 = uv[0] - uv[2], duv12 = uv[1] - uv[2];
-	glm::vec3 dp02 = p[0] - p[2], dp12 = p[1] - p[2];
-
-	float determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
-	if (determinant == 0.0f) {
-		// Handle zero determinant for triangle partial derivative matrix
-		coordinateSystem(glm::normalize(glm::cross(p[2] - p[0], p[1] - p[0])), &dpdu, &dpdv);
-	}
-	else {
-		float invDet = 1.0f / determinant;
-		dpdu = (duv12[1] * dp02 - duv02[1] * dp12) * invDet;
-		dpdv = (-duv12[0] * dp02 + duv02[0] * dp12) * invDet;
-	}
-
-	// TODO: compute error bounds for triangle intersection
-
-	// Interpolate (u, v) parametric coordinates and hit point
-	glm::vec3 pHit = b0 * p[0] + b1 * p[1] + b2 * p[2];
-	glm::vec2 uvHit = b0 * uv[0] + b1 * uv[1] + b2 * uv[2];
-
-	// TODO: test intersection against alpha texture, if present
-
-	// Fill in  surface interaction from triangle hit
-	isect = SurfaceInteraction(pHit, uvHit, -ray.direction, dpdu, dpdv, glm::vec3(0.0f), glm::vec3(0.0f), this, primitiveID);
-
-	// Override surface normal in isect for triangle
-	isect.normal = isect.shading.normal = glm::normalize(glm::cross(dp02, dp12));
-
-	// Shading normals / tangents
-	if (m_normals || m_tangents) {
-		glm::ivec3 v = m_triangles[primitiveID];
-
-		// Compute shading nomral ns for triangle
-		glm::vec3 ns;
-		if (m_normals)
-			ns = glm::normalize(b0 * m_normals[v[0]] + b1 * m_normals[v[1]] + b2 * m_normals[v[2]]);
-		else
-			ns = isect.normal;
-
-		// Compute shading tangent ss for triangle
-		glm::vec3 ss;
-		if (m_tangents)
-			ss = glm::normalize(b0 * m_tangents[v[0]] + b1 * m_tangents[v[1]] + b2 * m_tangents[v[2]]);
-		else
-			ss = glm::normalize(isect.dpdu);
-
-		// Compute shading bitangent ts for triangle and adjust ss
-		glm::vec3 ts = glm::cross(ss, ns);
-		if (glm::dot(ts, ts) > 0.0f) { // glm::dot(ts, ts) = length2(ts)
-			ts = glm::normalize(ts);
-			ss = glm::cross(ts, ns);
-		}
-		else {
-			coordinateSystem(ns, &ss, &ts);
-		}
-
-		// Compute dndu and dndv for triangle shading geometry
-		glm::vec3 dndu, dndv;
-		if (m_normals) {
-			glm::vec2 duv02 = uv[0] - uv[2];
-			glm::vec2 duv12 = uv[1] - uv[2];
-			glm::vec3 dn1 = m_normals[v[0]] - m_normals[v[2]];
-			glm::vec3 dn2 = m_normals[v[1]] - m_normals[v[2]];
-			float determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
-			bool degenerateUV = std::abs(determinant) < 1e-8;
-			if (degenerateUV) {
-				dndu = dndv = glm::vec3(0.0f);
-			}
-			else {
-				float invDet = 1.0f / determinant;
-				dndu = (duv12[1] * dn1 - duv02[1] * dn2) * invDet;
-				dndv = (-duv12[0] * dn1 + duv02[0] * dn2) * invDet;
-			}
-		}
-		else {
-			dndu = dndv = glm::vec3(0.0f);
-		}
-		isect.setShadingGeometry(ss, ts, dndu, dndv, true);
-	}
-
-	// Ensure correct orientation of the geometric normal
-	if (m_normals)
-		isect.normal = faceForward(isect.normal, isect.shading.normal);
-	//else if (reverseOrientation ^ transformSwapsHandedness)
-	//	isect.normal = isect.shading.normal = -isect.normal;
-
-	tHit = t;
-	return true;
+    Bounds bounds;
+    bounds.grow(m_positions[t[0]]);
+    bounds.grow(m_positions[t[1]]);
+    bounds.grow(m_positions[t[2]]);
+    return bounds;
 }
 
 float TriangleMesh::primitiveArea(unsigned primitiveID) const
@@ -506,18 +326,18 @@ float TriangleMesh::pdfPrimitive(unsigned primitiveID, const Interaction& ref) c
 // PBRTv3 page 837
 float TriangleMesh::pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const
 {
-	if (glm::dot(ref.normal, wi) <= 0.0f)
-		return 0.0f;
+    if (glm::dot(ref.normal, wi) <= 0.0f)
+        return 0.0f;
 
     // Intersect sample ray with area light geometry
     Ray ray = ref.spawnRay(wi);
     float tHit;
     SurfaceInteraction isectLight;
-	if (!intersectPrimitive(primitiveID, ray, tHit, isectLight, false))
+    if (!intersectPrimitive(primitiveID, ray, tHit, isectLight, false))
         return 0.0f;
 
     // Convert light sample weight to solid angle measure
-	return distanceSquared(ref.position, isectLight.position) / (absDot(isectLight.normal, -wi) * primitiveArea(primitiveID));
+    return distanceSquared(ref.position, isectLight.position) / (absDot(isectLight.normal, -wi) * primitiveArea(primitiveID));
 }
 
 void TriangleMesh::getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const

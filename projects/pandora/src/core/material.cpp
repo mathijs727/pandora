@@ -8,7 +8,7 @@ BSDF::BSDF(const SurfaceInteraction& si)//, float eta)
     m_ns(si.shading.normal)
     , m_ng(si.normal)
     , m_ss(glm::normalize(si.shading.dpdu))
-    , m_ts(glm::cross(m_ns, m_ss))
+    , m_ts(glm::normalize(glm::cross(m_ns, m_ss)))
 {
 }
 

@@ -17,11 +17,12 @@ public:
     SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
 
     // TODO: intersect function (with custom geometry in Embree)?
-    const TriangleMesh& getMesh() const;
-    const Material& getMaterial() const;
+    inline const TriangleMesh& getMesh() const { return *m_mesh; };
+    inline const Material& getMaterial() const { return *m_material; };
 
     const AreaLight* getAreaLight(unsigned primID) const;
     std::optional<gsl::span<const AreaLight>> getAreaLights() const;
+
 private:
     std::shared_ptr<const TriangleMesh> m_mesh;
     std::shared_ptr<const Material> m_material;

@@ -8,7 +8,7 @@ public:
 	NaiveDirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp);
 
 private:
-    void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const EmbreeInsertHandle& h) override final;
+    void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h) override final;
     void rayMiss(const Ray& r, const RayState& s) override final;
 };
 

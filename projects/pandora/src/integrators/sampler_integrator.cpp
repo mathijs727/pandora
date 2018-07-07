@@ -62,11 +62,11 @@ void SamplerIntegrator::spawnNextSample(const glm::vec2& pixel, bool initialSamp
     if (initialSample || sampler.startNextSample()) {
         CameraSample sample = sampler.getCameraSample(pixel);
 
-        ContinuationRayState rayState{ pixel, glm::vec3(1.0f), 0 };
+        ContinuationRayState rayState{ pixel, glm::vec3(1.0f), 0, false };
         RayState rayStateVariant = rayState;
 
         Ray ray = m_cameraThisFrame->generateRay(sample);
-        m_accelerationStructure.placeIntersectRequests(gsl::make_span(&rayStateVariant, 1), gsl::make_span(&ray, 1));
+        m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayStateVariant, 1));
     }
 }
 
@@ -91,7 +91,7 @@ void SamplerIntegrator::specularReflect(const SurfaceInteraction& si, Sampler& s
         rayState.weight = prevRayState.weight * sample->f * glm::abs(glm::dot(sample->wi, ns)) / sample->pdf;
 
         RayState rayStateVariant = rayState;
-        m_accelerationStructure.placeIntersectRequests(gsl::make_span(&rayStateVariant, 1), gsl::make_span(&ray, 1));
+        m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayStateVariant, 1));
     }
 }
 
@@ -116,7 +116,7 @@ void SamplerIntegrator::specularTransmit(const SurfaceInteraction& si, Sampler& 
         rayState.weight = prevRayState.weight * sample->f * glm::abs(glm::dot(sample->wi, ns)) / sample->pdf;
 
         RayState rayStateVariant = rayState;
-        m_accelerationStructure.placeIntersectRequests(gsl::make_span(&rayStateVariant, 1), gsl::make_span(&ray, 1));
+        m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayStateVariant, 1));
     }
 }
 
@@ -128,7 +128,7 @@ void SamplerIntegrator::spawnShadowRay(const Ray& ray, const ContinuationRayStat
     rayState.light = nullptr;
 
     RayState rayStateVariant = rayState;
-    m_accelerationStructure.placeIntersectRequests(gsl::make_span(&rayStateVariant, 1), gsl::make_span(&ray, 1));
+    m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayStateVariant, 1));
 }
 
 void SamplerIntegrator::spawnShadowRay(const Ray& ray, const ContinuationRayState& prevRayState, const Spectrum& weight, const Light& light)
@@ -139,7 +139,7 @@ void SamplerIntegrator::spawnShadowRay(const Ray& ray, const ContinuationRayStat
     rayState.light = &light;
 
     RayState rayStateVariant = rayState;
-    m_accelerationStructure.placeIntersectRequests(gsl::make_span(&rayStateVariant, 1), gsl::make_span(&ray, 1));
+    m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayStateVariant, 1));
 }
 
 }
