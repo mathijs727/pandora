@@ -17,7 +17,7 @@ Pandora uses the following third-party libraries:
  - [OpenImageIO](https://github.com/OpenImageIO/oiio)
  - [EASTL](https://github.com/electronicarts/EASTL) (bundled)
  - [mio](https://github.com/mandreyel/mio) (bundled)
- - [flatbuffers](git@github.com:google/flatbuffers.git)
+ - [flatbuffers](https://github.com/google/flatbuffers)
  - [Google Test](https://github.com/google/googletest) (only when tests are enabled)
 
 In addition Atlas, the real-time viewer, requires:
