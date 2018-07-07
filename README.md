@@ -1,59 +1,47 @@
-# Pandora
-[![Build Status](https://travis-ci.com/mathijs727/pandora.svg?token=BHkWQ9P5pzBfP88jbtB8&branch=master)](https://travis-ci.com/mathijs727/pandora)  
-During the Advanced Graphics course at Utrecht University me and a fellow student build our first (OpenCL) path tracer. Afterwards I did an internship at Disney Animation working on the traversal code of the Hyperion renderer. Pandora is my first personal attempt to build a path tracer from scratch. It is meant as a project for me to learn more about path tracing and everything that comes with it. Furthermore, I will use this project to experiment with build tools.
+# Pandora [![Build Status](https://travis-ci.com/mathijs727/pandora.svg?token=BHkWQ9P5pzBfP88jbtB8&branch=master)](https://travis-ci.com/mathijs727/pandora)  
+Pandora is an out-of-core path tracer developed for my master thesis at Utrecht University / Delft Technical University. The idea for this project originates from my internship at Walt Disney Animation Studios where I I worked on their in-house production path tracer Hyperion.
 
-Currently, the goal is to make Pandora a very scalable path tracer. I want it to support both scene distribution and screen distribution so that it can scale to both high scene sizes and low render times. Additionally, out-of-core rendering might also be a future extension. GPU support is also planned. GPUs are extremely performant, but only if the scene fits in GPU memory. By building a scene distributed renderer I hope to find a use GPUs for rendering very large scenes.
+This project aims at improving the rendering performance of existing worked based on memory-coherent ray tracing (Rendering Complex Scenes with Memory-Coherent Ray Tracing by Pharr et al). The acceleration structure consists of a two level BVH scheme. Leaf nodes of the top level BVH (containing geometry & a bottom level BVH) can be stored to disk when memory runs out. The goal of this project is to experiment with storing a simplified representation of this geometry and using it as an early-out test for rays passing through the bounding volume of a top level leaf node. Additionally, the approximate intersection points found may be used to sort rays for extra coherence.
 
-High performance computing is something that has interested me for a long time but I have not had much experience with it at the university. Hopefully, building Pandora will help me self-teach some of these topics. In my future I hope to be working on the technical side of rendering.
+A lot of parts of the code are directly based on, or inspired by [PBRTv3](https://github.com/mmp/pbrt-v3) and the corresponding book ([Physically Based Rendering from Theory to Implementation, Third Edition](http://www.pbrt.org/)). The bottom level BVH traversal code is based on [Accelerated single ray tracing for wide vector units](https://dl.acm.org/citation.cfm?id=3105785) (Embree's traversal kernels cannot be used because they do not support storing the BVH to disk). The top level BVH traversal will be based on the following work: [Fast Divergent Ray Traversal by Batching Rays in a BVH](https://dspace.library.uu.nl/handle/1874/343844). The early-out testing geometry will be represented using a [Sparse Voxel DAG](https://dl.acm.org/citation.cfm?id=2462024).
 
-## Prerequisites
-To build Pandora, CMake, Python and a C++17 compiler are required. The build script is set up such that all third party libraries are downloaded and compiled automatically (using Python). Both Python 2 and 3 are supported.
+## Dependencies
+To build Pandora, CMake and a C++17 compiler are required. The user is responsible for installing all the required libraries except EASTL and mio.
 
 Pandora uses the following third-party libraries:
- - Guideline Support Library (implemented by Microsoft)
- - Intel Threaded Building Blocks
- - Embree
- - glm
- - Assimp
- - Open Image IO
- - EASTL
- - mandreyel\mio (memory mapped file IO)
- - flatbuffers
- - Google Test (only when testing is enabled)
+ - [Guideline Support Library](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md) ([implemented by Microsoft](https://github.com/Microsoft/GSL))
+ - [TBB](https://github.com/01org/tbb)
+ - [Embree 3](https://embree.github.io)
+ - [GLM](https://github.com/g-truc/glm)
+ - [Assimp](https://github.com/assimp/assimp)
+ - [OpenImageIO](https://github.com/OpenImageIO/oiio)
+ - [EASTL](https://github.com/electronicarts/EASTL) (bundled)
+ - [mio](https://github.com/mandreyel/mio) (bundled)
+ - [flatbuffers](git@github.com:google/flatbuffers.git)
+ - [Google Test](https://github.com/google/googletest) (only when tests are enabled)
 
 In addition Atlas, the real-time viewer, requires:
- - GLFW3
- - GLEW
+ - [GLFW3](http://www.glfw.org/)
+ - [GLEW](http://glew.sourceforge.net/)
  - OpenGL
 
-## Install
-Option 1 (Windows only):  
-Open the root folders CMakeLists.txt file in Visual Studio 2017
+### Windows
 
-Option 2:  
-Use CMake to generate a build script:
-```
-git clone git@github.com:mathijs727/pandora.git
-cd pandora
+On Windows it is recommended to use [vcpkg](https://github.com/Microsoft/vcpkg) to install all required dependencies except Embree (until vcpkg is updated to contain Embree 3).
+
+To get an updated version of Embree, simply build it from source using TBB installed through vcpkg:
+
+```bash
+vcpkg install tbb:x64-windows
+git clone git@github.com:embree/embree.git
+cd embree
 mkdir build
 cd build
-cmake ../
-cmake --build .
+cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DEMBREE_ISPC_SUPPORT=OFF -DEMBREE_TBB_ROOT="/path_to_vcpkg/installed/x64-windows" ../
+ninja
+ninja install
 ```
 
-To reduce compile times, use the Ninja build system and enable multithreading (replace `<yourcorecounthere>` by the number of build threads that you want to use):
-```
-git clone git@github.com:mathijs727/pandora.git
-cd pandora
-mkdir build
-cd build
-cmake -G Ninja ../
-cmake --build . -- -j<yourcorecounthere>
-```
+### Arch Linux (and Arch based distros)
 
-Compile with:  
-```
-cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS="-stdlib=libc++ -fsanitize=address" ../
-```
-
-TBB_USE_GLIBCXX_VERSION
+All dependencies can be installed through pacman and yaourt (to access the Arch User Repository). Travis currently also uses Arch Linux (in a Docker container) to install all the dependencies.
