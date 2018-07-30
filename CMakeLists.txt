@@ -5,6 +5,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
 
 option(BUILD_TESTS "Build tests for Pandora" OFF)
 option(BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
+option(BUILD_VOXEL_EXPORT "Build voxel exporter" OFF)
 
 #find_package(GSL REQUIRED)# Guideline Support Library (like the Microsoft implementation)
 find_package(glm REQUIRED)
@@ -44,7 +45,15 @@ if (BUILD_ATLAS)
     find_package(OpenGL REQUIRED)
 endif()
 
+if (BUILD_VOXEL_EXPORT)
+	add_library(tinyply "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/tinyply.cpp")
+	target_include_directories(tinyply PUBLIC "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/")
+endif()
+
 include("projects/pandora/CMakeLists.txt")
+if (BUILD_VOXEL_EXPORT)
+	include("projects/voxel/CMakeLists.txt")
+endif()
 if (BUILD_ATLAS)
     include("projects/atlas/CMakeLists.txt")
 endif()
