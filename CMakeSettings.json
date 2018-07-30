@@ -17,16 +17,16 @@
           "value": "C:\\Users\\Mathijs\\development\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
         },
         {
+          "name": "CMAKE_CXX_FLAGS",
+          "value": "/arch:AVX2 /EHsc /W3"
+        },
+        {
           "name": "BUILD_TESTS",
           "value": "ON"
         },
         {
           "name": "BUILD_VOXEL_EXPORT",
           "value": "ON"
-        },
-        {
-          "name": "CMAKE_CXX_FLAGS",
-          "value": "/arch:AVX2 /EHsc /W3"
         }
       ]
     },
@@ -48,6 +48,10 @@
         {
           "name": "CMAKE_CXX_FLAGS",
           "value": "/arch:AVX2 /EHsc /W3"
+        },
+        {
+          "name": "BUILD_VOXEL_EXPORT",
+          "value": "ON"
         }
       ]
     },

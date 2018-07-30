@@ -6,12 +6,17 @@
 #include <string_view>
 #include <fstream>
 #include <string>
+#include <cassert>
+#include "pandora/svo/voxel_grid.h"
 
 using namespace std::string_literals;
 using namespace tinyply;
+using namespace pandora;
 
 void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, std::string_view filePath)
 {
+	assert(vertices.size() > 0 && triangles.size() > 0);
+
 	std::filebuf fb;
 	fb.open(std::string(filePath), std::ios::out | std::ios::binary);
 	std::ostream outStream(&fb);
@@ -29,10 +34,13 @@ void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, 
 
 int main()
 {
-    std::array vertices = { glm::vec3(-2, 0, 0), glm::vec3(1, 0, 0), glm::vec3(0, 2, 0) };
-    std::array indices = { glm::ivec3(0, 1, 2) };
-	
-	exportMesh(vertices, indices, "hello_world.ply");
+    //std::array vertices = { glm::vec3(-2, 0, 0), glm::vec3(1, 0, 0), glm::vec3(0, 2, 0) };
+    //std::array indices = { glm::ivec3(0, 1, 2) };
+
+	pandora::VoxelGrid voxelGrid(50);
+	voxelGrid.fillSphere();
+	auto [vertices, triangles] = voxelGrid.generateSurfaceMesh();
+	exportMesh(vertices, triangles, "hello_world.ply");
 
     std::cout << "HELLO WORLD!" << std::endl;
     return 0;
