@@ -5,6 +5,6 @@
 namespace pandora
 {
 
-void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const TriangleMesh& mesh, int resolution);
+void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const Bounds& gridBounds, const TriangleMesh& mesh, int resolution);
 
 }

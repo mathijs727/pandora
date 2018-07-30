@@ -37,12 +37,16 @@ void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, 
 int main()
 {
 	const std::string projectBasePath = "../../"s;
-	auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/sphere.obj");
+	auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj");
 	
+	Bounds gridBounds;
+	for (const auto& mesh : meshes)
+		gridBounds.extend(mesh->getBounds());
+
 	int resolution = 20;
 	VoxelGrid voxelGrid(resolution);
 	for (const auto& mesh : meshes)
-		meshToVoxelGridNaive(voxelGrid, *mesh, resolution);
+		meshToVoxelGridNaive(voxelGrid, gridBounds, *mesh, resolution);
 
 	auto [vertices, triangles] = voxelGrid.generateSurfaceMesh();
 	exportMesh(vertices, triangles, "hello_world.ply");

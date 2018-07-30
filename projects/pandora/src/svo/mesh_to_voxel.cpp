@@ -10,10 +10,10 @@ namespace pandora {
 // For each triangle:
 //   For each voxel in triangles AABB:
 //     Test intersection between voxel and triangle
-void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const TriangleMesh& mesh, int resolution)
+void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const Bounds& gridBounds, const TriangleMesh& mesh, int resolution)
 {
-    float scale = maxComponent(mesh.getBounds().getExtent());
-    glm::vec3 offset = mesh.getBounds().min;
+    float scale = maxComponent(gridBounds.getExtent());
+    glm::vec3 offset = gridBounds.min;
 
     // ====================== Setup phase ======================
     glm::vec3 delta_p = glm::vec3(scale / resolution); // Bounding box extents -> extent of a single voxel
@@ -73,7 +73,6 @@ void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const TriangleMesh& mesh, int re
             }
 
             {
-				// TODO: switching normal y to (-1, +1) fixes problem in voxelization, but why?!
                 glm::vec2 n_zx_ei = glm::vec2(-e[i].x, e[i].z) * (n.y >= 0 ? 1.0f : -1.0f);
                 glm::vec2 v_zx_i(v[i].z, v[i].x);
                 float d_zx_ei = -glm::dot(n_zx_ei, v_zx_i) + std::max(0.0f, delta_p.z * n_zx_ei.x) + std::max(0.0f, delta_p.x * n_zx_ei.y);
@@ -105,8 +104,11 @@ void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const TriangleMesh& mesh, int re
         glm::vec3 tBoundsMin = tBoundsMins[t];
         glm::vec3 tBoundsExtent = tBoundsExtents[t];
 
-        glm::ivec3 tBoundsMinVoxel = worldToVoxel(tBoundsMin);
+        glm::ivec3 tBoundsMinVoxel = glm::min(worldToVoxel(tBoundsMin), maxGridVoxel);// Fix for triangles on the border of the voxel grid
         glm::ivec3 tBoundsMaxVoxel = worldToVoxel(tBoundsMin + tBoundsExtent); // Upper bound
+		
+		//glm::ivec3 tBoundsMinVoxel = glm::ivec3(0);
+		//glm::ivec3 tBoundsMaxVoxel = maxGridVoxel; // Upper bound
 
         // For each voxel in the triangles AABB
         for (int z = tBoundsMinVoxel.z; z <= std::min(tBoundsMaxVoxel.z, maxGridVoxel.z); z++) {
@@ -115,7 +117,7 @@ void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const TriangleMesh& mesh, int re
                     // Intersection test
                     glm::vec3 p = voxelToWorld(glm::ivec3(x, y, z));
 
-                    bool planeIntersect = ((glm::dot(ns[t], p) + d1s[t]) * (glm::dot(ns[t], p) + d2s[t])) <= 0;
+                    /*bool planeIntersect = ((glm::dot(ns[t], p) + d1s[t]) * (glm::dot(ns[t], p) + d2s[t])) <= 0;
                     if (!planeIntersect)
                         continue;
 
@@ -124,8 +126,9 @@ void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const TriangleMesh& mesh, int re
                         triangleIntersect2D &= (glm::dot(n_xy_es[i][t], glm::vec2(p.x, p.y)) + d_xy_es[i][t]) >= 0;
 						triangleIntersect2D &= (glm::dot(n_zx_es[i][t], glm::vec2(p.z, p.x)) + d_zx_es[i][t]) >= 0;
                         triangleIntersect2D &= (glm::dot(n_yz_es[i][t], glm::vec2(p.y, p.z)) + d_yz_es[i][t]) >= 0;
-                    }
-
+                    }*/
+					bool triangleIntersect2D = true;
+					
                     if (triangleIntersect2D)
                         voxelGrid.set(x, y, z, true);
                 }
