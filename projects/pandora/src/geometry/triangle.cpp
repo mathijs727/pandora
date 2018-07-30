@@ -68,6 +68,8 @@ TriangleMesh::TriangleMesh(
     , m_tangents(std::move(tangents))
     , m_uvCoords(std::move(uvCoords))
 {
+	for (unsigned v = 0; v < numVertices; v++)
+		m_bounds.grow(m_positions[v]);
 }
 
 std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals)
@@ -268,6 +270,11 @@ gsl::span<const glm::ivec3> TriangleMesh::getTriangles() const
 gsl::span<const glm::vec3> TriangleMesh::getPositions() const
 {
     return gsl::make_span(m_positions.get(), m_numVertices);
+}
+
+Bounds TriangleMesh::getBounds() const
+{
+	return m_bounds;
 }
 
 Bounds TriangleMesh::getPrimitiveBounds(unsigned primitiveID) const

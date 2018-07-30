@@ -4,14 +4,14 @@
 
 namespace pandora {
 
-VoxelGrid::VoxelGrid(unsigned extent)
+VoxelGrid::VoxelGrid(int extent)
     : m_extent(extent, extent, extent)
     , m_values(createValues(m_extent))
 
 {
 }
 
-VoxelGrid::VoxelGrid(unsigned width, unsigned height, unsigned depth)
+VoxelGrid::VoxelGrid(int width, int height, int depth)
     : m_extent(width, height, depth)
     , m_values(createValues(m_extent))
 {
@@ -92,7 +92,7 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> VoxelGrid::generateSu
 
 void VoxelGrid::fillSphere()
 {
-    glm::ivec3 halfExtent = m_extent / 2u;
+    glm::ivec3 halfExtent = m_extent / 2;
     int minDim = minDimension(halfExtent);
     int radius2 = halfExtent[minDim] * halfExtent[minDim];
 
@@ -108,18 +108,21 @@ void VoxelGrid::fillSphere()
     }
 }
 
-bool VoxelGrid::get(unsigned x, unsigned y, unsigned z) const
+bool VoxelGrid::get(int x, int y, int z) const
 {
     return m_values[index(x, y, z)];
 }
 
-void VoxelGrid::set(unsigned x, unsigned y, unsigned z, bool value)
+void VoxelGrid::set(int x, int y, int z, bool value)
 {
     m_values[index(x, y, z)] = value;
 }
 
-unsigned VoxelGrid::index(unsigned x, unsigned y, unsigned z) const
+int VoxelGrid::index(int x, int y, int z) const
 {
+	assert(x >= 0 && x < m_extent.x);
+	assert(y >= 0 && y < m_extent.y);
+	assert(z >= 0 && z < m_extent.z);
     return z * m_extent.x * m_extent.y + y * m_extent.x + x;
 }
 

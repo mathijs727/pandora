@@ -8,6 +8,8 @@
 #include <string>
 #include <cassert>
 #include "pandora/svo/voxel_grid.h"
+#include "pandora/svo/mesh_to_voxel.h"
+#include "pandora/geometry/triangle.h"
 
 using namespace std::string_literals;
 using namespace tinyply;
@@ -34,11 +36,14 @@ void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, 
 
 int main()
 {
-    //std::array vertices = { glm::vec3(-2, 0, 0), glm::vec3(1, 0, 0), glm::vec3(0, 2, 0) };
-    //std::array indices = { glm::ivec3(0, 1, 2) };
+	const std::string projectBasePath = "../../"s;
+	auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/sphere.obj");
+	
+	int resolution = 20;
+	VoxelGrid voxelGrid(resolution);
+	for (const auto& mesh : meshes)
+		meshToVoxelGridNaive(voxelGrid, *mesh, resolution);
 
-	pandora::VoxelGrid voxelGrid(50);
-	voxelGrid.fillSphere();
 	auto [vertices, triangles] = voxelGrid.generateSurfaceMesh();
 	exportMesh(vertices, triangles, "hello_world.ply");
 

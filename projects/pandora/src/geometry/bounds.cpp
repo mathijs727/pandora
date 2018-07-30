@@ -15,6 +15,11 @@ Bounds::Bounds(glm::vec3 lower, glm::vec3 upper)
 {
 }
 
+glm::vec3 Bounds::getExtent() const
+{
+	return max - min;
+}
+
 void Bounds::reset()
 {
     min = glm::vec3(std::numeric_limits<float>::max());
