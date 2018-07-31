@@ -51,7 +51,13 @@ vec3 extent(const Bounds bounds)
     return bounds.max - bounds.min;
 }
 
-inline float maxComponent(const vec3 v)
+uniform vec3 extent(const uniform Bounds bounds)
+{
+	return bounds.max - bounds.min;
+}
+
+
+inline uniform float maxComponent(const uniform vec3 v)
 {
     return max(v.x, max(v.y, v.z));
 }
@@ -94,9 +100,15 @@ ivec3 make_ivec3(int x, int y, int z)
 	return result;
 }
 
-ivec3 make_ivec3(int v)
+uniform ivec3 make_ivec3(uniform int x, uniform int y, uniform int z)
 {
-	ivec3 result = { v, v, v };
+	uniform ivec3 result = { x, y, z };
+	return result;
+}
+
+uniform ivec3 make_ivec3(uniform int v)
+{
+	uniform ivec3 result = { v, v, v };
 	return result;
 }
 
@@ -109,18 +121,18 @@ ivec3 make_ivec3(int v)
 export void meshToVoxelGrid(uniform int8* uniform voxelGrid, const uniform int resolution, const uniform Bounds& gridBounds, const uniform vec3* uniform positions, uniform const ivec3* uniform triangles, uniform const int N)
 {
     // Map world space to [0, 1]
-    float scale = maxComponent(extent(gridBounds));
-    const vec3 offset = gridBounds.min;
-    const ivec3 gridResolution = make_ivec3(resolution);
+    const uniform float scale = maxComponent(extent(gridBounds));
+    const uniform vec3 offset = gridBounds.min;
+    const uniform ivec3 gridResolution = make_ivec3(resolution);
 
     // World space extent of a voxel
-    const vec3 delta_p = scale / resolution;
+    const uniform vec3 delta_p = scale / resolution;
 
     // Arguments to helper functions (no lambdas in ispc :( )
-    const vec3 worldToVoxelScale = resolution / scale;
-    const vec3 voxelToWorldScale = scale / resolution;
+    const uniform vec3 worldToVoxelScale = resolution / scale;
+    const uniform vec3 voxelToWorldScale = scale / resolution;
 
-    const ivec3 maxGridVoxel = resolution - 1;
+    const uniform ivec3 maxGridVoxel = resolution - 1;
 
     foreach (t = 0 ... N) {
         const ivec3 triangle = triangles[t];
@@ -137,7 +149,7 @@ export void meshToVoxelGrid(uniform int8* uniform voxelGrid, const uniform int r
         const ivec3 tBoundsMaxVoxel = worldToVoxel(tBoundsMin + tBoundsExtent, offset, worldToVoxelScale) + 1; // Upper bound
         const ivec3 tBoundsExtentVoxel = tBoundsMaxVoxel - tBoundsMinVoxel;
 
-        if (tBoundsExtentVoxel.x == 1 && tBoundsExtentVoxel.y == 1 && tBoundsExtentVoxel.z == 1) {
+        cif (tBoundsExtentVoxel.x == 1 && tBoundsExtentVoxel.y == 1 && tBoundsExtentVoxel.z == 1) {
 			int idx = index(tBoundsMinVoxel, resolution);
 			foreach_unique(uniqueIdx in idx) {
 				voxelGrid[uniqueIdx] = 1;
@@ -206,8 +218,13 @@ export void meshToVoxelGrid(uniform int8* uniform voxelGrid, const uniform int r
 							triangleIntersect2D &= (overlapBoundsExtent.x >= 0 && overlapBoundsExtent.y >= 0 && overlapBoundsExtent.z >= 0);
 						}
 
-                        if (triangleIntersect2D) 
-                            voxelGrid[index(make_ivec3(x, y, z), resolution)] = 1;
+						if (triangleIntersect2D)
+						{
+							int idx = index(make_ivec3(x, y, z), resolution);
+							foreach_unique(uniqueIdx in idx) {
+								voxelGrid[uniqueIdx] = 1;
+							}
+						}
                     }
                 }
             }

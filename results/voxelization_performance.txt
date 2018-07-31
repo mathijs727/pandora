@@ -12,3 +12,10 @@ Special case of triangle with AABB of (1,1,1)
 RelWithDebInfo: ~91ms
 Release: ~79ms
 
+ISPC version (target = host)
+RelWithDebInfo: ~41ms
+Release: ~41ms
+ => both are compiled with the same ISPC flags (-O3) because Windows debugging of ISPC is not suported anyway
+
+Convert unecessary varying to uniforms
+Release: ~39ms

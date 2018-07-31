@@ -33,21 +33,21 @@ void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, 
     plyFile.add_properties_to_element("face", { "vertex_indices" },
         Type::INT32, triangles.size(), reinterpret_cast<uint8_t*>(triangles.data()), Type::UINT8, 3);
 
-    plyFile.write(outStream, false); // write ascii
+    plyFile.write(outStream, true); // write ascii
     fb.close();
 }
 
 int main()
 {
     const std::string projectBasePath = "../../"s;
-    auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/bun_zipper.ply");
+    auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply");
     //auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj");
 
     Bounds gridBounds;
     for (const auto& mesh : meshes)
         gridBounds.extend(mesh->getBounds());
 
-    int resolution = 64;
+    int resolution = 128;
     VoxelGrid voxelGrid(resolution);
 
     ispc::Bounds ispcGridBounds;

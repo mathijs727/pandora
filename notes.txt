@@ -14,3 +14,10 @@ Have separate triangle voxelization functions based on the triangles shape (movi
 Separate case for triangles whose bounding box covers a single voxel
 
 NOTE: more optimizations can be made which will improve the performance for large (wrt voxels) triangles. For my use-case I assume a low voxel resolution (compared to geometric complexity) so these optimizations are not worth my (development) time right now.
+
+Optimization 3:
+SIMD implementation using ISPC. Getting ISPC to compile through CMake is a bit dirty (CMakes fault, man the CMake language is disgusting).
+Had to (re)-implement some basic functions because classes are not a thing in ISPC (C).
+Wasted some time on the following bug: ISPC float<3> (or any other length) initializer list is different from most other vector languages:
+float<3> x = { 1 }      ===>  only initializes first field (instead of broadcasting the value)
+Debugging in ISPC is hard since there is no debugger support on Windows (just print statements).
