@@ -9,7 +9,6 @@ public:
     Bounds();
     Bounds(glm::vec3 lower, glm::vec3 upper);
 
-	glm::vec3 getExtent() const;
 
     void reset();
     void grow(glm::vec3 vec);
@@ -17,6 +16,7 @@ public:
     Bounds extended(const Bounds& other) const;
 
     glm::vec3 center() const;
+	glm::vec3 extent() const;
     float surfaceArea() const;
 
 	Bounds intersection(const Bounds& other) const;
