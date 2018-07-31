@@ -6,6 +6,14 @@
 
 namespace pandora {
 
+int index(const glm::ivec3 v, int resolution)
+{
+	assert(v.x >= 0 && v.x < resolution);
+	assert(v.y >= 0 && v.y < resolution);
+	assert(v.z >= 0 && v.z < resolution);
+	return v.z * resolution * resolution + v.y * resolution + v.x;
+}
+
 // Naive mesh voxelization
 // Based on: http://research.michael-schwarz.com/publ/files/vox-siga10.pdf
 // Outline:

@@ -109,12 +109,12 @@ void VoxelGrid::fillSphere()
 
 bool VoxelGrid::get(int x, int y, int z) const
 {
-    return m_values[index(x, y, z)];
+    return m_values[index(x, y, z)] != 0;
 }
 
 void VoxelGrid::set(int x, int y, int z, bool value)
 {
-    m_values[index(x, y, z)] = value;
+    m_values[index(x, y, z)] = value ? 1 : 0;
 }
 
 int VoxelGrid::index(int x, int y, int z) const
@@ -125,9 +125,18 @@ int VoxelGrid::index(int x, int y, int z) const
     return z * m_extent.x * m_extent.y + y * m_extent.x + x;
 }
 
-std::vector<bool> VoxelGrid::createValues(const glm::uvec3& extent)
+/*std::vector<bool> VoxelGrid::createValues(const glm::uvec3& extent)
 {
     int size = extent.x * extent.y * extent.z;
     return std::vector<bool>(size, false);
+}*/
+
+std::unique_ptr<int8_t[]> VoxelGrid::createValues(const glm::uvec3& extent)
+{
+	int size = extent.x * extent.y * extent.z;
+	auto result = std::make_unique<int8_t[]>(size);
+	std::fill(result.get(), result.get() + size, 0);
+	return result;
 }
+
 }

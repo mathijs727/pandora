@@ -156,7 +156,7 @@ MACRO (ISPC_COMPILE)
       ${ISPC_OPT_FLAGS}
       --target=${ISPC_TARGET_ARGS}
       #--woff
-      --opt=fast-math
+      #--opt=fast-math
       ${ISPC_ADDITIONAL_ARGS}
       -h ${ISPC_TARGET_DIR}/${fname}_ispc.h
       -MMM  ${outdir}/${fname}.dev.idep
@@ -173,6 +173,8 @@ ENDMACRO()
 MACRO (ADD_ISPC_LIBRARY name type)
    SET(ISPC_SOURCES "")
    SET(OTHER_SOURCES "")
+  
+
    FOREACH(src ${ARGN})
     GET_FILENAME_COMPONENT(ext ${src} EXT)
     IF (ext STREQUAL ".ispc")
@@ -185,5 +187,7 @@ MACRO (ADD_ISPC_LIBRARY name type)
   ISPC_COMPILE(${ISPC_SOURCES})
   #ADD_LIBRARY(${name} ${type} ${ISPC_OBJECTS} ${OTHER_SOURCES})
   ADD_LIBRARY(${name} ${type} ${ISPC_OBJECTS})
+  SET_TARGET_PROPERTIES(${name} PROPERTIES LINKER_LANGUAGE C)
   TARGET_INCLUDE_DIRECTORIES(${name} PUBLIC ${ISPC_TARGET_DIR})
+  message("TARGET_INCLUDE_DIRS ${name} -> ${ISPC_TARGET_DIR}")
 ENDMACRO()

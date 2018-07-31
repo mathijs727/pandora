@@ -14,5 +14,5 @@ if (MSVC)
 	set_target_properties(ispcTest PROPERTIES COMPILE_FLAGS "/wd4281 /wd4005 /wd4996") 
 endif()
 
-ADD_ISPC_LIBRARY(ispcTransform "${CMAKE_CURRENT_LIST_DIR}/src/main.cpp" "${CMAKE_CURRENT_LIST_DIR}/src/folder/ispc_transform.ispc")
-target_link_libraries(ispcTest PRIVATE ispcTransform)
+ADD_ISPC_LIBRARY(ispcTransform STATIC "${CMAKE_CURRENT_LIST_DIR}/src/folder/ispc_transform.ispc")
+target_link_libraries(ispcTest PUBLIC ispcTransform)

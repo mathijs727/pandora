@@ -53,3 +53,6 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena_ts.cpp"
 )
+
+ADD_ISPC_LIBRARY(pandoraISPC STATIC "${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.ispc")
+target_link_libraries(libPandora PUBLIC pandoraISPC)
