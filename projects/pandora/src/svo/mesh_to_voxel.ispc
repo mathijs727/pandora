@@ -62,26 +62,6 @@ inline uniform float maxComponent(const uniform vec3 v)
     return max(v.x, max(v.y, v.z));
 }
 
-// Helper functions
-ivec3 worldToVoxel(const vec3 worldVec, const vec3 offset, const vec3 worldToVoxelScale)
-{
-    ivec3 result = ((worldVec - offset) * worldToVoxelScale);
-    return result;
-}
-
-vec3 voxelToWorld(const ivec3 voxel, const vec3 offset, const vec3 voxelToWorldScale)
-{
-    return voxel * voxelToWorldScale + offset;
-}
-
-int index(const ivec3 v, int resolution)
-{
-	assert(v.x >= 0 && v.x < resolution);
-	assert(v.y >= 0 && v.y < resolution);
-	assert(v.z >= 0 && v.z < resolution);
-	return v.z * resolution * resolution + v.y * resolution + v.x;
-}
-
 vec2 make_vec2(float x, float y)
 {
 	vec2 result = { x, y };
@@ -132,13 +112,44 @@ ivec3 make_ivec3(CPPVec3i v)
 	return make_ivec3(v.x, v.y, v.z);
 }
 
+// Helper functions
+ivec3 worldToVoxel(const vec3 worldVec, const vec3 offset, const vec3 worldToVoxelScale)
+{
+    ivec3 result = ((worldVec - offset) * worldToVoxelScale);
+    return result;
+}
+
+vec3 voxelToWorld(const ivec3 voxel, const vec3 offset, const vec3 voxelToWorldScale)
+{
+    return voxel * voxelToWorldScale + offset;
+}
+
+int index(const ivec3 v, int resolution)
+{
+	assert(v.x >= 0 && v.x < resolution);
+	assert(v.y >= 0 && v.y < resolution);
+	assert(v.z >= 0 && v.z < resolution);
+	return v.z * resolution * resolution + v.y * resolution + v.x;
+}
+
+inline uniform int blockIndex(const uniform int bitPosition)
+{
+	return bitPosition >> 5;// = bitPosition / 32
+}
+
+inline uniform int bitInBlock(const uniform int bitPosition)
+{
+	return bitPosition & ((1 << 5) - 1);// = bitPosition % 32
+}
+
+
 // Naive mesh voxelization
 // Based on: http://research.michael-schwarz.com/publ/files/vox-siga10.pdf
 // Outline:
 // For each triangle:
 //   For each voxel in triangles AABB:
 //     Test intersection between voxel and triangle
-export void meshToVoxelGrid(uniform int8* uniform voxelGrid, const uniform int resolution, const uniform Bounds& gridBounds, const uniform CPPVec3* uniform positions, uniform const CPPVec3i* uniform triangles, uniform const int N)
+export void meshToVoxelGrid(uniform unsigned int* uniform voxelGrid, const uniform int resolution, const uniform Bounds& gridBounds, const uniform CPPVec3* uniform positions, uniform const CPPVec3i* uniform triangles, uniform const int N)
 {
     // Map world space to [0, 1]
     const uniform float scale = maxComponent(extent(gridBounds));
@@ -170,9 +181,11 @@ export void meshToVoxelGrid(uniform int8* uniform voxelGrid, const uniform int r
         const ivec3 tBoundsExtentVoxel = tBoundsMaxVoxel - tBoundsMinVoxel;
 
         cif (tBoundsExtentVoxel.x == 1 && tBoundsExtentVoxel.y == 1 && tBoundsExtentVoxel.z == 1) {
-			int idx = index(tBoundsMinVoxel, resolution);
-			foreach_unique(uniqueIdx in idx) {
-				voxelGrid[uniqueIdx] = 1;
+			int bitIdx = index(tBoundsMinVoxel, resolution);
+			foreach_unique(uniqueBitIdx in bitIdx) {
+				uniform int block = blockIndex(uniqueBitIdx);
+				uniform int bitInBlock = bitInBlock(uniqueBitIdx);
+				voxelGrid[block] |= (1 << bitInBlock);
 			}
         } else {
             // Critical point
@@ -185,7 +198,6 @@ export void meshToVoxelGrid(uniform int8* uniform voxelGrid, const uniform int r
             const float d2 = dot(n, (delta_p - c) - v[0]);
 
             // For each voxel in the triangles AABB
-			//print("GRID RES: (%,%,%)", gridResolution.x, gridResolution.y, gridResolution.z);
             for (int z = tBoundsMinVoxel.z; z < min(tBoundsMaxVoxel.z, gridResolution.z); z++) {
                 for (int y = tBoundsMinVoxel.y; y < min(tBoundsMaxVoxel.y, gridResolution.y); y++) {
                     for (int x = tBoundsMinVoxel.x; x < min(tBoundsMaxVoxel.x, gridResolution.x); x++) {
@@ -240,9 +252,11 @@ export void meshToVoxelGrid(uniform int8* uniform voxelGrid, const uniform int r
 
 						if (triangleIntersect2D)
 						{
-							int idx = index(make_ivec3(x, y, z), resolution);
-							foreach_unique(uniqueIdx in idx) {
-								voxelGrid[uniqueIdx] = 1;
+							int bitIdx = index(make_ivec3(x, y, z), resolution);
+							foreach_unique(uniqueBitIdx in bitIdx) {
+								uniform int block = blockIndex(uniqueBitIdx);
+								uniform int bitInBlock = bitInBlock(uniqueBitIdx);
+								voxelGrid[block] |= (1 << bitInBlock);
 							}
 						}
                     }

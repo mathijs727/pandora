@@ -19,3 +19,10 @@ Release: ~41ms
 
 Convert unecessary varying to uniforms
 Release: ~39ms
+
+ISPC: single bit per voxel
+Release: ~36ms
+
+Scalar: single bit per voxel
+RelWithDebInfo: ~88ms
+Release: ~78ms

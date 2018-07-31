@@ -125,7 +125,10 @@ std::pair<uint32_t*, int> VoxelGrid::index(int x, int y, int z) const
     assert(y >= 0 && y < m_extent.y);
     assert(z >= 0 && z < m_extent.z);
     int bitPosition = z * m_extent.x * m_extent.y + y * m_extent.x + x;
-	return { m_values.get() + (bitPosition / 32), bitPosition % 32 };
+
+	int block = bitPosition >> 5;// = bitPosition / 32
+	int bitInBlock = bitPosition & ((1 << 5) - 1);// = bitPosition % 32
+	return { m_values.get() + block, bitInBlock };
 }
 
 /*std::vector<bool> VoxelGrid::createValues(const glm::uvec3& extent)
