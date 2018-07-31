@@ -4,17 +4,17 @@
 
 namespace pandora {
 
-VoxelGrid::VoxelGrid(int extent)
-    : m_extent(extent, extent, extent)
+VoxelGrid::VoxelGrid(int resolution)
+    : m_resolution(resolution)
+    , m_extent(resolution, resolution, resolution)
     , m_values(createValues(m_extent))
 
 {
 }
 
-VoxelGrid::VoxelGrid(int width, int height, int depth)
-    : m_extent(width, height, depth)
-    , m_values(createValues(m_extent))
+int VoxelGrid::resolution() const
 {
+	return m_resolution;
 }
 
 std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> VoxelGrid::generateSurfaceMesh() const
@@ -40,25 +40,24 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> VoxelGrid::generateSu
                 if (z == 0 || z == (int)m_extent.z - 1)
                     surfaceCube = true;
 
-				glm::ivec3 p(x, y, z);
-				if (!surfaceCube)
-				{
-					// For each neighbour
-					for (int dim = 0; dim < 3; dim++) {
-						for (int delta = -1; delta <= 1; delta += 2) {
-							glm::ivec3 n = p; // Neighbour position
-							n[dim] += delta;
+                glm::ivec3 p(x, y, z);
+                if (!surfaceCube) {
+                    // For each neighbour
+                    for (int dim = 0; dim < 3; dim++) {
+                        for (int delta = -1; delta <= 1; delta += 2) {
+                            glm::ivec3 n = p; // Neighbour position
+                            n[dim] += delta;
 
-							if (!get(n.x, n.y, n.z)) {
-								surfaceCube = true;
-								break;
-							}
-						}
+                            if (!get(n.x, n.y, n.z)) {
+                                surfaceCube = true;
+                                break;
+                            }
+                        }
 
-						if (surfaceCube)
-							break;
-					}
-				}
+                        if (surfaceCube)
+                            break;
+                    }
+                }
 
                 if (surfaceCube) {
                     // https://github.com/ddiakopoulos/tinyply/blob/master/source/example.cpp
@@ -120,9 +119,9 @@ void VoxelGrid::set(int x, int y, int z, bool value)
 
 int VoxelGrid::index(int x, int y, int z) const
 {
-	assert(x >= 0 && x < m_extent.x);
-	assert(y >= 0 && y < m_extent.y);
-	assert(z >= 0 && z < m_extent.z);
+    assert(x >= 0 && x < m_extent.x);
+    assert(y >= 0 && y < m_extent.y);
+    assert(z >= 0 && z < m_extent.z);
     return z * m_extent.x * m_extent.y + y * m_extent.x + x;
 }
 

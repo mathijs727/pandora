@@ -11,13 +11,13 @@ namespace pandora {
 // For each triangle:
 //   For each voxel in triangles AABB:
 //     Test intersection between voxel and triangle
-void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const Bounds& gridBounds, const TriangleMesh& mesh, int resolution)
+void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const Bounds& gridBounds, const TriangleMesh& mesh)
 {
     float scale = maxComponent(gridBounds.extent());
     glm::vec3 offset = gridBounds.min;
 
     // ====================== Setup phase ======================
-    glm::vec3 delta_p = glm::vec3(scale / resolution); // Bounding box extents -> extent of a single voxel
+    glm::vec3 delta_p = glm::vec3(scale / voxelGrid.resolution()); // Bounding box extents -> extent of a single voxel
 
     auto triangles = mesh.getTriangles();
     auto positions = mesh.getPositions();
@@ -94,12 +94,12 @@ void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const Bounds& gridBounds, const 
     }
 
     // ==================== Intersect phase ====================
-    const glm::vec3 worldToVoxelScale = glm::vec3(resolution) / scale;
-    const glm::vec3 voxelToWorldScale = scale / glm::vec3(resolution);
+    const glm::vec3 worldToVoxelScale = glm::vec3(voxelGrid.resolution()) / scale;
+    const glm::vec3 voxelToWorldScale = scale / glm::vec3(voxelGrid.resolution());
     const auto worldToVoxel = [&](const glm::vec3& worldVec) -> glm::ivec3 { return glm::ivec3((worldVec - offset) * worldToVoxelScale); };
     const auto voxelToWorld = [&](const glm::ivec3& voxel) -> glm::vec3 { return glm::vec3(voxel) * voxelToWorldScale + offset; };
 
-    const glm::ivec3 maxGridVoxel(resolution - 1);
+    const glm::ivec3 maxGridVoxel(voxelGrid.resolution() - 1);
 
 	for (int t = 0; t < triangles.size(); t++) {
         glm::vec3 tBoundsMin = tBoundsMins[t];

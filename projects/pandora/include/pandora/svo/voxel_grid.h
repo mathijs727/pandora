@@ -7,8 +7,9 @@ namespace pandora {
 
 class VoxelGrid {
 public:
-    VoxelGrid(int extent);
-    VoxelGrid(int width, int height, int depth);
+    VoxelGrid(int resolution);
+
+	int resolution() const;
 
 	std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 
@@ -17,12 +18,13 @@ public:
     bool get(int x, int y, int z) const;
     void set(int x, int y, int z, bool value);
 
-    static std::vector<bool> createValues(const glm::uvec3& extent);
 
 private:
+    static std::vector<bool> createValues(const glm::uvec3& extent);
 	int index(int x, int y, int z) const;
 
 private:
+	int m_resolution;
     glm::ivec3 m_extent;
     std::vector<bool> m_values;
 };
