@@ -21,6 +21,10 @@
           "value": "/arch:AVX2 /EHsc /W3"
         },
         {
+          "name": "PANDORA_ISPC_SUPPORT",
+          "value": "ON"
+        },
+        {
           "name": "BUILD_TESTS",
           "value": "ON"
         },
@@ -50,6 +54,10 @@
           "value": "/arch:AVX2 /EHsc /W3"
         },
         {
+          "name": "PANDORA_ISPC_SUPPORT",
+          "value": "ON"
+        },
+        {
           "name": "BUILD_VOXEL_EXPORT",
           "value": "ON"
         }
@@ -73,6 +81,10 @@
         {
           "name": "CMAKE_CXX_FLAGS",
           "value": "/arch:AVX2 /EHsc /W3"
+        },
+        {
+          "name": "PANDORA_ISPC_SUPPORT",
+          "value": "ON"
         },
         {
           "name": "BUILD_VOXEL_EXPORT",

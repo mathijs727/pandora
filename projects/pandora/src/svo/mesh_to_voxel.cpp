@@ -4,9 +4,40 @@
 #include "pandora/svo/voxel_grid.h"
 #include <iostream>
 
+#ifdef PANDORA_ISPC_SUPPORT
+#include "mesh_to_voxel_ispc.h"
+#endif
+
 namespace pandora {
 
-int index(const glm::ivec3 v, int resolution)
+static void meshToVoxelGridScalar(VoxelGrid& voxelGrid, const Bounds& gridBounds, const TriangleMesh& mesh);
+
+void meshToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const TriangleMesh& mesh)
+{
+#ifdef PANDORA_ISPC_SUPPORT
+	ispc::Bounds ispcGridBounds;
+	ispcGridBounds.min.v[0] = gridBounds.min.x;
+	ispcGridBounds.min.v[1] = gridBounds.min.y;
+	ispcGridBounds.min.v[2] = gridBounds.min.z;
+
+	ispcGridBounds.max.v[0] = gridBounds.max.x;
+	ispcGridBounds.max.v[1] = gridBounds.max.y;
+	ispcGridBounds.max.v[2] = gridBounds.max.z;
+
+	const auto& triangles = mesh.getTriangles();
+	const auto& positions = mesh.getPositions();
+
+	const ispc::CPPVec3* ispcPositions = reinterpret_cast<const ispc::CPPVec3*>(positions.data());
+	const ispc::CPPVec3i* ispcTriangles = reinterpret_cast<const ispc::CPPVec3i*>(triangles.data());
+
+	ispc::meshToVoxelGrid(voxelGrid.data(), voxelGrid.resolution(), ispcGridBounds, ispcPositions, ispcTriangles, (uint32_t)triangles.size());
+#else
+	meshToVoxelGridScalar(voxelGrid, gridBounds, mesh);
+#endif
+
+}
+
+static inline int index(const glm::ivec3 v, int resolution)
 {
 	assert(v.x >= 0 && v.x < resolution);
 	assert(v.y >= 0 && v.y < resolution);
@@ -20,7 +51,7 @@ int index(const glm::ivec3 v, int resolution)
 // For each triangle:
 //   For each voxel in triangles AABB:
 //     Test intersection between voxel and triangle
-void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const Bounds& gridBounds, const TriangleMesh& mesh)
+static void meshToVoxelGridScalar(VoxelGrid& voxelGrid, const Bounds& gridBounds, const TriangleMesh& mesh)
 {
     // Map world space to [0, 1]
     float scale = maxComponent(gridBounds.extent());

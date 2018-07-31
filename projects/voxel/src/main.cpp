@@ -1,4 +1,3 @@
-#include "mesh_to_voxel_ispc.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/svo/mesh_to_voxel.h"
 #include "pandora/svo/voxel_grid.h"
@@ -47,29 +46,12 @@ int main()
     for (const auto& mesh : meshes)
         gridBounds.extend(mesh->getBounds());
 
-    int resolution = 128;
-    VoxelGrid voxelGrid(resolution);
-
-    ispc::Bounds ispcGridBounds;
-    ispcGridBounds.min.v[0] = gridBounds.min.x;
-    ispcGridBounds.min.v[1] = gridBounds.min.y;
-    ispcGridBounds.min.v[2] = gridBounds.min.z;
-
-    ispcGridBounds.max.v[0] = gridBounds.max.x;
-    ispcGridBounds.max.v[1] = gridBounds.max.y;
-    ispcGridBounds.max.v[2] = gridBounds.max.z;
+    VoxelGrid voxelGrid(128);
 
     using clock = std::chrono::high_resolution_clock;
     auto start = clock::now();
     for (const auto& mesh : meshes) {
-        const auto& triangles = mesh->getTriangles();
-        const auto& positions = mesh->getPositions();
-
-		const ispc::CPPVec3* ispcPositions = reinterpret_cast<const ispc::CPPVec3*>(positions.data());
-		const ispc::CPPVec3i* ispcTriangles = reinterpret_cast<const ispc::CPPVec3i*>(triangles.data());
-        ispc::meshToVoxelGrid(voxelGrid.data(), voxelGrid.resolution(), ispcGridBounds, ispcPositions, ispcTriangles, (uint32_t)triangles.size());
-
-        //meshToVoxelGridNaive(voxelGrid, gridBounds, *mesh);
+        meshToVoxelGrid(voxelGrid, gridBounds, *mesh);
     }
 
     auto end = clock::now();
