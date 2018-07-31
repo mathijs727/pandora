@@ -1,0 +1,12 @@
+Voxelization:
+No library that guarantees watertight results + most Github projects are CLI ==> have to write my own
+Going to be based on: http://research.michael-schwarz.com/publ/files/vox-siga10.pdf because its conservative, modern and fast (well parallelizable)
+
+Paper uses xy, xz and yz planes. They do not mention that for the xz plane the edge normal flip with respect to the 3D normal is reversed (flip if y >= 0.0f).
+Alternatively they could have used teh zx plane in which the flip matches that of xy and yz.
+
+Optimization 1:
+Splitting the code into a preprocess and intersect function (like in the paper) is a bad idea. More time is spent on memory allocation than on intersecting (for the Stanford Dragon).
+
+Optimization 2:
+
