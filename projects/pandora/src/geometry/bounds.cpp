@@ -56,6 +56,16 @@ float Bounds::surfaceArea() const
 	return 2.0f * (extent.x * extent.y + extent.y * extent.z + extent.z * extent.x);
 }
 
+Bounds Bounds::intersection(const Bounds& other) const
+{
+	return Bounds(glm::max(min, other.min), glm::min(max, other.max));
+}
+
+bool Bounds::overlaps(const Bounds& other) const
+{
+	return intersection(other).surfaceArea() > 0;
+}
+
 bool Bounds::intersect(const Ray& ray, float& tmin, float& tmax) const
 {
     tmin = 0.0f;

@@ -1,6 +1,7 @@
 #include "pandora/svo/mesh_to_voxel.h"
 #include "pandora/geometry/bounds.h"
 #include "pandora/geometry/triangle.h"
+#include <iostream>
 
 namespace pandora {
 
@@ -100,15 +101,16 @@ void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const Bounds& gridBounds, const 
 
     const glm::ivec3 maxGridVoxel(resolution - 1);
 
-    for (int t = 0; t < triangles.size(); t++) {
+	//for (int t = 0; t < triangles.size(); t++) {
+	for (int t = 2; t < 3; t++) {
         glm::vec3 tBoundsMin = tBoundsMins[t];
         glm::vec3 tBoundsExtent = tBoundsExtents[t];
 
         glm::ivec3 tBoundsMinVoxel = glm::min(worldToVoxel(tBoundsMin), maxGridVoxel);// Fix for triangles on the border of the voxel grid
         glm::ivec3 tBoundsMaxVoxel = worldToVoxel(tBoundsMin + tBoundsExtent); // Upper bound
 		
-		//glm::ivec3 tBoundsMinVoxel = glm::ivec3(0);
-		//glm::ivec3 tBoundsMaxVoxel = maxGridVoxel; // Upper bound
+		tBoundsMinVoxel = glm::ivec3(0);
+		tBoundsMaxVoxel = maxGridVoxel; // Upper bound
 
         // For each voxel in the triangles AABB
         for (int z = tBoundsMinVoxel.z; z <= std::min(tBoundsMaxVoxel.z, maxGridVoxel.z); z++) {
@@ -117,18 +119,52 @@ void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const Bounds& gridBounds, const 
                     // Intersection test
                     glm::vec3 p = voxelToWorld(glm::ivec3(x, y, z));
 
-                    /*bool planeIntersect = ((glm::dot(ns[t], p) + d1s[t]) * (glm::dot(ns[t], p) + d2s[t])) <= 0;
+                    bool planeIntersect = ((glm::dot(ns[t], p) + d1s[t]) * (glm::dot(ns[t], p) + d2s[t])) <= 0;
                     if (!planeIntersect)
                         continue;
 
 					bool triangleIntersect2D = true;
-                    for (int i = 0; i < 2; i++) {
+                    for (int i = 0; i < 3; i++) {
                         triangleIntersect2D &= (glm::dot(n_xy_es[i][t], glm::vec2(p.x, p.y)) + d_xy_es[i][t]) >= 0;
 						triangleIntersect2D &= (glm::dot(n_zx_es[i][t], glm::vec2(p.z, p.x)) + d_zx_es[i][t]) >= 0;
                         triangleIntersect2D &= (glm::dot(n_yz_es[i][t], glm::vec2(p.y, p.z)) + d_yz_es[i][t]) >= 0;
-                    }*/
-					bool triangleIntersect2D = true;
+
+						// Equivalent in-line version
+						/*const auto& triangle = triangles[t];
+						glm::vec3 v[3] = { positions[triangle[0]], positions[triangle[1]], positions[triangle[2]] };
+						glm::vec3 e[3] = { v[1] - v[0], v[2] - v[1], v[0] - v[2] };
+						glm::vec3 n = glm::cross(e[0], e[1]);
+						{
+							glm::vec2 n_xy_ei = glm::vec2(-e[i].y, e[i].x) * (n.z >= 0 ? 1.0f : -1.0f);
+							glm::vec2 v_xy_i(v[i].x, v[i].y);
+							glm::vec2 p_xy_i(p.x, p.y);
+							float distFromEdge = glm::dot(p_xy_i, n_xy_ei) + std::max(0.0f, delta_p.x * n_xy_ei.x) + std::max(0.0f, delta_p.y * n_xy_ei.y) - glm::dot(n_xy_ei, v_xy_i);
+							triangleIntersect2D &= distFromEdge >= 0;
+						}
+
+						{
+							glm::vec2 n_xz_ei = glm::vec2(-e[i].z, e[i].x) * (n.y >= 0 ? -1.0f : 1.0f);
+							glm::vec2 v_xz_i(v[i].x, v[i].z);
+							glm::vec2 p_xz_i(p.x, p.z);
+							float distFromEdge = glm::dot(p_xz_i, n_xz_ei) + std::max(0.0f, delta_p.x * n_xz_ei.x) + std::max(0.0f, delta_p.z * n_xz_ei.y) - glm::dot(n_xz_ei, v_xz_i);
+							triangleIntersect2D &= distFromEdge >= 0;
+						}
+
+						{
+							glm::vec2 n_yz_ei = glm::vec2(-e[i].z, e[i].y) * (n.x >= 0 ? 1.0f : -1.0f);
+							glm::vec2 v_yz_i(v[i].y, v[i].z);
+							glm::vec2 p_yz_i(p.y, p.z);
+							float distFromEdge = glm::dot(p_yz_i, n_yz_ei) + std::max(0.0f, delta_p.y * n_yz_ei.x) + std::max(0.0f, delta_p.z * n_yz_ei.y) - glm::dot(n_yz_ei, v_yz_i);
+							triangleIntersect2D &= distFromEdge >= 0;
+						}*/
+                    }
 					
+					Bounds triangleBounds = mesh.getPrimitiveBounds(t);
+					Bounds voxelBounds = Bounds(p, p+delta_p);
+					triangleIntersect2D &= triangleBounds.overlaps(voxelBounds);
+					//if (!triangleBounds.overlaps(voxelBounds))
+					//	std::cout << "CULL" << std::endl;
+
                     if (triangleIntersect2D)
                         voxelGrid.set(x, y, z, true);
                 }

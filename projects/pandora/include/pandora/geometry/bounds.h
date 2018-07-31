@@ -19,6 +19,8 @@ public:
     glm::vec3 center() const;
     float surfaceArea() const;
 
+	Bounds intersection(const Bounds& other) const;
+	bool overlaps(const Bounds& other) const;
     bool intersect(const Ray& ray, float& tmin, float& tmax) const;
 
 public:

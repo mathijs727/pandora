@@ -45,8 +45,11 @@ int main()
 
 	int resolution = 20;
 	VoxelGrid voxelGrid(resolution);
-	for (const auto& mesh : meshes)
-		meshToVoxelGridNaive(voxelGrid, gridBounds, *mesh, resolution);
+	//for (const auto& mesh : meshes)
+	//	meshToVoxelGridNaive(voxelGrid, gridBounds, *mesh, resolution);
+	for (int i = 0; i < 1; i++) {
+		meshToVoxelGridNaive(voxelGrid, gridBounds, *meshes[i], resolution);
+	}
 
 	auto [vertices, triangles] = voxelGrid.generateSurfaceMesh();
 	exportMesh(vertices, triangles, "hello_world.ply");
