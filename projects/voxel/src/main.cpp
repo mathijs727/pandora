@@ -65,11 +65,11 @@ int main()
         const auto& triangles = mesh->getTriangles();
         const auto& positions = mesh->getPositions();
 
-		const ispc::CPPVec3* ispcPositions = reinterpret_cast<const ispc::CPPVec3*>(positions.data());
+		/*const ispc::CPPVec3* ispcPositions = reinterpret_cast<const ispc::CPPVec3*>(positions.data());
 		const ispc::CPPVec3i* ispcTriangles = reinterpret_cast<const ispc::CPPVec3i*>(triangles.data());
-        ispc::meshToVoxelGrid(voxelGrid.data(), voxelGrid.resolution(), ispcGridBounds, ispcPositions, ispcTriangles, (uint32_t)triangles.size());
+        ispc::meshToVoxelGrid(voxelGrid.data(), voxelGrid.resolution(), ispcGridBounds, ispcPositions, ispcTriangles, (uint32_t)triangles.size());*/
 
-        //meshToVoxelGridNaive(voxelGrid, gridBounds, *mesh);
+        meshToVoxelGridNaive(voxelGrid, gridBounds, *mesh);
     }
 
     auto end = clock::now();

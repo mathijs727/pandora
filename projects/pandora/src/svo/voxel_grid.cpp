@@ -109,20 +109,23 @@ void VoxelGrid::fillSphere()
 
 bool VoxelGrid::get(int x, int y, int z) const
 {
-    return m_values[index(x, y, z)] != 0;
+	const auto [pBlock, bit] = index(x, y, z);
+    return *pBlock & (1 << bit);
 }
 
 void VoxelGrid::set(int x, int y, int z, bool value)
 {
-    m_values[index(x, y, z)] = value ? 1 : 0;
+	const auto[pBlock, bit] = index(x, y, z);
+	*pBlock |= (1 << bit);
 }
 
-int VoxelGrid::index(int x, int y, int z) const
+std::pair<uint32_t*, int> VoxelGrid::index(int x, int y, int z) const
 {
     assert(x >= 0 && x < m_extent.x);
     assert(y >= 0 && y < m_extent.y);
     assert(z >= 0 && z < m_extent.z);
-    return z * m_extent.x * m_extent.y + y * m_extent.x + x;
+    int bitPosition = z * m_extent.x * m_extent.y + y * m_extent.x + x;
+	return { m_values.get() + (bitPosition / 32), bitPosition % 32 };
 }
 
 /*std::vector<bool> VoxelGrid::createValues(const glm::uvec3& extent)
@@ -131,11 +134,12 @@ int VoxelGrid::index(int x, int y, int z) const
     return std::vector<bool>(size, false);
 }*/
 
-std::unique_ptr<int8_t[]> VoxelGrid::createValues(const glm::uvec3& extent)
+std::unique_ptr<uint32_t[]> VoxelGrid::createValues(const glm::uvec3& extent)
 {
-	int size = extent.x * extent.y * extent.z;
-	auto result = std::make_unique<int8_t[]>(size);
-	std::fill(result.get(), result.get() + size, 0);
+	int sizeInBits = extent.x * extent.y * extent.z;
+	int sizeInBlocks = (sizeInBits + 31) / 32;
+	auto result = std::make_unique<uint32_t[]>(sizeInBlocks);
+	std::fill(result.get(), result.get() + sizeInBlocks, 0);
 	return result;
 }
 
