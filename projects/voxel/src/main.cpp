@@ -39,19 +39,20 @@ void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, 
 int main()
 {
     const std::string projectBasePath = "../../"s;
-    auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply");
+    auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj");
 
     Bounds gridBounds;
     for (const auto& mesh : meshes)
         gridBounds.extend(mesh->getBounds());
 
-    int resolution = 128;
+    int resolution = 20;
     VoxelGrid voxelGrid(resolution);
 
 	using clock = std::chrono::high_resolution_clock;
 	auto start = clock::now();
     for (const auto& mesh : meshes)
         meshToVoxelGridNaive(voxelGrid, gridBounds, *mesh);
+	//meshToVoxelGridNaive(voxelGrid, gridBounds, *meshes[4]);
 	auto end = clock::now();
 	auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	std::cout << "Time to voxelize: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
