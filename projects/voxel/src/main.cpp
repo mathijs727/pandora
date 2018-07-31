@@ -39,13 +39,13 @@ void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, 
 int main()
 {
     const std::string projectBasePath = "../../"s;
-    auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj");
+    auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply");
 
     Bounds gridBounds;
     for (const auto& mesh : meshes)
         gridBounds.extend(mesh->getBounds());
 
-    int resolution = 20;
+    int resolution = 128;
     VoxelGrid voxelGrid(resolution);
 
 	using clock = std::chrono::high_resolution_clock;

@@ -151,11 +151,11 @@ void meshToVoxelGridNaive(VoxelGrid& voxelGrid, const Bounds& gridBounds, const 
 		data.tBoundsMaxVoxel = worldToVoxel(data.tBoundsMin + tBoundsExtent) + 1; // Upper bound
 
 		glm::ivec3 tBoundsExtentVoxel = data.tBoundsMaxVoxel - data.tBoundsMinVoxel;
-		//if (tBoundsExtentVoxel.x == 1 && tBoundsExtentVoxel.y == 1 && tBoundsExtentVoxel.z == 1) {
-		//    voxelGrid.set(data.tBoundsMinVoxel.x, data.tBoundsMinVoxel.y, data.tBoundsMinVoxel.z, true);
-		//} else {
-		fullTest(voxelGrid, data);
-		//}
+		if (tBoundsExtentVoxel.x == 1 && tBoundsExtentVoxel.y == 1 && tBoundsExtentVoxel.z == 1) {
+		    voxelGrid.set(data.tBoundsMinVoxel.x, data.tBoundsMinVoxel.y, data.tBoundsMinVoxel.z, true);
+		} else {
+			fullTest(voxelGrid, data);
+		}
 	}
 }
 
