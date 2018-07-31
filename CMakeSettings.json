@@ -73,6 +73,10 @@
         {
           "name": "CMAKE_CXX_FLAGS",
           "value": "/arch:AVX2 /EHsc /W3"
+        },
+        {
+          "name": "BUILD_VOXEL_EXPORT",
+          "value": "ON"
         }
       ]
     }
