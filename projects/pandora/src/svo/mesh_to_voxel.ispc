@@ -112,13 +112,33 @@ uniform ivec3 make_ivec3(uniform int v)
 	return result;
 }
 
+struct CPPVec3
+{
+	float x, y, z;
+};
+
+struct CPPVec3i
+{
+	int x, y, z;
+};
+
+vec3 make_vec3(CPPVec3 v)
+{
+	return make_vec3(v.x, v.y, v.z);
+}
+
+ivec3 make_ivec3(CPPVec3i v)
+{
+	return make_ivec3(v.x, v.y, v.z);
+}
+
 // Naive mesh voxelization
 // Based on: http://research.michael-schwarz.com/publ/files/vox-siga10.pdf
 // Outline:
 // For each triangle:
 //   For each voxel in triangles AABB:
 //     Test intersection between voxel and triangle
-export void meshToVoxelGrid(uniform int8* uniform voxelGrid, const uniform int resolution, const uniform Bounds& gridBounds, const uniform vec3* uniform positions, uniform const ivec3* uniform triangles, uniform const int N)
+export void meshToVoxelGrid(uniform int8* uniform voxelGrid, const uniform int resolution, const uniform Bounds& gridBounds, const uniform CPPVec3* uniform positions, uniform const CPPVec3i* uniform triangles, uniform const int N)
 {
     // Map world space to [0, 1]
     const uniform float scale = maxComponent(extent(gridBounds));
@@ -135,8 +155,8 @@ export void meshToVoxelGrid(uniform int8* uniform voxelGrid, const uniform int r
     const uniform ivec3 maxGridVoxel = resolution - 1;
 
     foreach (t = 0 ... N) {
-        const ivec3 triangle = triangles[t];
-        const vec3 v[3] = { positions[triangle[0]], positions[triangle[1]], positions[triangle[2]] };
+        const ivec3 triangle = make_ivec3(triangles[t]);
+        const vec3 v[3] = { make_vec3(positions[triangle[0]]), make_vec3(positions[triangle[1]]), make_vec3(positions[triangle[2]]) };
         const vec3 e[3] = { v[1] - v[0], v[2] - v[1], v[0] - v[2] };
         const vec3 n = cross(e[0], e[1]);
 
