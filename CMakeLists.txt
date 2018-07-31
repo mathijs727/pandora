@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(pandora)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/ispc.cmake")
 
 option(BUILD_TESTS "Build tests for Pandora" OFF)
 option(BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
@@ -51,6 +52,7 @@ if (BUILD_VOXEL_EXPORT)
 endif()
 
 include("projects/pandora/CMakeLists.txt")
+include("projects/ispctest/CMakeLists.txt")
 if (BUILD_VOXEL_EXPORT)
 	include("projects/voxel/CMakeLists.txt")
 endif()
