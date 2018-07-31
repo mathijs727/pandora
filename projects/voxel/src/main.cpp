@@ -47,7 +47,7 @@ int main()
     for (const auto& mesh : meshes)
         gridBounds.extend(mesh->getBounds());
 
-    int resolution = 16;
+    int resolution = 64;
     VoxelGrid voxelGrid(resolution);
 
     ispc::Bounds ispcGridBounds;
@@ -84,8 +84,8 @@ int main()
 
         using clock = std::chrono::high_resolution_clock;
         auto start = clock::now();
-        //ispc::meshToVoxelGrid(voxelGrid.data(), voxelGrid.resolution(), ispcGridBounds, ispcPositions.data(), ispcTriangles.data(), triangles.size());
-        meshToVoxelGridNaive(voxelGrid, gridBounds, *mesh);
+        ispc::meshToVoxelGrid(voxelGrid.data(), voxelGrid.resolution(), ispcGridBounds, ispcPositions.data(), ispcTriangles.data(), triangles.size());
+        //meshToVoxelGridNaive(voxelGrid, gridBounds, *mesh);
         auto end = clock::now();
         auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         std::cout << "Time to voxelize: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
