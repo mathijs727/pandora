@@ -63,7 +63,6 @@ Bounds Bounds::intersection(const Bounds& other) const
 
 bool Bounds::overlaps(const Bounds& other) const
 {
-	Bounds intersectionBounds = intersection(other);
 	glm::vec3 extent = intersection(other).extent();
 	return (extent.x >= 0.0f && extent.y >= 0.0f && extent.z >= 0.0f);
 }
