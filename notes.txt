@@ -3,10 +3,14 @@ No library that guarantees watertight results + most Github projects are CLI ==>
 Going to be based on: http://research.michael-schwarz.com/publ/files/vox-siga10.pdf because its conservative, modern and fast (well parallelizable)
 
 Paper uses xy, xz and yz planes. They do not mention that for the xz plane the edge normal flip with respect to the 3D normal is reversed (flip if y >= 0.0f).
-Alternatively they could have used teh zx plane in which the flip matches that of xy and yz.
+Alternatively they could have used the zx plane in which the flip matches that of xy and yz.
+Not mentioned but certainly a good idea: skip projection overlap test for projection planes orthogonal to the triangle plane.
 
 Optimization 1:
 Splitting the code into a preprocess and intersect function (like in the paper) is a bad idea. More time is spent on memory allocation than on intersecting (for the Stanford Dragon).
 
 Optimization 2:
+Have separate triangle voxelization functions based on the triangles shape (moving code to different functions did not impact performance).
+Separate case for triangles whose bounding box covers a single voxel
 
+NOTE: more optimizations can be made which will improve the performance for large (wrt voxels) triangles. For my use-case I assume a low voxel resolution (compared to geometric complexity) so these optimizations are not worth my (development) time right now.
