@@ -14,6 +14,8 @@ class SparseVoxelOctree
 public:
 	SparseVoxelOctree(const VoxelGrid& grid);
 	~SparseVoxelOctree() = default;
+
+	std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 private:
 	struct ChildDescriptor
 	{
@@ -25,6 +27,8 @@ private:
 		uint8_t leafMask;
 
 		inline bool isEmpty() const { return validMask == 0x0; };
+		inline bool isValid(int i) const { return validMask & (1 << i); };
+		inline bool isLeaf(int i) const { return leafMask & (1 << i); };
 	};
 	static_assert(sizeof(ChildDescriptor) == 4);
 	
@@ -32,6 +36,8 @@ private:
 	static ChildDescriptor makeInnerNode(uint16_t baseIndex, gsl::span<ChildDescriptor, 8> children);
 	uint16_t storeDescriptors(gsl::span<SparseVoxelOctree::ChildDescriptor> children);
 private:
+	int m_resolution;
+	ChildDescriptor m_rootNode;
 	//ContiguousAllocatorTS<ChildDescriptor> m_allocator;
 	std::vector<ChildDescriptor> m_allocator;
 };

@@ -47,7 +47,7 @@ int main()
     for (const auto& mesh : meshes)
         gridBounds.extend(mesh->getBounds());
 
-    VoxelGrid voxelGrid(16);
+    VoxelGrid voxelGrid(32);
 
     using clock = std::chrono::high_resolution_clock;
     auto start = clock::now();
@@ -60,8 +60,9 @@ int main()
 
 	SparseVoxelOctree svo(voxelGrid);
 
-    //auto [vertices, triangles] = voxelGrid.generateSurfaceMesh();
-    //exportMesh(vertices, triangles, "hello_world.ply");
+	//auto [vertices, triangles] = voxelGrid.generateSurfaceMesh();
+	auto [vertices, triangles] = svo.generateSurfaceMesh();
+    exportMesh(vertices, triangles, "hello_world.ply");
 
     std::cout << "HELLO WORLD!" << std::endl;
     return 0;

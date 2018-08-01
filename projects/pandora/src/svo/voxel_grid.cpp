@@ -87,7 +87,7 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> VoxelGrid::generateSu
         }
     }
 
-    return { positions, triangles };
+    return { std::move(positions), std::move(triangles) };
 }
 
 void VoxelGrid::fillSphere()
