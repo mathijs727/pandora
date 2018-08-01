@@ -1,5 +1,6 @@
 #include "pandora/svo/voxel_grid.h"
 #include "pandora/utility/math.h"
+#include <libmorton/morton.h>
 #include <array>
 
 namespace pandora {
@@ -111,6 +112,13 @@ bool VoxelGrid::get(int x, int y, int z) const
 {
 	const auto [pBlock, bit] = index(x, y, z);
     return *pBlock & (1 << bit);
+}
+
+bool VoxelGrid::getMorton(uint_fast32_t mortonCode) const
+{
+	uint_fast16_t x, y, z;
+	libmorton::morton3D_32_decode(mortonCode, x, y, z);
+	return get(x, y, z);
 }
 
 void VoxelGrid::set(int x, int y, int z, bool value)

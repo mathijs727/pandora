@@ -17,7 +17,9 @@ public:
     void fillSphere();
 
     bool get(int x, int y, int z) const;
+	bool getMorton(uint_fast32_t mortonCode) const;
     void set(int x, int y, int z, bool value);
+
 
 	uint32_t* data() { return m_values.get(); };
 

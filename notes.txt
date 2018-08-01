@@ -1,4 +1,9 @@
-Voxelization:
+=== Wide Vector BVH traversal ===
+AVX2 does not contain all required instructions => emulate (compact is kinda interesting, also because it has 2 options: more compute or using a LUT).
+
+
+
+=== VOXELIZATION ===
 No library that guarantees watertight results + most Github projects are CLI ==> have to write my own
 Going to be based on: http://research.michael-schwarz.com/publ/files/vox-siga10.pdf because its conservative, modern and fast (well parallelizable)
 
@@ -21,3 +26,10 @@ Had to (re)-implement some basic functions because classes are not a thing in IS
 Wasted some time on the following bug: ISPC float<3> (or any other length) initializer list is different from most other vector languages:
 float<3> x = { 1 }      ===>  only initializes first field (instead of broadcasting the value)
 Debugging in ISPC is hard since there is no debugger support on Windows (just print statements).
+
+
+=== Sparse Voxel Octree ===
+Paper describes how to create a SVO from the voxel grid (in parallel) but I could not properly understand it.
+Using another paper on out-of-core construction for now (leaving out the out-of-core stuff):
+http://graphics.cs.kuleuven.be/publications/BLD13OCCSVO/BLD13OCCSVO_paper.pdf
+

@@ -136,6 +136,25 @@ inline glm::vec3 permute(const glm::vec3& p, int x, int y, int z)
     return glm::vec3(p[x], p[y], p[z]);
 }
 
+inline bool isPowerOf2(int n)
+{
+	// https://stackoverflow.com/questions/108318/whats-the-simplest-way-to-test-whether-a-number-is-a-power-of-2-in-c
+	return (n & (n - 1)) == 0;
+}
+
+inline int intLog2(int n)
+{
+	assert(isPowerOf2(n));
+
+	int shift = 0;
+	while ((n >> shift) != 0x1)
+	{
+		shift++;
+	}
+
+	return shift;
+}
+
 // https://github.com/mmp/pbrt-v3/blob/aaecc9112522cf8a791a3ecb5e3efe716ce30793/src/core/pbrt.h
 inline float erfInv(float x) {
 	float w, p;

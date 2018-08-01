@@ -5,8 +5,8 @@ if (MSVC)
     target_compile_definitions(libPandora PUBLIC "_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
 	target_compile_definitions(libPandora PUBLIC "NOMINMAX")
 
-	# Surpess warnings from OpenImageIO
-	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/arch:AVX2 /wd5040 /wd4244 /wd4275")
+	# Surpess warnings from OpenImageIO & libmorton and enable AVX2
+	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/arch:AVX2 /wd5040 /wd4244 /wd4275 /wd4309")
 else()
 	target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Werror -Wno-unused-parameter -Wno-unused-variable -Wno-unused-private-field)
 	target_compile_options(libPandora PUBLIC -mavx2)
@@ -24,7 +24,8 @@ target_link_libraries(libPandora PUBLIC
     embree # BVH builder and reference BVH traversal
 	tbb # Multithreading
 	EASTL # Stack based STL containers <3
-	mio)# Memory-mapped file IO for serialization
+	mio # Memory-mapped file IO for serialization
+	libmorton) # Morton code for voxelization & SVO
 
 target_include_directories(libPandora PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/")
 target_include_directories(libPandora PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src/")

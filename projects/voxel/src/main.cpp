@@ -1,6 +1,7 @@
 #include "pandora/geometry/triangle.h"
 #include "pandora/svo/mesh_to_voxel.h"
 #include "pandora/svo/voxel_grid.h"
+#include "pandora/svo/sparse_voxel_octree.h"
 #include <array>
 #include <cassert>
 #include <chrono>
@@ -39,27 +40,28 @@ void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, 
 int main()
 {
     const std::string projectBasePath = "../../"s;
-    auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply");
-    //auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj");
+    //auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply");
+    auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj");
 
     Bounds gridBounds;
     for (const auto& mesh : meshes)
         gridBounds.extend(mesh->getBounds());
 
-    VoxelGrid voxelGrid(128);
+    VoxelGrid voxelGrid(16);
 
     using clock = std::chrono::high_resolution_clock;
     auto start = clock::now();
     for (const auto& mesh : meshes) {
         meshToVoxelGrid(voxelGrid, gridBounds, *mesh);
     }
-
     auto end = clock::now();
     auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     std::cout << "Time to voxelize: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
 
-    auto [vertices, triangles] = voxelGrid.generateSurfaceMesh();
-    exportMesh(vertices, triangles, "hello_world.ply");
+	SparseVoxelOctree svo(voxelGrid);
+
+    //auto [vertices, triangles] = voxelGrid.generateSurfaceMesh();
+    //exportMesh(vertices, triangles, "hello_world.ply");
 
     std::cout << "HELLO WORLD!" << std::endl;
     return 0;
