@@ -2,6 +2,7 @@
 #include "pandora/utility/math.h"
 #include <libmorton/morton.h>
 #include <array>
+#include <iostream>
 
 namespace pandora {
 
@@ -124,7 +125,10 @@ bool VoxelGrid::getMorton(uint_fast32_t mortonCode) const
 void VoxelGrid::set(int x, int y, int z, bool value)
 {
 	const auto[pBlock, bit] = index(x, y, z);
-	*pBlock |= (1 << bit);
+	if (value)
+		*pBlock |= (1 << bit);
+	else
+		*pBlock &= ~(1 << bit);
 }
 
 std::pair<uint32_t*, int> VoxelGrid::index(int x, int y, int z) const
