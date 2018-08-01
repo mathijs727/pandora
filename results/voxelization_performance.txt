@@ -26,3 +26,8 @@ Release: ~36ms
 Scalar: single bit per voxel
 RelWithDebInfo: ~88ms
 Release: ~78ms
+
+FRESH REBOOT:
+Scalar release: ~68ms
+ISPC release: ~32ms
+

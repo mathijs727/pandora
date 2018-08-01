@@ -14,6 +14,7 @@ public:
 
 	std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 
+	void fillCube();
     void fillSphere();
 
     bool get(int x, int y, int z) const;

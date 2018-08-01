@@ -27,8 +27,9 @@ private:
 		uint8_t leafMask;
 
 		inline bool isEmpty() const { return validMask == 0x0; };
+		inline bool isFilled() const { return (validMask & leafMask) == 0xFF; };
 		inline bool isValid(int i) const { return validMask & (1 << i); };
-		inline bool isLeaf(int i) const { return leafMask & (1 << i); };
+		inline bool isLeaf(int i) const { return (validMask & leafMask) & (1 << i); };
 	};
 	static_assert(sizeof(ChildDescriptor) == 4);
 	

@@ -109,6 +109,17 @@ void VoxelGrid::fillSphere()
     }
 }
 
+void VoxelGrid::fillCube()
+{
+	for (int z = 0; z < (int)m_extent.z; z++) {
+		for (int y = 3; y < (int)m_extent.y; y++) {
+			for (int x = 0; x < (int)m_extent.x; x++) {
+				set(x, y, z, true);
+			}
+		}
+	}
+}
+
 bool VoxelGrid::get(int x, int y, int z) const
 {
 	const auto [pBlock, bit] = index(x, y, z);
