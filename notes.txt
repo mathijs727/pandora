@@ -51,3 +51,5 @@ So leave out the tmax = min(tmax, 1.0f) part
 Not mentioned in the paper but used explicitely in the code: stack size of 23+1 because scale becomes 24 when it gets be low 1.0
 
  => Uses normal casting, reinterpret casting, bitshifting and arithmatic to compute the highest differing bit (computing scale in POP). Could use bitscan instead (probably faster + easier to reason about).
+
+ Reinterpet int to float to efficiently & precisely calculate scaleExp2

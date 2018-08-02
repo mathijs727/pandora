@@ -183,8 +183,6 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
                 idx = 0;
                 scale--;
                 scaleExp2 = half;
-				if (scaleExp2 == 0.0f)
-					std::cout << "Z" << std::endl;
                 if (tCenter.x > tMin) {
                     idx ^= (1 << 0);
                     pos.x += scaleExp2;
@@ -241,11 +239,7 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
                 differingBits |= floatAsInt(pos.z) ^ floatAsInt(pos.z + scaleExp2);
             }
             scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest bit (complicated alternative to bitscan)
-            if (scale == -127)
-                std::cout << "X" << std::endl;
 			float newVal = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23);
-            if (newVal == 0.0f)
-                std::cout << "Y" << std::endl;
             scaleExp2 = newVal; // exp2f(scale - s_max)
 
             // Restore parent voxel from the stack
@@ -264,8 +258,10 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
     }
 
     // Indicate miss if we are outside the octree
-    if (scale >= CAST_STACK_DEPTH)
+	if (scale >= CAST_STACK_DEPTH) 		{
         tMin = 2.0f;
+		return {};
+	}
 
     // Undo mirroring of the coordinate system
     if ((octantMask & (1 << 0)) == 0)
@@ -275,8 +271,11 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
     if ((octantMask & (1 << 2)) == 0)
         pos.z = 3.0f - scaleExp2 - pos.z;
 
+	glm::vec3 resultPos = glm::min(glm::max(ray.origin + tMin * ray.direction, pos.x + epsilon), pos.x + scaleExp2 - epsilon);
+
     // Output result
-    return tMin;
+    float result = glm::length(ray.origin - resultPos);
+	return result;
 }
 
 SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::getChild(const ChildDescriptor& descriptor, int idx) const
