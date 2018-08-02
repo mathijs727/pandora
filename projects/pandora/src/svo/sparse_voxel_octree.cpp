@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstring>
 #include <libmorton/morton.h>
+#include <immintrin.h>
 
 namespace pandora {
 
@@ -85,11 +86,11 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
 
     // Get rid of small ray direction components to avoid division by zero
     const float epsilon = std::exp2f(-CAST_STACK_DEPTH);
-    if (fabsf(ray.direction.x) < epsilon)
+    if (std::abs(ray.direction.x) < epsilon)
         ray.direction.x = copysignf(epsilon, ray.direction.x);
-    if (fabsf(ray.direction.y) < epsilon)
+    if (std::abs(ray.direction.y) < epsilon)
         ray.direction.y = copysignf(epsilon, ray.direction.y);
-    if (fabsf(ray.direction.z) < epsilon)
+    if (std::abs(ray.direction.z) < epsilon)
         ray.direction.z = copysignf(epsilon, ray.direction.z);
 
     // Precompute the coefficients of tx(x), ty(y) and tz(z).
@@ -273,7 +274,7 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
 
 SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::getChild(const ChildDescriptor& descriptor, int idx) const
 {
-    // TODO: use bitwise operation to get mask of valid child (non-leaf) nodes.
+    /*// TODO: use bitwise operation to get mask of valid child (non-leaf) nodes.
     // TODO: use the popcount instruction to determine the index into the allocator.
     int activeChildCount = 0;
     for (int i = 0; i < idx; i++) {
@@ -281,7 +282,11 @@ SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::getChild(const ChildDescri
             activeChildCount++;
         }
     }
-    return m_allocator[descriptor.childPtr + activeChildCount];
+    return m_allocator[descriptor.childPtr + activeChildCount];*/
+
+	uint32_t childMask = (descriptor.validMask ^ descriptor.leafMask) & ((1 << idx) - 1);
+	uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
+	return m_allocator[descriptor.childPtr + activeChildIndex];
 }
 
 SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
