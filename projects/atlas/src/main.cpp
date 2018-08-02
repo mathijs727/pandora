@@ -5,6 +5,7 @@
 #include "pandora/integrators/direct_lighting_integrator.h"
 #include "pandora/integrators/naive_direct_lighting_integrator.h"
 #include "pandora/integrators/path_integrator.h"
+#include "pandora/integrators/svo_test_integrator.h"
 #include "pandora/lights/environment_light.h"
 #include "pandora/materials/matte_material.h"
 #include "pandora/materials/metal_material.h"
@@ -27,8 +28,8 @@ using namespace pandora;
 using namespace atlas;
 using namespace std::string_literals;
 
-const int width = 1280;
-const int height = 720;
+const int width = 800;
+const int height = 480;
 
 const std::string projectBasePath = "../../"s;
 
@@ -49,7 +50,7 @@ int main()
     glm::ivec2 resolution = glm::ivec2(width, height);
     PerspectiveCamera camera = PerspectiveCamera(resolution, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
-    camera.setPosition(glm::vec3(0.25f, 0.8f, -1.5f));
+    camera.setPosition(glm::vec3(1.75f, 1.75f, 0.0f));
 
     Scene scene;
 
@@ -60,11 +61,12 @@ int main()
 
 	addCornellBox(scene);
 	//addStanfordBunny(scene);
-	addStanfordDragon(scene, false);
+	//addStanfordDragon(scene, false);
     
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    PathIntegrator integrator(20, scene, camera.getSensor(), 1);
+    //PathIntegrator integrator(20, scene, camera.getSensor(), 1);
+	SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {

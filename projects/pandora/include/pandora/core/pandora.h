@@ -42,4 +42,5 @@ class PerspectiveCamera;
 class Sensor;
 
 class VoxelGrid;
+class SparseVoxelOctree;
 }

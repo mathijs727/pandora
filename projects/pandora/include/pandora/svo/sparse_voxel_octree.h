@@ -16,7 +16,7 @@ public:
 	SparseVoxelOctree(const VoxelGrid& grid);
 	~SparseVoxelOctree() = default;
 
-	std::optional<float> intersect(const Ray& ray);
+	std::optional<float> intersect(Ray ray);
 
 	std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 private:

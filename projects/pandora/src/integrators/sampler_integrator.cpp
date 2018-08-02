@@ -6,7 +6,6 @@
 #include "utility/fix_visitor.h"
 #include <gsl/gsl>
 #include <tbb/blocked_range2d.h>
-#include <tbb/concurrent_vector.h>
 #include <tbb/parallel_for.h>
 #include <tbb/tbb.h>
 
@@ -54,7 +53,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     m_sppThisFrame += m_sppPerCall;
 }
 
-void SamplerIntegrator::spawnNextSample(const glm::vec2& pixel, bool initialSample)
+void SamplerIntegrator::spawnNextSample(const glm::ivec2& pixel, bool initialSample)
 {
     assert(m_cameraThisFrame != nullptr);
 

@@ -41,3 +41,9 @@ For now, the table approach is also left out, assuming that 16 bit offsets (from
 Implementation is quite straight forward although the paper is not super clear on how to replace fully empty/filled nodes by a single parent.
 
 === Traversal ===
+Based on:
+http://research.nvidia.com/sites/default/files/pubs/2010-02_Efficient-Sparse-Voxel/laine2010i3d_paper.pdf
+
+Stripped out the part about contours.
+Algorithm seems to assume rays where tfar is indicated by the length of the direction vector (and tnear = 0.0).
+So leave out the tmax = min(tmax, 1.0f) part

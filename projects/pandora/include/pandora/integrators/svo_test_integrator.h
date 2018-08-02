@@ -1,29 +1,24 @@
 #pragma once
-#include "pandora/core/integrator.h"
 #include "pandora/core/pandora.h"
-#include <variant>
+#include "pandora/core/integrator.h"
+#include "pandora/svo/sparse_voxel_octree.h"
+#include <memory>
 
 namespace pandora {
 
-class SVOTestIntegrator : public Integrator<void>
+class SVOTestIntegrator : public Integrator<int>
 {
 public:
 	// WARNING: do not modify the scene in any way while the integrator is alive
-	SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp);
+	SVOTestIntegrator(const Scene& scene, Sensor& sensor, int spp);
 
-	void render(const PerspectiveCamera& camera) final;
+	void render(const PerspectiveCamera& camera) override final;
 
-protected:
-	using RayState = void;
-	virtual void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h) {};
-	virtual void rayMiss(const Ray& r, const RayState& s) {};
-
-	Ray spawnNextSample(const glm::vec2& pixel);
-
-protected:
-	const int m_maxDepth;
 private:
-	PerspectiveCamera const* m_cameraThisFrame;
+	void rayHit(const Ray& r, SurfaceInteraction si, const int& s, const InsertHandle& h) override final {};
+	void rayMiss(const Ray& r, const int& s) override final {};
+private:
+	SparseVoxelOctree m_sparseVoxelOctree;
 };
 
 }

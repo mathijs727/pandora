@@ -55,7 +55,7 @@ SparseVoxelOctree::SparseVoxelOctree(const VoxelGrid& grid)
     m_rootNode = queues[0][0];
 }
 
-static unsigned floatAsUint(float v)
+static int floatAsInt(float v)
 {
     static_assert(sizeof(float) == sizeof(unsigned));
 
@@ -66,9 +66,9 @@ static unsigned floatAsUint(float v)
     return r;
 }
 
-static unsigned uintAsFloat(unsigned v)
+static int intAsFloat(int v)
 {
-    static_assert(sizeof(float) == sizeof(unsigned));
+    static_assert(sizeof(float) == sizeof(int));
 
     // Using reinterpret_cast might lead to undefined behavior because of illegal type aliasing, use memcpy instead
     // https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing
@@ -77,16 +77,29 @@ static unsigned uintAsFloat(unsigned v)
     return r;
 }
 
-std::optional<float> SparseVoxelOctree::intersect(const Ray& ray)
+std::optional<float> SparseVoxelOctree::intersect(Ray ray)
 {
+	if (ray.tfar == std::numeric_limits<float>::max())
+		ray.direction *= 1000.0f;
+	else
+		ray.direction *= ray.tfar;
+
+
     // Based on the reference implementation of Efficient Sparse Voxel Octrees:
     // https://github.com/poelzi/efficient-sparse-voxel-octrees/blob/master/src/octree/cuda/Raycast.inl
     const int CAST_STACK_DEPTH = intLog2(m_resolution);
+
+	// Get rid of small ray direction components to avoid division by zero
+	const float epsilon = std::exp2f(-CAST_STACK_DEPTH);
+	if (fabsf(ray.direction.x) < epsilon) ray.direction.x = copysignf(epsilon, ray.direction.x);
+	if (fabsf(ray.direction.y) < epsilon) ray.direction.y = copysignf(epsilon, ray.direction.y);
+	if (fabsf(ray.direction.z) < epsilon) ray.direction.z = copysignf(epsilon, ray.direction.z);
 
     // Precompute the coefficients of tx(x), ty(y) and tz(z).
     // The octree is assumed to reside at coordinates [1, 2].
     glm::vec3 tCoef = 1.0f / -glm::abs(ray.direction);
     glm::vec3 tBias = tCoef * ray.origin;
+
 
     // Select octant mask to mirro the coordinate system so taht ray direction is negative along each axis
     uint32_t octantMask = 7;
@@ -114,7 +127,7 @@ std::optional<float> SparseVoxelOctree::intersect(const Ray& ray)
     float tMin = maxComponent(2.0f * tCoef - tBias);
     float tMax = minComponent(tCoef - tBias);
     tMin = std::max(tMin, 0.0f);
-    tMax = std::min(tMax, 0.0f);
+    //tMax = std::min(tMax, 1.0f);
 
     // Intersection of ray (negative in all directions) with the root node (cube at [1, 2])
     if (1.5 * tCoef.x - tBias.x > tMin) {
@@ -145,7 +158,7 @@ std::optional<float> SparseVoxelOctree::intersect(const Ray& ray)
 
         // Process voxel if the corresponding bit in the valid mask is set
         int childIndex = idx ^ octantMask; // TODO: this might need to be 7 - childIndex
-        if (!parent.isValid(childIndex)) {
+        if (parent.isLeaf(childIndex) && tMin <= tMax) {
             // === INTERSECT ===
             float tvMax = std::min(tMax, tcMax);
             float half = scaleExp2 * 0.5f;
@@ -213,28 +226,28 @@ std::optional<float> SparseVoxelOctree::intersect(const Ray& ray)
             // Find the highest differing bit between the two positions
             unsigned differingBits = 0;
             if ((stepMask & (1 << 0)) != 0) {
-                differingBits |= floatAsUint(pos.x) ^ floatAsUint(pos.x + scaleExp2);
+                differingBits |= floatAsInt(pos.x) ^ floatAsInt(pos.x + scaleExp2);
             }
             if ((stepMask & (1 << 1)) != 0) {
-                differingBits |= floatAsUint(pos.y) ^ floatAsUint(pos.y + scaleExp2);
+                differingBits |= floatAsInt(pos.y) ^ floatAsInt(pos.y + scaleExp2);
             }
             if ((stepMask & (1 << 2)) != 0) {
-                differingBits |= floatAsUint(pos.z) ^ floatAsUint(pos.z + scaleExp2);
+                differingBits |= floatAsInt(pos.z) ^ floatAsInt(pos.z + scaleExp2);
             }
-            scale = (floatAsUint((float)differingBits) >> 23) - 127; // Position of the highest bit
-            scaleExp2 = uintAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
+            scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest bit
+            scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
 
 			// Restore parent voxel from the stack
 			parent = stack[scale].parent;
 			tMax = stack[scale].tMax;
 
 			// Round cube position and extract child slot index
-			int shx = floatAsUint(pos.x) >> scale;
-			int shy = floatAsUint(pos.y) >> scale;
-			int shz = floatAsUint(pos.z) >> scale;
-			pos.x = uintAsFloat(shx << scale);
-			pos.y = uintAsFloat(shy << scale);
-			pos.z = uintAsFloat(shz << scale);
+			int shx = floatAsInt(pos.x) >> scale;
+			int shy = floatAsInt(pos.y) >> scale;
+			int shz = floatAsInt(pos.z) >> scale;
+			pos.x = intAsFloat(shx << scale);
+			pos.y = intAsFloat(shy << scale);
+			pos.z = intAsFloat(shz << scale);
 			idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2);
         }
     }
