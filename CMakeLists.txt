@@ -1,10 +1,15 @@
 cmake_minimum_required(VERSION 3.8)
 project(pandora)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
-
+option(PANDORA_ISPC_SUPPORT "Use ISPC to accelerate voxelization" OFF)
 option(BUILD_TESTS "Build tests for Pandora" OFF)
 option(BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
+option(BUILD_VOXEL_EXPORT "Build voxel exporter" OFF)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
+if (PANDORA_ISPC_SUPPORT)
+	include("${CMAKE_CURRENT_LIST_DIR}/cmake/ispc.cmake")
+endif()
 
 #find_package(GSL REQUIRED)# Guideline Support Library (like the Microsoft implementation)
 find_package(glm REQUIRED)
@@ -44,7 +49,18 @@ if (BUILD_ATLAS)
     find_package(OpenGL REQUIRED)
 endif()
 
+if (BUILD_VOXEL_EXPORT)
+	add_library(tinyply "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/tinyply.cpp")
+	target_include_directories(tinyply PUBLIC "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/")
+endif()
+
 include("projects/pandora/CMakeLists.txt")
+if (PANDORA_ISPC_SUPPORT)
+	include("projects/ispctest/CMakeLists.txt")
+endif()
+if (BUILD_VOXEL_EXPORT)
+	include("projects/voxel/CMakeLists.txt")
+endif()
 if (BUILD_ATLAS)
     include("projects/atlas/CMakeLists.txt")
 endif()

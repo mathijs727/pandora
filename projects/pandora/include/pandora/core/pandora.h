@@ -40,4 +40,6 @@ class MemoryArenaTS;
 class PathIntegrator;
 class PerspectiveCamera;
 class Sensor;
+
+class VoxelGrid;
 }

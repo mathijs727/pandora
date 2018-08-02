@@ -115,7 +115,8 @@ inline int maxDimension(const glm::vec3& v)
     }
 }
 
-inline int minDimension(const glm::vec3& v)
+template <typename T>
+inline int minDimension(const glm::vec<3, T>& v)
 {
 	if (v.x < v.y) {
 		if (v.x < v.z)

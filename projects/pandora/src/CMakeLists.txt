@@ -24,6 +24,9 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/samplers/rng/pcg.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/samplers/uniform_sampler.cpp"
 
+        "${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/svo/voxel_grid.cpp"
+
         "${CMAKE_CURRENT_LIST_DIR}/materials/matte_material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/materials/mirror_material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/materials/metal_material.cpp"
@@ -50,3 +53,8 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena_ts.cpp"
 )
+
+if (PANDORA_ISPC_SUPPORT)
+	ADD_ISPC_LIBRARY(pandoraISPC STATIC "${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.ispc")
+	target_link_libraries(libPandora PUBLIC pandoraISPC)
+endif()

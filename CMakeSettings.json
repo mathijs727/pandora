@@ -14,15 +14,23 @@
       "variables": [
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "C:\\Users\\Mathijs\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+          "value": "C:\\Users\\Mathijs\\development\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+        },
+        {
+          "name": "CMAKE_CXX_FLAGS",
+          "value": "/arch:AVX2 /EHsc /W3"
+        },
+        {
+          "name": "PANDORA_ISPC_SUPPORT",
+          "value": "ON"
         },
         {
           "name": "BUILD_TESTS",
           "value": "ON"
         },
         {
-          "name": "CMAKE_CXX_FLAGS",
-          "value": "/arch:AVX2 /EHsc /W3"
+          "name": "BUILD_VOXEL_EXPORT",
+          "value": "ON"
         }
       ]
     },
@@ -39,11 +47,19 @@
       "variables": [
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "C:\\Users\\Mathijs\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+          "value": "C:\\Users\\Mathijs\\development\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
         },
         {
           "name": "CMAKE_CXX_FLAGS",
           "value": "/arch:AVX2 /EHsc /W3"
+        },
+        {
+          "name": "PANDORA_ISPC_SUPPORT",
+          "value": "ON"
+        },
+        {
+          "name": "BUILD_VOXEL_EXPORT",
+          "value": "ON"
         }
       ]
     },
@@ -60,11 +76,19 @@
       "variables": [
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "C:\\Users\\Mathijs\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+          "value": "C:\\Users\\Mathijs\\development\\tools\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
         },
         {
           "name": "CMAKE_CXX_FLAGS",
           "value": "/arch:AVX2 /EHsc /W3"
+        },
+        {
+          "name": "PANDORA_ISPC_SUPPORT",
+          "value": "ON"
+        },
+        {
+          "name": "BUILD_VOXEL_EXPORT",
+          "value": "ON"
         }
       ]
     }

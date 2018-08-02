@@ -46,6 +46,7 @@ public:
     // This abstraction should be higher performance than the shared_ptr for each triangle approach that PBRTv3 takes.
     //SurfaceInteraction partialFillSurfaceInteraction(unsigned primID, const glm::vec2& hitUV) const;// Caller should initialize sceneObject & wo
 
+	Bounds getBounds() const;
     Bounds getPrimitiveBounds(unsigned primitiveID) const;
 
     inline bool intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture = true) const;
@@ -71,6 +72,8 @@ private:
     const std::unique_ptr<glm::vec3[]> m_normals;
     const std::unique_ptr<glm::vec3[]> m_tangents;
     const std::unique_ptr<glm::vec2[]> m_uvCoords;
+
+	Bounds m_bounds;
 };
 
 inline bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture) const
