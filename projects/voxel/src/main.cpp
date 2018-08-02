@@ -47,7 +47,7 @@ int main()
     for (const auto& mesh : meshes)
         gridBounds.extend(mesh->getBounds());
 
-    VoxelGrid voxelGrid(128);
+    VoxelGrid voxelGrid(256);
     using clock = std::chrono::high_resolution_clock;
     {
         auto start = clock::now();

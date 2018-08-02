@@ -3,17 +3,20 @@
 #include "pandora/utility/contiguous_allocator_ts.h"
 #include <vector>
 #include <gsl/span>
+#include <optional>
+#include <tuple>
+#include <glm/glm.hpp>
 
 namespace pandora
 {
-
-
 
 class SparseVoxelOctree
 {
 public:
 	SparseVoxelOctree(const VoxelGrid& grid);
 	~SparseVoxelOctree() = default;
+
+	std::optional<float> intersect(const Ray& ray);
 
 	std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 private:
@@ -32,7 +35,10 @@ private:
 		inline bool isLeaf(int i) const { return (validMask & leafMask) & (1 << i); };
 	};
 	static_assert(sizeof(ChildDescriptor) == 4);
-	
+
+	ChildDescriptor getChild(const ChildDescriptor& descriptor, int idx) const;
+
+	// SVO construction
 	static ChildDescriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
 	static ChildDescriptor makeInnerNode(uint16_t baseIndex, gsl::span<ChildDescriptor, 8> children);
 	uint16_t storeDescriptors(gsl::span<SparseVoxelOctree::ChildDescriptor> children);

@@ -33,3 +33,11 @@ Paper describes how to create a SVO from the voxel grid (in parallel) but I coul
 Using another paper on out-of-core construction for now (leaving out the out-of-core stuff):
 http://graphics.cs.kuleuven.be/publications/BLD13OCCSVO/BLD13OCCSVO_paper.pdf
 
+Octree node layout based on "Efficient Sparse Voxel Octrees" (because its space efficient: 32 bits per node):
+http://research.nvidia.com/sites/default/files/pubs/2010-02_Efficient-Sparse-Voxel/laine2010i3d_paper.pdf
+The contour part is left out; images in the paper suggest that they are conservative. But it uses more memory, removes the possibility for DAGs, and would not improve occlusion culling by that much.
+For now, the table approach is also left out, assuming that 16 bit offsets (from the start of the array) are enough to store the entire tree.
+
+Implementation is quite straight forward although the paper is not super clear on how to replace fully empty/filled nodes by a single parent.
+
+=== Traversal ===
