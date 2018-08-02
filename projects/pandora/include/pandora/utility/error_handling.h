@@ -5,9 +5,11 @@
 namespace pandora
 {
 
-inline void THROW_ERROR(std::string_view errorMessage)
+#define THROW_ERROR(message) __THROW_ERROR(message, __FILE__, __LINE__)
+inline void __THROW_ERROR(std::string_view errorMessage, std::string_view fileName, int line)
 {
-	std::cerr << errorMessage << std::endl;
+	std::cerr << fileName << ":" << line << " ==> " << errorMessage << std::endl;
+	throw std::runtime_error("");
 	int i;
 	std::cin >> i;
 	(void)i;

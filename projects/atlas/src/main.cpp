@@ -50,7 +50,7 @@ int main()
     glm::ivec2 resolution = glm::ivec2(width, height);
     PerspectiveCamera camera = PerspectiveCamera(resolution, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
-    camera.setPosition(glm::vec3(1.75f, 1.75f, 0.0f));
+    camera.setPosition(glm::vec3(1.5f, 1.5f, 0.0f));
 
     Scene scene;
 
@@ -59,8 +59,8 @@ int main()
 	auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
-	addCornellBox(scene);
-	//addStanfordBunny(scene);
+	//addCornellBox(scene);
+	addStanfordBunny(scene);
 	//addStanfordDragon(scene, false);
     
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);

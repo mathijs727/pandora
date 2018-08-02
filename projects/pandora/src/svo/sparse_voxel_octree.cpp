@@ -157,8 +157,8 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
         float tcMax = minComponent(tCorner);
 
         // Process voxel if the corresponding bit in the valid mask is set
-        int childIndex = idx ^ octantMask; // TODO: this might need to be 7 - childIndex
-        if (parent.isLeaf(childIndex) && tMin <= tMax) {
+        int childIndex = 7 - idx ^ octantMask; // TODO: this might need to be 7 - childIndex
+        if (parent.isValid(childIndex) && tMin <= tMax) {
             // === INTERSECT ===
             float tvMax = std::min(tMax, tcMax);
             float half = scaleExp2 * 0.5f;
@@ -222,7 +222,7 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
 
         // Proceed with pop if the bit flip disagree with the ray direction
         if ((idx & stepMask) != 0) {
-            // POP
+            // === POP ===
             // Find the highest differing bit between the two positions
             unsigned differingBits = 0;
             if ((stepMask & (1 << 0)) != 0) {
@@ -236,6 +236,9 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
             }
             scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest bit
             scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
+
+			if (scale > CAST_STACK_DEPTH)
+				return {};
 
 			// Restore parent voxel from the stack
 			parent = stack[scale].parent;
@@ -273,16 +276,12 @@ SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::getChild(const ChildDescri
     // TODO: use bitwise operation to get mask of valid child (non-leaf) nodes.
     // TODO: use the popcount instruction to determine the index into the allocator.
     int activeChildCount = 0;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < idx; i++) {
         if (descriptor.isValid(i) && !descriptor.isLeaf(i)) {
-            if (activeChildCount == idx)
-                return m_allocator[descriptor.childPtr + activeChildCount];
             activeChildCount++;
         }
     }
-
-    THROW_ERROR("Child index out or range!");
-    return ChildDescriptor();
+	return m_allocator[descriptor.childPtr + activeChildCount];
 }
 
 SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
