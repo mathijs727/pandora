@@ -45,7 +45,7 @@ void SVOTestIntegrator::render(const PerspectiveCamera& camera)
 
 			auto optDistance = m_sparseVoxelOctree.intersect(ray);
 			if (optDistance) {
-				m_sensor.addPixelContribution(pixel, glm::vec3(1.0f));
+				m_sensor.addPixelContribution(pixel, glm::vec3(std::max(0.0f, 1.0f / *optDistance)));
 			}
         }
     }
@@ -62,7 +62,7 @@ void SVOTestIntegrator::render(const PerspectiveCamera& camera)
 				
 				auto optDistance = m_sparseVoxelOctree.intersect(ray);
 				if (optDistance) {
-					m_sensor.addPixelContribution(pixel, glm::vec3(*optDistance));
+					m_sensor.addPixelContribution(pixel, glm::vec3(std::max(0.0f, glm::min(1.0f, *optDistance / 4.0f))));
 				}
             }
         }

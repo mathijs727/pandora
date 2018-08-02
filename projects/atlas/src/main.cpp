@@ -28,8 +28,8 @@ using namespace pandora;
 using namespace atlas;
 using namespace std::string_literals;
 
-const int width = 800;
-const int height = 480;
+const int width = 1280;
+const int height = 720;
 
 const std::string projectBasePath = "../../"s;
 

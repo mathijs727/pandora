@@ -79,11 +79,6 @@ static float intAsFloat(int v)
 
 std::optional<float> SparseVoxelOctree::intersect(Ray ray)
 {
-    if (ray.tfar == std::numeric_limits<float>::max())
-        ray.direction *= 1000.0f;
-    else
-        ray.direction *= ray.tfar;
-
     // Based on the reference implementation of Efficient Sparse Voxel Octrees:
     // https://github.com/poelzi/efficient-sparse-voxel-octrees/blob/master/src/octree/cuda/Raycast.inl
     const int CAST_STACK_DEPTH = 23; //intLog2(m_resolution);
@@ -259,11 +254,10 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
 
     // Indicate miss if we are outside the octree
 	if (scale >= CAST_STACK_DEPTH) 		{
-        tMin = 2.0f;
 		return {};
 	}
 
-    // Undo mirroring of the coordinate system
+    /*// Undo mirroring of the coordinate system
     if ((octantMask & (1 << 0)) == 0)
         pos.x = 3.0f - scaleExp2 - pos.x;
     if ((octantMask & (1 << 1)) == 0)
@@ -271,11 +265,10 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
     if ((octantMask & (1 << 2)) == 0)
         pos.z = 3.0f - scaleExp2 - pos.z;
 
-	glm::vec3 resultPos = glm::min(glm::max(ray.origin + tMin * ray.direction, pos.x + epsilon), pos.x + scaleExp2 - epsilon);
+	glm::vec3 hitPos = glm::min(glm::max(ray.origin + tMin * ray.direction, pos.x + epsilon), pos.x + scaleExp2 - epsilon);*/
 
     // Output result
-    float result = glm::length(ray.origin - resultPos);
-	return result;
+	return tMin;
 }
 
 SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::getChild(const ChildDescriptor& descriptor, int idx) const
