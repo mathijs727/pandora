@@ -57,6 +57,7 @@ target_sources(libPandora
 )
 
 if (PANDORA_ISPC_SUPPORT)
+	set(ISPC_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/")
 	ADD_ISPC_LIBRARY(pandoraISPC STATIC "${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.ispc")
 	target_link_libraries(libPandora PUBLIC pandoraISPC)
 endif()

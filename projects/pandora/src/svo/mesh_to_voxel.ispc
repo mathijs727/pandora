@@ -1,147 +1,18 @@
-typedef float<2> vec2;
-typedef float<3> vec3;
-typedef int<3> ivec3;
-
-float dot(vec2 a, vec2 b)
-{
-    return a.x * b.x + a.y * b.y;
-}
-
-float dot(vec3 a, vec3 b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-vec3 min(const vec3 a, const vec3 b)
-{
-    float r0 = min(a.x, b.x);
-    float r1 = min(a.y, b.y);
-    float r2 = min(a.z, b.z);
-    vec3 result = { r0, r1, r2 };
-    return result;
-}
-
-vec3 max(const vec3 a, const vec3 b)
-{
-	float r0 = max(a.x, b.x);
-	float r1 = max(a.y, b.y);
-	float r2 = max(a.z, b.z);
-	vec3 result = { r0, r1, r2 };
-	return result;
-}
-
-vec3 cross(vec3 u, vec3 v)
-{
-    // https://en.wikipedia.org/wiki/Cross_product
-    float r0 = u[1] * v[2] - u[2] * v[1];
-    float r1 = u[2] * v[0] - u[0] * v[2];
-    float r2 = u[0] * v[1] - u[1] * v[0];
-
-    vec3 result = { r0, r1, r2 };
-    return result;
-}
-
-struct Bounds {
-    vec3 min;
-    vec3 max;
-};
-
-vec3 extent(const Bounds bounds)
-{
-    return bounds.max - bounds.min;
-}
-
-uniform vec3 extent(const uniform Bounds bounds)
-{
-	return bounds.max - bounds.min;
-}
-
-
-inline uniform float maxComponent(const uniform vec3 v)
-{
-    return max(v.x, max(v.y, v.z));
-}
-
-vec2 make_vec2(float x, float y)
-{
-	vec2 result = { x, y };
-	return result;
-}
-
-vec3 make_vec3(float x, float y, float z)
-{
-	vec3 result = { x, y, z };
-	return result;
-}
-
-ivec3 make_ivec3(int x, int y, int z)
-{
-	ivec3 result = { x, y, z };
-	return result;
-}
-
-uniform ivec3 make_ivec3(uniform int x, uniform int y, uniform int z)
-{
-	uniform ivec3 result = { x, y, z };
-	return result;
-}
-
-uniform ivec3 make_ivec3(uniform int v)
-{
-	uniform ivec3 result = { v, v, v };
-	return result;
-}
-
-struct CPPVec3
-{
-	float x, y, z;
-};
-
-struct CPPVec3i
-{
-	int x, y, z;
-};
-
-vec3 make_vec3(CPPVec3 v)
-{
-	return make_vec3(v.x, v.y, v.z);
-}
-
-ivec3 make_ivec3(CPPVec3i v)
-{
-	return make_ivec3(v.x, v.y, v.z);
-}
+#include "ispc/math.h"
+#include "ispc/bounds.h"
+#include "ispc/voxel_grid.h"
 
 // Helper functions
-ivec3 worldToVoxel(const vec3 worldVec, const vec3 offset, const vec3 worldToVoxelScale)
+vec3i worldToVoxel(const vec3 worldVec, const vec3 offset, const vec3 worldToVoxelScale)
 {
-    ivec3 result = ((worldVec - offset) * worldToVoxelScale);
+    vec3i result = ((worldVec - offset) * worldToVoxelScale);
     return result;
 }
 
-vec3 voxelToWorld(const ivec3 voxel, const vec3 offset, const vec3 voxelToWorldScale)
+vec3 voxelToWorld(const vec3i voxel, const vec3 offset, const vec3 voxelToWorldScale)
 {
     return voxel * voxelToWorldScale + offset;
 }
-
-int index(const ivec3 v, int resolution)
-{
-	assert(v.x >= 0 && v.x < resolution);
-	assert(v.y >= 0 && v.y < resolution);
-	assert(v.z >= 0 && v.z < resolution);
-	return v.z * resolution * resolution + v.y * resolution + v.x;
-}
-
-inline uniform int blockIndex(const uniform int bitPosition)
-{
-	return bitPosition >> 5;// = bitPosition / 32
-}
-
-inline uniform int bitInBlock(const uniform int bitPosition)
-{
-	return bitPosition & ((1 << 5) - 1);// = bitPosition % 32
-}
-
 
 // Naive mesh voxelization
 // Based on: http://research.michael-schwarz.com/publ/files/vox-siga10.pdf
@@ -154,7 +25,7 @@ export void meshToVoxelGrid(uniform unsigned int* uniform voxelGrid, const unifo
     // Map world space to [0, 1]
     const uniform float scale = maxComponent(extent(gridBounds));
     const uniform vec3 offset = gridBounds.min;
-    const uniform ivec3 gridResolution = make_ivec3(resolution);
+    const uniform vec3i gridResolution = make_vec3i(resolution);
 
     // World space extent of a voxel
     const uniform vec3 delta_p = scale / resolution;
@@ -163,10 +34,10 @@ export void meshToVoxelGrid(uniform unsigned int* uniform voxelGrid, const unifo
     const uniform vec3 worldToVoxelScale = resolution / scale;
     const uniform vec3 voxelToWorldScale = scale / resolution;
 
-    const uniform ivec3 maxGridVoxel = resolution - 1;
+    const uniform vec3i maxGridVoxel = resolution - 1;
 
     foreach (t = 0 ... N) {
-        const ivec3 triangle = make_ivec3(triangles[t]);
+        const vec3i triangle = make_vec3i(triangles[t]);
         const vec3 v[3] = { make_vec3(positions[triangle[0]]), make_vec3(positions[triangle[1]]), make_vec3(positions[triangle[2]]) };
         const vec3 e[3] = { v[1] - v[0], v[2] - v[1], v[0] - v[2] };
         const vec3 n = cross(e[0], e[1]);
@@ -176,16 +47,14 @@ export void meshToVoxelGrid(uniform unsigned int* uniform voxelGrid, const unifo
         const vec3 tBoundsMax = max(v[0], max(v[1], v[2]));
         const vec3 tBoundsExtent = tBoundsMax - tBoundsMin;
 
-        const ivec3 tBoundsMinVoxel = min(worldToVoxel(tBoundsMin, offset, worldToVoxelScale), maxGridVoxel); // Fix for triangles on the border of the voxel grid
-        const ivec3 tBoundsMaxVoxel = worldToVoxel(tBoundsMin + tBoundsExtent, offset, worldToVoxelScale) + 1; // Upper bound
-        const ivec3 tBoundsExtentVoxel = tBoundsMaxVoxel - tBoundsMinVoxel;
+        const vec3i tBoundsMinVoxel = min(worldToVoxel(tBoundsMin, offset, worldToVoxelScale), maxGridVoxel); // Fix for triangles on the border of the voxel grid
+        const vec3i tBoundsMaxVoxel = worldToVoxel(tBoundsMin + tBoundsExtent, offset, worldToVoxelScale) + 1; // Upper bound
+        const vec3i tBoundsExtentVoxel = tBoundsMaxVoxel - tBoundsMinVoxel;
 
         cif (tBoundsExtentVoxel.x == 1 && tBoundsExtentVoxel.y == 1 && tBoundsExtentVoxel.z == 1) {
-			int bitIdx = index(tBoundsMinVoxel, resolution);
-			foreach_unique(uniqueBitIdx in bitIdx) {
-				uniform int block = blockIndex(uniqueBitIdx);
-				uniform int bitInBlock = bitInBlock(uniqueBitIdx);
-				voxelGrid[block] |= (1 << bitInBlock);
+			int bitPosition = voxelGrid_bitPosition(tBoundsMinVoxel, resolution);
+			foreach_unique(uniqueBitPosition in bitPosition) {
+				voxelGrid_setTrue(voxelGrid, uniqueBitPosition);
 			}
         } else {
             // Critical point
@@ -202,7 +71,7 @@ export void meshToVoxelGrid(uniform unsigned int* uniform voxelGrid, const unifo
                 for (int y = tBoundsMinVoxel.y; y < min(tBoundsMaxVoxel.y, gridResolution.y); y++) {
                     for (int x = tBoundsMinVoxel.x; x < min(tBoundsMaxVoxel.x, gridResolution.x); x++) {
                         // Intersection test
-                        const vec3 p = voxelToWorld(make_ivec3(x, y, z), offset, voxelToWorldScale);
+                        const vec3 p = voxelToWorld(make_vec3i(x, y, z), offset, voxelToWorldScale);
 
                         bool planeIntersect = ((dot(n, p) + d1) * (dot(n, p) + d2)) <= 0;
                         if (!planeIntersect)
@@ -252,11 +121,9 @@ export void meshToVoxelGrid(uniform unsigned int* uniform voxelGrid, const unifo
 
 						if (triangleIntersect2D)
 						{
-							int bitIdx = index(make_ivec3(x, y, z), resolution);
-							foreach_unique(uniqueBitIdx in bitIdx) {
-								uniform int block = blockIndex(uniqueBitIdx);
-								uniform int bitInBlock = bitInBlock(uniqueBitIdx);
-								voxelGrid[block] |= (1 << bitInBlock);
+							int bitPosition = voxelGrid_bitPosition(make_vec3i(x, y, z), resolution);
+							foreach_unique(uniqueBitPosition in bitPosition) {
+								voxelGrid_setTrue(voxelGrid, uniqueBitPosition);
 							}
 						}
                     }

@@ -274,9 +274,7 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
 
 SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::getChild(const ChildDescriptor& descriptor, int idx) const
 {
-    /*// TODO: use bitwise operation to get mask of valid child (non-leaf) nodes.
-    // TODO: use the popcount instruction to determine the index into the allocator.
-    int activeChildCount = 0;
+    /*int activeChildCount = 0;
     for (int i = 0; i < idx; i++) {
         if (descriptor.isValid(i) && !descriptor.isLeaf(i)) {
             activeChildCount++;
