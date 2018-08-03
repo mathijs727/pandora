@@ -31,4 +31,5 @@ FRESH REBOOT:
 Scalar release: ~68ms
 ISPC release: ~32ms
 
-
+ISPC: remove special case for triangles with AABB of size (1, 1, 1)
+Release: ~30ms
