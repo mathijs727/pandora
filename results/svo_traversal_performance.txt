@@ -1,7 +1,11 @@
 Stanford Bunny @ 64x64
+Average over 60 frames
 
 Scalar version
-Release: 17.0~17.4ms
+Release: 17.1~17.2ms
 
 ISPC version
-Release: 12.8 ~13.1ms
+Release: 12.8~12.9ms
+
+ISPC version, SparseVoxelOctree_getChild using popcount
+Release: 12.3~12.4ms

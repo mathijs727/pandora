@@ -24,15 +24,14 @@ struct SparseVoxelOctree
 
 inline ChildDescriptor SparseVoxelOctree_getChild(const uniform SparseVoxelOctree& svo, const ChildDescriptor descriptor, const int idx)
 {
-	// TODO: more efficient implementation using popcount (algorithm based, there is no SIMD popcnt)
-	uint32_t activeChildCount = 0;
-	for (int i = 0; i < idx; i++) {
-		if (ChildDescriptor_isValid(descriptor, i) && !ChildDescriptor_isLeaf(descriptor, i)) {
-			activeChildCount++;
-		}
-	}
+	uint32_t validMask = descriptor >> 8;
+	uint32_t leafMask = descriptor;
+	uint32_t childMask = validMask ^ leafMask;
+	uint32_t childrenBeforeIdxMask = childMask & ((1 << idx) - 1);
+	uint32_t childrenBeforeIdx = popcount32(childrenBeforeIdxMask);
+
 	uint32_t childPtr = descriptor >> 16;
-	return svo.descriptors[childPtr + activeChildCount];
+	return svo.descriptors[childPtr + childrenBeforeIdx];
 }
 
 struct HitSOA
@@ -199,7 +198,6 @@ export void SparseVoxelOctree_intersect(const uniform SparseVoxelOctree& svo, co
                 scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest bit (complicated alternative to bitscan)
                 scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
 
-
                 // Restore parent voxel from the stack
                 parent = stackParent[scale];
                 tMax = stackTmax[scale];
@@ -212,6 +210,20 @@ export void SparseVoxelOctree_intersect(const uniform SparseVoxelOctree& svo, co
                 pos.y = intAsFloat(shy << scale);
                 pos.z = intAsFloat(shz << scale);
                 idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2);
+				// Alternative implementation with right shifts (which raise performance warnings in ISPC). Does not seem any faster though
+				/*int shx = floatAsInt(pos.x);
+				int shy = floatAsInt(pos.y);
+				int shz = floatAsInt(pos.z);
+				{
+					int mask = 0xFFFFFFFF << scale;
+					pos.x = intAsFloat(shx & mask);
+					pos.y = intAsFloat(shy & mask);
+					pos.z = intAsFloat(shz & mask);
+				}
+				{
+					int mask = 0x1 << scale;
+					idx = ((shx & mask) | ((shy & mask) << 1) | ((shz & mask) << 2)) >> scale;
+				}*/
             }
         }
 

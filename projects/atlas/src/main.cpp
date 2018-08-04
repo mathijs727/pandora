@@ -86,11 +86,11 @@ int main()
         integrator.render(camera);
         samples++;
 
-		if (samples % 20 == 0)
+		if (samples % 50 == 0)
 		{
 			auto now = std::chrono::high_resolution_clock::now();
 			auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(now - previousTimestamp);
-			std::cout << "Time time per frame (over last 20 frames): " << timeDelta.count() / 20.0f / 1000.0f << " miliseconds" << std::endl;
+			std::cout << "Time time per frame (over last 50 frames): " << timeDelta.count() / 50.0f / 1000.0f << " miliseconds" << std::endl;
 			previousTimestamp = now;
 		}
 

@@ -26,3 +26,27 @@ float intAsFloat(int v)
 	memcpy(&r, &v, sizeof(float));
 	return r;
 }
+
+uint8_t popcount8(uint8_t b)
+{
+	// https://stackoverflow.com/questions/30688465/how-to-check-the-number-of-set-bits-in-an-8-bit-unsigned-char
+	b = b - ((b >> 1) & 0x55);
+	b = (b & 0x33) + ((b >> 2) & 0x33);
+	return (((b + (b >> 4)) & 0x0F) * 0x01);
+}
+
+int32_t popcount32(int32_t i)
+{
+	// https://stackoverflow.com/questions/109023/how-to-count-the-number-of-set-bits-in-a-32-bit-integer
+	i = i - ((i >> 1) & 0x55555555);
+	i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+	return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+}
+
+uint32_t popcount32(uint32_t i)
+{
+	// https://stackoverflow.com/questions/109023/how-to-count-the-number-of-set-bits-in-a-32-bit-integer
+	i = i - ((i >> 1) & 0x55555555);
+	i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+	return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+}
