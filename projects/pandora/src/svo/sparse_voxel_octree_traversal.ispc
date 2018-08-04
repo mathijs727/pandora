@@ -127,7 +127,7 @@ export void SparseVoxelOctree_intersect(const uniform SparseVoxelOctree& svo, co
                     break; // Line 231
                 }
 
-                if (tMin <= tvMax) {
+                cif (tMin <= tvMax) {
                     // === PUSH ===
                     //stack[scale] = { parent, tMax };
 					stackParent[scale] = parent;
