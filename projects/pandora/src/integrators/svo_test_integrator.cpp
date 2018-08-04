@@ -88,7 +88,7 @@ void SVOTestIntegrator::render(const PerspectiveCamera& camera)
                 int simdBlockStartY = y;
                 int simdBlockEndY = std::min(y + simdBlockDim, rows.end());
 
-				std::array<float, maxRayCount> rayOriginX;
+				/*std::array<float, maxRayCount> rayOriginX;
 				std::array<float, maxRayCount> rayOriginY;
 				std::array<float, maxRayCount> rayOriginZ;
 				std::array<float, maxRayCount> rayDirectionX;
@@ -110,16 +110,29 @@ void SVOTestIntegrator::render(const PerspectiveCamera& camera)
 						rayDirectionZ[rayIdx] = ray.direction.z;
 						rayIdx++;
 					}
+				}*/
+
+				int rayIdx = 0;
+				std::array<CameraSample, maxRayCount> samples;
+				for (int yi = simdBlockStartY; yi < simdBlockEndY; yi++) {
+					for (int xi = simdBlockStartX; xi < simdBlockEndX; xi++) {
+						samples[rayIdx++] = { glm::ivec2(xi, yi) };
+					}
 				}
 
-				ispc::RaySOA rays;
-				rays.originX = rayOriginX.data();
-				rays.originY = rayOriginY.data();
-				rays.originZ = rayOriginZ.data();
-				rays.directionX = rayDirectionX.data();
-				rays.directionY = rayDirectionY.data();
-				rays.directionZ = rayDirectionZ.data();
+				RaySOA<maxRayCount> soaRays;
+				camera.generateRaySOA(samples, soaRays);
 
+				ispc::RaySOA rays;
+				rays.originX = soaRays.origin.x;
+				rays.originY = soaRays.origin.y;
+				rays.originZ = soaRays.origin.z;
+				rays.directionX = soaRays.direction.x;
+				rays.directionY = soaRays.direction.y;
+				rays.directionZ = soaRays.direction.z;
+
+				std::array<std::uint8_t, maxRayCount> hit;
+				std::array<float, maxRayCount> hitT;
 				ispc::HitSOA hits;
 				hits.hit = hit.data();
 				hits.t = hitT.data();

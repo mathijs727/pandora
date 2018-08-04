@@ -32,4 +32,21 @@ public:
     float tfar;
 };
 
+template <int N>
+struct vec3SOA
+{
+	float x[N];
+	float y[N];
+	float z[N];
+};
+
+template <int N>
+struct RaySOA
+{
+	vec3SOA<N> origin;
+	vec3SOA<N> direction;
+	float tnear[N];
+	float tfar[N];
+};
+
 }

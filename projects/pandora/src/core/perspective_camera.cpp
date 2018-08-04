@@ -58,4 +58,5 @@ Ray PerspectiveCamera::generateRay(const CameraSample& sample) const
     glm::vec3 direction = glm::normalize(m_orientation * glm::vec3(pixel2D.x, pixel2D.y, 1.0f));
     return Ray(origin, direction);
 }
+
 }

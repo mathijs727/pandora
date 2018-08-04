@@ -3,7 +3,7 @@
 #include "glm/gtc/quaternion.hpp"
 #include "pandora/core/ray.h"
 #include "pandora/core/sensor.h"
-#include <iterator>
+#include <gsl/span>
 
 namespace pandora {
 
@@ -22,7 +22,29 @@ public:
     Sensor& getSensor();
     glm::ivec2 getResolution() const;
 
-    Ray generateRay(const CameraSample& sample) const;
+	Ray generateRay(const CameraSample& sample) const;
+
+	template <int N>
+	void generateRaySOA(const gsl::span<CameraSample> samples, RaySOA<N>& outRays) const
+	{
+		for (int i = 0; i < samples.size(); i++) {
+			const auto& sample = samples[i];
+			glm::vec2 pixel2D = (sample.pixel / m_resolutionF - 0.5f) * m_virtualScreenSize;
+			//glm::vec3 origin = m_position;
+			glm::vec3 direction = glm::normalize(m_orientation * glm::vec3(pixel2D.x, pixel2D.y, 1.0f));
+
+			outRays.origin.x[i] = m_position.x;
+			outRays.origin.y[i] = m_position.y;
+			outRays.origin.z[i] = m_position.z;
+
+			outRays.direction.x[i] = direction.x;
+			outRays.direction.y[i] = direction.y;
+			outRays.direction.z[i] = direction.z;
+
+			outRays.tnear[i] = 0.0f;
+			outRays.tfar[i] = 1.0f;
+		}
+	}
 
 private:
     Sensor m_sensor;
