@@ -202,6 +202,7 @@ export void SparseVoxelOctree_intersect(const uniform SparseVoxelOctree& svo, co
                 parent = stackParent[scale];
                 tMax = stackTmax[scale];
 
+#if 0
                 // Round cube position and extract child slot index
                 int shx = floatAsInt(pos.x) >> scale;
                 int shy = floatAsInt(pos.y) >> scale;
@@ -210,8 +211,9 @@ export void SparseVoxelOctree_intersect(const uniform SparseVoxelOctree& svo, co
                 pos.y = intAsFloat(shy << scale);
                 pos.z = intAsFloat(shz << scale);
                 idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2);
-				// Alternative implementation with right shifts (which raise performance warnings in ISPC). Does not seem any faster though
-				/*int shx = floatAsInt(pos.x);
+#else
+				// Alternative implementation with less variable right shifts (which are slow according to the IPSC compiler)
+				int shx = floatAsInt(pos.x);
 				int shy = floatAsInt(pos.y);
 				int shz = floatAsInt(pos.z);
 				{
@@ -223,7 +225,8 @@ export void SparseVoxelOctree_intersect(const uniform SparseVoxelOctree& svo, co
 				{
 					int mask = 0x1 << scale;
 					idx = ((shx & mask) | ((shy & mask) << 1) | ((shz & mask) << 2)) >> scale;
-				}*/
+				}
+#endif
             }
         }
 

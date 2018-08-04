@@ -8,4 +8,7 @@ ISPC version
 Release: 12.8~12.9ms
 
 ISPC version, SparseVoxelOctree_getChild using popcount
-Release: 12.3~12.4ms
+Release: ~12.5ms
+
+ISPC version, less variable right shifts to copute new pos&idx after stack pop
+Release: ~12.3ms
