@@ -186,7 +186,7 @@ export void SparseVoxelOctree_intersect(const uniform SparseVoxelOctree& svo, co
             if ((idx & stepMask) != 0) {
                 // === POP ===
                 // Find the highest differing bit between the two positions
-                unsigned int differingBits = 0;
+                int differingBits = 0;
                 if ((stepMask & (1 << 0)) != 0) {
                     differingBits |= floatAsInt(pos.x) ^ floatAsInt(pos.x + scaleExp2);
                 }

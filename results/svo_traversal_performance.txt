@@ -1,0 +1,7 @@
+Stanford Bunny @ 64x64
+
+Scalar version
+Release: 17.0~17.4ms
+
+ISPC version
+Release: 12.8 ~13.1ms

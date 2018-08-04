@@ -13,7 +13,7 @@ int floatAsInt(float v)
 {
 	// Using reinterpret_cast might lead to undefined behavior because of illegal type aliasing, use memcpy instead
 	// https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing
-	unsigned int r;
+	int r;
 	memcpy(&r, &v, sizeof(float));
 	return r;
 }

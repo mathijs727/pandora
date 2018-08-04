@@ -1,4 +1,4 @@
-Stanford Dragon:
+Stanford Dragon @ 128x128:
 
 Naive implementation with separate pre-process (initial)
 Release: ~290ms
