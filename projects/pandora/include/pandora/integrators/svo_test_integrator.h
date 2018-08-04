@@ -2,7 +2,6 @@
 #include "pandora/core/pandora.h"
 #include "pandora/core/integrator.h"
 #include "pandora/svo/sparse_voxel_octree.h"
-#include <memory>
 
 namespace pandora {
 
