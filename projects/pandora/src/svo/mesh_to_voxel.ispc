@@ -1,4 +1,4 @@
-#include "ispc/math.h"
+#include "ispc/vector_math.h"
 #include "ispc/bounds.h"
 #include "ispc/voxel_grid.h"
 
@@ -115,9 +115,9 @@ export void meshToVoxelGrid(uniform unsigned int* uniform voxelGrid, const unifo
 
 					if (triangleIntersect2D)
 					{
-						int bitPosition = voxelGrid_bitPosition(make_vec3i(x, y, z), resolution);
+						int bitPosition = VoxelGrid_bitPosition(make_vec3i(x, y, z), resolution);
 						foreach_unique(uniqueBitPosition in bitPosition) {
-							voxelGrid_setTrue(voxelGrid, uniqueBitPosition);
+							VoxelGrid_setTrue(voxelGrid, uniqueBitPosition);
 						}
 					}
                 }

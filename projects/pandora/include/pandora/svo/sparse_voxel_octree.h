@@ -6,6 +6,7 @@
 #include <optional>
 #include <tuple>
 #include <glm/glm.hpp>
+#include "sparse_voxel_octree_traversal_ispc.h"
 
 namespace pandora
 {
@@ -16,7 +17,8 @@ public:
 	SparseVoxelOctree(const VoxelGrid& grid);
 	~SparseVoxelOctree() = default;
 
-	std::optional<float> intersect(Ray ray);
+	void intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const;
+	std::optional<float> intersectScalar(Ray ray) const;
 
 	std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 private:
@@ -25,9 +27,9 @@ private:
 		//uint32_t childPtr : 16;
 		//uint32_t validMask : 8;
 		//uint32_t leafMask : 8;
-		uint16_t childPtr;
-		uint8_t validMask;
 		uint8_t leafMask;
+		uint8_t validMask;
+		uint16_t childPtr;
 
 		inline bool isEmpty() const { return validMask == 0x0; };
 		inline bool isFilled() const { return (validMask & leafMask) == 0xFF; };

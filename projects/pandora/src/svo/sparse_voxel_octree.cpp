@@ -78,20 +78,30 @@ static float intAsFloat(int v)
     return r;
 }
 
-std::optional<float> SparseVoxelOctree::intersect(Ray ray)
+void SparseVoxelOctree::intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const
+{
+	static_assert(sizeof(ChildDescriptor) == sizeof(uint32_t));
+
+	ispc::SparseVoxelOctree svo;
+	svo.descriptors = reinterpret_cast<const uint32_t*>(m_allocator.data());
+	memcpy(&svo.rootNode, &m_rootNode, sizeof(uint32_t));
+	ispc::SparseVoxelOctree_intersect(svo, rays, hits, N);
+}
+
+std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
 {
     // Based on the reference implementation of Efficient Sparse Voxel Octrees:
     // https://github.com/poelzi/efficient-sparse-voxel-octrees/blob/master/src/octree/cuda/Raycast.inl
-    const int CAST_STACK_DEPTH = 23; //intLog2(m_resolution);
+    constexpr int CAST_STACK_DEPTH = 23; //intLog2(m_resolution);
 
     // Get rid of small ray direction components to avoid division by zero
-    const float epsilon = std::exp2f(-CAST_STACK_DEPTH);
+    constexpr float epsilon = 1.1920928955078125e-07f;// std::exp2f(-CAST_STACK_DEPTH);
     if (std::abs(ray.direction.x) < epsilon)
-        ray.direction.x = copysignf(epsilon, ray.direction.x);
+        ray.direction.x = std::copysign(epsilon, ray.direction.x);
     if (std::abs(ray.direction.y) < epsilon)
-        ray.direction.y = copysignf(epsilon, ray.direction.y);
+        ray.direction.y = std::copysign(epsilon, ray.direction.y);
     if (std::abs(ray.direction.z) < epsilon)
-        ray.direction.z = copysignf(epsilon, ray.direction.z);
+        ray.direction.z = std::copysign(epsilon, ray.direction.z);
 
     // Precompute the coefficients of tx(x), ty(y) and tz(z).
     // The octree is assumed to reside at coordinates [1, 2].
@@ -124,7 +134,6 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
     float tMin = maxComponent(2.0f * tCoef - tBias);
     float tMax = minComponent(tCoef - tBias);
     tMin = std::max(tMin, 0.0f);
-    //tMax = std::min(tMax, 1.0f);
 
     if (tMin >= tMax)
         return {};
@@ -144,12 +153,12 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
     }
 
     // Traverse voxels along the ray as long as the current voxel stays within the octree
-    //ALWAYS_ASSERT(CAST_STACK_DEPTH < 16, "SVO too deep to traverse with a stack of size 16. Increase the stack size or use a shallower SVO.");
     struct StackItem {
         ChildDescriptor parent;
         float tMax;
     };
     std::array<StackItem, CAST_STACK_DEPTH + 1> stack;
+
     while (scale < CAST_STACK_DEPTH) {
         // === INTERSECT ===
         // Determine the maximum t-value of the cube by evaluating tx(), ty() and tz() at its corner
@@ -157,7 +166,7 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
         float tcMax = minComponent(tCorner);
 
         // Process voxel if the corresponding bit in the valid mask is set
-        int childIndex = 7 - idx ^ octantMask; // TODO: this might need to be 7 - childIndex
+        int childIndex = 7 - idx ^ octantMask;
         if (parent.isValid(childIndex) && tMin <= tMax) {
             // === INTERSECT ===
             float tvMax = std::min(tMax, tcMax);
@@ -168,7 +177,7 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
                 break; // Line 231
             }
 
-            if (tMin <= tvMax) { // TODO: this is always true?
+            if (tMin <= tvMax) {
                 // === PUSH ===
                 stack[scale] = { parent, tMax };
 
@@ -235,8 +244,7 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
                 differingBits |= floatAsInt(pos.z) ^ floatAsInt(pos.z + scaleExp2);
             }
             scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest bit (complicated alternative to bitscan)
-			float newVal = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23);
-            scaleExp2 = newVal; // exp2f(scale - s_max)
+            scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
 
             // Restore parent voxel from the stack
             parent = stack[scale].parent;
@@ -254,22 +262,22 @@ std::optional<float> SparseVoxelOctree::intersect(Ray ray)
     }
 
     // Indicate miss if we are outside the octree
-	if (scale >= CAST_STACK_DEPTH) 		{
+	if (scale >= CAST_STACK_DEPTH) {
 		return {};
+	} else {
+		/*// Undo mirroring of the coordinate system
+		if ((octantMask & (1 << 0)) == 0)
+			pos.x = 3.0f - scaleExp2 - pos.x;
+		if ((octantMask & (1 << 1)) == 0)
+			pos.y = 3.0f - scaleExp2 - pos.y;
+		if ((octantMask & (1 << 2)) == 0)
+			pos.z = 3.0f - scaleExp2 - pos.z;
+
+		glm::vec3 hitPos = glm::min(glm::max(ray.origin + tMin * ray.direction, pos.x + epsilon), pos.x + scaleExp2 - epsilon);*/
+
+		// Output result
+		return tMin;
 	}
-
-    /*// Undo mirroring of the coordinate system
-    if ((octantMask & (1 << 0)) == 0)
-        pos.x = 3.0f - scaleExp2 - pos.x;
-    if ((octantMask & (1 << 1)) == 0)
-        pos.y = 3.0f - scaleExp2 - pos.y;
-    if ((octantMask & (1 << 2)) == 0)
-        pos.z = 3.0f - scaleExp2 - pos.z;
-
-	glm::vec3 hitPos = glm::min(glm::max(ray.origin + tMin * ray.direction, pos.x + epsilon), pos.x + scaleExp2 - epsilon);*/
-
-    // Output result
-	return tMin;
 }
 
 SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::getChild(const ChildDescriptor& descriptor, int idx) const
