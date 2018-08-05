@@ -1,0 +1,5 @@
+Stanford Bunny @ 64x64
+Average over 60 frames
+
+SVO scalar version (different descriptor layout than SVO class)
+Release: 16.0~16.1ms

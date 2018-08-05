@@ -20,6 +20,7 @@ public:
 	//void intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const;
 	std::optional<float> intersectScalar(Ray ray) const;
 
+	std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 private:
 	// NOTE: child pointers are stored directly after the descriptor
 	struct Descriptor
@@ -58,6 +59,7 @@ private:
 	eastl::fixed_vector<NodePtr, 8> storeDescriptors(gsl::span<SVOConstructionQueueItem> children);
 
 private:
+	int m_resolution;
 	const Descriptor* m_rootNode;
 	std::vector<uint32_t> m_allocator;
 };

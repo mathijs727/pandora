@@ -1,6 +1,7 @@
 #include "pandora/geometry/triangle.h"
 #include "pandora/svo/mesh_to_voxel.h"
 #include "pandora/svo/sparse_voxel_octree.h"
+#include "pandora/svo/sparse_voxel_dag.h"
 #include "pandora/svo/voxel_grid.h"
 #include <array>
 #include <cassert>
@@ -61,6 +62,7 @@ int main()
 
     auto svoConstructionStart = clock::now();
     SparseVoxelOctree svo(voxelGrid);
+	//SparseVoxelDAG svo(voxelGrid);
     auto svoConstructionEnd = clock::now();
     auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(svoConstructionEnd - svoConstructionStart);
     std::cout << "Time to construct SVO: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
@@ -69,6 +71,8 @@ int main()
     auto [vertices, triangles] = svo.generateSurfaceMesh();
     exportMesh(vertices, triangles, "hello_world.ply");
 
-    std::cout << "HELLO WORLD!" << std::endl;
+    std::cout << "INPUT CHARACTER AND PRESS ENTER TO EXIT:" << std::endl;
+	char x;
+	std::cin >> x;
     return 0;
 }

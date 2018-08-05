@@ -13,6 +13,7 @@ namespace pandora {
 
 // http://graphics.cs.kuleuven.be/publications/BLD13OCCSVO/BLD13OCCSVO_paper.pdf
 SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
+    : m_resolution(grid.resolution())
 {
     m_rootNode = constructSVO(grid);
 
@@ -111,29 +112,29 @@ eastl::fixed_vector<SparseVoxelDAG::NodePtr, 8> SparseVoxelDAG::storeDescriptors
     eastl::fixed_vector<NodePtr, 8> descriptorOffsets;
     for (const auto& item : items) { // For each descriptor
         const auto& descriptor = item.descriptor;
-		const auto& childDescriptorOffsets = item.childDescriptorOffsets;
+        const auto& childDescriptorOffsets = item.childDescriptorOffsets;
 
         if (!descriptor.isEmpty() && !descriptor.isFilled()) { // Not all empty or all filled => inner node
-			descriptorOffsets.push_back(static_cast<NodePtr>(m_allocator.size()));
+            descriptorOffsets.push_back(static_cast<NodePtr>(m_allocator.size()));
             m_allocator.push_back(static_cast<uint32_t>(descriptor));
 
             if constexpr (std::is_same_v<NodePtr, std::uint16_t>) {
-				// Store child offsets directly after the descriptor itself
-				for (int i = 0; i < childDescriptorOffsets.size(); i += 2) {
-					if (i + 1 < childDescriptorOffsets.size()) {
-						uint32_t offsetPair = childDescriptorOffsets[i] | (childDescriptorOffsets[i + 1] << 16);
-						m_allocator.push_back(offsetPair);
-					} else {
-						uint32_t offsetPair = childDescriptorOffsets[i];
-						m_allocator.push_back(offsetPair);
-					}
-				}
+                // Store child offsets directly after the descriptor itself
+                for (int i = 0; i < childDescriptorOffsets.size(); i += 2) {
+                    if (i + 1 < childDescriptorOffsets.size()) {
+                        uint32_t offsetPair = childDescriptorOffsets[i] | (childDescriptorOffsets[i + 1] << 16);
+                        m_allocator.push_back(offsetPair);
+                    } else {
+                        uint32_t offsetPair = childDescriptorOffsets[i];
+                        m_allocator.push_back(offsetPair);
+                    }
+                }
             } else if (std::is_same_v<NodePtr, std::uint32_t>) {
                 // Store child offsets directly after the descriptor itself
-				m_allocator.insert(std::end(m_allocator), std::begin(childDescriptorOffsets), std::end(childDescriptorOffsets));
-			} else {
-				static_assert("Unsupported DAG node reference size");
-			}
+                m_allocator.insert(std::end(m_allocator), std::begin(childDescriptorOffsets), std::end(childDescriptorOffsets));
+            } else {
+                static_assert("Unsupported DAG node reference size");
+            }
         }
     }
     assert(m_allocator.size() < (1 << 16));
@@ -155,7 +156,7 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* des
             childOffset = *(firstChildPtr + (activeChildIndex / 2)) & 0xFFFF;
         } else {
             // Left child: left 16 bits
-			childOffset = *(firstChildPtr + (activeChildIndex / 2)) >> 16;
+            childOffset = *(firstChildPtr + (activeChildIndex / 2)) >> 16;
         }
         return reinterpret_cast<const Descriptor*>(&m_allocator[childOffset]);
     } else if constexpr (std::is_same_v<NodePtr, std::uint32_t>) {
@@ -347,6 +348,67 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
         // Output result
         return tMin;
     }
+}
+
+std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::generateSurfaceMesh() const
+{
+    std::vector<glm::vec3> positions;
+    std::vector<glm::ivec3> triangles;
+
+    struct StackItem {
+        const Descriptor* descriptor;
+        glm::ivec3 start;
+        int extent;
+    };
+    std::vector<StackItem> stack = { { m_rootNode, glm::ivec3(0), m_resolution } };
+    while (!stack.empty()) {
+        auto stackItem = stack.back();
+        stack.pop_back();
+
+        // Loop visit in morton order?
+        int halfExtent = stackItem.extent / 2;
+
+        //int childID = 0;
+        for (uint_fast32_t i = 0; i < 8; i++) {
+            uint_fast16_t x, y, z;
+            libmorton::morton3D_32_decode(i, x, y, z);
+            glm::ivec3 cubeStart = stackItem.start + glm::ivec3(x * halfExtent, y * halfExtent, z * halfExtent);
+
+            if (stackItem.descriptor->isValid(i)) {
+                if (!stackItem.descriptor->isLeaf(i)) {
+                    //uint32_t childOffset = *(reinterpret_cast<const uint32_t*>(stackItem.descriptor) + childID++);
+                    //const auto* childDescriptor = reinterpret_cast<const Descriptor*>(&m_allocator[childOffset]);
+					const auto* childDescriptor = getChild(stackItem.descriptor, i);
+                    stack.push_back(StackItem { childDescriptor, cubeStart, halfExtent });
+                } else {
+                    // https://github.com/ddiakopoulos/tinyply/blob/master/source/example.cpp
+                    const glm::vec3 cubePositions[] = {
+                        { 0, 0, 0 }, { 0, 0, +1 }, { 0, +1, +1 }, { 0, +1, 0 },
+                        { +1, 0, +1 }, { +1, 0, 0 }, { +1, +1, 0 }, { +1, +1, +1 },
+                        { 0, 0, 0 }, { +1, 0, 0 }, { +1, 0, +1 }, { 0, 0, +1 },
+                        { +1, +1, 0 }, { 0, +1, 0 }, { 0, +1, +1 }, { +1, +1, +1 },
+                        { 0, 0, 0 }, { 0, +1, 0 }, { +1, +1, 0 }, { +1, 0, 0 },
+                        { 0, +1, +1 }, { 0, 0, +1 }, { +1, 0, +1 }, { +1, +1, +1 }
+                    };
+                    std::array quads = { glm::ivec4 { 0, 1, 2, 3 }, glm::ivec4 { 4, 5, 6, 7 }, glm::ivec4 { 8, 9, 10, 11 }, glm::ivec4 { 12, 13, 14, 15 }, glm::ivec4 { 16, 17, 18, 19 }, glm::ivec4 { 20, 21, 22, 23 } };
+
+                    //if (halfExtent > 1)
+                    //	continue;
+
+                    glm::ivec3 offset((int)positions.size());
+                    for (auto& q : quads) {
+                        triangles.push_back(glm::ivec3 { q.x, q.y, q.z } + offset);
+                        triangles.push_back(glm::ivec3 { q.x, q.z, q.w } + offset);
+                    }
+
+                    for (int i = 0; i < 24; ++i) {
+                        positions.push_back(glm::vec3(cubeStart) + static_cast<float>(halfExtent) * cubePositions[i]);
+                    }
+                }
+            }
+        }
+    }
+    return { std::move(positions), std::move(triangles) };
 }
 
 }
