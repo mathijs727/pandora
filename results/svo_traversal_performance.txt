@@ -18,3 +18,7 @@ Release: ~12.1ms
 
 ISPC version, use SOA ray layout in Pandora (saves a memcpy)
 Release: 12.0~12.1ms
+
+Remove computing tMax (not necessary when not using contours)
+Scalar release: 16.3~16.4ms
+ISPC release:   11.6~11.7ms

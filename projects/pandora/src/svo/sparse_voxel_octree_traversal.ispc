@@ -107,8 +107,7 @@ export void SparseVoxelOctree_intersect(const uniform SparseVoxelOctree& svo, co
         }
 
 		// Should be of size CAST_STACK_DEPTH + 1, but a "const int" is not a compile-time constant according to the ISPC compiler (and no constexpr available)
-		varying ChildDescriptor stackParent[24];
-		varying float stackTmax[24];
+		varying ChildDescriptor stack[24];
         while (scale < CAST_STACK_DEPTH) {
             // === INTERSECT ===
             // Determine the maximum t-value of the cube by evaluating tx(), ty() and tz() at its corner
@@ -119,7 +118,6 @@ export void SparseVoxelOctree_intersect(const uniform SparseVoxelOctree& svo, co
             int childIndex = 7 - idx ^ octantMask; // TODO: this might need to be 7 - childIndex
             if (ChildDescriptor_isValid(parent, childIndex) && tMin <= tMax) {
                 // === INTERSECT ===
-                float tvMax = min(tMax, tcMax);
                 float half = scaleExp2 * 0.5f;
                 vec3 tCenter = half * tCoef + tCorner;
 
@@ -127,37 +125,30 @@ export void SparseVoxelOctree_intersect(const uniform SparseVoxelOctree& svo, co
                     break; // Line 231
                 }
 
-                cif (tMin <= tvMax) {
-                    // === PUSH ===
-                    //stack[scale] = { parent, tMax };
-					stackParent[scale] = parent;
-					stackTmax[scale] = tMax;
+                // === PUSH ===
+				stack[scale] = parent;
 
-                    // Find child descriptor corresponding to the current voxel
-                    parent = SparseVoxelOctree_getChild(svo, parent, childIndex);
+                // Find child descriptor corresponding to the current voxel
+                parent = SparseVoxelOctree_getChild(svo, parent, childIndex);
 
-                    // Select the child voxel that the ray enters first.
-                    idx = 0;
-                    scale--;
-                    scaleExp2 = half;
-                    if (tCenter.x > tMin) {
-                        idx ^= (1 << 0);
-                        pos.x += scaleExp2;
-                    }
-                    if (tCenter.y > tMin) {
-                        idx ^= (1 << 1);
-                        pos.y += scaleExp2;
-                    }
-                    if (tCenter.z > tMin) {
-                        idx ^= (1 << 2);
-                        pos.z += scaleExp2;
-                    }
-
-                    // Update active t-span
-                    tMax = tvMax;
-
-                    continue;
+                // Select the child voxel that the ray enters first.
+                idx = 0;
+                scale--;
+                scaleExp2 = half;
+                if (tCenter.x > tMin) {
+                    idx ^= (1 << 0);
+                    pos.x += scaleExp2;
                 }
+                if (tCenter.y > tMin) {
+                    idx ^= (1 << 1);
+                    pos.y += scaleExp2;
+                }
+                if (tCenter.z > tMin) {
+                    idx ^= (1 << 2);
+                    pos.z += scaleExp2;
+                }
+
+                continue;
             }
 
             // === ADVANCE ===
@@ -199,8 +190,7 @@ export void SparseVoxelOctree_intersect(const uniform SparseVoxelOctree& svo, co
                 scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
 
                 // Restore parent voxel from the stack
-                parent = stackParent[scale];
-                tMax = stackTmax[scale];
+                parent = stack[scale];
 
 #if 0
                 // Round cube position and extract child slot index
