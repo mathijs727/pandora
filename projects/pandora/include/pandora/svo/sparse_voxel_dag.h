@@ -45,15 +45,17 @@ private:
 	// CAREFULL: don't use this function during DAG construction (while m_allocator is touched)!
 	const Descriptor* getChild(const Descriptor* descriptor, int idx) const;
 
+	using NodePtr = uint32_t;
+
 	// SVO construction
 	struct SVOConstructionQueueItem
 	{
 		Descriptor descriptor;
-		eastl::fixed_vector<uint32_t, 8> childDescriptorIndices;
+		eastl::fixed_vector<NodePtr, 8> childDescriptorOffsets;
 	};
 	static Descriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
 	static Descriptor makeInnerNode(gsl::span<SVOConstructionQueueItem, 8> children);
-	eastl::fixed_vector<uint32_t, 8> storeDescriptors(gsl::span<SVOConstructionQueueItem> children);
+	eastl::fixed_vector<NodePtr, 8> storeDescriptors(gsl::span<SVOConstructionQueueItem> children);
 
 private:
 	const Descriptor* m_rootNode;
