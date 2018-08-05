@@ -15,14 +15,14 @@ namespace pandora {
 SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
     : SparseVoxelOctree(grid)
 {
-    uint32_t rootNodeIndex = copySVO(m_svoRootNode);
+	uint16_t rootNodeIndex = copySVO(m_svoRootNode);
 	m_dagRootNode = reinterpret_cast<const DAGDescriptor*>(m_allocator.data() + rootNodeIndex);
-    std::cout << "Size of SparseVoxelDAG: " << m_allocator.size() * sizeof(decltype(m_allocator)::value_type) << "bytes" << std::endl;
+    std::cout << "Size of SparseVoxelDAG: " << m_allocator.size() * sizeof(decltype(m_allocator)::value_type) << " bytes" << std::endl;
 }
 
-uint32_t SparseVoxelDAG::copySVO(SVOChildDescriptor descriptor)
+uint16_t SparseVoxelDAG::copySVO(SVOChildDescriptor descriptor)
 {
-    eastl::fixed_vector<uint32_t, 8> children;
+    eastl::fixed_vector<uint16_t, 8> children;
     for (int i = 0; i < 8; i++) {
         if (descriptor.isValid(i)) {
             if (descriptor.isLeaf(i)) {
@@ -43,27 +43,39 @@ const SparseVoxelDAG::DAGDescriptor* SparseVoxelDAG::getChild(const DAGDescripto
     uint32_t childMask = (descriptor->validMask ^ descriptor->leafMask) & ((1 << idx) - 1);
     uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
 
-    uint32_t descriptorIndex = (reinterpret_cast<const uint32_t*>(descriptor) - m_allocator.data());
-    uint32_t childIndex = m_allocator[descriptorIndex + activeChildIndex + 1];
-    return reinterpret_cast<const DAGDescriptor*>(&m_allocator[childIndex]);
+    const uint32_t* firstChildPtr = reinterpret_cast<const uint32_t*>(descriptor) + 1;
+
+	uint32_t childIndex;
+	if (activeChildIndex % 2 == 0) {
+		// First child: right 16 bits
+		childIndex = *(firstChildPtr + (activeChildIndex / 2)) & 0xFFFF;
+	} else {
+		// Left child: left 16 bits
+		childIndex = *(firstChildPtr + (activeChildIndex / 2)) >> 16;
+	}
+	return reinterpret_cast<const DAGDescriptor*>(&m_allocator[childIndex]);
 }
 
-uint32_t SparseVoxelDAG::storeDescriptor(DAGDescriptor descriptor)
+uint16_t SparseVoxelDAG::storeDescriptor(DAGDescriptor descriptor)
 {
     uint32_t baseIndex = static_cast<uint32_t>(m_allocator.size());
     m_allocator.push_back(static_cast<uint32_t>(descriptor));
 	return baseIndex;
 }
 
-uint32_t SparseVoxelDAG::storeDescriptor(DAGDescriptor descriptor, gsl::span<uint32_t> children)
+uint16_t SparseVoxelDAG::storeDescriptor(DAGDescriptor descriptor, gsl::span<uint16_t> children)
 {
     const uint32_t baseIndex = static_cast<uint32_t>(m_allocator.size());
 
 	m_allocator.push_back(static_cast<uint32_t>(descriptor));
-    for (uint32_t child : children) {
-		assert(child < m_allocator.size());
-        m_allocator.push_back(child);
-    }
+	for (int i = 0; i < children.size(); i += 2) {
+		uint32_t childrenIndices = 0;// Contains 2 16-bit indices into the allocator array
+		childrenIndices |= children[i];
+		if (i + 1 < children.size()) {
+			childrenIndices |= children[i + 1] << 16;
+		}
+		m_allocator.push_back(childrenIndices);
+	}
 
 	return baseIndex;
 }
@@ -133,11 +145,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
     }
 
     // Traverse voxels along the ray as long as the current voxel stays within the octree
-    struct StackItem {
-        const DAGDescriptor* parent;
-        float tMax;
-    };
-    std::array<StackItem, CAST_STACK_DEPTH + 1> stack;
+    std::array<const DAGDescriptor*, CAST_STACK_DEPTH + 1> stack;
 
     while (scale < CAST_STACK_DEPTH) {
         // === INTERSECT ===
@@ -147,9 +155,8 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
 
         // Process voxel if the corresponding bit in the valid mask is set
         int childIndex = 7 - idx ^ octantMask;
-        if (parent->isValid(childIndex) && tMin <= tMax) {
+        if (parent->isValid(childIndex)) {// && tMin <= tMax) {
             // === INTERSECT ===
-            float tvMax = std::min(tMax, tcMax);
             float half = scaleExp2 * 0.5f;
             glm::vec3 tCenter = half * tCoef + tCorner;
 
@@ -157,35 +164,30 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
                 break; // Line 231
             }
 
-            if (tMin <= tvMax) {
-                // === PUSH ===
-                stack[scale] = { parent, tMax };
+            // === PUSH ===
+			stack[scale] = parent;
 
-                // Find child descriptor corresponding to the current voxel
-                parent = getChild(parent, childIndex);
+            // Find child descriptor corresponding to the current voxel
+            parent = getChild(parent, childIndex);
 
-                // Select the child voxel that the ray enters first.
-                idx = 0;
-                scale--;
-                scaleExp2 = half;
-                if (tCenter.x > tMin) {
-                    idx ^= (1 << 0);
-                    pos.x += scaleExp2;
-                }
-                if (tCenter.y > tMin) {
-                    idx ^= (1 << 1);
-                    pos.y += scaleExp2;
-                }
-                if (tCenter.z > tMin) {
-                    idx ^= (1 << 2);
-                    pos.z += scaleExp2;
-                }
-
-                // Update active t-span
-                tMax = tvMax;
-
-                continue;
+            // Select the child voxel that the ray enters first.
+            idx = 0;
+            scale--;
+            scaleExp2 = half;
+            if (tCenter.x > tMin) {
+                idx ^= (1 << 0);
+                pos.x += scaleExp2;
             }
+            if (tCenter.y > tMin) {
+                idx ^= (1 << 1);
+                pos.y += scaleExp2;
+            }
+            if (tCenter.z > tMin) {
+                idx ^= (1 << 2);
+                pos.z += scaleExp2;
+            }
+
+            continue;
         }
 
         // === ADVANCE ===
@@ -227,8 +229,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
 
             // Restore parent voxel from the stack
-            parent = stack[scale].parent;
-            tMax = stack[scale].tMax;
+            parent = stack[scale];
 
             // Round cube position and extract child slot index
             int shx = floatAsInt(pos.x) >> scale;

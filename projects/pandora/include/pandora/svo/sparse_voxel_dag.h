@@ -39,13 +39,13 @@ private:
 	};
 	static_assert(sizeof(DAGDescriptor) == sizeof(uint32_t));
 
-	uint32_t copySVO(SVOChildDescriptor descriptor);
+	uint16_t copySVO(SVOChildDescriptor descriptor);
 
 	// CAREFULL: don't use this function during DAG construction (while m_allocator is touched)!
 	const DAGDescriptor* getChild(const DAGDescriptor* descriptor, int idx) const;
 
-	uint32_t storeDescriptor(DAGDescriptor descriptor);
-	uint32_t storeDescriptor(DAGDescriptor descriptor, gsl::span<uint32_t> children);
+	uint16_t storeDescriptor(DAGDescriptor descriptor);
+	uint16_t storeDescriptor(DAGDescriptor descriptor, gsl::span<uint16_t> children);
 private:
 	const DAGDescriptor* m_dagRootNode;
 	std::vector<uint32_t> m_allocator;
