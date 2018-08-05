@@ -21,8 +21,8 @@ public:
 	std::optional<float> intersectScalar(Ray ray) const;
 
 	std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
-protected:
-	struct SVOChildDescriptor
+private:
+	struct ChildDescriptor
 	{
 		uint8_t leafMask;
 		uint8_t validMask;
@@ -33,20 +33,18 @@ protected:
 		inline bool isValid(int i) const { return validMask & (1 << i); };
 		inline bool isLeaf(int i) const { return (validMask & leafMask) & (1 << i); };
 	};
-	static_assert(sizeof(SVOChildDescriptor) == 4);
+	static_assert(sizeof(ChildDescriptor) == 4);
 
-	std::vector<int> m_nodesPerDepthLevel;
+	ChildDescriptor getChild(const ChildDescriptor& descriptor, int idx) const;
 
-	int m_resolution;
-	SVOChildDescriptor m_svoRootNode;
-	SVOChildDescriptor getChild(const SVOChildDescriptor& descriptor, int idx) const;
-private:
 	// SVO construction
-	static SVOChildDescriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
-	static SVOChildDescriptor makeInnerNode(uint16_t baseIndex, gsl::span<SVOChildDescriptor, 8> children);
-	std::pair<uint16_t, int> storeDescriptors(gsl::span<SparseVoxelOctree::SVOChildDescriptor> children);
+	static ChildDescriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
+	static ChildDescriptor makeInnerNode(uint16_t baseIndex, gsl::span<ChildDescriptor, 8> children);
+	uint16_t storeDescriptors(gsl::span<ChildDescriptor> children);
 private:
-	std::vector<SVOChildDescriptor> m_allocator;
+	int m_resolution;
+	ChildDescriptor m_rootNode;
+	std::vector<ChildDescriptor> m_allocator;
 };
 
 }

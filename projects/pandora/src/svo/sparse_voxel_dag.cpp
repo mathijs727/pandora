@@ -13,71 +13,140 @@ namespace pandora {
 
 // http://graphics.cs.kuleuven.be/publications/BLD13OCCSVO/BLD13OCCSVO_paper.pdf
 SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
-    : SparseVoxelOctree(grid)
 {
-	uint16_t rootNodeIndex = copySVO(m_svoRootNode);
-	m_dagRootNode = reinterpret_cast<const DAGDescriptor*>(m_allocator.data() + rootNodeIndex);
+    m_rootNode = constructSVO(grid);
+
     std::cout << "Size of SparseVoxelDAG: " << m_allocator.size() * sizeof(decltype(m_allocator)::value_type) << " bytes" << std::endl;
 }
 
-uint16_t SparseVoxelDAG::copySVO(SVOChildDescriptor descriptor)
+const SparseVoxelDAG::Descriptor* SparseVoxelDAG::constructSVO(const VoxelGrid& grid)
 {
-    eastl::fixed_vector<uint16_t, 8> children;
+    uint_fast32_t resolution = static_cast<uint_fast32_t>(grid.resolution());
+    int depth = intLog2(resolution) - 1;
+    uint_fast32_t finalMortonCode = resolution * resolution * resolution;
+
+    uint_fast32_t inputMortonCode = 0;
+    auto consume = [&]() {
+        // Create leaf node from 2x2x2 voxel block
+        std::array<bool, 8> leafMask;
+        std::array<bool, 8> validMask;
+        for (int i = 0; i < 8; i++) {
+            bool v = grid.getMorton(inputMortonCode++);
+            validMask[i] = v;
+            leafMask[i] = v;
+        }
+        return createStagingDescriptor(validMask, leafMask);
+    };
+    auto hasInput = [&]() {
+        return inputMortonCode < finalMortonCode;
+    };
+
+    std::vector<eastl::fixed_vector<SVOConstructionQueueItem, 8>> queues(depth + 1);
+    while (hasInput()) {
+        Descriptor l = consume();
+		queues[depth].push_back({ l, {} });
+        int d = depth;
+
+        while (d > 0 && queues[d].full()) {
+            // Store in allocator (as opposed to store to disk) and create new inner node
+            auto childIndices = storeDescriptors(queues[d]); // Store first so we know the base index (index of first child)
+            Descriptor p = makeInnerNode(queues[d]);
+
+            queues[d].clear();
+            queues[d - 1].push_back({ p, childIndices });
+            d--;
+        }
+    }
+
+	ALWAYS_ASSERT(queues[0].size() == 1, "LOGIC ERROR");
+	uint32_t rootNodeIndex = storeDescriptors(queues[0])[0];
+	return reinterpret_cast<const Descriptor*>(&m_allocator[rootNodeIndex]);
+}
+
+SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
+{
+    // Create bit masks
+    uint8_t leafMaskBits = 0x0;
+    for (int i = 0; i < 8; i++)
+        if (leafMask[i])
+            leafMaskBits |= (1 << i);
+
+    uint8_t validMaskBits = 0x0;
+    for (int i = 0; i < 8; i++)
+        if (validMask[i])
+            validMaskBits |= (1 << i);
+
+    // Create temporary descriptor
+    Descriptor descriptor;
+    descriptor.validMask = validMaskBits;
+    descriptor.leafMask = leafMaskBits;
+    return descriptor;
+}
+
+SparseVoxelDAG::Descriptor SparseVoxelDAG::makeInnerNode(gsl::span<SVOConstructionQueueItem, 8> children)
+{
+    std::array<bool, 8> validMask;
+    std::array<bool, 8> leafMask;
     for (int i = 0; i < 8; i++) {
-        if (descriptor.isValid(i)) {
-            if (descriptor.isLeaf(i)) {
-                auto svoDescriptor = SparseVoxelOctree::getChild(descriptor, i);
-                DAGDescriptor dagDescriptor(svoDescriptor);
-                children.push_back(storeDescriptor(dagDescriptor));
-            } else {
-                auto child = SparseVoxelOctree::getChild(descriptor, i);
-                children.push_back(copySVO(child));
+        const auto& child = children[i].descriptor;
+        if (child.isEmpty()) {
+            // No children => empty
+            validMask[i] = false;
+            leafMask[i] = false;
+        } else if (child.isFilled()) {
+            // All children are leafs => leaf
+            validMask[i] = true;
+            leafMask[i] = true;
+        } else {
+            // One or more children and not 8 leaf children
+            validMask[i] = true;
+            leafMask[i] = false;
+        }
+    }
+    return createStagingDescriptor(validMask, leafMask);
+}
+
+eastl::fixed_vector<uint32_t, 8> SparseVoxelDAG::storeDescriptors(gsl::span<SVOConstructionQueueItem> items)
+{
+	eastl::fixed_vector<uint32_t, 8> childDescriptorIndices;
+    for (const auto& item : items) { // For each descriptor
+        const auto& descriptor = item.descriptor;
+        if (!descriptor.isEmpty() && !descriptor.isFilled()) { // Not all empty or all filled => inner node
+			childDescriptorIndices.push_back(static_cast<uint32_t>(m_allocator.size()));
+            m_allocator.push_back(static_cast<uint32_t>(descriptor));
+
+			uint32_t innerNodeI = 0;
+			for (int i = 0; i < 8; i++) { // For each child of the descriptor
+                if (descriptor.isValid(i) && !descriptor.isLeaf(i)) { // If child is an inner node
+                    m_allocator.push_back(item.childDescriptorIndices[innerNodeI++]);
+                }
             }
         }
     }
-    return storeDescriptor(DAGDescriptor(descriptor), children);
+    assert(m_allocator.size() < (1 << 16));
+	return childDescriptorIndices;
 }
 
-const SparseVoxelDAG::DAGDescriptor* SparseVoxelDAG::getChild(const DAGDescriptor* descriptor, int idx) const
+const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* descriptor, int idx) const
 {
     uint32_t childMask = (descriptor->validMask ^ descriptor->leafMask) & ((1 << idx) - 1);
     uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
 
     const uint32_t* firstChildPtr = reinterpret_cast<const uint32_t*>(descriptor) + 1;
 
-	uint32_t childIndex;
-	if (activeChildIndex % 2 == 0) {
-		// First child: right 16 bits
-		childIndex = *(firstChildPtr + (activeChildIndex / 2)) & 0xFFFF;
-	} else {
-		// Left child: left 16 bits
-		childIndex = *(firstChildPtr + (activeChildIndex / 2)) >> 16;
-	}
-	return reinterpret_cast<const DAGDescriptor*>(&m_allocator[childIndex]);
-}
+	// 16 bit child indices
+    /*uint32_t childIndex;
+    if (activeChildIndex % 2 == 0) {
+        // First child: right 16 bits
+        childIndex = *(firstChildPtr + (activeChildIndex / 2)) & 0xFFFF;
+    } else {
+        // Left child: left 16 bits
+        childIndex = *(firstChildPtr + (activeChildIndex / 2)) >> 16;
+    }*/
 
-uint16_t SparseVoxelDAG::storeDescriptor(DAGDescriptor descriptor)
-{
-    uint32_t baseIndex = static_cast<uint32_t>(m_allocator.size());
-    m_allocator.push_back(static_cast<uint32_t>(descriptor));
-	return baseIndex;
-}
-
-uint16_t SparseVoxelDAG::storeDescriptor(DAGDescriptor descriptor, gsl::span<uint16_t> children)
-{
-    const uint32_t baseIndex = static_cast<uint32_t>(m_allocator.size());
-
-	m_allocator.push_back(static_cast<uint32_t>(descriptor));
-	for (int i = 0; i < children.size(); i += 2) {
-		uint32_t childrenIndices = 0;// Contains 2 16-bit indices into the allocator array
-		childrenIndices |= children[i];
-		if (i + 1 < children.size()) {
-			childrenIndices |= children[i + 1] << 16;
-		}
-		m_allocator.push_back(childrenIndices);
-	}
-
-	return baseIndex;
+	// 32 bit child indices
+	uint32_t childPtr = *(firstChildPtr + activeChildIndex);
+    return reinterpret_cast<const Descriptor*>(&m_allocator[childPtr]);
 }
 
 std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
@@ -116,7 +185,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
     }
 
     // Initialize the current voxel to the first child of the root
-    const DAGDescriptor* parent = m_dagRootNode;
+    const Descriptor* parent = m_rootNode;
     int idx = 0;
     glm::vec3 pos = glm::vec3(1.0f);
     int scale = CAST_STACK_DEPTH - 1;
@@ -145,7 +214,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
     }
 
     // Traverse voxels along the ray as long as the current voxel stays within the octree
-    std::array<const DAGDescriptor*, CAST_STACK_DEPTH + 1> stack;
+    std::array<const Descriptor*, CAST_STACK_DEPTH + 1> stack;
 
     while (scale < CAST_STACK_DEPTH) {
         // === INTERSECT ===
@@ -155,7 +224,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
 
         // Process voxel if the corresponding bit in the valid mask is set
         int childIndex = 7 - idx ^ octantMask;
-        if (parent->isValid(childIndex)) {// && tMin <= tMax) {
+        if (parent->isValid(childIndex)) { // && tMin <= tMax) {
             // === INTERSECT ===
             float half = scaleExp2 * 0.5f;
             glm::vec3 tCenter = half * tCoef + tCorner;
@@ -165,7 +234,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             }
 
             // === PUSH ===
-			stack[scale] = parent;
+            stack[scale] = parent;
 
             // Find child descriptor corresponding to the current voxel
             parent = getChild(parent, childIndex);

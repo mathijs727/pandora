@@ -7,10 +7,11 @@
 #include <optional>
 #include <tuple>
 #include <glm/glm.hpp>
+#include <EASTL/fixed_vector.h>
 
 namespace pandora {
 
-class SparseVoxelDAG : SparseVoxelOctree
+class SparseVoxelDAG
 {
 public:
 	SparseVoxelDAG(const VoxelGrid& grid);
@@ -21,7 +22,7 @@ public:
 
 private:
 	// NOTE: child pointers are stored directly after the descriptor
-	struct DAGDescriptor
+	struct Descriptor
 	{
 		uint8_t leafMask;
 		uint8_t validMask;
@@ -32,22 +33,30 @@ private:
 		inline bool isValid(int i) const { return validMask & (1 << i); };
 		inline bool isLeaf(int i) const { return (validMask & leafMask) & (1 << i); };
 
-		DAGDescriptor() = default;
-		inline explicit DAGDescriptor(const SVOChildDescriptor& v) { leafMask = v.leafMask; validMask = v.validMask; __padding = 0; };
-		inline explicit DAGDescriptor(uint32_t v) { memcpy(this, &v, sizeof(uint32_t)); };
-		inline explicit operator uint32_t() { return *reinterpret_cast<const uint32_t*>(this); };
+		Descriptor() = default;
+		//inline explicit Descriptor(const SVOChildDescriptor& v) { leafMask = v.leafMask; validMask = v.validMask; __padding = 0; };
+		inline explicit Descriptor(uint32_t v) { memcpy(this, &v, sizeof(uint32_t)); };
+		inline explicit operator uint32_t() const { return *reinterpret_cast<const uint32_t*>(this); };
 	};
-	static_assert(sizeof(DAGDescriptor) == sizeof(uint32_t));
+	static_assert(sizeof(Descriptor) == sizeof(uint32_t));
 
-	uint16_t copySVO(SVOChildDescriptor descriptor);
+	const Descriptor* constructSVO(const VoxelGrid& grid);
 
 	// CAREFULL: don't use this function during DAG construction (while m_allocator is touched)!
-	const DAGDescriptor* getChild(const DAGDescriptor* descriptor, int idx) const;
+	const Descriptor* getChild(const Descriptor* descriptor, int idx) const;
 
-	uint16_t storeDescriptor(DAGDescriptor descriptor);
-	uint16_t storeDescriptor(DAGDescriptor descriptor, gsl::span<uint16_t> children);
+	// SVO construction
+	struct SVOConstructionQueueItem
+	{
+		Descriptor descriptor;
+		eastl::fixed_vector<uint32_t, 8> childDescriptorIndices;
+	};
+	static Descriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
+	static Descriptor makeInnerNode(gsl::span<SVOConstructionQueueItem, 8> children);
+	eastl::fixed_vector<uint32_t, 8> storeDescriptors(gsl::span<SVOConstructionQueueItem> children);
+
 private:
-	const DAGDescriptor* m_dagRootNode;
+	const Descriptor* m_rootNode;
 	std::vector<uint32_t> m_allocator;
 };
 
