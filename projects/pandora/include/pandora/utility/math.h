@@ -211,4 +211,26 @@ inline float erf(float x) {
 	return sign * y;
 }
 
+inline int floatAsInt(float v)
+{
+	static_assert(sizeof(float) == sizeof(unsigned));
+
+	// Using reinterpret_cast might lead to undefined behavior because of illegal type aliasing, use memcpy instead
+	// https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing
+	unsigned r;
+	std::memcpy(&r, &v, sizeof(float));
+	return r;
+}
+
+inline float intAsFloat(int v)
+{
+	static_assert(sizeof(float) == sizeof(int));
+
+	// Using reinterpret_cast might lead to undefined behavior because of illegal type aliasing, use memcpy instead
+	// https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing
+	float r;
+	std::memcpy(&r, &v, sizeof(float));
+	return r;
+}
+
 }

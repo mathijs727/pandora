@@ -36,16 +36,19 @@ SparseVoxelOctree::SparseVoxelOctree(const VoxelGrid& grid)
         return inputMortonCode < finalMortonCode;
     };
 
-    std::vector<eastl::fixed_vector<ChildDescriptor, 8>> queues(depth + 1);
+	m_nodesPerDepthLevel.resize(depth + 1);
+
+    std::vector<eastl::fixed_vector<SVOChildDescriptor, 8>> queues(depth + 1);
     while (hasInput()) {
-        ChildDescriptor l = consume();
+        SVOChildDescriptor l = consume();
         queues[depth].push_back(l);
         int d = depth;
 
         while (d > 0 && queues[d].full()) {
             // Store in allocator (as opposed to store to disk) and create new inner node
-            auto baseIndex = storeDescriptors(queues[d]); // Store first so we know the base index (index of first child)
-            ChildDescriptor p = makeInnerNode(baseIndex, queues[d]);
+            auto [baseIndex, numDescriptorsStored] = storeDescriptors(queues[d]); // Store first so we know the base index (index of first child)
+			m_nodesPerDepthLevel[d] += numDescriptorsStored;
+            SVOChildDescriptor p = makeInnerNode(baseIndex, queues[d]);
 
             queues[d].clear();
             queues[d - 1].push_back(p);
@@ -53,38 +56,18 @@ SparseVoxelOctree::SparseVoxelOctree(const VoxelGrid& grid)
         }
     }
 
-    m_rootNode = queues[0][0];
-}
+    m_svoRootNode = queues[0][0];
 
-static int floatAsInt(float v)
-{
-    static_assert(sizeof(float) == sizeof(unsigned));
-
-    // Using reinterpret_cast might lead to undefined behavior because of illegal type aliasing, use memcpy instead
-    // https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing
-    unsigned r;
-    std::memcpy(&r, &v, sizeof(float));
-    return r;
-}
-
-static float intAsFloat(int v)
-{
-    static_assert(sizeof(float) == sizeof(int));
-
-    // Using reinterpret_cast might lead to undefined behavior because of illegal type aliasing, use memcpy instead
-    // https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing
-    float r;
-    std::memcpy(&r, &v, sizeof(float));
-    return r;
+	std::cout << "Size of SVO: " << (m_allocator.size() * sizeof(decltype(m_allocator)::value_type)) << " bytes" << std::endl;
 }
 
 void SparseVoxelOctree::intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const
 {
-	static_assert(sizeof(ChildDescriptor) == sizeof(uint32_t));
+	static_assert(sizeof(SVOChildDescriptor) == sizeof(uint32_t));
 
 	ispc::SparseVoxelOctree svo;
 	svo.descriptors = reinterpret_cast<const uint32_t*>(m_allocator.data());
-	memcpy(&svo.rootNode, &m_rootNode, sizeof(uint32_t));
+	memcpy(&svo.rootNode, &m_svoRootNode, sizeof(uint32_t));
 	ispc::SparseVoxelOctree_intersect(svo, rays, hits, N);
 }
 
@@ -124,7 +107,7 @@ std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
     }
 
     // Initialize the current voxel to the first child of the root
-    ChildDescriptor parent = m_rootNode;
+    SVOChildDescriptor parent = m_svoRootNode;
     int idx = 0;
     glm::vec3 pos = glm::vec3(1.0f);
     int scale = CAST_STACK_DEPTH - 1;
@@ -154,7 +137,7 @@ std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
 
     // Traverse voxels along the ray as long as the current voxel stays within the octree
     struct StackItem {
-        ChildDescriptor parent;
+        SVOChildDescriptor parent;
         float tMax;
     };
     std::array<StackItem, CAST_STACK_DEPTH + 1> stack;
@@ -280,7 +263,7 @@ std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
 	}
 }
 
-SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::getChild(const ChildDescriptor& descriptor, int idx) const
+SparseVoxelOctree::SVOChildDescriptor SparseVoxelOctree::getChild(const SVOChildDescriptor& descriptor, int idx) const
 {
     /*int activeChildCount = 0;
     for (int i = 0; i < idx; i++) {
@@ -295,7 +278,7 @@ SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::getChild(const ChildDescri
 	return m_allocator[descriptor.childPtr + activeChildIndex];
 }
 
-SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
+SparseVoxelOctree::SVOChildDescriptor SparseVoxelOctree::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
 {
     // Create bit masks
     uint8_t leafMaskBits = 0x0;
@@ -309,19 +292,19 @@ SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::createStagingDescriptor(gs
             validMaskBits |= (1 << i);
 
     // Create temporary descriptor
-    ChildDescriptor descriptor;
+    SVOChildDescriptor descriptor;
     descriptor.childPtr = 0;
     descriptor.validMask = validMaskBits;
     descriptor.leafMask = leafMaskBits;
     return descriptor;
 }
 
-SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::makeInnerNode(uint16_t baseIndex, gsl::span<ChildDescriptor, 8> children)
+SparseVoxelOctree::SVOChildDescriptor SparseVoxelOctree::makeInnerNode(uint16_t baseIndex, gsl::span<SVOChildDescriptor, 8> children)
 {
     std::array<bool, 8> validMask;
     std::array<bool, 8> leafMask;
     for (int i = 0; i < 8; i++) {
-        const ChildDescriptor& child = children[i];
+        const SVOChildDescriptor& child = children[i];
         if (child.isEmpty()) {
             // No children => empty
             validMask[i] = false;
@@ -341,19 +324,20 @@ SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::makeInnerNode(uint16_t bas
     return descriptor;
 }
 
-uint16_t SparseVoxelOctree::storeDescriptors(gsl::span<SparseVoxelOctree::ChildDescriptor> children)
+std::pair<uint16_t, int> SparseVoxelOctree::storeDescriptors(gsl::span<SparseVoxelOctree::SVOChildDescriptor> children)
 {
     uint16_t baseIndex = static_cast<uint16_t>(m_allocator.size());
+	int numDescriptorsStored = 0;
     for (const auto& descriptor : children) {
         if (!descriptor.isEmpty() && !descriptor.isFilled()) // Not all empty or all filled => inner node
         {
             m_allocator.push_back(descriptor);
+			numDescriptorsStored++;
         }
     }
 
     ALWAYS_ASSERT(m_allocator.size() < (1 << 16), "SVO to large, cannot use 16 bits to index");
-
-    return baseIndex;
+	return { baseIndex, numDescriptorsStored };
 }
 
 std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelOctree::generateSurfaceMesh() const
@@ -362,11 +346,11 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelOctree::ge
     std::vector<glm::ivec3> triangles;
 
     struct StackItem {
-        ChildDescriptor descriptor;
+        SVOChildDescriptor descriptor;
         glm::ivec3 start;
         int extent;
     };
-    std::vector<StackItem> stack = { { m_rootNode, glm::ivec3(0), m_resolution } };
+    std::vector<StackItem> stack = { { m_svoRootNode, glm::ivec3(0), m_resolution } };
     while (!stack.empty()) {
         auto stackItem = stack.back();
         stack.pop_back();

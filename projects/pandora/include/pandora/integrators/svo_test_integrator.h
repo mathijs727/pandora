@@ -2,6 +2,7 @@
 #include "pandora/core/pandora.h"
 #include "pandora/core/integrator.h"
 #include "pandora/svo/sparse_voxel_octree.h"
+#include "pandora/svo/sparse_voxel_dag.h"
 
 namespace pandora {
 
@@ -17,7 +18,8 @@ private:
 	void rayHit(const Ray& r, SurfaceInteraction si, const int& s, const InsertHandle& h) override final {};
 	void rayMiss(const Ray& r, const int& s) override final {};
 private:
-	SparseVoxelOctree m_sparseVoxelOctree;
+	//SparseVoxelOctree m_sparseVoxelOctree;
+	SparseVoxelDAG m_sparseVoxelOctree;
 };
 
 }

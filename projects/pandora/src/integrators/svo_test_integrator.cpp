@@ -5,11 +5,11 @@
 #include <tbb/blocked_range2d.h>
 #include <tbb/parallel_for.h>
 
-//#undef PANDORA_ISPC_SUPPORT
+#undef PANDORA_ISPC_SUPPORT
 
 namespace pandora {
 
-SparseVoxelOctree buildSVO(const Scene& scene)
+SparseVoxelDAG buildSVO(const Scene& scene)
 {
     Bounds gridBounds;
     for (const auto& sceneObject : scene.getSceneObjects()) {
@@ -23,7 +23,8 @@ SparseVoxelOctree buildSVO(const Scene& scene)
         meshToVoxelGrid(voxelGrid, gridBounds, mesh);
     }
 
-    return SparseVoxelOctree(voxelGrid);
+    //return SparseVoxelOctree(voxelGrid);
+	return SparseVoxelDAG(voxelGrid);
 }
 
 SVOTestIntegrator::SVOTestIntegrator(const Scene& scene, Sensor& sensor, int spp)
