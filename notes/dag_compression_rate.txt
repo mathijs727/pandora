@@ -1,0 +1,5 @@
+=== DAG compression (dragon, bunny, cornell) @ 128 ===
+
+Original (with LUT clear at each depth level, 32 bit descriptors, no special leaf nodes)
+Separate compression: 62204 + 81832 + 13344 = 157380 bytes
+Compressed together: 153092 bytes
