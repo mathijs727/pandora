@@ -15,9 +15,113 @@ namespace pandora {
 SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
     : m_resolution(grid.resolution())
 {
-    m_rootNode = constructSVO(grid);
+    //m_rootNode = constructSVO(grid);
+	m_rootNode = constructSVOBreadthFirst(grid);
 
     std::cout << "Size of SparseVoxelDAG: " << m_allocator.size() * sizeof(decltype(m_allocator)::value_type) << " bytes" << std::endl;
+}
+
+const SparseVoxelDAG::Descriptor* SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
+{
+    assert(isPowerOf2(m_resolution), "Resolution must be a power of 2"); // Resolution = power of 2
+    int depth = intLog2(m_resolution) - 1;
+
+    struct NodeInfoN1 {
+        uint_fast32_t mortonCode; // Morton code (in level N-1)
+        NodeOffset descriptorOffset; // Offset to the descriptor in m_allocator
+    };
+	std::vector<NodeInfoN1> previousLevelNodes;
+	std::vector<NodeInfoN1> currentLevelNodes;
+
+    // Creates and inserts leaf nodes
+    uint_fast32_t finalMortonCode = static_cast<uint_fast32_t>(m_resolution * m_resolution * m_resolution);
+    for (uint_fast32_t mortonCode = 0; mortonCode < finalMortonCode; mortonCode += 8) {
+        // Create leaf node from 2x2x2 voxel block
+        std::array<bool, 8> leafMask;
+        std::array<bool, 8> validMask;
+        for (uint_fast32_t i = 0; i < 8; i++) {
+            bool v = grid.getMorton(mortonCode + i);
+            validMask[i] = v;
+            leafMask[i] = v;
+        }
+        auto desc = createStagingDescriptor(validMask, leafMask);
+        if (!desc.isEmpty()) {
+			currentLevelNodes.push_back({ mortonCode >> 3, static_cast<NodeOffset>(m_allocator.size()) });
+            m_allocator.push_back(static_cast<uint32_t>(desc));
+        }
+    }
+
+    auto createAndStoreDescriptor = [&](uint8_t childMask, gsl::span<NodeOffset> childrenOffsets) -> NodeOffset {
+		Descriptor d;
+		d.validMask = childMask;
+		d.leafMask = 0x00; // TODO: replace large fully filled regions by one higher level node
+		assert(d.numInnerNodeChildren() == childrenOffsets.size());
+
+		auto offsetInAllocator = static_cast<NodeOffset>(m_allocator.size());
+		m_allocator.push_back(static_cast<uint32_t>(d));
+		if constexpr (std::is_same_v<NodeOffset, std::uint16_t>)
+		{
+			// Store 16-bit child offsets directly after the descriptor itself
+			for (int i = 0; i < childrenOffsets.size(); i += 2) {
+				if (i + 1 < childrenOffsets.size()) {
+					uint32_t offsetPair = childrenOffsets[i] | (childrenOffsets[i + 1] << 16);
+					m_allocator.push_back(offsetPair);
+				} else {
+					uint32_t offsetPair = childrenOffsets[i];
+					m_allocator.push_back(offsetPair);
+				}
+			}
+		} else if (std::is_same_v<NodeOffset, std::uint32_t>) {
+			// Store child offsets directly after the descriptor itself
+			m_allocator.insert(std::end(m_allocator), std::begin(childrenOffsets), std::end(childrenOffsets));
+		} else {
+			static_assert("Unsupported DAG node reference size");
+		}
+		return offsetInAllocator;
+    };
+
+    // Separate vector so m_allocator data doesnt change while inserting new descriptors.
+	NodeOffset finalNodeOffset = 0;
+    for (int N = 0; N < depth; N++) {
+		std::swap(previousLevelNodes, currentLevelNodes);
+		currentLevelNodes.clear();
+
+		uint8_t childMask = 0x00;
+        eastl::fixed_vector<NodeOffset, 8> children;
+
+        uint_fast32_t prevMortonCode = previousLevelNodes[0].mortonCode >> 3;
+        for (unsigned i = 0; i < previousLevelNodes.size(); i++) {
+			const auto& childNodeInfo = previousLevelNodes[i];
+
+            auto mortonCodeN1 = childNodeInfo.mortonCode;
+            auto mortonCodeN = mortonCodeN1 >> 3; // Morton code of this node (level N)
+            if (prevMortonCode != mortonCodeN) {
+
+                // Different morton code: we are finished with the previous node => store it
+				auto offset = createAndStoreDescriptor(childMask, children);
+				currentLevelNodes.push_back({ prevMortonCode, offset });
+
+				childMask = 0x00;
+				children.clear();
+                prevMortonCode = mortonCodeN;
+            }
+
+			auto idx = mortonCodeN1 & ((1 << 3) - 1); // Right most 3 bits
+			assert((childMask & (1 << idx)) == 0); // We should never visit the same child twice
+			childMask |= 1 << idx;
+			children.push_back(childNodeInfo.descriptorOffset);
+        }
+
+		// Store final descriptor
+		auto offset = createAndStoreDescriptor(childMask, children);
+		auto lastNodeMortonCode = (previousLevelNodes.back().mortonCode >> 3);
+		currentLevelNodes.push_back({ prevMortonCode, offset });
+
+		finalNodeOffset = offset;// Keep track of the offset to the root node
+    }
+
+	assert(currentLevelNodes.size() == 1);
+    return reinterpret_cast<const Descriptor*>(&m_allocator[finalNodeOffset]);
 }
 
 const SparseVoxelDAG::Descriptor* SparseVoxelDAG::constructSVO(const VoxelGrid& grid)
@@ -94,7 +198,7 @@ SparseVoxelDAG::Descriptor SparseVoxelDAG::makeInnerNode(gsl::span<SVOConstructi
             // No children => empty
             validMask[i] = false;
             leafMask[i] = false;
-        } else if (child.isFilled()) {
+        } else if (child.isFilledLeaf()) {
             // All children are leafs => leaf
             validMask[i] = true;
             leafMask[i] = true;
@@ -107,18 +211,18 @@ SparseVoxelDAG::Descriptor SparseVoxelDAG::makeInnerNode(gsl::span<SVOConstructi
     return createStagingDescriptor(validMask, leafMask);
 }
 
-eastl::fixed_vector<SparseVoxelDAG::NodePtr, 8> SparseVoxelDAG::storeDescriptors(gsl::span<SVOConstructionQueueItem> items)
+eastl::fixed_vector<SparseVoxelDAG::NodeOffset, 8> SparseVoxelDAG::storeDescriptors(gsl::span<SVOConstructionQueueItem> items)
 {
-    eastl::fixed_vector<NodePtr, 8> descriptorOffsets;
+    eastl::fixed_vector<NodeOffset, 8> descriptorOffsets;
     for (const auto& item : items) { // For each descriptor
         const auto& descriptor = item.descriptor;
         const auto& childDescriptorOffsets = item.childDescriptorOffsets;
 
-        if (!descriptor.isEmpty() && !descriptor.isFilled()) { // Not all empty or all filled => inner node
-            descriptorOffsets.push_back(static_cast<NodePtr>(m_allocator.size()));
+        if (!descriptor.isEmpty() && !descriptor.isFilledLeaf()) { // Not all empty or all filled => inner node
+            descriptorOffsets.push_back(static_cast<NodeOffset>(m_allocator.size()));
             m_allocator.push_back(static_cast<uint32_t>(descriptor));
 
-            if constexpr (std::is_same_v<NodePtr, std::uint16_t>) {
+            if constexpr (std::is_same_v<NodeOffset, std::uint16_t>) {
                 // Store child offsets directly after the descriptor itself
                 for (int i = 0; i < childDescriptorOffsets.size(); i += 2) {
                     if (i + 1 < childDescriptorOffsets.size()) {
@@ -129,7 +233,7 @@ eastl::fixed_vector<SparseVoxelDAG::NodePtr, 8> SparseVoxelDAG::storeDescriptors
                         m_allocator.push_back(offsetPair);
                     }
                 }
-            } else if (std::is_same_v<NodePtr, std::uint32_t>) {
+            } else if (std::is_same_v<NodeOffset, std::uint32_t>) {
                 // Store child offsets directly after the descriptor itself
                 m_allocator.insert(std::end(m_allocator), std::begin(childDescriptorOffsets), std::end(childDescriptorOffsets));
             } else {
@@ -148,7 +252,7 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* des
 
     const uint32_t* firstChildPtr = reinterpret_cast<const uint32_t*>(descriptor) + 1;
 
-    if constexpr (std::is_same_v<NodePtr, std::uint16_t>) {
+    if constexpr (std::is_same_v<NodeOffset, std::uint16_t>) {
         // 16 bit offsets
         uint32_t childOffset;
         if (activeChildIndex % 2 == 0) {
@@ -159,7 +263,7 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* des
             childOffset = *(firstChildPtr + (activeChildIndex / 2)) >> 16;
         }
         return reinterpret_cast<const Descriptor*>(&m_allocator[childOffset]);
-    } else if constexpr (std::is_same_v<NodePtr, std::uint32_t>) {
+    } else if constexpr (std::is_same_v<NodeOffset, std::uint32_t>) {
         // 32 bit child offsets
         uint32_t childOffset = *(firstChildPtr + activeChildIndex);
         return reinterpret_cast<const Descriptor*>(&m_allocator[childOffset]);
@@ -378,7 +482,7 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
                 if (!stackItem.descriptor->isLeaf(i)) {
                     //uint32_t childOffset = *(reinterpret_cast<const uint32_t*>(stackItem.descriptor) + childID++);
                     //const auto* childDescriptor = reinterpret_cast<const Descriptor*>(&m_allocator[childOffset]);
-					const auto* childDescriptor = getChild(stackItem.descriptor, i);
+                    const auto* childDescriptor = getChild(stackItem.descriptor, i);
                     stack.push_back(StackItem { childDescriptor, cubeStart, halfExtent });
                 } else {
                     // https://github.com/ddiakopoulos/tinyply/blob/master/source/example.cpp

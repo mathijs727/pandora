@@ -48,7 +48,7 @@ int main()
     for (const auto& mesh : meshes)
         gridBounds.extend(mesh->getBounds());
 
-    VoxelGrid voxelGrid(128);
+    VoxelGrid voxelGrid(32);
     using clock = std::chrono::high_resolution_clock;
     {
         auto start = clock::now();
@@ -61,8 +61,8 @@ int main()
     }
 
     auto svoConstructionStart = clock::now();
-    SparseVoxelOctree svo(voxelGrid);
-	//SparseVoxelDAG svo(voxelGrid);
+    //SparseVoxelOctree svo(voxelGrid);
+	SparseVoxelDAG svo(voxelGrid);
     auto svoConstructionEnd = clock::now();
     auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(svoConstructionEnd - svoConstructionStart);
     std::cout << "Time to construct SVO: " << timeDelta.count() / 1000.0f << "ms" << std::endl;

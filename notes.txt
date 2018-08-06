@@ -40,6 +40,7 @@ For now, the table approach is also left out, assuming that 16 bit offsets (from
 
 Implementation is quite straight forward although the paper is not super clear on how to replace fully empty/filled nodes by a single parent.
 
+
 === Traversal ===
 Based on:
 http://research.nvidia.com/sites/default/files/pubs/2010-02_Efficient-Sparse-Voxel/laine2010i3d_paper.pdf
@@ -50,6 +51,16 @@ So leave out the tmax = min(tmax, 1.0f) part
 
 Not mentioned in the paper but used explicitely in the code: stack size of 23+1 because scale becomes 24 when it gets be low 1.0
 
- => Uses normal casting, reinterpret casting, bitshifting and arithmatic to compute the highest differing bit (computing scale in POP). Could use bitscan instead (probably faster + easier to reason about).
+=> Uses normal casting, reinterpret casting, bitshifting and arithmatic to compute the highest differing bit (computing scale in POP). Could use bitscan instead (probably faster + easier to reason about).
 
- Reinterpet int to float to efficiently & precisely calculate scaleExp2
+Reinterpet int to float to efficiently & precisely calculate scaleExp2
+
+
+=== Sparse Voxel DAG compression ===
+For compression the nodes need to be visited in breadth-first order. The construction method used for the SVO constructs the tree depth first. This means that all nodes of a single level are NOT all adjacent in memory. All nodes of a single level could be extracted through a breadth-first traversal.
+
+Because of performance concerns I plan instead on using a different (slightly more complicated) breadth-first construction algorithm based on the voxelization paper. The paper voxelizes the mesh twice, once for allocating the octree nodes and the second time to fill the leaf nodes. The paper also suggests some changes to make the resulting SVO 6-seperating although the algorithm can be adjusted to make it conservative.
+
+In my work I'm not concerned with parallel construction of the SVO nor with very strict memory requirements because the models are thought to be very compact. So I will keep voxelization completely seperated from SVO construction. In practice, the algorithm skips the first paragraph of section 5.1 and does not keep track of x-neighbours or parent pointers.
+
+NOTE: this algorithm will build down the the lowest level for completely filled areas, but not for completely empty areas

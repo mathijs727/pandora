@@ -22,6 +22,8 @@ public:
 
 	std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 private:
+	using NodeOffset = uint32_t;
+
 	// NOTE: child pointers are stored directly after the descriptor
 	struct Descriptor
 	{
@@ -29,10 +31,11 @@ private:
 		uint8_t validMask;
 		uint16_t __padding;
 
-		inline bool isEmpty() const { return validMask == 0x0; };
-		inline bool isFilled() const { return (validMask & leafMask) == 0xFF; };
+		inline bool isEmpty() const { return validMask == 0x0; };// Completely empty node
+		inline bool isFilledLeaf() const { return (validMask & leafMask) == 0xFF; };// Completely filled leaf node
 		inline bool isValid(int i) const { return validMask & (1 << i); };
 		inline bool isLeaf(int i) const { return (validMask & leafMask) & (1 << i); };
+		inline int numInnerNodeChildren() const { return _mm_popcnt_u32(validMask & ~leafMask); };
 
 		Descriptor() = default;
 		//inline explicit Descriptor(const SVOChildDescriptor& v) { leafMask = v.leafMask; validMask = v.validMask; __padding = 0; };
@@ -41,22 +44,21 @@ private:
 	};
 	static_assert(sizeof(Descriptor) == sizeof(uint32_t));
 
+	const Descriptor* constructSVOBreadthFirst(const VoxelGrid& grid);
 	const Descriptor* constructSVO(const VoxelGrid& grid);
 
 	// CAREFULL: don't use this function during DAG construction (while m_allocator is touched)!
 	const Descriptor* getChild(const Descriptor* descriptor, int idx) const;
 
-	using NodePtr = uint32_t;
-
 	// SVO construction
 	struct SVOConstructionQueueItem
 	{
 		Descriptor descriptor;
-		eastl::fixed_vector<NodePtr, 8> childDescriptorOffsets;
+		eastl::fixed_vector<NodeOffset, 8> childDescriptorOffsets;
 	};
 	static Descriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
 	static Descriptor makeInnerNode(gsl::span<SVOConstructionQueueItem, 8> children);
-	eastl::fixed_vector<NodePtr, 8> storeDescriptors(gsl::span<SVOConstructionQueueItem> children);
+	eastl::fixed_vector<NodeOffset, 8> storeDescriptors(gsl::span<SVOConstructionQueueItem> children);
 
 private:
 	int m_resolution;
