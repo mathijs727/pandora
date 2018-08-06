@@ -205,7 +205,7 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
         }
     }
 
-    for (int d = 1; d < maxTreeDepth; d++) {
+    for (size_t d = 1; d < maxTreeDepth; d++) {
         for (auto& svo : svos) {
             // Replace child offsets to offsets within the new node array (containing unique leafs)
             auto [start, end] = svo.m_treeLevels[d];
@@ -236,7 +236,7 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 		}
     }
 
-	assert(lut.size() == svos.size());
+	assert(lut.size() == (size_t)svos.size());
 	for (auto& svo : svos) {
 		svo.m_rootNodeOffset = storeDescriptor(svo.m_data + svo.m_rootNodeOffset);
 		svo.m_data = allocator.data();
@@ -436,7 +436,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
         float tcMax = minComponent(tCorner);
 
         // Process voxel if the corresponding bit in the valid mask is set
-        int childIndex = 7 - idx ^ octantMask;
+        int childIndex = 7 - (idx ^ octantMask);
         if (parent->isValid(childIndex)) { // && tMin <= tMax) {
             // === INTERSECT ===
             float half = scaleExp2 * 0.5f;
