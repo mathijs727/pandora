@@ -6,7 +6,10 @@
 #include <optional>
 #include <tuple>
 #include <glm/glm.hpp>
+
+#ifdef PANDORA_ISPC_SUPPORT
 #include "sparse_voxel_octree_traversal_ispc.h"
+#endif
 
 namespace pandora
 {

@@ -23,6 +23,7 @@ arch:
   - assimp
   - openimageio
   - flatbuffers
+  - boost
   # Required by openimageio but for some reason not marked as dependency
   - freetype2
 

@@ -3,11 +3,10 @@
 #include "glm/gtc/quaternion.hpp"
 #include "pandora/core/ray.h"
 #include "pandora/core/sensor.h"
+#include "pandora/core/sampler.h"
 #include <gsl/span>
 
 namespace pandora {
-
-struct CameraSample;
 
 class PerspectiveCamera {
 public:
