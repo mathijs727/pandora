@@ -9,7 +9,8 @@
 
 namespace pandora {
 
-SparseVoxelDAG buildSVO(const Scene& scene)
+template <typename OctreeType>
+OctreeType buildSVO(const Scene& scene)
 {
     Bounds gridBounds;
     for (const auto& sceneObject : scene.getSceneObjects()) {
@@ -23,13 +24,12 @@ SparseVoxelDAG buildSVO(const Scene& scene)
         meshToVoxelGrid(voxelGrid, gridBounds, mesh);
     }
 
-    //return SparseVoxelOctree(voxelGrid);
-	return SparseVoxelDAG(voxelGrid);
+    return OctreeType(voxelGrid);
 }
 
 SVOTestIntegrator::SVOTestIntegrator(const Scene& scene, Sensor& sensor, int spp)
     : Integrator(scene, sensor, spp)
-    , m_sparseVoxelOctree(buildSVO(scene))
+    , m_sparseVoxelOctree(std::move(buildSVO<OctreeType>(scene)))
 {
 }
 

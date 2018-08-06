@@ -56,6 +56,8 @@ SparseVoxelOctree::SparseVoxelOctree(const VoxelGrid& grid)
     m_rootNode = queues[0][0];
 
 	ALWAYS_ASSERT(m_allocator.size() < (1 << 16), "SVO to large, cannot use 16 bits to index");
+	m_allocator.shrink_to_fit();
+
 	std::cout << "Size of SVO: " << (m_allocator.size() * sizeof(decltype(m_allocator)::value_type)) << " bytes" << std::endl;
 }
 

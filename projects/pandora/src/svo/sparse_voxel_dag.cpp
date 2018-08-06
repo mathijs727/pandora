@@ -16,12 +16,14 @@ SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
     : m_resolution(grid.resolution())
 {
     //m_rootNode = constructSVO(grid);
-    m_rootNode = constructSVOBreadthFirst(grid);
+	m_rootNodeOffset = constructSVOBreadthFirst(grid);
+	m_allocator.shrink_to_fit();
+	m_data = m_allocator.data();
 
-    std::cout << "Size of SparseVoxelDAG: " << m_allocator.size() * sizeof(decltype(m_allocator)::value_type) << " bytes" << std::endl;
+	std::cout << "Size of SparseVoxelDAG before compression: " << m_allocator.size() * sizeof(decltype(m_allocator)::value_type) << " bytes" << std::endl;
 }
 
-const SparseVoxelDAG::Descriptor* SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
+SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
 {
     ALWAYS_ASSERT(isPowerOf2(m_resolution), "Resolution must be a power of 2"); // Resolution = power of 2
     int depth = intLog2(m_resolution) - 1;
@@ -125,10 +127,10 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::constructSVOBreadthFirst(const
     }
 
     assert(currentLevelNodes.size() == 1);
-    return reinterpret_cast<const Descriptor*>(&m_allocator[finalNodeOffset]);
+    return finalNodeOffset;
 }
 
-const SparseVoxelDAG::Descriptor* SparseVoxelDAG::constructSVO(const VoxelGrid& grid)
+SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVO(const VoxelGrid& grid)
 {
     uint_fast32_t resolution = static_cast<uint_fast32_t>(grid.resolution());
     int depth = intLog2(resolution) - 1;
@@ -169,7 +171,7 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::constructSVO(const VoxelGrid& 
 
     ALWAYS_ASSERT(queues[0].size() == 1, "LOGIC ERROR");
     auto rootNodeIndex = storeDescriptors(queues[0])[0];
-    return reinterpret_cast<const Descriptor*>(&m_allocator[rootNodeIndex]);
+    return rootNodeIndex;
 }
 
 SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
@@ -242,7 +244,7 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* des
     const NodeOffset* firstChildPtr = reinterpret_cast<const NodeOffset*>(descriptor) + 1;
 
 	NodeOffset childOffset = *(firstChildPtr + activeChildIndex);
-	return reinterpret_cast<const Descriptor*>(&m_allocator[childOffset]);
+	return reinterpret_cast<const Descriptor*>(m_data + childOffset);
 }
 
 std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
@@ -281,7 +283,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
     }
 
     // Initialize the current voxel to the first child of the root
-    const Descriptor* parent = m_rootNode;
+    const Descriptor* parent = reinterpret_cast<const Descriptor*>(m_data + m_rootNodeOffset);
     int idx = 0;
     glm::vec3 pos = glm::vec3(1.0f);
     int scale = CAST_STACK_DEPTH - 1;
@@ -436,7 +438,7 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
         glm::ivec3 start;
         int extent;
     };
-    std::vector<StackItem> stack = { { m_rootNode, glm::ivec3(0), m_resolution } };
+    std::vector<StackItem> stack = { { reinterpret_cast<const Descriptor*>(m_data + m_rootNodeOffset), glm::ivec3(0), m_resolution } };
     while (!stack.empty()) {
         auto stackItem = stack.back();
         stack.pop_back();

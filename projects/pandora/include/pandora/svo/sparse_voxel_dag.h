@@ -8,12 +8,14 @@
 #include <optional>
 #include <tuple>
 #include <vector>
+#include <memory>
 
 namespace pandora {
 
 class SparseVoxelDAG {
 public:
-    SparseVoxelDAG(const VoxelGrid& grid);
+	SparseVoxelDAG(const VoxelGrid& grid);
+	SparseVoxelDAG(SparseVoxelDAG&&) = default;
     ~SparseVoxelDAG() = default;
 
     //void intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const;
@@ -22,7 +24,7 @@ public:
     std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 
 private:
-    using NodeOffset = uint16_t; // Either uint32_t or uint16_t
+    using NodeOffset = uint32_t; // Either uint32_t or uint16_t
 
     // NOTE: child pointers are stored directly after the descriptor
     struct Descriptor {
@@ -42,8 +44,8 @@ private:
     };
     static_assert(sizeof(Descriptor) == sizeof(uint16_t));
 
-    const Descriptor* constructSVOBreadthFirst(const VoxelGrid& grid);
-    const Descriptor* constructSVO(const VoxelGrid& grid);
+    NodeOffset constructSVOBreadthFirst(const VoxelGrid& grid);
+    NodeOffset constructSVO(const VoxelGrid& grid);
 
     // CAREFULL: don't use this function during DAG construction (while m_allocator is touched)!
     const Descriptor* getChild(const Descriptor* descriptor, int idx) const;
@@ -59,8 +61,10 @@ private:
 
 private:
     int m_resolution;
-    const Descriptor* m_rootNode;
+    
+	NodeOffset m_rootNodeOffset;
     std::vector<NodeOffset> m_allocator;
+	NodeOffset* m_data;
 };
 
 }

@@ -29,16 +29,16 @@ Debugging in ISPC is hard since there is no debugger support on Windows (just pr
 
 
 === Sparse Voxel Octree ===
-Paper describes how to create a SVO from the voxel grid (in parallel) but I could not properly understand it.
-Using another paper on out-of-core construction for now (leaving out the out-of-core stuff):
+Paper used for SVO construction:
 http://graphics.cs.kuleuven.be/publications/BLD13OCCSVO/BLD13OCCSVO_paper.pdf
 
-Octree node layout based on "Efficient Sparse Voxel Octrees" (because its space efficient: 32 bits per node):
+Octree node layout based on "Efficient Sparse Voxel Octrees":
 http://research.nvidia.com/sites/default/files/pubs/2010-02_Efficient-Sparse-Voxel/laine2010i3d_paper.pdf
 The contour part is left out; images in the paper suggest that they are conservative. But it uses more memory, removes the possibility for DAGs, and would not improve occlusion culling by that much.
-For now, the table approach is also left out, assuming that 16 bit offsets (from the start of the array) are enough to store the entire tree.
+For now, the jump table is also left out; assuming that 16 bit offsets (from the start of the array) is enough to store the entire tree.
 
-Implementation is quite straight forward although the paper is not super clear on how to replace fully empty/filled nodes by a single parent.
+TODO: make leaf nodes 16 bit in size by removing the (unused) first child offset
+TODO: improve performance by switching to the more complicated algorithm presented in the paper
 
 
 === Traversal ===
@@ -63,4 +63,4 @@ Because of performance concerns I plan instead on using a different (slightly mo
 
 In my work I'm not concerned with parallel construction of the SVO nor with very strict memory requirements because the models are thought to be very compact. So I will keep voxelization completely seperated from SVO construction. In practice, the algorithm skips the first paragraph of section 5.1 and does not keep track of x-neighbours or parent pointers.
 
-NOTE: this algorithm will build down the the lowest level for completely filled areas, but not for completely empty areas
+NOTE: the data layout suggested in the paper is not sparse (it subdivides to the lowest level) for fully filled regions. I use an extra 8 bit mask (in memory that would have otherwise have been unused) to store which children are leafs (just like in Efficient Sparse Voxel Octrees).

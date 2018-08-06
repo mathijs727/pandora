@@ -1,0 +1,2 @@
+Trade in CPU time for reduced disk accesses ==> favourable in this time of ever increasing CPU core counts
+ ==> not necessarily power inefficient either considering it takes time for CPUs to clock up/down
