@@ -61,6 +61,7 @@ SparseVoxelOctree::SparseVoxelOctree(const VoxelGrid& grid)
 	std::cout << "Size of SVO: " << (m_allocator.size() * sizeof(decltype(m_allocator)::value_type)) << " bytes" << std::endl;
 }
 
+#ifdef PANDORA_ISPC_SUPPORT
 void SparseVoxelOctree::intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const
 {
 	static_assert(sizeof(ChildDescriptor) == sizeof(uint32_t));
@@ -70,6 +71,7 @@ void SparseVoxelOctree::intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int 
 	memcpy(&svo.rootNode, &m_rootNode, sizeof(uint32_t));
 	ispc::SparseVoxelOctree_intersect(svo, rays, hits, N);
 }
+#endif
 
 std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
 {
@@ -145,7 +147,7 @@ std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
         float tcMax = minComponent(tCorner);
 
         // Process voxel if the corresponding bit in the valid mask is set
-        int childIndex = 7 - idx ^ octantMask;
+        int childIndex = 7 - (idx ^ octantMask);
         if (parent.isValid(childIndex)) {
             // === INTERSECT ===
             float half = scaleExp2 * 0.5f;
