@@ -16,22 +16,24 @@ SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
     : m_resolution(grid.resolution())
 {
     //m_rootNode = constructSVO(grid);
-	m_rootNode = constructSVOBreadthFirst(grid);
+    m_rootNode = constructSVOBreadthFirst(grid);
 
     std::cout << "Size of SparseVoxelDAG: " << m_allocator.size() * sizeof(decltype(m_allocator)::value_type) << " bytes" << std::endl;
 }
 
 const SparseVoxelDAG::Descriptor* SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
 {
-    assert(isPowerOf2(m_resolution), "Resolution must be a power of 2"); // Resolution = power of 2
+    ALWAYS_ASSERT(isPowerOf2(m_resolution), "Resolution must be a power of 2"); // Resolution = power of 2
     int depth = intLog2(m_resolution) - 1;
 
     struct NodeInfoN1 {
         uint_fast32_t mortonCode; // Morton code (in level N-1)
-        NodeOffset descriptorOffset; // Offset to the descriptor in m_allocator
+            // Offset to the descriptor in m_allocator. If not set than this is node is fully filled which should
+            //  be propegated up the tree.
+        std::optional<NodeOffset> descriptorOffset;
     };
-	std::vector<NodeInfoN1> previousLevelNodes;
-	std::vector<NodeInfoN1> currentLevelNodes;
+    std::vector<NodeInfoN1> previousLevelNodes;
+    std::vector<NodeInfoN1> currentLevelNodes;
 
     // Creates and inserts leaf nodes
     uint_fast32_t finalMortonCode = static_cast<uint_fast32_t>(m_resolution * m_resolution * m_resolution);
@@ -45,82 +47,97 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::constructSVOBreadthFirst(const
             leafMask[i] = v;
         }
         auto desc = createStagingDescriptor(validMask, leafMask);
-        if (!desc.isEmpty()) {
-			currentLevelNodes.push_back({ mortonCode >> 3, static_cast<NodeOffset>(m_allocator.size()) });
+        if (desc.isFilledLeaf()) {
+            currentLevelNodes.push_back({ mortonCode >> 3, {} });
+        } else if (!desc.isEmpty()) {
+            currentLevelNodes.push_back({ mortonCode >> 3, static_cast<NodeOffset>(m_allocator.size()) });
             m_allocator.push_back(static_cast<uint32_t>(desc));
         }
     }
 
-    auto createAndStoreDescriptor = [&](uint8_t childMask, gsl::span<NodeOffset> childrenOffsets) -> NodeOffset {
-		Descriptor d;
-		d.validMask = childMask;
-		d.leafMask = 0x00; // TODO: replace large fully filled regions by one higher level node
-		assert(d.numInnerNodeChildren() == childrenOffsets.size());
+    auto createAndStoreDescriptor = [&](uint8_t validMask, uint8_t leafMask, gsl::span<NodeOffset> childrenOffsets) -> NodeOffset {
+        Descriptor d;
+        d.validMask = validMask;
+        d.leafMask = leafMask;
+        assert(d.numInnerNodeChildren() == childrenOffsets.size());
 
-		auto offsetInAllocator = static_cast<NodeOffset>(m_allocator.size());
-		m_allocator.push_back(static_cast<uint32_t>(d));
-		if constexpr (std::is_same_v<NodeOffset, std::uint16_t>)
-		{
-			// Store 16-bit child offsets directly after the descriptor itself
-			for (int i = 0; i < childrenOffsets.size(); i += 2) {
-				if (i + 1 < childrenOffsets.size()) {
-					uint32_t offsetPair = childrenOffsets[i] | (childrenOffsets[i + 1] << 16);
-					m_allocator.push_back(offsetPair);
-				} else {
-					uint32_t offsetPair = childrenOffsets[i];
-					m_allocator.push_back(offsetPair);
-				}
-			}
-		} else if (std::is_same_v<NodeOffset, std::uint32_t>) {
-			// Store child offsets directly after the descriptor itself
-			m_allocator.insert(std::end(m_allocator), std::begin(childrenOffsets), std::end(childrenOffsets));
-		} else {
-			static_assert("Unsupported DAG node reference size");
-		}
-		return offsetInAllocator;
+        auto offsetInAllocator = static_cast<NodeOffset>(m_allocator.size());
+        m_allocator.push_back(static_cast<uint32_t>(d));
+        if constexpr (std::is_same_v<NodeOffset, std::uint16_t>) {
+            // Store 16-bit child offsets directly after the descriptor itself
+            for (int i = 0; i < childrenOffsets.size(); i += 2) {
+                if (i + 1 < childrenOffsets.size()) {
+                    uint32_t offsetPair = childrenOffsets[i] | (childrenOffsets[i + 1] << 16);
+                    m_allocator.push_back(offsetPair);
+                } else {
+                    uint32_t offsetPair = childrenOffsets[i];
+                    m_allocator.push_back(offsetPair);
+                }
+            }
+        } else if (std::is_same_v<NodeOffset, std::uint32_t>) {
+            // Store child offsets directly after the descriptor itself
+            m_allocator.insert(std::end(m_allocator), std::begin(childrenOffsets), std::end(childrenOffsets));
+        } else {
+            static_assert("Unsupported DAG node reference size");
+        }
+        return offsetInAllocator;
     };
 
     // Separate vector so m_allocator data doesnt change while inserting new descriptors.
-	NodeOffset finalNodeOffset = 0;
+    NodeOffset finalNodeOffset = 0;
     for (int N = 0; N < depth; N++) {
-		std::swap(previousLevelNodes, currentLevelNodes);
-		currentLevelNodes.clear();
+        std::swap(previousLevelNodes, currentLevelNodes);
+        currentLevelNodes.clear();
 
-		uint8_t childMask = 0x00;
+        uint8_t validMask = 0x00;
+        uint8_t leafMask = 0x00;
         eastl::fixed_vector<NodeOffset, 8> children;
 
         uint_fast32_t prevMortonCode = previousLevelNodes[0].mortonCode >> 3;
         for (unsigned i = 0; i < previousLevelNodes.size(); i++) {
-			const auto& childNodeInfo = previousLevelNodes[i];
+            const auto& childNodeInfo = previousLevelNodes[i];
 
             auto mortonCodeN1 = childNodeInfo.mortonCode;
             auto mortonCodeN = mortonCodeN1 >> 3; // Morton code of this node (level N)
             if (prevMortonCode != mortonCodeN) {
 
-                // Different morton code: we are finished with the previous node => store it
-				auto offset = createAndStoreDescriptor(childMask, children);
-				currentLevelNodes.push_back({ prevMortonCode, offset });
+                if (leafMask == 0xFF) {
+                    currentLevelNodes.push_back({ prevMortonCode, {} });
+                } else {
+                    // Different morton code: we are finished with the previous node => store it
+                    auto offset = createAndStoreDescriptor(validMask, leafMask, children);
+                    currentLevelNodes.push_back({ prevMortonCode, offset });
+                }
 
-				childMask = 0x00;
-				children.clear();
+                validMask = 0;
+				leafMask = 0;
+                children.clear();
                 prevMortonCode = mortonCodeN;
             }
 
-			auto idx = mortonCodeN1 & ((1 << 3) - 1); // Right most 3 bits
-			assert((childMask & (1 << idx)) == 0); // We should never visit the same child twice
-			childMask |= 1 << idx;
-			children.push_back(childNodeInfo.descriptorOffset);
+            auto idx = mortonCodeN1 & ((1 << 3) - 1); // Right most 3 bits
+            assert((validMask & (1 << idx)) == 0); // We should never visit the same child twice
+            validMask |= 1 << idx;
+            if (childNodeInfo.descriptorOffset) {
+                children.push_back(*childNodeInfo.descriptorOffset);
+			} else {
+                leafMask |= 1 << idx;
+			}
         }
 
-		// Store final descriptor
-		auto offset = createAndStoreDescriptor(childMask, children);
-		auto lastNodeMortonCode = (previousLevelNodes.back().mortonCode >> 3);
-		currentLevelNodes.push_back({ prevMortonCode, offset });
-
-		finalNodeOffset = offset;// Keep track of the offset to the root node
+        // Store final descriptor
+        if (leafMask == 0xFF && N != (depth - 1)) {
+            currentLevelNodes.push_back({ prevMortonCode, {} });
+        } else {
+            auto offset = createAndStoreDescriptor(validMask, leafMask, children);
+            auto lastNodeMortonCode = (previousLevelNodes.back().mortonCode >> 3);
+            assert(lastNodeMortonCode == prevMortonCode);
+            currentLevelNodes.push_back({ prevMortonCode, offset });
+            finalNodeOffset = offset; // Keep track of the offset to the root node
+        }
     }
 
-	assert(currentLevelNodes.size() == 1);
+    assert(currentLevelNodes.size() == 1);
     return reinterpret_cast<const Descriptor*>(&m_allocator[finalNodeOffset]);
 }
 

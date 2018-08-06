@@ -35,7 +35,7 @@ private:
 		inline bool isFilledLeaf() const { return (validMask & leafMask) == 0xFF; };// Completely filled leaf node
 		inline bool isValid(int i) const { return validMask & (1 << i); };
 		inline bool isLeaf(int i) const { return (validMask & leafMask) & (1 << i); };
-		inline int numInnerNodeChildren() const { return _mm_popcnt_u32(validMask & ~leafMask); };
+		inline int numInnerNodeChildren() const { return _mm_popcnt_u32(validMask ^ leafMask); };
 
 		Descriptor() = default;
 		//inline explicit Descriptor(const SVOChildDescriptor& v) { leafMask = v.leafMask; validMask = v.validMask; __padding = 0; };

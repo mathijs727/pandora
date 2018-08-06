@@ -55,6 +55,7 @@ SparseVoxelOctree::SparseVoxelOctree(const VoxelGrid& grid)
 
     m_rootNode = queues[0][0];
 
+	ALWAYS_ASSERT(m_allocator.size() < (1 << 16), "SVO to large, cannot use 16 bits to index");
 	std::cout << "Size of SVO: " << (m_allocator.size() * sizeof(decltype(m_allocator)::value_type)) << " bytes" << std::endl;
 }
 
@@ -251,14 +252,6 @@ std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
 
 SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::getChild(const ChildDescriptor& descriptor, int idx) const
 {
-    /*int activeChildCount = 0;
-    for (int i = 0; i < idx; i++) {
-        if (descriptor.isValid(i) && !descriptor.isLeaf(i)) {
-            activeChildCount++;
-        }
-    }
-    return m_allocator[descriptor.childPtr + activeChildCount];*/
-
 	uint32_t childMask = (descriptor.validMask ^ descriptor.leafMask) & ((1 << idx) - 1);
 	uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
 	return m_allocator[descriptor.childPtr + activeChildIndex];
@@ -320,7 +313,6 @@ uint16_t SparseVoxelOctree::storeDescriptors(gsl::span<SparseVoxelOctree::ChildD
         }
     }
 
-    assert(m_allocator.size() < (1 << 16), "SVO to large, cannot use 16 bits to index");
 	return baseIndex;
 }
 
