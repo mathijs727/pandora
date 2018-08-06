@@ -19,6 +19,7 @@ Pandora uses the following third-party libraries:
  - [mio](https://github.com/mandreyel/mio) (bundled)
  - [flatbuffers](https://github.com/google/flatbuffers)
  - [libmorton](https://github.com/Forceflow/libmorton)
+ - [Boost Hash](https://www.boost.org/)
  - [Google Test](https://github.com/google/googletest) (only when tests are enabled)
 
 In addition Atlas, the real-time viewer, requires:
