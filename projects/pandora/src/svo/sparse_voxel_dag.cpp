@@ -51,7 +51,7 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::constructSVOBreadthFirst(const
             currentLevelNodes.push_back({ mortonCode >> 3, {} });
         } else if (!desc.isEmpty()) {
             currentLevelNodes.push_back({ mortonCode >> 3, static_cast<NodeOffset>(m_allocator.size()) });
-            m_allocator.push_back(static_cast<uint32_t>(desc));
+            m_allocator.push_back(static_cast<NodeOffset>(desc));
         }
     }
 
@@ -62,24 +62,11 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::constructSVOBreadthFirst(const
         assert(d.numInnerNodeChildren() == childrenOffsets.size());
 
         auto offsetInAllocator = static_cast<NodeOffset>(m_allocator.size());
-        m_allocator.push_back(static_cast<uint32_t>(d));
-        if constexpr (std::is_same_v<NodeOffset, std::uint16_t>) {
-            // Store 16-bit child offsets directly after the descriptor itself
-            for (int i = 0; i < childrenOffsets.size(); i += 2) {
-                if (i + 1 < childrenOffsets.size()) {
-                    uint32_t offsetPair = childrenOffsets[i] | (childrenOffsets[i + 1] << 16);
-                    m_allocator.push_back(offsetPair);
-                } else {
-                    uint32_t offsetPair = childrenOffsets[i];
-                    m_allocator.push_back(offsetPair);
-                }
-            }
-        } else if (std::is_same_v<NodeOffset, std::uint32_t>) {
-            // Store child offsets directly after the descriptor itself
-            m_allocator.insert(std::end(m_allocator), std::begin(childrenOffsets), std::end(childrenOffsets));
-        } else {
-            static_assert("Unsupported DAG node reference size");
-        }
+        m_allocator.push_back(static_cast<NodeOffset>(d));
+        
+		// Store child offsets directly after the descriptor itself
+		m_allocator.insert(std::end(m_allocator), std::begin(childrenOffsets), std::end(childrenOffsets));
+
         return offsetInAllocator;
     };
 
@@ -126,7 +113,7 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::constructSVOBreadthFirst(const
         }
 
         // Store final descriptor
-        if (leafMask == 0xFF && N != (depth - 1)) {
+        if (leafMask == 0xFF) {
             currentLevelNodes.push_back({ prevMortonCode, {} });
         } else {
             auto offset = createAndStoreDescriptor(validMask, leafMask, children);
@@ -237,25 +224,10 @@ eastl::fixed_vector<SparseVoxelDAG::NodeOffset, 8> SparseVoxelDAG::storeDescript
 
         if (!descriptor.isEmpty() && !descriptor.isFilledLeaf()) { // Not all empty or all filled => inner node
             descriptorOffsets.push_back(static_cast<NodeOffset>(m_allocator.size()));
-            m_allocator.push_back(static_cast<uint32_t>(descriptor));
+            m_allocator.push_back(static_cast<NodeOffset>(descriptor));
 
-            if constexpr (std::is_same_v<NodeOffset, std::uint16_t>) {
-                // Store child offsets directly after the descriptor itself
-                for (int i = 0; i < childDescriptorOffsets.size(); i += 2) {
-                    if (i + 1 < childDescriptorOffsets.size()) {
-                        uint32_t offsetPair = childDescriptorOffsets[i] | (childDescriptorOffsets[i + 1] << 16);
-                        m_allocator.push_back(offsetPair);
-                    } else {
-                        uint32_t offsetPair = childDescriptorOffsets[i];
-                        m_allocator.push_back(offsetPair);
-                    }
-                }
-            } else if (std::is_same_v<NodeOffset, std::uint32_t>) {
-                // Store child offsets directly after the descriptor itself
-                m_allocator.insert(std::end(m_allocator), std::begin(childDescriptorOffsets), std::end(childDescriptorOffsets));
-            } else {
-                static_assert("Unsupported DAG node reference size");
-            }
+			// Store child offsets directly after the descriptor itself
+			m_allocator.insert(std::end(m_allocator), std::begin(childDescriptorOffsets), std::end(childDescriptorOffsets));
         }
     }
     assert(m_allocator.size() < (1 << 16));
@@ -267,27 +239,10 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* des
     uint32_t childMask = (descriptor->validMask ^ descriptor->leafMask) & ((1 << idx) - 1);
     uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
 
-    const uint32_t* firstChildPtr = reinterpret_cast<const uint32_t*>(descriptor) + 1;
+    const NodeOffset* firstChildPtr = reinterpret_cast<const NodeOffset*>(descriptor) + 1;
 
-    if constexpr (std::is_same_v<NodeOffset, std::uint16_t>) {
-        // 16 bit offsets
-        uint32_t childOffset;
-        if (activeChildIndex % 2 == 0) {
-            // First child: right 16 bits
-            childOffset = *(firstChildPtr + (activeChildIndex / 2)) & 0xFFFF;
-        } else {
-            // Left child: left 16 bits
-            childOffset = *(firstChildPtr + (activeChildIndex / 2)) >> 16;
-        }
-        return reinterpret_cast<const Descriptor*>(&m_allocator[childOffset]);
-    } else if constexpr (std::is_same_v<NodeOffset, std::uint32_t>) {
-        // 32 bit child offsets
-        uint32_t childOffset = *(firstChildPtr + activeChildIndex);
-        return reinterpret_cast<const Descriptor*>(&m_allocator[childOffset]);
-    } else {
-        static_assert("Unsupported DAG node reference size");
-        return nullptr;
-    }
+	NodeOffset childOffset = *(firstChildPtr + activeChildIndex);
+	return reinterpret_cast<const Descriptor*>(&m_allocator[childOffset]);
 }
 
 std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
