@@ -51,7 +51,7 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
             leafMask[i] = v;
         }
         auto desc = createStagingDescriptor(validMask, leafMask);
-        if (false && desc.isFilledLeaf()) {
+        if (desc.isFilledLeaf()) {
             currentLevelNodes.push_back({ mortonCode >> 3, {} });
         } else if (!desc.isEmpty()) {
             currentLevelNodes.push_back({ mortonCode >> 3, static_cast<NodeOffset>(m_allocator.size()) });
@@ -143,8 +143,9 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
     using NodeOffset = SparseVoxelDAG::NodeOffset;
 
     size_t maxTreeDepth = 0;
+	maxTreeDepth = svos[0].m_treeLevels.size();
     for (const auto& svo : svos)
-        maxTreeDepth = std::max(maxTreeDepth, svo.m_treeLevels.size());
+		assert(svo.m_treeLevels.size() == maxTreeDepth);
 
     auto descriptorToKey = [](const NodeOffset* descriptorPtr) -> std::array<NodeOffset, 9> {
         const Descriptor d = *reinterpret_cast<const Descriptor*>(descriptorPtr);
@@ -235,7 +236,7 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 		}
     }
 
-	assert(lut.size() == 1);
+	assert(lut.size() == svos.size());
 	for (auto& svo : svos) {
 		svo.m_rootNodeOffset = storeDescriptor(svo.m_data + svo.m_rootNodeOffset);
 		svo.m_data = allocator.data();
