@@ -23,8 +23,11 @@ target_link_libraries(libPandora PUBLIC
 	glm # Vector math
     embree # BVH builder and reference BVH traversal
 	tbb # Multithreading
-	EASTL # Stack based STL containers <3
-	mio # Memory-mapped file IO for serialization
+	EASTL # Stack based STL containers <3 
+	mio) # Memory-mapped file IO for serialization
+
+target_link_libraries(libPandora PRIVATE
+	Boost::boost # Header-only Boost libraries
 	libmorton) # Morton code for voxelization & SVO
 
 target_include_directories(libPandora PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/")

@@ -24,7 +24,10 @@ OctreeType buildSVO(const Scene& scene)
         meshToVoxelGrid(voxelGrid, gridBounds, mesh);
     }
 
-    return OctreeType(voxelGrid);
+    auto result =  OctreeType(voxelGrid);
+	if constexpr (std::is_same_v<OctreeType, SparseVoxelDAG>)
+		compressDAGs(gsl::make_span(&result, 1));
+	return std::move(result);
 }
 
 SVOTestIntegrator::SVOTestIntegrator(const Scene& scene, Sensor& sensor, int spp)

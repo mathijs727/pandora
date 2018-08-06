@@ -18,6 +18,8 @@ public:
 	SparseVoxelDAG(SparseVoxelDAG&&) = default;
     ~SparseVoxelDAG() = default;
 
+	friend void compressDAGs(gsl::span<SparseVoxelDAG> svos);
+
     //void intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const;
     std::optional<float> intersectScalar(Ray ray) const;
 
@@ -35,7 +37,8 @@ private:
         inline bool isFilledLeaf() const { return (validMask & leafMask) == 0xFF; }; // Completely filled leaf node
         inline bool isValid(int i) const { return validMask & (1 << i); };
         inline bool isLeaf(int i) const { return (validMask & leafMask) & (1 << i); };
-        inline int numInnerNodeChildren() const { return _mm_popcnt_u32(validMask ^ leafMask); };
+		inline bool isInnerNode(int i) const { return (validMask & (~leafMask)) & (1 << i); };
+        inline int numInnerNodeChildren() const { return _mm_popcnt_u32(validMask & (~leafMask)); };
 
         Descriptor() = default;
         //inline explicit Descriptor(const SVOChildDescriptor& v) { leafMask = v.leafMask; validMask = v.validMask; __padding = 0; };
@@ -63,8 +66,9 @@ private:
     int m_resolution;
     
 	NodeOffset m_rootNodeOffset;
+	std::vector<std::pair<size_t, size_t>> m_treeLevels;
     std::vector<NodeOffset> m_allocator;
-	NodeOffset* m_data;
+	const NodeOffset* m_data;
 };
 
 }

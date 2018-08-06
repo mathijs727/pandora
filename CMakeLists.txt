@@ -43,6 +43,8 @@ target_include_directories(mio INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/
 add_library(libmorton INTERFACE)
 target_include_directories(libmorton INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/libmorton/include/")
 
+find_package(Boost REQUIRED)
+
 if (BUILD_TESTS)
     find_package(GTest REQUIRED)
 endif ()

@@ -4,7 +4,9 @@
 #include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
 #include <EASTL/fixed_vector.h>
+#include <boost/functional/hash.hpp>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <immintrin.h>
 #include <libmorton/morton.h>
@@ -16,11 +18,11 @@ SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
     : m_resolution(grid.resolution())
 {
     //m_rootNode = constructSVO(grid);
-	m_rootNodeOffset = constructSVOBreadthFirst(grid);
-	m_allocator.shrink_to_fit();
-	m_data = m_allocator.data();
+    m_rootNodeOffset = constructSVOBreadthFirst(grid);
+    m_allocator.shrink_to_fit();
+    m_data = m_allocator.data();
 
-	std::cout << "Size of SparseVoxelDAG before compression: " << m_allocator.size() * sizeof(decltype(m_allocator)::value_type) << " bytes" << std::endl;
+    std::cout << "Size of SparseVoxelDAG before compression: " << m_allocator.size() * sizeof(decltype(m_allocator)::value_type) << " bytes" << std::endl;
 }
 
 SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
@@ -49,13 +51,14 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
             leafMask[i] = v;
         }
         auto desc = createStagingDescriptor(validMask, leafMask);
-        if (desc.isFilledLeaf()) {
+        if (false && desc.isFilledLeaf()) {
             currentLevelNodes.push_back({ mortonCode >> 3, {} });
         } else if (!desc.isEmpty()) {
             currentLevelNodes.push_back({ mortonCode >> 3, static_cast<NodeOffset>(m_allocator.size()) });
             m_allocator.push_back(static_cast<NodeOffset>(desc));
         }
     }
+	m_treeLevels.push_back({ 0, m_allocator.size() });
 
     auto createAndStoreDescriptor = [&](uint8_t validMask, uint8_t leafMask, gsl::span<NodeOffset> childrenOffsets) -> NodeOffset {
         Descriptor d;
@@ -65,18 +68,20 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
 
         auto offsetInAllocator = static_cast<NodeOffset>(m_allocator.size());
         m_allocator.push_back(static_cast<NodeOffset>(d));
-        
-		// Store child offsets directly after the descriptor itself
-		m_allocator.insert(std::end(m_allocator), std::begin(childrenOffsets), std::end(childrenOffsets));
+
+        // Store child offsets directly after the descriptor itself
+        m_allocator.insert(std::end(m_allocator), std::begin(childrenOffsets), std::end(childrenOffsets));
 
         return offsetInAllocator;
     };
 
     // Separate vector so m_allocator data doesnt change while inserting new descriptors.
-    NodeOffset finalNodeOffset = 0;
+    NodeOffset rootNodeOffset = 0;
     for (int N = 0; N < depth; N++) {
         std::swap(previousLevelNodes, currentLevelNodes);
         currentLevelNodes.clear();
+
+        size_t currentLevelStart = m_allocator.size();
 
         uint8_t validMask = 0x00;
         uint8_t leafMask = 0x00;
@@ -99,7 +104,7 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
                 }
 
                 validMask = 0;
-				leafMask = 0;
+                leafMask = 0;
                 children.clear();
                 prevMortonCode = mortonCodeN;
             }
@@ -109,9 +114,9 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
             validMask |= 1 << idx;
             if (childNodeInfo.descriptorOffset) {
                 children.push_back(*childNodeInfo.descriptorOffset);
-			} else {
+            } else {
                 leafMask |= 1 << idx;
-			}
+            }
         }
 
         // Store final descriptor
@@ -122,12 +127,176 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
             auto lastNodeMortonCode = (previousLevelNodes.back().mortonCode >> 3);
             assert(lastNodeMortonCode == prevMortonCode);
             currentLevelNodes.push_back({ prevMortonCode, offset });
-            finalNodeOffset = offset; // Keep track of the offset to the root node
+			rootNodeOffset = offset; // Keep track of the offset to the root node
         }
+
+        m_treeLevels.push_back({ currentLevelStart, m_allocator.size() });
     }
 
     assert(currentLevelNodes.size() == 1);
-    return finalNodeOffset;
+    return rootNodeOffset;
+}
+
+void compressDAGs(gsl::span<SparseVoxelDAG> svos)
+{
+    using Descriptor = SparseVoxelDAG::Descriptor;
+    using NodeOffset = SparseVoxelDAG::NodeOffset;
+
+    size_t maxTreeDepth = 0;
+    for (const auto& svo : svos)
+        maxTreeDepth = std::max(maxTreeDepth, svo.m_treeLevels.size());
+
+    auto descriptorToKey = [](const NodeOffset* descriptorPtr) -> std::array<NodeOffset, 9> {
+        const Descriptor d = *reinterpret_cast<const Descriptor*>(descriptorPtr);
+        const NodeOffset* childOffset = descriptorPtr + 1;
+
+        std::array<NodeOffset, 9> key;
+        key[0] = *descriptorPtr;
+        for (int i = 0; i < 8; i++) {
+            key[i + 1] = d.isInnerNode(i) ? *(childOffset++) : 0;
+        }
+        return key;
+    };
+
+    auto nextDescriptor = [](const NodeOffset* descriptorPtr) -> size_t {
+        Descriptor descriptor = *reinterpret_cast<const Descriptor*>(descriptorPtr);
+        size_t offset = 1 + descriptor.numInnerNodeChildren();
+        return offset;
+    };
+
+    std::vector<NodeOffset> allocator;
+    auto storeDescriptor = [&](const NodeOffset* descriptorPtr) -> NodeOffset {
+		NodeOffset resultNodeOffset = static_cast<NodeOffset>(allocator.size());
+
+        Descriptor descriptor = *reinterpret_cast<const Descriptor*>(descriptorPtr);
+        size_t size = 1 + descriptor.numInnerNodeChildren();
+        allocator.insert(std::end(allocator), descriptorPtr, descriptorPtr + size);
+
+		return resultNodeOffset;
+    };
+
+	std::unordered_map<std::array<NodeOffset, 9>, NodeOffset, boost::hash<std::array<NodeOffset, 9>>> lut; // 1 for the descriptor, 8 for the child offset
+	std::unordered_map<NodeOffset, NodeOffset> checkLUT; // 1 for the descriptor, 8 for the child offset
+	auto updateChildOffsets = [&](NodeOffset* dataPtr, NodeOffset descriptorOffset) { // Replaces child offsets with offsets into the new node array
+		auto descriptorPtr = dataPtr + descriptorOffset;
+		Descriptor descriptor = *reinterpret_cast<const Descriptor*>(descriptorPtr);
+		size_t numInnerNodeChildren = descriptor.numInnerNodeChildren();
+		NodeOffset* firstChildOffsetPtr = descriptorPtr + 1;
+		
+		for (size_t i = 0; i < numInnerNodeChildren; i++) {
+			auto key = descriptorToKey(dataPtr + *(firstChildOffsetPtr + i));
+			assert(checkLUT.find(*(firstChildOffsetPtr + i)) != checkLUT.end());
+			if (lut.find(key) == lut.end()) {
+				std::cout << "Cant match key of node with (original) offset: " << *(firstChildOffsetPtr + i) << std::endl;
+				std::cout << "Ptr: " << (dataPtr + *(firstChildOffsetPtr + i)) << std::endl;
+				std::cout << "Mask: " << *(dataPtr + *(firstChildOffsetPtr + i)) << std::endl;
+				auto hash = boost::hash<std::array<NodeOffset, 9>>{}(key);
+				std::cout << "Hash: " << hash << std::endl;
+			}
+			assert(lut.find(key) != lut.end());
+			firstChildOffsetPtr[i] = lut[key];
+		}
+	};
+
+    // Collect all unique leaf nodes
+    for (const auto& svo : svos) {
+        auto [start, end] = svo.m_treeLevels[0];
+        const auto* descriptorPtr = svo.m_data + start;
+        const auto* endPtr = svo.m_data + end;
+
+		std::cout << "Leaf node range: [" << start << ", " << end << "]" << std::endl;
+
+		int i = 0;
+		int j = 0;
+        while (descriptorPtr < endPtr) {
+            auto key = descriptorToKey(descriptorPtr);
+			checkLUT[descriptorPtr - svo.m_data] = 1;
+            if (auto [iter, succeeded] = lut.try_emplace(key, static_cast<NodeOffset>(allocator.size())); succeeded) {
+                storeDescriptor(descriptorPtr); // Stores to allocator (allocator for the new nodes)
+				j++;
+            }
+			descriptorPtr += nextDescriptor(descriptorPtr);
+			i++;
+        }
+		std::cout << "Count: " << i << std::endl;
+		std::cout << "Unique: " << j << std::endl;
+		std::cout << "LUT size: " << lut.size() << std::endl;
+    }
+
+    for (int d = 1; d < maxTreeDepth; d++) {
+        for (auto& svo : svos) {
+            // Replace child offsets to offsets within the new node array (containing unique leafs)
+            auto [start, end] = svo.m_treeLevels[d];
+			auto* const mutDataPtr = svo.m_allocator.data();
+
+			size_t descriptorOffset = start;
+            while (descriptorOffset < end) {
+				const auto* address = mutDataPtr + descriptorOffset;
+				if (descriptorOffset == 7693) {
+					std::cout << "Updating child pointers of descriptor at 7693" << std::endl;
+					std::cout << "Descriptor ptr: " << mutDataPtr + descriptorOffset << std::endl;
+					auto key = descriptorToKey(address);
+					auto hash = boost::hash<std::array<NodeOffset, 9>>{}(key);
+					std::cout << "Hash BEFORE updating child pointers: " << hash << std::endl;
+				}
+				updateChildOffsets(mutDataPtr, static_cast<NodeOffset>(descriptorOffset));// Replace child offsets with offsets into the new allocator vector
+				if (descriptorOffset == 7693) {
+					auto key = descriptorToKey(address);
+					auto hash = boost::hash<std::array<NodeOffset, 9>>{}(key);
+					std::cout << "Hash AFTER updating child pointers: " << hash << "\n" << std::endl;
+				}
+				descriptorOffset += nextDescriptor(mutDataPtr + descriptorOffset);
+            }
+        }
+
+		// Place unique nodes at this level in the allocator and update the LUT accordingly
+		lut.clear();
+		for (const auto& svo : svos) {
+			auto[start, end] = svo.m_treeLevels[d];
+			const auto* descriptorPtr = svo.m_data + start;
+			const auto* endPtr = svo.m_data + end;
+
+			std::cout << "Inserting node range: [" << start << ", " << end << "]" << " to LUT" << std::endl;
+
+			int i = 0;
+			int j = 0;
+			while (descriptorPtr < endPtr) {
+				checkLUT[descriptorPtr - svo.m_data] = 1;
+				auto key = descriptorToKey(descriptorPtr);
+				if (auto[iter, succeeded] = lut.try_emplace(key, static_cast<NodeOffset>(allocator.size())); succeeded) {
+					storeDescriptor(descriptorPtr); // Stores to allocator (allocator for the new nodes)
+					j++;
+				} else {
+					std::cout << "Not unique node, original offset: " << (descriptorPtr - svo.m_data) << std::endl;
+				}
+
+				if ((descriptorPtr - svo.m_data) == 7693) {
+					std::cout << "Item 7693 mask: " << *descriptorPtr << std::endl;
+					std::cout << "Item 7693 ptr: " << descriptorPtr << std::endl;
+					auto key = descriptorToKey(descriptorPtr);
+					auto hash = boost::hash<std::array<NodeOffset, 9>>{}(key);
+					std::cout << "Hash: " << hash << "\n" << std::endl;
+				}
+
+				descriptorPtr += nextDescriptor(descriptorPtr);
+				i++;
+			}
+
+			std::cout << "Count: " << i << std::endl;
+			std::cout << "Unique: " << j << std::endl;
+			std::cout << "LUT size: " << lut.size() << std::endl;
+		}
+
+		std::cout << "Processing depth level " << d << std::endl;
+    }
+
+	assert(lut.size() == 1);
+	for (auto& svo : svos) {
+		svo.m_rootNodeOffset = storeDescriptor(svo.m_data + svo.m_rootNodeOffset);
+		svo.m_data = allocator.data();
+		svo.m_allocator.clear();
+	}
+	svos[0].m_allocator = std::move(allocator);
 }
 
 SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVO(const VoxelGrid& grid)
@@ -228,8 +397,8 @@ eastl::fixed_vector<SparseVoxelDAG::NodeOffset, 8> SparseVoxelDAG::storeDescript
             descriptorOffsets.push_back(static_cast<NodeOffset>(m_allocator.size()));
             m_allocator.push_back(static_cast<NodeOffset>(descriptor));
 
-			// Store child offsets directly after the descriptor itself
-			m_allocator.insert(std::end(m_allocator), std::begin(childDescriptorOffsets), std::end(childDescriptorOffsets));
+            // Store child offsets directly after the descriptor itself
+            m_allocator.insert(std::end(m_allocator), std::begin(childDescriptorOffsets), std::end(childDescriptorOffsets));
         }
     }
     assert(m_allocator.size() < (1 << 16));
@@ -243,8 +412,8 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* des
 
     const NodeOffset* firstChildPtr = reinterpret_cast<const NodeOffset*>(descriptor) + 1;
 
-	NodeOffset childOffset = *(firstChildPtr + activeChildIndex);
-	return reinterpret_cast<const Descriptor*>(m_data + childOffset);
+    NodeOffset childOffset = *(firstChildPtr + activeChildIndex);
+    return reinterpret_cast<const Descriptor*>(m_data + childOffset);
 }
 
 std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
