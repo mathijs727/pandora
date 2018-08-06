@@ -20,7 +20,9 @@ public:
 	SparseVoxelOctree(const VoxelGrid& grid);
 	~SparseVoxelOctree() = default;
 
+#ifdef PANDORA_ISPC_SUPPORT
 	void intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const;
+#endif
 	std::optional<float> intersectScalar(Ray ray) const;
 
 	std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
