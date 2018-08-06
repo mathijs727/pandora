@@ -176,7 +176,6 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
     };
 
 	std::unordered_map<std::array<NodeOffset, 9>, NodeOffset, boost::hash<std::array<NodeOffset, 9>>> lut; // 1 for the descriptor, 8 for the child offset
-	std::unordered_map<NodeOffset, NodeOffset> checkLUT; // 1 for the descriptor, 8 for the child offset
 	auto updateChildOffsets = [&](NodeOffset* dataPtr, NodeOffset descriptorOffset) { // Replaces child offsets with offsets into the new node array
 		auto descriptorPtr = dataPtr + descriptorOffset;
 		Descriptor descriptor = *reinterpret_cast<const Descriptor*>(descriptorPtr);
@@ -185,14 +184,6 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 		
 		for (size_t i = 0; i < numInnerNodeChildren; i++) {
 			auto key = descriptorToKey(dataPtr + *(firstChildOffsetPtr + i));
-			assert(checkLUT.find(*(firstChildOffsetPtr + i)) != checkLUT.end());
-			if (lut.find(key) == lut.end()) {
-				std::cout << "Cant match key of node with (original) offset: " << *(firstChildOffsetPtr + i) << std::endl;
-				std::cout << "Ptr: " << (dataPtr + *(firstChildOffsetPtr + i)) << std::endl;
-				std::cout << "Mask: " << *(dataPtr + *(firstChildOffsetPtr + i)) << std::endl;
-				auto hash = boost::hash<std::array<NodeOffset, 9>>{}(key);
-				std::cout << "Hash: " << hash << std::endl;
-			}
 			assert(lut.find(key) != lut.end());
 			firstChildOffsetPtr[i] = lut[key];
 		}
@@ -204,23 +195,13 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
         const auto* descriptorPtr = svo.m_data + start;
         const auto* endPtr = svo.m_data + end;
 
-		std::cout << "Leaf node range: [" << start << ", " << end << "]" << std::endl;
-
-		int i = 0;
-		int j = 0;
         while (descriptorPtr < endPtr) {
             auto key = descriptorToKey(descriptorPtr);
-			checkLUT[descriptorPtr - svo.m_data] = 1;
             if (auto [iter, succeeded] = lut.try_emplace(key, static_cast<NodeOffset>(allocator.size())); succeeded) {
                 storeDescriptor(descriptorPtr); // Stores to allocator (allocator for the new nodes)
-				j++;
             }
 			descriptorPtr += nextDescriptor(descriptorPtr);
-			i++;
         }
-		std::cout << "Count: " << i << std::endl;
-		std::cout << "Unique: " << j << std::endl;
-		std::cout << "LUT size: " << lut.size() << std::endl;
     }
 
     for (int d = 1; d < maxTreeDepth; d++) {
@@ -231,20 +212,7 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 
 			size_t descriptorOffset = start;
             while (descriptorOffset < end) {
-				const auto* address = mutDataPtr + descriptorOffset;
-				if (descriptorOffset == 7693) {
-					std::cout << "Updating child pointers of descriptor at 7693" << std::endl;
-					std::cout << "Descriptor ptr: " << mutDataPtr + descriptorOffset << std::endl;
-					auto key = descriptorToKey(address);
-					auto hash = boost::hash<std::array<NodeOffset, 9>>{}(key);
-					std::cout << "Hash BEFORE updating child pointers: " << hash << std::endl;
-				}
 				updateChildOffsets(mutDataPtr, static_cast<NodeOffset>(descriptorOffset));// Replace child offsets with offsets into the new allocator vector
-				if (descriptorOffset == 7693) {
-					auto key = descriptorToKey(address);
-					auto hash = boost::hash<std::array<NodeOffset, 9>>{}(key);
-					std::cout << "Hash AFTER updating child pointers: " << hash << "\n" << std::endl;
-				}
 				descriptorOffset += nextDescriptor(mutDataPtr + descriptorOffset);
             }
         }
@@ -256,38 +224,15 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 			const auto* descriptorPtr = svo.m_data + start;
 			const auto* endPtr = svo.m_data + end;
 
-			std::cout << "Inserting node range: [" << start << ", " << end << "]" << " to LUT" << std::endl;
-
-			int i = 0;
-			int j = 0;
 			while (descriptorPtr < endPtr) {
-				checkLUT[descriptorPtr - svo.m_data] = 1;
 				auto key = descriptorToKey(descriptorPtr);
 				if (auto[iter, succeeded] = lut.try_emplace(key, static_cast<NodeOffset>(allocator.size())); succeeded) {
 					storeDescriptor(descriptorPtr); // Stores to allocator (allocator for the new nodes)
-					j++;
-				} else {
-					std::cout << "Not unique node, original offset: " << (descriptorPtr - svo.m_data) << std::endl;
-				}
-
-				if ((descriptorPtr - svo.m_data) == 7693) {
-					std::cout << "Item 7693 mask: " << *descriptorPtr << std::endl;
-					std::cout << "Item 7693 ptr: " << descriptorPtr << std::endl;
-					auto key = descriptorToKey(descriptorPtr);
-					auto hash = boost::hash<std::array<NodeOffset, 9>>{}(key);
-					std::cout << "Hash: " << hash << "\n" << std::endl;
 				}
 
 				descriptorPtr += nextDescriptor(descriptorPtr);
-				i++;
 			}
-
-			std::cout << "Count: " << i << std::endl;
-			std::cout << "Unique: " << j << std::endl;
-			std::cout << "LUT size: " << lut.size() << std::endl;
 		}
-
-		std::cout << "Processing depth level " << d << std::endl;
     }
 
 	assert(lut.size() == 1);

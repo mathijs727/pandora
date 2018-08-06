@@ -25,6 +25,8 @@ public:
 
     std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 
+	size_t size() const { return m_allocator.size() * sizeof(decltype(m_allocator)::value_type); }
+
 private:
     using NodeOffset = uint32_t; // Either uint32_t or uint16_t
 

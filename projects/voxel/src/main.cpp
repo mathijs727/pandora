@@ -64,10 +64,14 @@ int main()
     auto svoConstructionStart = clock::now();
     //SparseVoxelOctree svo(voxelGrid);
 	SparseVoxelDAG svo(voxelGrid);
-	compressDAGs(gsl::make_span(&svo, 1));
     auto svoConstructionEnd = clock::now();
     auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(svoConstructionEnd - svoConstructionStart);
     std::cout << "Time to construct SVO: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
+
+	if (std::is_same_v<decltype(svo), SparseVoxelDAG>) {
+		compressDAGs(gsl::make_span(&svo, 1));
+		std::cout << "Size after compression: " << svo.size() << " bytes" << std::endl;
+	}
 
     //auto [vertices, triangles] = voxelGrid.generateSurfaceMesh();
     auto [vertices, triangles] = svo.generateSurfaceMesh();
