@@ -28,7 +28,7 @@ public:
 	size_t size() const { return m_allocator.size() * sizeof(decltype(m_allocator)::value_type); }
 
 private:
-    using NodeOffset = uint32_t; // Either uint32_t or uint16_t
+    using NodeOffset = uint16_t; // Either uint32_t or uint16_t
 
     // NOTE: child pointers are stored directly after the descriptor
     struct Descriptor {
@@ -49,7 +49,7 @@ private:
     };
     static_assert(sizeof(Descriptor) == sizeof(uint16_t));
 
-    NodeOffset constructSVOBreadthFirst(const VoxelGrid& grid);
+    size_t constructSVOBreadthFirst(const VoxelGrid& grid);
     static Descriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
 
     // CAREFULL: don't use this function during DAG construction (while m_allocator is touched)!
@@ -58,7 +58,7 @@ private:
 private:
     int m_resolution;
     
-	NodeOffset m_rootNodeOffset;
+	size_t m_rootNodeOffset;
 	std::vector<std::pair<size_t, size_t>> m_treeLevels;
     std::vector<NodeOffset> m_allocator;
 	const NodeOffset* m_data;
