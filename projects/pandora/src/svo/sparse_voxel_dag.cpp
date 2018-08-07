@@ -219,7 +219,7 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
         }
 
 		// Place unique nodes at this level in the allocator and update the LUT accordingly
-		lut.clear();
+		//lut.clear();
 		for (const auto& svo : svos) {
 			auto[start, end] = svo.m_treeLevels[d];
 			const auto* descriptorPtr = svo.m_data + start;
@@ -236,7 +236,7 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 		}
     }
 
-	assert(lut.size() == (size_t)svos.size());
+	//assert(lut.size() == (size_t)svos.size());
 	for (auto& svo : svos) {
 		svo.m_rootNodeOffset = storeDescriptor(svo.m_data + svo.m_rootNodeOffset);
 		svo.m_data = allocator.data();
@@ -245,110 +245,24 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 	svos[0].m_allocator = std::move(allocator);
 }
 
-SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVO(const VoxelGrid& grid)
-{
-    uint_fast32_t resolution = static_cast<uint_fast32_t>(grid.resolution());
-    int depth = intLog2(resolution) - 1;
-    uint_fast32_t finalMortonCode = resolution * resolution * resolution;
-
-    uint_fast32_t inputMortonCode = 0;
-    auto consume = [&]() {
-        // Create leaf node from 2x2x2 voxel block
-        std::array<bool, 8> leafMask;
-        std::array<bool, 8> validMask;
-        for (int i = 0; i < 8; i++) {
-            bool v = grid.getMorton(inputMortonCode++);
-            validMask[i] = v;
-            leafMask[i] = v;
-        }
-        return createStagingDescriptor(validMask, leafMask);
-    };
-    auto hasInput = [&]() {
-        return inputMortonCode < finalMortonCode;
-    };
-
-    std::vector<eastl::fixed_vector<SVOConstructionQueueItem, 8>> queues(depth + 1);
-    while (hasInput()) {
-        Descriptor l = consume();
-        queues[depth].push_back({ l, {} });
-        int d = depth;
-
-        while (d > 0 && queues[d].full()) {
-            // Store in allocator (as opposed to store to disk) and create new inner node
-            auto childIndices = storeDescriptors(queues[d]); // Store first so we know the base index (index of first child)
-            Descriptor p = makeInnerNode(queues[d]);
-
-            queues[d].clear();
-            queues[d - 1].push_back({ p, childIndices });
-            d--;
-        }
-    }
-
-    ALWAYS_ASSERT(queues[0].size() == 1, "LOGIC ERROR");
-    auto rootNodeIndex = storeDescriptors(queues[0])[0];
-    return rootNodeIndex;
-}
-
 SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
 {
-    // Create bit masks
-    uint8_t leafMaskBits = 0x0;
-    for (int i = 0; i < 8; i++)
-        if (leafMask[i])
-            leafMaskBits |= (1 << i);
+	// Create bit masks
+	uint8_t leafMaskBits = 0x0;
+	for (int i = 0; i < 8; i++)
+		if (leafMask[i])
+			leafMaskBits |= (1 << i);
 
-    uint8_t validMaskBits = 0x0;
-    for (int i = 0; i < 8; i++)
-        if (validMask[i])
-            validMaskBits |= (1 << i);
+	uint8_t validMaskBits = 0x0;
+	for (int i = 0; i < 8; i++)
+		if (validMask[i])
+			validMaskBits |= (1 << i);
 
-    // Create temporary descriptor
-    Descriptor descriptor;
-    descriptor.validMask = validMaskBits;
-    descriptor.leafMask = leafMaskBits;
-    return descriptor;
-}
-
-SparseVoxelDAG::Descriptor SparseVoxelDAG::makeInnerNode(gsl::span<SVOConstructionQueueItem, 8> children)
-{
-    std::array<bool, 8> validMask;
-    std::array<bool, 8> leafMask;
-    for (int i = 0; i < 8; i++) {
-        const auto& child = children[i].descriptor;
-        if (child.isEmpty()) {
-            // No children => empty
-            validMask[i] = false;
-            leafMask[i] = false;
-        } else if (child.isFilledLeaf()) {
-            // All children are leafs => leaf
-            validMask[i] = true;
-            leafMask[i] = true;
-        } else {
-            // One or more children and not 8 leaf children
-            validMask[i] = true;
-            leafMask[i] = false;
-        }
-    }
-    return createStagingDescriptor(validMask, leafMask);
-}
-
-eastl::fixed_vector<SparseVoxelDAG::NodeOffset, 8> SparseVoxelDAG::storeDescriptors(gsl::span<SVOConstructionQueueItem> items)
-{
-    eastl::fixed_vector<NodeOffset, 8> descriptorOffsets;
-    for (const auto& item : items) { // For each descriptor
-        const auto& descriptor = item.descriptor;
-        const auto& childDescriptorOffsets = item.childDescriptorOffsets;
-
-        if (!descriptor.isEmpty() && !descriptor.isFilledLeaf()) { // Not all empty or all filled => inner node
-            descriptorOffsets.push_back(static_cast<NodeOffset>(m_allocator.size()));
-            m_allocator.push_back(static_cast<NodeOffset>(descriptor));
-
-            // Store child offsets directly after the descriptor itself
-            m_allocator.insert(std::end(m_allocator), std::begin(childDescriptorOffsets), std::end(childDescriptorOffsets));
-        }
-    }
-    assert(m_allocator.size() < (1 << 16));
-    return descriptorOffsets;
+	// Create temporary descriptor
+	Descriptor descriptor;
+	descriptor.validMask = validMaskBits;
+	descriptor.leafMask = leafMaskBits;
+	return descriptor;
 }
 
 const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* descriptor, int idx) const

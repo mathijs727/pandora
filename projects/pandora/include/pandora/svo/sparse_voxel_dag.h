@@ -50,19 +50,10 @@ private:
     static_assert(sizeof(Descriptor) == sizeof(uint16_t));
 
     NodeOffset constructSVOBreadthFirst(const VoxelGrid& grid);
-    NodeOffset constructSVO(const VoxelGrid& grid);
+    static Descriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
 
     // CAREFULL: don't use this function during DAG construction (while m_allocator is touched)!
     const Descriptor* getChild(const Descriptor* descriptor, int idx) const;
-
-    // SVO construction
-    struct SVOConstructionQueueItem {
-        Descriptor descriptor;
-        eastl::fixed_vector<NodeOffset, 8> childDescriptorOffsets;
-    };
-    static Descriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
-    static Descriptor makeInnerNode(gsl::span<SVOConstructionQueueItem, 8> children);
-    eastl::fixed_vector<NodeOffset, 8> storeDescriptors(gsl::span<SVOConstructionQueueItem> children);
 
 private:
     int m_resolution;
