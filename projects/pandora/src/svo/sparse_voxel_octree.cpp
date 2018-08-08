@@ -147,7 +147,7 @@ std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
         float tcMax = minComponent(tCorner);
 
         // Process voxel if the corresponding bit in the valid mask is set
-        int childIndex = 7 - (idx ^ octantMask);
+        int childIndex = 7 - ((idx & 0b111) ^ octantMask);
         if (parent.isValid(childIndex)) {
             // === INTERSECT ===
             float half = scaleExp2 * 0.5f;
@@ -160,11 +160,8 @@ std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
             // === PUSH ===
             stack[scale] = parent;
 
-            // Find child descriptor corresponding to the current voxel
-            parent = getChild(parent, childIndex);
-
             // Select the child voxel that the ray enters first.
-            idx = 0;
+			idx = (idx & 0b111) << 3;
             scale--;
             scaleExp2 = half;
             if (tCenter.x > tMin) {
@@ -180,59 +177,60 @@ std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
                 pos.z += scaleExp2;
             }
 
-            continue;
-        }
+            // Find child descriptor corresponding to the current voxel
+            parent = getChild(parent, childIndex);
+		} else {
+			// === ADVANCE ===
 
-        // === ADVANCE ===
+			// Step along the ray
+			int stepMask = 0;
+			if (tCorner.x <= tcMax) {
+				stepMask ^= (1 << 0);
+				pos.x -= scaleExp2;
+			}
+			if (tCorner.y <= tcMax) {
+				stepMask ^= (1 << 1);
+				pos.y -= scaleExp2;
+			}
+			if (tCorner.z <= tcMax) {
+				stepMask ^= (1 << 2);
+				pos.z -= scaleExp2;
+			}
 
-        // Step along the ray
-        int stepMask = 0;
-        if (tCorner.x <= tcMax) {
-            stepMask ^= (1 << 0);
-            pos.x -= scaleExp2;
-        }
-        if (tCorner.y <= tcMax) {
-            stepMask ^= (1 << 1);
-            pos.y -= scaleExp2;
-        }
-        if (tCorner.z <= tcMax) {
-            stepMask ^= (1 << 2);
-            pos.z -= scaleExp2;
-        }
+			// Update active t-span and flip bits of the child slot index
+			tMin = tcMax;
+			idx ^= stepMask;
 
-        // Update active t-span and flip bits of the child slot index
-        tMin = tcMax;
-        idx ^= stepMask;
+			// Proceed with pop if the bit flip disagree with the ray direction
+			if ((idx & stepMask) != 0) {
+				// === POP ===
+				// Find the highest differing bit between the two positions
+				unsigned differingBits = 0;
+				if ((stepMask & (1 << 0)) != 0) {
+					differingBits |= floatAsInt(pos.x) ^ floatAsInt(pos.x + scaleExp2);
+				}
+				if ((stepMask & (1 << 1)) != 0) {
+					differingBits |= floatAsInt(pos.y) ^ floatAsInt(pos.y + scaleExp2);
+				}
+				if ((stepMask & (1 << 2)) != 0) {
+					differingBits |= floatAsInt(pos.z) ^ floatAsInt(pos.z + scaleExp2);
+				}
+				scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest bit (complicated alternative to bitscan)
+				scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
 
-        // Proceed with pop if the bit flip disagree with the ray direction
-        if ((idx & stepMask) != 0) {
-            // === POP ===
-            // Find the highest differing bit between the two positions
-            unsigned differingBits = 0;
-            if ((stepMask & (1 << 0)) != 0) {
-                differingBits |= floatAsInt(pos.x) ^ floatAsInt(pos.x + scaleExp2);
-            }
-            if ((stepMask & (1 << 1)) != 0) {
-                differingBits |= floatAsInt(pos.y) ^ floatAsInt(pos.y + scaleExp2);
-            }
-            if ((stepMask & (1 << 2)) != 0) {
-                differingBits |= floatAsInt(pos.z) ^ floatAsInt(pos.z + scaleExp2);
-            }
-            scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest bit (complicated alternative to bitscan)
-            scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
+				// Restore parent voxel from the stack
+				parent = stack[scale];
 
-            // Restore parent voxel from the stack
-            parent = stack[scale];
-
-            // Round cube position and extract child slot index
-            int shx = floatAsInt(pos.x) >> scale;
-            int shy = floatAsInt(pos.y) >> scale;
-            int shz = floatAsInt(pos.z) >> scale;
-            pos.x = intAsFloat(shx << scale);
-            pos.y = intAsFloat(shy << scale);
-            pos.z = intAsFloat(shz << scale);
-            idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2);
-        }
+				// Round cube position and extract child slot index
+				int shx = floatAsInt(pos.x) >> scale;
+				int shy = floatAsInt(pos.y) >> scale;
+				int shz = floatAsInt(pos.z) >> scale;
+				pos.x = intAsFloat(shx << scale);
+				pos.y = intAsFloat(shy << scale);
+				pos.z = intAsFloat(shz << scale);
+				idx = (shx & 0b1001) | ((shy & 0b1001) << 1) | ((shz & 0b1001) << 2);
+			}
+		}
     }
 
     // Indicate miss if we are outside the octree

@@ -29,46 +29,33 @@ SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
 SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
 {
     ALWAYS_ASSERT(isPowerOf2(m_resolution), "Resolution must be a power of 2"); // Resolution = power of 2
-    int depth = intLog2(m_resolution) - 1;
+    int depth = intLog2(m_resolution) - 2;
 
     struct NodeInfoN1 {
         uint_fast32_t mortonCode; // Morton code (in level N-1)
         // Offset to the descriptor in m_allocator. If not set than this is node is fully filled which should
         //  be propegated up the tree.
-        std::optional<std::pair<bool, AbsoluteNodeOffset>> absoluteDescriptorOffset;
+		bool isLeaf;
+		AbsoluteNodeOffset absoluteDescriptorOffset;
+        //std::optional<std::pair<bool, AbsoluteNodeOffset>> absoluteDescriptorOffset;
     };
     std::vector<NodeInfoN1> previousLevelNodes;
     std::vector<NodeInfoN1> currentLevelNodes;
 
     // Creates and inserts leaf nodes
     uint_fast32_t finalMortonCode = static_cast<uint_fast32_t>(m_resolution * m_resolution * m_resolution);
-    for (uint_fast32_t mortonCode = 0; mortonCode < finalMortonCode; mortonCode += 64) {
-        // Create leaf node from 4x4x4 voxel block
-        std::bitset<64> leaf;
-        for (uint32_t i = 0; i < 64; i++) {
-            leaf[i] = grid.getMorton(mortonCode + i);
-        }
+	for (uint_fast32_t mortonCode = 0; mortonCode < finalMortonCode; mortonCode += 64) {
+		// Create leaf node from 4x4x4 voxel block
+		std::bitset<64> leaf;
+		for (uint32_t i = 0; i < 64; i++) {
+			leaf[i] = grid.getMorton(mortonCode + i);
+		}
 
-        if (leaf.any()) {
-			currentLevelNodes.push_back({ mortonCode / 64, {{ true, m_leafAllocator.size() }} });
-            m_leafAllocator.push_back(leaf.to_ullong());
-        }
-        /*// Create leaf node from 2x2x2 voxel block
-        std::array<bool, 8> leafMask;
-        std::array<bool, 8> validMask;
-        for (uint_fast32_t i = 0; i < 8; i++) {
-            bool v = grid.getMorton(mortonCode + i);
-            validMask[i] = v;
-            leafMask[i] = v;
-        }
-        auto desc = createStagingDescriptor(validMask, leafMask);
-        if (desc.isFilledLeaf()) {
-            currentLevelNodes.push_back({ mortonCode >> 3, {} });
-        } else if (!desc.isEmpty()) {
-            currentLevelNodes.push_back({ mortonCode >> 3, m_allocator.size() });
-            m_allocator.push_back(static_cast<RelativeNodeOffset>(desc));
-        }*/
-    }
+		if (leaf.any()) {
+			currentLevelNodes.push_back({ mortonCode >> 6, true, m_leafAllocator.size() });
+			m_leafAllocator.push_back(leaf.to_ullong());
+		}
+	}
     m_treeLevels.push_back({ 0, m_allocator.size() });
 
     auto createAndStoreDescriptor = [&](uint8_t validMask, uint8_t leafMask, const gsl::span<std::pair<bool, AbsoluteNodeOffset>> absoluteChildOffsets) -> size_t {
@@ -115,14 +102,9 @@ SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(cons
             auto mortonCodeN1 = childNodeInfo.mortonCode;
             auto mortonCodeN = mortonCodeN1 >> 3; // Morton code of this node (level N)
             if (prevMortonCode != mortonCodeN) {
-
-                //if (leafMask == 0xFF) {
-                //    currentLevelNodes.push_back({ prevMortonCode, false, {} });
-                //} else {
                 // Different morton code: we are finished with the previous node => store it
-                auto offset = createAndStoreDescriptor(validMask, leafMask, absoluteChildrenOffsets);
-				currentLevelNodes.push_back({ prevMortonCode, {{ false, offset }} });
-                //}
+                auto descriptorOffset = createAndStoreDescriptor(validMask, leafMask, absoluteChildrenOffsets);
+				currentLevelNodes.push_back({ prevMortonCode, false, descriptorOffset });
 
                 validMask = 0;
                 leafMask = 0;
@@ -133,22 +115,18 @@ SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(cons
             auto idx = mortonCodeN1 & ((1 << 3) - 1); // Right most 3 bits
             assert((validMask & (1 << idx)) == 0); // We should never visit the same child twice
             validMask |= 1 << idx;
-            if (childNodeInfo.absoluteDescriptorOffset) {
-                absoluteChildrenOffsets.push_back(*childNodeInfo.absoluteDescriptorOffset);
-            } else {
-                leafMask |= 1 << idx;
-            }
+			if (childNodeInfo.isLeaf)
+				leafMask |= 1 << idx;
+			absoluteChildrenOffsets.push_back({ childNodeInfo.isLeaf, childNodeInfo.absoluteDescriptorOffset });
         }
 
         // Store final descriptor
-        if (leafMask == 0xFF) {
-            currentLevelNodes.push_back({ prevMortonCode, {} });
-        } else {
-            auto offset = createAndStoreDescriptor(validMask, leafMask, absoluteChildrenOffsets);
+		{
+            auto descriptorOffset = createAndStoreDescriptor(validMask, leafMask, absoluteChildrenOffsets);
             auto lastNodeMortonCode = (previousLevelNodes.back().mortonCode >> 3);
             assert(lastNodeMortonCode == prevMortonCode);
-			currentLevelNodes.push_back({ prevMortonCode, {{ false, offset }} });
-            rootNodeOffset = offset; // Keep track of the offset to the root node
+			currentLevelNodes.push_back({ prevMortonCode, false, descriptorOffset });
+            rootNodeOffset = descriptorOffset; // Keep track of the offset to the root node
         }
 
         m_treeLevels.push_back({ currentLevelStart, m_allocator.size() });
