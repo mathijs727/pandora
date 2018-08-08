@@ -72,3 +72,5 @@ Create a separate array of indirection for each SVO (from unique node idx to abs
 NOTE: compressing child nodes & keeping indices to parents misses nodes that are the same but on a different level
 
 This would be so much easier on a single tree; can be integrated into SVO construction
+
+IPSC traversal is a bit wonky. Using pointers instead of values everywhere breaks even the SVO traversal unless 64-bit addressing is enabled. The problem is worse in the DAG version; it seems like the ISPC compiler has problems with reinterpret casting. Solution is to keep it simple: always index from the start of the allocator array. This requires a second stack (1 for the descriptor, 1 for the corresponding descriptor offset).

@@ -59,9 +59,12 @@ target_sources(libPandora
 )
 
 if (PANDORA_ISPC_SUPPORT)
+	set(PANDORA_ISPC_ADDRESSING "32")
 	set(ISPC_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/")
 	ADD_ISPC_LIBRARY(pandoraISPC STATIC
 		"${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.ispc"
+		"${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_dag_traversal16.ispc"
+		"${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_dag_traversal32.ispc"
 		"${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_octree_traversal.ispc")
 	target_link_libraries(libPandora PUBLIC pandoraISPC)
 endif()

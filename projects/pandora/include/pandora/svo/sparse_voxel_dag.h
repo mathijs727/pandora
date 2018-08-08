@@ -2,6 +2,10 @@
 #include "pandora/core/pandora.h"
 #include "pandora/svo/sparse_voxel_octree.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
+#ifdef PANDORA_ISPC_SUPPORT
+#include "sparse_voxel_dag_traversal16_ispc.h"
+#include "sparse_voxel_dag_traversal32_ispc.h"
+#endif
 #include <EASTL/fixed_vector.h>
 #include <glm/glm.hpp>
 #include <gsl/span>
@@ -20,7 +24,9 @@ public:
 
 	friend void compressDAGs(gsl::span<SparseVoxelDAG> svos);
 
-    //void intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const;
+#ifdef PANDORA_ISPC_SUPPORT
+    void intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const;
+#endif
     std::optional<float> intersectScalar(Ray ray) const;
 
     std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
@@ -28,7 +34,7 @@ public:
 	size_t size() const { return m_allocator.size() * sizeof(decltype(m_allocator)::value_type); }
 
 private:
-	using RelativeNodeOffset = uint32_t; // Either uint32_t or uint16_t
+	using RelativeNodeOffset = uint16_t; // Either uint32_t or uint16_t
 	using AbsoluteNodeOffset = size_t;
 
     // NOTE: child pointers are stored directly after the descriptor

@@ -1,5 +1,5 @@
 #pragma once
-#include "glm/glm.hpp"
+#include <glm/glm.hpp>
 #include "pandora/core/spectrum.h"
 
 namespace pandora {

@@ -176,18 +176,18 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
         }
     };
 
-	struct FullDescriptorHasher
-	{
-		std::size_t operator()(const FullDescriptor& desc) const noexcept {
-			// https://www.boost.org/doc/libs/1_67_0/doc/html/hash/combine.html
-			size_t seed = 0;
-			boost::hash_combine(seed, boost::hash<uint8_t>{}(desc.descriptor.leafMask));
-			boost::hash_combine(seed, boost::hash<uint8_t>{}(desc.descriptor.validMask));
-			for (size_t childOffset : desc.children)
-				boost::hash_combine(seed, boost::hash<size_t>{}(childOffset));
-			return seed;
-		}
-	};
+    struct FullDescriptorHasher {
+        std::size_t operator()(const FullDescriptor& desc) const noexcept
+        {
+            // https://www.boost.org/doc/libs/1_67_0/doc/html/hash/combine.html
+            size_t seed = 0;
+            boost::hash_combine(seed, boost::hash<uint8_t> {}(desc.descriptor.leafMask));
+            boost::hash_combine(seed, boost::hash<uint8_t> {}(desc.descriptor.validMask));
+            for (size_t childOffset : desc.children)
+                boost::hash_combine(seed, boost::hash<size_t> {}(childOffset));
+            return seed;
+        }
+    };
 
     auto decodeDescriptor = [](const Descriptor* descriptorPtr, AbsoluteNodeOffset absoluteDescriptorOffset, const std::unordered_map<AbsoluteNodeOffset, size_t>& childDescriptorOffsetLUT) -> FullDescriptor {
         const auto* dataPtr = reinterpret_cast<const RelativeNodeOffset*>(descriptorPtr);
@@ -259,7 +259,7 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
                 }
             }
 
-            // Update child pointers to pointers into the DAG allocator array, inserting any children that are not in the array already
+            // Update child pointers to pointers into the DAG allocator array; inserting any children that are not in the DAG allocator array yet.
             for (auto& mutDescriptor : descriptors) {
                 for (auto& childOffset : mutDescriptor.children) {
                     const auto& child = childDescriptors[childOffset];
@@ -285,58 +285,6 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
         svo.m_data = allocator.data(); // Set this after all work on the allocator is done (and the pointer cant change because of reallocations)
     }
     svos[0].m_allocator = std::move(allocator);
-
-    /*// Collect all unique leaf nodes
-    for (const auto& svo : svos) {
-        auto [start, end] = svo.m_treeLevels[0];
-        const auto* descriptorPtr = svo.m_data + start;
-        const auto* endPtr = svo.m_data + end;
-
-        while (descriptorPtr < endPtr) {
-            auto key = descriptorToKey(descriptorPtr);
-            if (auto [iter, succeeded] = lut.try_emplace(key, static_cast<NodeOffset>(allocator.size())); succeeded) {
-                storeDescriptor(descriptorPtr); // Stores to allocator (allocator for the new nodes)
-            }
-            descriptorPtr += nextDescriptor(descriptorPtr);
-        }
-    }
-
-    for (size_t d = 1; d < maxTreeDepth; d++) {
-        for (auto& svo : svos) {
-            // Replace child offsets to offsets within the new node array (containing unique leafs)
-            auto [start, end] = svo.m_treeLevels[d];
-            auto* const mutDataPtr = svo.m_allocator.data();
-
-            size_t descriptorOffset = start;
-            while (descriptorOffset < end) {
-                updateChildOffsets(mutDataPtr, static_cast<NodeOffset>(descriptorOffset)); // Replace child offsets with offsets into the new allocator vector
-                descriptorOffset += nextDescriptor(mutDataPtr + descriptorOffset);
-            }
-        }
-
-        // Place unique nodes at this level in the allocator and update the LUT accordingly
-        for (const auto& svo : svos) {
-            auto [start, end] = svo.m_treeLevels[d];
-            const auto* descriptorPtr = svo.m_data + start;
-            const auto* endPtr = svo.m_data + end;
-
-            while (descriptorPtr < endPtr) {
-                auto key = descriptorToKey(descriptorPtr);
-                if (auto [iter, succeeded] = lut.try_emplace(key, static_cast<NodeOffset>(allocator.size())); succeeded) {
-                    storeDescriptor(descriptorPtr); // Stores to allocator (allocator for the new nodes)
-                }
-
-                descriptorPtr += nextDescriptor(descriptorPtr);
-            }
-        }
-    }
-
-    for (auto& svo : svos) {
-        svo.m_rootNodeOffset = storeDescriptor(svo.m_data + svo.m_rootNodeOffset);
-        svo.m_data = allocator.data();
-        svo.m_allocator.clear();
-    }
-    svos[0].m_allocator = std::move(allocator);*/
 }
 
 SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
@@ -358,6 +306,26 @@ SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(gsl::span<boo
     descriptor.leafMask = leafMaskBits;
     return descriptor;
 }
+
+#ifdef PANDORA_ISPC_SUPPORT
+void SparseVoxelDAG::intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const
+{
+    static_assert(sizeof(Descriptor) == sizeof(uint16_t));
+	static_assert(std::is_same_v<RelativeNodeOffset, uint16_t> || std::is_same_v<RelativeNodeOffset, uint32_t>);
+
+    if constexpr (std::is_same_v<RelativeNodeOffset, uint16_t>) {
+        ispc::SparseVoxelDAG16 svdag;
+        svdag.descriptors = reinterpret_cast<const uint16_t*>(m_data); // Using contexpr if-statements dont fix this???
+        svdag.rootNodeOffset = static_cast<uint32_t>(m_rootNodeOffset);
+        ispc::SparseVoxelDAG16_intersect(svdag, rays, hits, N);
+    } if constexpr (std::is_same_v<RelativeNodeOffset, uint32_t>) {
+        ispc::SparseVoxelDAG32 svdag;
+        svdag.descriptors = reinterpret_cast<const uint32_t*>(m_data); // Using contexpr if-statements dont fix this???
+        svdag.rootNodeOffset = static_cast<uint32_t>(m_rootNodeOffset);
+        ispc::SparseVoxelDAG32_intersect(svdag, rays, hits, N);
+    }
+}
+#endif
 
 std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
 {
