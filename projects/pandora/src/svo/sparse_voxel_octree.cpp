@@ -7,8 +7,8 @@
 #include <array>
 #include <cmath>
 #include <cstring>
-#include <libmorton/morton.h>
 #include <immintrin.h>
+#include <libmorton/morton.h>
 
 namespace pandora {
 
@@ -55,21 +55,21 @@ SparseVoxelOctree::SparseVoxelOctree(const VoxelGrid& grid)
 
     m_rootNode = queues[0][0];
 
-	ALWAYS_ASSERT(m_allocator.size() < (1 << 16), "SVO to large, cannot use 16 bits to index");
-	m_allocator.shrink_to_fit();
+    ALWAYS_ASSERT(m_allocator.size() < (1 << 16), "SVO to large, cannot use 16 bits to index");
+    m_allocator.shrink_to_fit();
 
-	std::cout << "Size of SVO: " << (m_allocator.size() * sizeof(decltype(m_allocator)::value_type)) << " bytes" << std::endl;
+    std::cout << "Size of SVO: " << (m_allocator.size() * sizeof(decltype(m_allocator)::value_type)) << " bytes" << std::endl;
 }
 
 #ifdef PANDORA_ISPC_SUPPORT
 void SparseVoxelOctree::intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const
 {
-	static_assert(sizeof(ChildDescriptor) == sizeof(uint32_t));
+    static_assert(sizeof(ChildDescriptor) == sizeof(uint32_t));
 
-	ispc::SparseVoxelOctree svo;
-	svo.descriptors = reinterpret_cast<const uint32_t*>(m_allocator.data());
-	memcpy(&svo.rootNode, &m_rootNode, sizeof(uint32_t));
-	ispc::SparseVoxelOctree_intersect(svo, rays, hits, N);
+    ispc::SparseVoxelOctree svo;
+    svo.descriptors = reinterpret_cast<const uint32_t*>(m_allocator.data());
+    memcpy(&svo.rootNode, &m_rootNode, sizeof(uint32_t));
+    ispc::SparseVoxelOctree_intersect(svo, rays, hits, N);
 }
 #endif
 
@@ -80,7 +80,7 @@ std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
     constexpr int CAST_STACK_DEPTH = 23; //intLog2(m_resolution);
 
     // Get rid of small ray direction components to avoid division by zero
-    constexpr float epsilon = 1.1920928955078125e-07f;// std::exp2f(-CAST_STACK_DEPTH);
+    constexpr float epsilon = 1.1920928955078125e-07f; // std::exp2f(-CAST_STACK_DEPTH);
     if (std::abs(ray.direction.x) < epsilon)
         ray.direction.x = std::copysign(epsilon, ray.direction.x);
     if (std::abs(ray.direction.y) < epsilon)
@@ -147,7 +147,7 @@ std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
         float tcMax = minComponent(tCorner);
 
         // Process voxel if the corresponding bit in the valid mask is set
-        int childIndex = 7 - ((idx & 0b111) ^ octantMask);
+        int childIndex = 7 - (idx ^ octantMask);
         if (parent.isValid(childIndex)) {
             // === INTERSECT ===
             float half = scaleExp2 * 0.5f;
@@ -160,8 +160,11 @@ std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
             // === PUSH ===
             stack[scale] = parent;
 
+            // Find child descriptor corresponding to the current voxel
+            parent = getChild(parent, childIndex);
+
             // Select the child voxel that the ray enters first.
-			idx = (idx & 0b111) << 3;
+            idx = 0;
             scale--;
             scaleExp2 = half;
             if (tCenter.x > tMin) {
@@ -177,86 +180,85 @@ std::optional<float> SparseVoxelOctree::intersectScalar(Ray ray) const
                 pos.z += scaleExp2;
             }
 
-            // Find child descriptor corresponding to the current voxel
-            parent = getChild(parent, childIndex);
-		} else {
-			// === ADVANCE ===
+            continue;
+        }
 
-			// Step along the ray
-			int stepMask = 0;
-			if (tCorner.x <= tcMax) {
-				stepMask ^= (1 << 0);
-				pos.x -= scaleExp2;
-			}
-			if (tCorner.y <= tcMax) {
-				stepMask ^= (1 << 1);
-				pos.y -= scaleExp2;
-			}
-			if (tCorner.z <= tcMax) {
-				stepMask ^= (1 << 2);
-				pos.z -= scaleExp2;
-			}
+        // === ADVANCE ===
 
-			// Update active t-span and flip bits of the child slot index
-			tMin = tcMax;
-			idx ^= stepMask;
+        // Step along the ray
+        int stepMask = 0;
+        if (tCorner.x <= tcMax) {
+            stepMask ^= (1 << 0);
+            pos.x -= scaleExp2;
+        }
+        if (tCorner.y <= tcMax) {
+            stepMask ^= (1 << 1);
+            pos.y -= scaleExp2;
+        }
+        if (tCorner.z <= tcMax) {
+            stepMask ^= (1 << 2);
+            pos.z -= scaleExp2;
+        }
 
-			// Proceed with pop if the bit flip disagree with the ray direction
-			if ((idx & stepMask) != 0) {
-				// === POP ===
-				// Find the highest differing bit between the two positions
-				unsigned differingBits = 0;
-				if ((stepMask & (1 << 0)) != 0) {
-					differingBits |= floatAsInt(pos.x) ^ floatAsInt(pos.x + scaleExp2);
-				}
-				if ((stepMask & (1 << 1)) != 0) {
-					differingBits |= floatAsInt(pos.y) ^ floatAsInt(pos.y + scaleExp2);
-				}
-				if ((stepMask & (1 << 2)) != 0) {
-					differingBits |= floatAsInt(pos.z) ^ floatAsInt(pos.z + scaleExp2);
-				}
-				scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest bit (complicated alternative to bitscan)
-				scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
+        // Update active t-span and flip bits of the child slot index
+        tMin = tcMax;
+        idx ^= stepMask;
 
-				// Restore parent voxel from the stack
-				parent = stack[scale];
+        // Proceed with pop if the bit flip disagree with the ray direction
+        if ((idx & stepMask) != 0) {
+            // === POP ===
+            // Find the highest differing bit between the two positions
+            unsigned differingBits = 0;
+            if ((stepMask & (1 << 0)) != 0) {
+                differingBits |= floatAsInt(pos.x) ^ floatAsInt(pos.x + scaleExp2);
+            }
+            if ((stepMask & (1 << 1)) != 0) {
+                differingBits |= floatAsInt(pos.y) ^ floatAsInt(pos.y + scaleExp2);
+            }
+            if ((stepMask & (1 << 2)) != 0) {
+                differingBits |= floatAsInt(pos.z) ^ floatAsInt(pos.z + scaleExp2);
+            }
+            scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest bit (complicated alternative to bitscan)
+            scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
 
-				// Round cube position and extract child slot index
-				int shx = floatAsInt(pos.x) >> scale;
-				int shy = floatAsInt(pos.y) >> scale;
-				int shz = floatAsInt(pos.z) >> scale;
-				pos.x = intAsFloat(shx << scale);
-				pos.y = intAsFloat(shy << scale);
-				pos.z = intAsFloat(shz << scale);
-				idx = (shx & 0b1001) | ((shy & 0b1001) << 1) | ((shz & 0b1001) << 2);
-			}
-		}
+            // Restore parent voxel from the stack
+            parent = stack[scale];
+
+            // Round cube position and extract child slot index
+            int shx = floatAsInt(pos.x) >> scale;
+            int shy = floatAsInt(pos.y) >> scale;
+            int shz = floatAsInt(pos.z) >> scale;
+            pos.x = intAsFloat(shx << scale);
+            pos.y = intAsFloat(shy << scale);
+            pos.z = intAsFloat(shz << scale);
+            idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2);
+        }
     }
 
     // Indicate miss if we are outside the octree
-	if (scale >= CAST_STACK_DEPTH) {
-		return {};
-	} else {
-		/*// Undo mirroring of the coordinate system
+    if (scale >= CAST_STACK_DEPTH) {
+        return {};
+    } else {
+        /*// Undo mirroring of the coordinate system
 		if ((octantMask & (1 << 0)) == 0)
-			pos.x = 3.0f - scaleExp2 - pos.x;
+		pos.x = 3.0f - scaleExp2 - pos.x;
 		if ((octantMask & (1 << 1)) == 0)
-			pos.y = 3.0f - scaleExp2 - pos.y;
+		pos.y = 3.0f - scaleExp2 - pos.y;
 		if ((octantMask & (1 << 2)) == 0)
-			pos.z = 3.0f - scaleExp2 - pos.z;
+		pos.z = 3.0f - scaleExp2 - pos.z;
 
 		glm::vec3 hitPos = glm::min(glm::max(ray.origin + tMin * ray.direction, pos.x + epsilon), pos.x + scaleExp2 - epsilon);*/
 
-		// Output result
-		return tMin;
-	}
+        // Output result
+        return tMin;
+    }
 }
 
 SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::getChild(const ChildDescriptor& descriptor, int idx) const
 {
-	uint32_t childMask = (descriptor.validMask ^ descriptor.leafMask) & ((1 << idx) - 1);
-	uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
-	return m_allocator[descriptor.childPtr + activeChildIndex];
+    uint32_t childMask = (descriptor.validMask ^ descriptor.leafMask) & ((1 << idx) - 1);
+    uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
+    return m_allocator[descriptor.childPtr + activeChildIndex];
 }
 
 SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
@@ -315,7 +317,7 @@ uint16_t SparseVoxelOctree::storeDescriptors(gsl::span<SparseVoxelOctree::ChildD
         }
     }
 
-	return baseIndex;
+    return baseIndex;
 }
 
 std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelOctree::generateSurfaceMesh() const
