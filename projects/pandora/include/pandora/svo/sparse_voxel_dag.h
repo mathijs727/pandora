@@ -31,7 +31,7 @@ public:
 
     std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 
-	size_t size() const { return m_allocator.size() * sizeof(decltype(m_allocator)::value_type); }
+	size_t size() const { return m_allocator.size() * sizeof(decltype(m_allocator)::value_type) + m_leafAllocator.size() * sizeof(decltype(m_leafAllocator)::value_type); }
 
 private:
 	using RelativeNodeOffset = uint16_t; // Either uint32_t or uint16_t
@@ -47,7 +47,8 @@ private:
         inline bool isValid(int i) const { return validMask & (1 << i); };
         inline bool isLeaf(int i) const { return (validMask & leafMask) & (1 << i); };
 		inline bool isInnerNode(int i) const { return (validMask & (~leafMask)) & (1 << i); };
-        inline int numInnerNodeChildren() const { return _mm_popcnt_u32(validMask & (~leafMask)); };
+		//inline int numInnerNodeChildren() const { return _mm_popcnt_u32(validMask & (~leafMask)); };
+		inline int numChildren() const { return _mm_popcnt_u32(validMask); };
 
         Descriptor() = default;
         //inline explicit Descriptor(const SVOChildDescriptor& v) { leafMask = v.leafMask; validMask = v.validMask; __padding = 0; };
@@ -66,9 +67,10 @@ private:
 private:
     int m_resolution;
     
-	AbsoluteNodeOffset m_rootNodeOffset;
 	std::vector<std::pair<size_t, size_t>> m_treeLevels;
-    std::vector<RelativeNodeOffset> m_allocator;
+	AbsoluteNodeOffset m_rootNodeOffset;
+	std::vector<RelativeNodeOffset> m_allocator;
+	std::vector<uint64_t> m_leafAllocator;
 	const RelativeNodeOffset* m_data;
 };
 
