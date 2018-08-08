@@ -73,7 +73,7 @@ SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(cons
         //m_allocator.insert(std::end(m_allocator), std::begin(childrenOffsets), std::end(childrenOffsets));
         for (AbsoluteNodeOffset absoluteChildOffset : absoluteChildOffsets) { // Offsets from the start of m_allocator
             // Store as offset from current node (always negative)
-			assert(absoluteOffset > absoluteChildOffset);
+            assert(absoluteOffset > absoluteChildOffset);
             m_allocator.push_back(static_cast<RelativeNodeOffset>(absoluteOffset - absoluteChildOffset));
         }
 
@@ -110,7 +110,7 @@ SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(cons
 
                 validMask = 0;
                 leafMask = 0;
-				absoluteChildrenOffsets.clear();
+                absoluteChildrenOffsets.clear();
                 prevMortonCode = mortonCodeN;
             }
 
@@ -118,7 +118,7 @@ SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(cons
             assert((validMask & (1 << idx)) == 0); // We should never visit the same child twice
             validMask |= 1 << idx;
             if (childNodeInfo.absoluteDescriptorOffset) {
-				absoluteChildrenOffsets.push_back(*childNodeInfo.absoluteDescriptorOffset);
+                absoluteChildrenOffsets.push_back(*childNodeInfo.absoluteDescriptorOffset);
             } else {
                 leafMask |= 1 << idx;
             }
@@ -147,68 +147,146 @@ const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* des
     uint32_t childMask = (descriptorPtr->validMask ^ descriptorPtr->leafMask) & ((1 << idx) - 1);
     uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
 
-	const RelativeNodeOffset* dataPtr = reinterpret_cast<const RelativeNodeOffset*>(descriptorPtr);
-	const RelativeNodeOffset* firstChildPtr = dataPtr + 1;
+    const RelativeNodeOffset* dataPtr = reinterpret_cast<const RelativeNodeOffset*>(descriptorPtr);
+    const RelativeNodeOffset* firstChildPtr = dataPtr + 1;
 
-	RelativeNodeOffset relativeChildOffset = *(firstChildPtr + activeChildIndex);
-	return reinterpret_cast<const Descriptor*>(dataPtr - relativeChildOffset);
+    RelativeNodeOffset relativeChildOffset = *(firstChildPtr + activeChildIndex);
+    return reinterpret_cast<const Descriptor*>(dataPtr - relativeChildOffset);
 }
 
 void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 {
-    /*using Descriptor = SparseVoxelDAG::Descriptor;
+    using Descriptor = SparseVoxelDAG::Descriptor;
     using RelativeNodeOffset = SparseVoxelDAG::RelativeNodeOffset;
-	using AbsoluteNodeOffset = size_t;
+    using AbsoluteNodeOffset = size_t;
 
     size_t maxTreeDepth = 0;
     maxTreeDepth = svos[0].m_treeLevels.size();
     for (const auto& svo : svos)
         assert(svo.m_treeLevels.size() == maxTreeDepth);
 
-    auto descriptorToKey = [](const RelativeNodeOffset* descriptorPtr) -> std::array<NodeOffset, 9> {
-        const Descriptor d = *reinterpret_cast<const Descriptor*>(descriptorPtr);
-        const NodeOffset* childOffset = descriptorPtr + 1;
+    //using FullDescriptor = std::pair<Descriptor, eastl::fixed_vector<AbsoluteNodeOffset, 8>>;
+    struct FullDescriptor {
+        Descriptor descriptor;
+        eastl::fixed_vector<AbsoluteNodeOffset, 8> children;
 
-        std::array<NodeOffset, 9> key;
-        key[0] = *descriptorPtr;
-        for (int i = 0; i < 8; i++) {
-            key[i + 1] = d.isInnerNode(i) ? *(childOffset++) : 0;
+        bool operator==(const FullDescriptor& other) const
+        {
+            return descriptor == other.descriptor && children.size() == other.children.size() && memcmp(children.data(), other.children.data(), children.size() * sizeof(decltype(children)::value_type)) == 0;
         }
-        return key;
     };
 
-    auto nextDescriptor = [](const NodeOffset* descriptorPtr) -> size_t {
+	struct FullDescriptorHasher
+	{
+		std::size_t operator()(const FullDescriptor& desc) const noexcept {
+			// https://www.boost.org/doc/libs/1_67_0/doc/html/hash/combine.html
+			size_t seed = 0;
+			boost::hash_combine(seed, boost::hash<uint8_t>{}(desc.descriptor.leafMask));
+			boost::hash_combine(seed, boost::hash<uint8_t>{}(desc.descriptor.validMask));
+			for (size_t childOffset : desc.children)
+				boost::hash_combine(seed, boost::hash<size_t>{}(childOffset));
+			return seed;
+		}
+	};
+
+    auto decodeDescriptor = [](const Descriptor* descriptorPtr, AbsoluteNodeOffset absoluteDescriptorOffset, const std::unordered_map<AbsoluteNodeOffset, size_t>& childDescriptorOffsetLUT) -> FullDescriptor {
+        const auto* dataPtr = reinterpret_cast<const RelativeNodeOffset*>(descriptorPtr);
+        const auto* childPtr = dataPtr + 1;
+
+        FullDescriptor result;
+        result.descriptor = *descriptorPtr;
+        for (int i = 0; i < 8; i++) {
+            if (descriptorPtr->isInnerNode(i)) {
+                RelativeNodeOffset relativeChildOffset = *(childPtr++);
+                assert(absoluteDescriptorOffset >= relativeChildOffset);
+                AbsoluteNodeOffset absoluteChildOffset = absoluteDescriptorOffset - relativeChildOffset;
+                size_t offsetInChildrenArray = childDescriptorOffsetLUT.find(absoluteChildOffset)->second;
+                result.children.push_back(offsetInChildrenArray);
+            }
+        }
+        return result;
+    };
+
+    auto nextDescriptor = [](const RelativeNodeOffset* descriptorPtr) -> size_t {
         Descriptor descriptor = *reinterpret_cast<const Descriptor*>(descriptorPtr);
         size_t offset = 1 + descriptor.numInnerNodeChildren();
         return offset;
     };
 
-    std::vector<NodeOffset> allocator;
-    auto storeDescriptor = [&](const NodeOffset* descriptorPtr) -> NodeOffset {
-        NodeOffset resultNodeOffset = static_cast<NodeOffset>(allocator.size());
+    std::vector<RelativeNodeOffset> allocator;
+    auto storeDescriptor = [&](const FullDescriptor& fullDescriptor) -> AbsoluteNodeOffset {
+        AbsoluteNodeOffset absoluteDescriptorOffset = static_cast<AbsoluteNodeOffset>(allocator.size());
 
-        Descriptor descriptor = *reinterpret_cast<const Descriptor*>(descriptorPtr);
-        size_t size = 1 + descriptor.numInnerNodeChildren();
-        allocator.insert(std::end(allocator), descriptorPtr, descriptorPtr + size);
-
-        return resultNodeOffset;
-    };
-
-    std::unordered_map<std::array<NodeOffset, 9>, NodeOffset, boost::hash<std::array<NodeOffset, 9>>> lut; // 1 for the descriptor, 8 for the child offset
-    auto updateChildOffsets = [&](NodeOffset* dataPtr, NodeOffset descriptorOffset) { // Replaces child offsets with offsets into the new node array
-        auto descriptorPtr = dataPtr + descriptorOffset;
-        Descriptor descriptor = *reinterpret_cast<const Descriptor*>(descriptorPtr);
-        size_t numInnerNodeChildren = descriptor.numInnerNodeChildren();
-        NodeOffset* firstChildOffsetPtr = descriptorPtr + 1;
-
-        for (size_t i = 0; i < numInnerNodeChildren; i++) {
-            auto key = descriptorToKey(dataPtr + *(firstChildOffsetPtr + i));
-            assert(lut.find(key) != lut.end());
-            firstChildOffsetPtr[i] = lut[key];
+        allocator.push_back(static_cast<RelativeNodeOffset>(fullDescriptor.descriptor));
+        int numChildren = fullDescriptor.descriptor.numInnerNodeChildren();
+        for (int i = 0; i < numChildren; i++) {
+            AbsoluteNodeOffset absoluteChildOffset = fullDescriptor.children[i];
+            RelativeNodeOffset relativeChildOffset = static_cast<RelativeNodeOffset>(absoluteDescriptorOffset - absoluteChildOffset);
+            allocator.push_back(relativeChildOffset);
         }
+
+        return absoluteDescriptorOffset;
     };
 
-    // Collect all unique leaf nodes
+    std::unordered_map<FullDescriptor, AbsoluteNodeOffset, FullDescriptorHasher> lut; // Look-up table from descriptors (pointing into DAG allocator array) to nodes in the DAG allocator array
+
+    for (auto& svo : svos) {
+        std::unordered_map<AbsoluteNodeOffset, size_t> childDescriptorOffsetLUT; // Maps absolute offsets into encoded (NodeOffset*) array to offsets into the childDescriptors array
+        std::unordered_map<AbsoluteNodeOffset, size_t> descriptorOffsetLUT; // Maps absolute offsets into encoded (NodeOffset*) array to offsets into the descriptors array
+        std::vector<FullDescriptor> childDescriptors; // Descriptors pointing into DAG allocator array
+        std::vector<FullDescriptor> descriptors; // Descriptors at the currrent level pointing into the children array
+
+        for (size_t d = 0; d < maxTreeDepth; d++) {
+            auto [start, end] = svo.m_treeLevels[d];
+
+            std::swap(descriptorOffsetLUT, childDescriptorOffsetLUT);
+            std::swap(descriptors, childDescriptors);
+            descriptors.clear();
+            descriptorOffsetLUT.clear();
+
+            // Fill descriptors array & descriptorOffsetLUT
+            {
+                size_t descriptorOffset = start;
+
+                while (descriptorOffset < end) {
+                    const auto* dataPtr = svo.m_data + descriptorOffset;
+                    const auto* descriptorPtr = reinterpret_cast<const Descriptor*>(dataPtr);
+
+                    descriptorOffsetLUT[descriptorOffset] = descriptors.size(); // M
+                    descriptors.push_back(decodeDescriptor(descriptorPtr, descriptorOffset, childDescriptorOffsetLUT));
+
+                    descriptorOffset += nextDescriptor(dataPtr);
+                }
+            }
+
+            // Update child pointers to pointers into the DAG allocator array, inserting any children that are not in the array already
+            for (auto& mutDescriptor : descriptors) {
+                for (auto& childOffset : mutDescriptor.children) {
+                    const auto& child = childDescriptors[childOffset];
+                    AbsoluteNodeOffset newNodeAbsoluteOffset = allocator.size();
+                    if (auto [iter, succeeded] = lut.try_emplace(child, newNodeAbsoluteOffset); succeeded) {
+                        AbsoluteNodeOffset offset = storeDescriptor(child); // Unique node => insert into DAG allocator array
+                        assert(offset == iter->second);
+                        childOffset = iter->second;
+                    } else {
+                        assert(iter != lut.end());
+                        childOffset = iter->second;
+                    }
+                }
+            }
+        }
+
+        assert(descriptors.size() == 1);
+        svo.m_rootNodeOffset = storeDescriptor(descriptors[0]);
+        svo.m_allocator.clear();
+    }
+
+    for (auto& svo : svos) {
+        svo.m_data = allocator.data(); // Set this after all work on the allocator is done (and the pointer cant change because of reallocations)
+    }
+    svos[0].m_allocator = std::move(allocator);
+
+    /*// Collect all unique leaf nodes
     for (const auto& svo : svos) {
         auto [start, end] = svo.m_treeLevels[0];
         const auto* descriptorPtr = svo.m_data + start;

@@ -47,6 +47,7 @@ private:
         //inline explicit Descriptor(const SVOChildDescriptor& v) { leafMask = v.leafMask; validMask = v.validMask; __padding = 0; };
         //inline explicit Descriptor(RelativeNodeOffset v) { memcpy(this, &v, sizeof(Descriptor)); };
         inline explicit operator RelativeNodeOffset() const { return static_cast<RelativeNodeOffset>(*reinterpret_cast<const uint16_t*>(this)); };
+		inline bool operator==(const Descriptor& other) const { return leafMask == other.leafMask && validMask == other.validMask; };
     };
     static_assert(sizeof(Descriptor) == sizeof(uint16_t));
 

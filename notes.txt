@@ -68,3 +68,7 @@ NOTE: the data layout suggested in the paper is not sparse (it subdivides to the
 
 Using relative offsets makes current DAG compression impossible (nodes in the old array are updated to store a reference to a node in the new array of nodes => using relative offsets doesnt work).
 Create a separate array of indirection for each SVO (from unique node idx to absolute offset in the new array). This should give us some headroom (number of unique nodes still limited to 16 bits).
+
+NOTE: compressing child nodes & keeping indices to parents misses nodes that are the same but on a different level
+
+This would be so much easier on a single tree; can be integrated into SVO construction
