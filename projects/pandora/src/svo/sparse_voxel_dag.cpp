@@ -25,7 +25,7 @@ SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
     std::cout << "Size of SparseVoxelDAG before compression: " << m_allocator.size() * sizeof(decltype(m_allocator)::value_type) << " bytes" << std::endl;
 }
 
-size_t SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
+SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
 {
     ALWAYS_ASSERT(isPowerOf2(m_resolution), "Resolution must be a power of 2"); // Resolution = power of 2
     int depth = intLog2(m_resolution) - 1;
@@ -34,7 +34,7 @@ size_t SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
         uint_fast32_t mortonCode; // Morton code (in level N-1)
         // Offset to the descriptor in m_allocator. If not set than this is node is fully filled which should
         //  be propegated up the tree.
-        std::optional<size_t> descriptorOffsetFromStart;
+        std::optional<AbsoluteNodeOffset> absoluteDescriptorOffset;
     };
     std::vector<NodeInfoN1> previousLevelNodes;
     std::vector<NodeInfoN1> currentLevelNodes;
@@ -55,32 +55,33 @@ size_t SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
             currentLevelNodes.push_back({ mortonCode >> 3, {} });
         } else if (!desc.isEmpty()) {
             currentLevelNodes.push_back({ mortonCode >> 3, m_allocator.size() });
-            m_allocator.push_back(static_cast<NodeOffset>(desc));
+            m_allocator.push_back(static_cast<RelativeNodeOffset>(desc));
         }
     }
     m_treeLevels.push_back({ 0, m_allocator.size() });
 
-    auto createAndStoreDescriptor = [&](uint8_t validMask, uint8_t leafMask, const gsl::span<size_t> childOffsetFromStart) -> size_t {
+    auto createAndStoreDescriptor = [&](uint8_t validMask, uint8_t leafMask, const gsl::span<AbsoluteNodeOffset> absoluteChildOffsets) -> size_t {
         Descriptor d;
         d.validMask = validMask;
         d.leafMask = leafMask;
-        assert(d.numInnerNodeChildren() == childOffsetFromStart.size());
+        assert(d.numInnerNodeChildren() == absoluteChildOffsets.size());
 
-        size_t offsetInAllocator = m_allocator.size();
-        m_allocator.push_back(static_cast<NodeOffset>(d));
+        AbsoluteNodeOffset absoluteOffset = m_allocator.size();
+        m_allocator.push_back(static_cast<RelativeNodeOffset>(d));
 
         // Store child offsets directly after the descriptor itself
         //m_allocator.insert(std::end(m_allocator), std::begin(childrenOffsets), std::end(childrenOffsets));
-        for (size_t childOffset : childOffsetFromStart) { // Offsets from the start of m_allocator
+        for (AbsoluteNodeOffset absoluteChildOffset : absoluteChildOffsets) { // Offsets from the start of m_allocator
             // Store as offset from current node (always negative)
-            m_allocator.push_back(static_cast<NodeOffset>(offsetInAllocator - childOffset));
+			assert(absoluteOffset > absoluteChildOffset);
+            m_allocator.push_back(static_cast<RelativeNodeOffset>(absoluteOffset - absoluteChildOffset));
         }
 
-        return offsetInAllocator;
+        return absoluteOffset;
     };
 
     // Separate vector so m_allocator data doesnt change while inserting new descriptors.
-    size_t rootNodeOffset = 0;
+    AbsoluteNodeOffset rootNodeOffset = 0;
     for (int N = 0; N < depth; N++) {
         std::swap(previousLevelNodes, currentLevelNodes);
         currentLevelNodes.clear();
@@ -89,7 +90,7 @@ size_t SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
 
         uint8_t validMask = 0x00;
         uint8_t leafMask = 0x00;
-        eastl::fixed_vector<size_t, 8> childrenOffsetStartOfAllocator;
+        eastl::fixed_vector<AbsoluteNodeOffset, 8> absoluteChildrenOffsets;
 
         uint_fast32_t prevMortonCode = previousLevelNodes[0].mortonCode >> 3;
         for (unsigned i = 0; i < previousLevelNodes.size(); i++) {
@@ -103,21 +104,21 @@ size_t SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
                     currentLevelNodes.push_back({ prevMortonCode, {} });
                 } else {
                     // Different morton code: we are finished with the previous node => store it
-                    auto offset = createAndStoreDescriptor(validMask, leafMask, childrenOffsetStartOfAllocator);
+                    auto offset = createAndStoreDescriptor(validMask, leafMask, absoluteChildrenOffsets);
                     currentLevelNodes.push_back({ prevMortonCode, offset });
                 }
 
                 validMask = 0;
                 leafMask = 0;
-                childrenOffsetStartOfAllocator.clear();
+				absoluteChildrenOffsets.clear();
                 prevMortonCode = mortonCodeN;
             }
 
             auto idx = mortonCodeN1 & ((1 << 3) - 1); // Right most 3 bits
             assert((validMask & (1 << idx)) == 0); // We should never visit the same child twice
             validMask |= 1 << idx;
-            if (childNodeInfo.descriptorOffsetFromStart) {
-                childrenOffsetStartOfAllocator.push_back(*childNodeInfo.descriptorOffsetFromStart);
+            if (childNodeInfo.absoluteDescriptorOffset) {
+				absoluteChildrenOffsets.push_back(*childNodeInfo.absoluteDescriptorOffset);
             } else {
                 leafMask |= 1 << idx;
             }
@@ -127,7 +128,7 @@ size_t SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
         if (leafMask == 0xFF) {
             currentLevelNodes.push_back({ prevMortonCode, {} });
         } else {
-            auto offset = createAndStoreDescriptor(validMask, leafMask, childrenOffsetStartOfAllocator);
+            auto offset = createAndStoreDescriptor(validMask, leafMask, absoluteChildrenOffsets);
             auto lastNodeMortonCode = (previousLevelNodes.back().mortonCode >> 3);
             assert(lastNodeMortonCode == prevMortonCode);
             currentLevelNodes.push_back({ prevMortonCode, offset });
@@ -141,36 +142,30 @@ size_t SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
     return rootNodeOffset;
 }
 
-const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* descriptor, int idx) const
+const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* descriptorPtr, int idx) const
 {
-    uint32_t childMask = (descriptor->validMask ^ descriptor->leafMask) & ((1 << idx) - 1);
+    uint32_t childMask = (descriptorPtr->validMask ^ descriptorPtr->leafMask) & ((1 << idx) - 1);
     uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
 
-    const NodeOffset* firstChildPtr = reinterpret_cast<const NodeOffset*>(descriptor) + 1;
+	const RelativeNodeOffset* dataPtr = reinterpret_cast<const RelativeNodeOffset*>(descriptorPtr);
+	const RelativeNodeOffset* firstChildPtr = dataPtr + 1;
 
-    NodeOffset childOffset = *(firstChildPtr + activeChildIndex);
-
-    if constexpr (sizeof(NodeOffset) == 2 * sizeof(Descriptor)) {
-        return descriptor -  (((size_t)childOffset) << 1);
-    } else if constexpr (sizeof(NodeOffset) == sizeof(Descriptor)) {
-		return descriptor - childOffset;
-    } else {
-        static_assert("Offset error");
-		return nullptr;
-    }
+	RelativeNodeOffset relativeChildOffset = *(firstChildPtr + activeChildIndex);
+	return reinterpret_cast<const Descriptor*>(dataPtr - relativeChildOffset);
 }
 
 void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 {
-    using Descriptor = SparseVoxelDAG::Descriptor;
-    using NodeOffset = SparseVoxelDAG::NodeOffset;
+    /*using Descriptor = SparseVoxelDAG::Descriptor;
+    using RelativeNodeOffset = SparseVoxelDAG::RelativeNodeOffset;
+	using AbsoluteNodeOffset = size_t;
 
     size_t maxTreeDepth = 0;
     maxTreeDepth = svos[0].m_treeLevels.size();
     for (const auto& svo : svos)
         assert(svo.m_treeLevels.size() == maxTreeDepth);
 
-    auto descriptorToKey = [](const NodeOffset* descriptorPtr) -> std::array<NodeOffset, 9> {
+    auto descriptorToKey = [](const RelativeNodeOffset* descriptorPtr) -> std::array<NodeOffset, 9> {
         const Descriptor d = *reinterpret_cast<const Descriptor*>(descriptorPtr);
         const NodeOffset* childOffset = descriptorPtr + 1;
 
@@ -263,7 +258,7 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
         svo.m_data = allocator.data();
         svo.m_allocator.clear();
     }
-    svos[0].m_allocator = std::move(allocator);
+    svos[0].m_allocator = std::move(allocator);*/
 }
 
 SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)

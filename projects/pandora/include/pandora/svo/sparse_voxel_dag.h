@@ -28,7 +28,8 @@ public:
 	size_t size() const { return m_allocator.size() * sizeof(decltype(m_allocator)::value_type); }
 
 private:
-    using NodeOffset = uint16_t; // Either uint32_t or uint16_t
+	using RelativeNodeOffset = uint16_t; // Either uint32_t or uint16_t
+	using AbsoluteNodeOffset = size_t;
 
     // NOTE: child pointers are stored directly after the descriptor
     struct Descriptor {
@@ -44,12 +45,12 @@ private:
 
         Descriptor() = default;
         //inline explicit Descriptor(const SVOChildDescriptor& v) { leafMask = v.leafMask; validMask = v.validMask; __padding = 0; };
-        inline explicit Descriptor(NodeOffset v) { memcpy(this, &v, sizeof(Descriptor)); };
-        inline explicit operator NodeOffset() const { return static_cast<NodeOffset>(*reinterpret_cast<const uint16_t*>(this)); };
+        //inline explicit Descriptor(RelativeNodeOffset v) { memcpy(this, &v, sizeof(Descriptor)); };
+        inline explicit operator RelativeNodeOffset() const { return static_cast<RelativeNodeOffset>(*reinterpret_cast<const uint16_t*>(this)); };
     };
     static_assert(sizeof(Descriptor) == sizeof(uint16_t));
 
-    size_t constructSVOBreadthFirst(const VoxelGrid& grid);
+	AbsoluteNodeOffset constructSVOBreadthFirst(const VoxelGrid& grid);
     static Descriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
 
     // CAREFULL: don't use this function during DAG construction (while m_allocator is touched)!
@@ -58,10 +59,10 @@ private:
 private:
     int m_resolution;
     
-	size_t m_rootNodeOffset;
+	AbsoluteNodeOffset m_rootNodeOffset;
 	std::vector<std::pair<size_t, size_t>> m_treeLevels;
-    std::vector<NodeOffset> m_allocator;
-	const NodeOffset* m_data;
+    std::vector<RelativeNodeOffset> m_allocator;
+	const RelativeNodeOffset* m_data;
 };
 
 }
