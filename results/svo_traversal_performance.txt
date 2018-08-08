@@ -1,6 +1,9 @@
 Stanford Bunny @ 64x64
 Average over 60 frames
 
+BASELINE (without intersecting; measuring overhead)
+Release: ~8.1ms
+
 Scalar version
 Release: 17.1~17.2ms
 

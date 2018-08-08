@@ -5,7 +5,7 @@
 #include <tbb/blocked_range2d.h>
 #include <tbb/parallel_for.h>
 
-//#undef PANDORA_ISPC_SUPPORT
+#undef PANDORA_ISPC_SUPPORT
 
 namespace pandora {
 
