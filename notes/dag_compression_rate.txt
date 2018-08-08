@@ -3,3 +3,11 @@
 Original (with LUT clear at each depth level, 32 bit descriptors, no special leaf nodes)
 Separate compression: 62204 + 81832 + 13344 = 157380 bytes
 Compressed together: 153092 bytes
+
+After rewrite of using offsets from the current node (32 bit descriptors)
+Separate compression: 62184 + 81796 + 13308 = 157288
+Compressed together: 150000 bytes
+
+After rewrite of using offsets from the current node (16 bit descriptors)
+Separate compression: 31092 + 40898 + 6654 = 78644
+Compressed together: 76500 bytes
