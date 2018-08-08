@@ -48,7 +48,7 @@ private:
 	uint16_t storeDescriptors(gsl::span<ChildDescriptor> children);
 private:
 	int m_resolution;
-	size_t m_rootNodeOffset;
+	ChildDescriptor m_rootNode;
 	std::vector<ChildDescriptor> m_allocator;
 };
 
