@@ -35,27 +35,28 @@ SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(cons
         uint_fast32_t mortonCode; // Morton code (in level N-1)
         // Offset to the descriptor in m_allocator. If not set than this is node is fully filled which should
         //  be propegated up the tree.
-		bool isLeaf;
-		AbsoluteNodeOffset absoluteDescriptorOffset;
+        bool isLeaf;
+        AbsoluteNodeOffset absoluteDescriptorOffset;
         //std::optional<std::pair<bool, AbsoluteNodeOffset>> absoluteDescriptorOffset;
     };
     std::vector<NodeInfoN1> previousLevelNodes;
     std::vector<NodeInfoN1> currentLevelNodes;
 
     // Creates and inserts leaf nodes
+	assert(m_resolution % 4 == 0);
     uint_fast32_t finalMortonCode = static_cast<uint_fast32_t>(m_resolution * m_resolution * m_resolution);
-	for (uint_fast32_t mortonCode = 0; mortonCode < finalMortonCode; mortonCode += 64) {
-		// Create leaf node from 4x4x4 voxel block
-		std::bitset<64> leaf;
-		for (uint32_t i = 0; i < 64; i++) {
-			leaf[i] = grid.getMorton(mortonCode + i);
-		}
+    for (uint_fast32_t mortonCode = 0; mortonCode < finalMortonCode; mortonCode += 64) {
+        // Create leaf node from 4x4x4 voxel block
+        std::bitset<64> leaf;
+        for (uint32_t i = 0; i < 64; i++) {
+            leaf[i] = grid.getMorton(mortonCode + i);
+        }
 
-		if (leaf.any()) {
-			currentLevelNodes.push_back({ mortonCode >> 6, true, m_leafAllocator.size() });
-			m_leafAllocator.push_back(leaf.to_ullong());
-		}
-	}
+        if (leaf.any()) {
+            currentLevelNodes.push_back({ mortonCode >> 6, true, m_leafAllocator.size() });
+            m_leafAllocator.push_back(leaf.to_ullong());
+        }
+    }
     m_treeLevels.push_back({ 0, m_allocator.size() });
 
     auto createAndStoreDescriptor = [&](uint8_t validMask, uint8_t leafMask, const gsl::span<std::pair<bool, AbsoluteNodeOffset>> absoluteChildOffsets) -> size_t {
@@ -70,14 +71,14 @@ SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(cons
         // Store child offsets directly after the descriptor itself
         //m_allocator.insert(std::end(m_allocator), std::begin(childrenOffsets), std::end(childrenOffsets));
         for (auto [isLeaf, absoluteChildOffset] : absoluteChildOffsets) { // Offsets from the start of m_allocator
-			if (isLeaf) {
-				assert(absoluteChildOffset < m_leafAllocator.size());
-				m_allocator.push_back(static_cast<RelativeNodeOffset>(absoluteChildOffset));
-			} else {
-				// Store as offset from current node (always negative)
-				assert(absoluteOffset > absoluteChildOffset);
-				m_allocator.push_back(static_cast<RelativeNodeOffset>(absoluteOffset - absoluteChildOffset));
-			}
+            if (isLeaf) {
+                assert(absoluteChildOffset < m_leafAllocator.size());
+                m_allocator.push_back(static_cast<RelativeNodeOffset>(absoluteChildOffset));
+            } else {
+                // Store as offset from current node (always negative)
+                assert(absoluteOffset > absoluteChildOffset);
+                m_allocator.push_back(static_cast<RelativeNodeOffset>(absoluteOffset - absoluteChildOffset));
+            }
         }
 
         return absoluteOffset;
@@ -104,7 +105,7 @@ SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(cons
             if (prevMortonCode != mortonCodeN) {
                 // Different morton code: we are finished with the previous node => store it
                 auto descriptorOffset = createAndStoreDescriptor(validMask, leafMask, absoluteChildrenOffsets);
-				currentLevelNodes.push_back({ prevMortonCode, false, descriptorOffset });
+                currentLevelNodes.push_back({ prevMortonCode, false, descriptorOffset });
 
                 validMask = 0;
                 leafMask = 0;
@@ -115,17 +116,17 @@ SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(cons
             auto idx = mortonCodeN1 & ((1 << 3) - 1); // Right most 3 bits
             assert((validMask & (1 << idx)) == 0); // We should never visit the same child twice
             validMask |= 1 << idx;
-			if (childNodeInfo.isLeaf)
-				leafMask |= 1 << idx;
-			absoluteChildrenOffsets.push_back({ childNodeInfo.isLeaf, childNodeInfo.absoluteDescriptorOffset });
+            if (childNodeInfo.isLeaf)
+                leafMask |= 1 << idx;
+            absoluteChildrenOffsets.push_back({ childNodeInfo.isLeaf, childNodeInfo.absoluteDescriptorOffset });
         }
 
         // Store final descriptor
-		{
+        {
             auto descriptorOffset = createAndStoreDescriptor(validMask, leafMask, absoluteChildrenOffsets);
             auto lastNodeMortonCode = (previousLevelNodes.back().mortonCode >> 3);
             assert(lastNodeMortonCode == prevMortonCode);
-			currentLevelNodes.push_back({ prevMortonCode, false, descriptorOffset });
+            currentLevelNodes.push_back({ prevMortonCode, false, descriptorOffset });
             rootNodeOffset = descriptorOffset; // Keep track of the offset to the root node
         }
 
@@ -312,14 +313,26 @@ void SparseVoxelDAG::intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) 
 
 const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* descriptorPtr, int idx) const
 {
-	uint32_t childMask = descriptorPtr->validMask & ((1 << idx) - 1);
-	uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
+    uint32_t childMask = descriptorPtr->validMask & ((1 << idx) - 1);
+    uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
 
-	const RelativeNodeOffset* dataPtr = reinterpret_cast<const RelativeNodeOffset*>(descriptorPtr);
-	const RelativeNodeOffset* firstChildPtr = dataPtr + 1;
+    const RelativeNodeOffset* dataPtr = reinterpret_cast<const RelativeNodeOffset*>(descriptorPtr);
+    const RelativeNodeOffset* firstChildPtr = dataPtr + 1;
 
-	RelativeNodeOffset relativeChildOffset = *(firstChildPtr + activeChildIndex);
-	return reinterpret_cast<const Descriptor*>(dataPtr - relativeChildOffset);
+    RelativeNodeOffset relativeChildOffset = *(firstChildPtr + activeChildIndex);
+    return reinterpret_cast<const Descriptor*>(dataPtr - relativeChildOffset);
+}
+
+uint64_t SparseVoxelDAG::getLeaf(const Descriptor* descriptorPtr, int idx) const
+{
+    uint32_t childMask = descriptorPtr->validMask & ((1 << idx) - 1);
+    uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
+
+    const RelativeNodeOffset* dataPtr = reinterpret_cast<const RelativeNodeOffset*>(descriptorPtr);
+    const RelativeNodeOffset* firstChildPtr = dataPtr + 1;
+
+    AbsoluteNodeOffset absoluteLeafOffset = static_cast<AbsoluteNodeOffset>(*(firstChildPtr + activeChildIndex));
+    return m_leafAllocator[absoluteLeafOffset];
 }
 
 std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
@@ -342,7 +355,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
     glm::vec3 tCoef = 1.0f / -glm::abs(ray.direction);
     glm::vec3 tBias = tCoef * ray.origin;
 
-    // Select octant mask to mirro the coordinate system so taht ray direction is negative along each axis
+    // Select octant mask to mirror the coordinate system so that ray direction is negative along each axis
     uint32_t octantMask = 7;
     if (ray.direction.x > 0.0f) {
         octantMask ^= (1 << 0);
@@ -389,18 +402,35 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
     // Traverse voxels along the ray as long as the current voxel stays within the octree
     std::array<const Descriptor*, CAST_STACK_DEPTH + 1> stack;
 
+    int depthInLeaf = 0; // 1 if at 2x2x2 level, 2 if at 4x4x4 level, 0 otherwise
+    uint64_t leafData;
     while (scale < CAST_STACK_DEPTH) {
         // === INTERSECT ===
         // Determine the maximum t-value of the cube by evaluating tx(), ty() and tz() at its corner
         glm::vec3 tCorner = pos * tCoef - tBias;
         float tcMax = minComponent(tCorner);
 
-        // Process voxel if the corresponding bit in the valid mask is set
-        int childIndex = 7 - (idx ^ octantMask);
-        if (parent->isValid(childIndex)) {
-            if (parent->isLeaf(childIndex)) {
-                break; // Line 231
-            }
+        if (depthInLeaf == 2) {
+			//int bitIndex = ((idx & 0b111111) ^ (octantMask | (octantMask << 3)));
+			//int bitIndex = (idx & 0b111000) ^ (octantMask << 3);
+			int bitIndex = (0b111 & (idx >> 3)) ^ octantMask;
+			//int bitIndex = 7 - ((idx & 0b111) ^ octantMask);
+			assert(bitIndex >= 0 && bitIndex < 64);
+			//if (leafData & (1llu << bitIndex))
+			if (bitIndex == 0)
+			{
+                break;
+			}
+        }
+
+        // Process voxel if the corresponding bit in the parents valid mask is set
+        int childIndex = 7 - ((idx & 0b111) ^ octantMask);
+        //if (parent->isValid(childIndex)) {
+		if (depthInLeaf == 1 || (depthInLeaf == 0 && parent->isValid(childIndex))) {
+		//if ((depthInLeaf == 0 && parent->isValid(childIndex))) {
+            //if (parent->isLeaf(childIndex)) {
+            //    break; // Line 231
+            //}
 
             float half = scaleExp2 * 0.5f;
             glm::vec3 tCenter = half * tCoef + tCorner;
@@ -408,11 +438,23 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             // === PUSH ===
             stack[scale] = parent;
 
-            // Find child descriptor corresponding to the current voxel
-            parent = getChild(parent, childIndex);
+            if (depthInLeaf == 0) {
+                if (parent->isLeaf(childIndex)) {
+                    leafData = getLeaf(parent, childIndex);
+                    depthInLeaf = 1;
+                    parent = nullptr;
+                } else {
+                    // Find child descriptor corresponding to the current voxel
+                    parent = getChild(parent, childIndex);
+                }
+            } else {
+                depthInLeaf++; // 1 ==> 2
+            }
 
             // Select the child voxel that the ray enters first.
-            idx = 0;
+			int parentIdx = idx & 0b111;
+            idx = (idx & 0b111) << 3;
+			assert((idx & 0b111) == 0);
             scale--;
             scaleExp2 = half;
             if (tCenter.x > tMin) {
@@ -428,49 +470,61 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
                 pos.z += scaleExp2;
             }
 
-            continue;
-        }
+			{
+				// Round cube position and extract child slot index
+				int shx = floatAsInt(pos.x) >> scale;
+				int shy = floatAsInt(pos.y) >> scale;
+				int shz = floatAsInt(pos.z) >> scale;
+				int controlIdx = ((shx & 1) << 0) | ((shy & 1) << 1) | ((shz & 1) << 2) | (((shx & 2) >> 1) << 3) | (((shy & 2) >> 1) << 4) | (((shz & 2) >> 1) << 5);
+				assert(idx == controlIdx);
+			}
+        } else {
+            // === ADVANCE ===
 
-        // === ADVANCE ===
-
-        // Step along the ray
-        int stepMask = 0;
-        if (tCorner.x <= tcMax) {
-            stepMask ^= (1 << 0);
-            pos.x -= scaleExp2;
-        }
-        if (tCorner.y <= tcMax) {
-            stepMask ^= (1 << 1);
-            pos.y -= scaleExp2;
-        }
-        if (tCorner.z <= tcMax) {
-            stepMask ^= (1 << 2);
-            pos.z -= scaleExp2;
-        }
-
-        // Update active t-span and flip bits of the child slot index
-        tMin = tcMax;
-        idx ^= stepMask;
-
-        // Proceed with pop if the bit flip disagree with the ray direction
-        if ((idx & stepMask) != 0) {
-            // === POP ===
-            // Find the highest differing bit between the two positions
-            unsigned differingBits = 0;
-            if ((stepMask & (1 << 0)) != 0) {
-                differingBits |= floatAsInt(pos.x) ^ floatAsInt(pos.x + scaleExp2);
+            // Step along the ray
+            int stepMask = 0;
+            if (tCorner.x <= tcMax) {
+                stepMask ^= (1 << 0);
+                pos.x -= scaleExp2;
             }
-            if ((stepMask & (1 << 1)) != 0) {
-                differingBits |= floatAsInt(pos.y) ^ floatAsInt(pos.y + scaleExp2);
+            if (tCorner.y <= tcMax) {
+                stepMask ^= (1 << 1);
+                pos.y -= scaleExp2;
             }
-            if ((stepMask & (1 << 2)) != 0) {
-                differingBits |= floatAsInt(pos.z) ^ floatAsInt(pos.z + scaleExp2);
+            if (tCorner.z <= tcMax) {
+                stepMask ^= (1 << 2);
+                pos.z -= scaleExp2;
             }
-            scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest bit (complicated alternative to bitscan)
-            scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
 
-            // Restore parent voxel from the stack
-            parent = stack[scale];
+            // Update active t-span and flip bits of the child slot index
+            tMin = tcMax;
+            idx ^= stepMask;
+
+            // Proceed with pop if the bit flip disagree with the ray direction
+            if ((idx & stepMask) != 0) {
+                // === POP ===
+                // Find the highest differing bit between the two positions
+                unsigned differingBits = 0;
+                if ((stepMask & (1 << 0)) != 0) {
+                    differingBits |= floatAsInt(pos.x) ^ floatAsInt(pos.x + scaleExp2);
+                }
+                if ((stepMask & (1 << 1)) != 0) {
+                    differingBits |= floatAsInt(pos.y) ^ floatAsInt(pos.y + scaleExp2);
+                }
+                if ((stepMask & (1 << 2)) != 0) {
+                    differingBits |= floatAsInt(pos.z) ^ floatAsInt(pos.z + scaleExp2);
+                }
+                int oldScale = scale;
+                scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest set bit (equivalent of a reverse bit scan)
+                scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
+
+                // Restore parent voxel from the stack
+                parent = stack[scale];
+
+                assert(oldScale < scale);
+				if (depthInLeaf > 0)
+					depthInLeaf = std::max(0, depthInLeaf - (scale - oldScale));
+            }
 
             // Round cube position and extract child slot index
             int shx = floatAsInt(pos.x) >> scale;
@@ -479,9 +533,9 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             pos.x = intAsFloat(shx << scale);
             pos.y = intAsFloat(shy << scale);
             pos.z = intAsFloat(shz << scale);
-            idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2);
-        }
-    }
+			idx = ((shx & 1) << 0) | ((shy & 1) << 1) | ((shz & 1) << 2) | (((shx & 2) >> 1) << 3) | (((shy & 2) >> 1) << 4) | (((shz & 2) >> 1) << 5);
+        } // Child is empty (can't push)
+    } // While
 
     // Indicate miss if we are outside the octree
     if (scale >= CAST_STACK_DEPTH) {
@@ -562,5 +616,4 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
     }
     return { std::move(positions), std::move(triangles) };
 }
-
 }

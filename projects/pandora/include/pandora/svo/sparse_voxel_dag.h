@@ -62,7 +62,8 @@ private:
     static Descriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
 
     // CAREFULL: don't use this function during DAG construction (while m_allocator is touched)!
-    const Descriptor* getChild(const Descriptor* descriptor, int idx) const;
+	const Descriptor* getChild(const Descriptor* descriptor, int idx) const;
+	uint64_t getLeaf(const Descriptor* descriptor, int idx) const;
 
 private:
     int m_resolution;
