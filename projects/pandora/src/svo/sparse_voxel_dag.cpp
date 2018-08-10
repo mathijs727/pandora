@@ -300,12 +300,14 @@ void SparseVoxelDAG::intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) 
         ispc::SparseVoxelDAG16 svdag;
         svdag.descriptors = reinterpret_cast<const uint16_t*>(m_data); // Using contexpr if-statements dont fix this???
         svdag.rootNodeOffset = static_cast<uint32_t>(m_rootNodeOffset);
+		svdag.leafs = m_leafAllocator.data();
         ispc::SparseVoxelDAG16_intersect(svdag, rays, hits, N);
     }
     if constexpr (std::is_same_v<RelativeNodeOffset, uint32_t>) {
         ispc::SparseVoxelDAG32 svdag;
         svdag.descriptors = reinterpret_cast<const uint32_t*>(m_data); // Using contexpr if-statements dont fix this???
         svdag.rootNodeOffset = static_cast<uint32_t>(m_rootNodeOffset);
+		svdag.leafs = m_leafAllocator.data();
         ispc::SparseVoxelDAG32_intersect(svdag, rays, hits, N);
     }
 }
@@ -438,7 +440,6 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             }
 
             // Select the child voxel that the ray enters first.
-			int parentIdx = idx & 0b111;
             idx = (idx & 0b111) << 3;// Keep the index in the current level which is required for accessing leaf node bits (which are 2 levels deep conceptually)
             scale--;
             scaleExp2 = half;
@@ -493,12 +494,12 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
                 int oldScale = scale;
                 scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest set bit (equivalent of a reverse bit scan)
                 scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
+                assert(oldScale < scale);
+				depthInLeaf = std::max(0, depthInLeaf - (scale - oldScale));
 
                 // Restore parent voxel from the stack
                 parent = stack[scale];
 
-                assert(oldScale < scale);
-				depthInLeaf = std::max(0, depthInLeaf - (scale - oldScale));
             }
 
             // Round cube position and extract child slot index
@@ -510,7 +511,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             pos.z = intAsFloat(shz << scale);
 			//idx = ((shx & 1) << 0) | ((shy & 1) << 1) | ((shz & 1) << 2) | (((shx & 2) >> 1) << 3) | (((shy & 2) >> 1) << 4) | (((shz & 2) >> 1) << 5);
 			idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2) | ((shx & 2) << 2) | ((shy & 2) << 3) | ((shz & 2) << 4);
-        } // Child is empty (can't push)
+        } // Push / pop
     } // While
 
     // Indicate miss if we are outside the octree

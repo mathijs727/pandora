@@ -34,7 +34,7 @@ public:
 	size_t size() const { return m_allocator.size() * sizeof(decltype(m_allocator)::value_type) + m_leafAllocator.size() * sizeof(decltype(m_leafAllocator)::value_type); }
 
 private:
-	using RelativeNodeOffset = uint16_t; // Either uint32_t or uint16_t
+	using RelativeNodeOffset = uint32_t; // Either uint32_t or uint16_t
 	using AbsoluteNodeOffset = size_t;
 
     // NOTE: child pointers are stored directly after the descriptor
