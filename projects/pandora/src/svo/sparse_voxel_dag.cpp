@@ -11,6 +11,7 @@
 #include <cstring>
 #include <immintrin.h>
 #include <libmorton/morton.h>
+#include <limits>
 
 namespace pandora {
 
@@ -22,9 +23,9 @@ SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
     m_rootNodeOffset = constructSVOBreadthFirst(grid);
     m_allocator.shrink_to_fit();
     m_data = m_allocator.data();
-	m_leafData = m_leafAllocator.data();
+    m_leafData = m_leafAllocator.data();
 
-	std::cout << "Size of SparseVoxelDAG before compression: " << this->size() << " bytes"<< std::endl;
+    std::cout << "Size of SparseVoxelDAG before compression: " << this->size() << " bytes" << std::endl;
 }
 
 SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
@@ -44,7 +45,7 @@ SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(cons
     std::vector<NodeInfoN1> currentLevelNodes;
 
     // Creates and inserts leaf nodes
-	assert(m_resolution % 4 == 0);
+    assert(m_resolution % 4 == 0);
     uint_fast32_t finalMortonCode = static_cast<uint_fast32_t>(m_resolution * m_resolution * m_resolution);
     for (uint_fast32_t mortonCode = 0; mortonCode < finalMortonCode; mortonCode += 64) {
         // Create leaf node from 4x4x4 voxel block
@@ -142,21 +143,24 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 {
     using Descriptor = SparseVoxelDAG::Descriptor;
     using RelativeNodeOffset = SparseVoxelDAG::RelativeNodeOffset;
-    using AbsoluteNodeOffset = size_t;
+    using AbsoluteNodeOffset = size_t; // Absolute offsets may be larger than relative offsets so use more bits
 
     size_t maxTreeDepth = 0;
     maxTreeDepth = svos[0].m_treeLevels.size();
     for (const auto& svo : svos)
         assert(svo.m_treeLevels.size() == maxTreeDepth);
 
-    //using FullDescriptor = std::pair<Descriptor, eastl::fixed_vector<AbsoluteNodeOffset, 8>>;
     struct FullDescriptor {
         Descriptor descriptor;
-        eastl::fixed_vector<AbsoluteNodeOffset, 8> children;
+        struct Child {
+            bool isLeaf;
+            AbsoluteNodeOffset offset;
+        };
+        eastl::fixed_vector<Child, 8> children; // Pair of [isLeaf, absoluteOffset]
 
         bool operator==(const FullDescriptor& other) const
         {
-			// Dont need to test whether the child offset points to a leaf because this information is already included in the leafMask
+            // Dont need to test whether the child offset points to a leaf because this information is already included in the leafMask
             return descriptor == other.descriptor && children.size() == other.children.size() && memcmp(children.data(), other.children.data(), children.size() * sizeof(decltype(children)::value_type)) == 0;
         }
     };
@@ -168,14 +172,15 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
             size_t seed = 0;
             boost::hash_combine(seed, boost::hash<uint8_t> {}(desc.descriptor.leafMask));
             boost::hash_combine(seed, boost::hash<uint8_t> {}(desc.descriptor.validMask));
-			for (size_t childOffset : desc.children) {
-                boost::hash_combine(seed, boost::hash<size_t> {}(childOffset));
-			}
+            for (auto [isLeaf, offset] : desc.children) {
+                boost::hash_combine(seed, boost::hash<decltype(isLeaf)> {}(isLeaf));
+                boost::hash_combine(seed, boost::hash<decltype(offset)> {}(offset));
+            }
             return seed;
         }
     };
 
-    auto decodeDescriptor = [](const Descriptor* descriptorPtr, AbsoluteNodeOffset absoluteDescriptorOffset, const std::unordered_map<AbsoluteNodeOffset, size_t>& childDescriptorOffsetLUT) -> FullDescriptor {
+    auto decodeDescriptor = [](const Descriptor* descriptorPtr, AbsoluteNodeOffset absoluteDescriptorOffset, const std::unordered_map<AbsoluteNodeOffset, AbsoluteNodeOffset>& childDescriptorOffsetLUT) -> FullDescriptor {
         const auto* dataPtr = reinterpret_cast<const RelativeNodeOffset*>(descriptorPtr);
         const auto* childPtr = dataPtr + 1;
 
@@ -186,12 +191,12 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
                 RelativeNodeOffset relativeChildOffset = *(childPtr++);
                 assert(absoluteDescriptorOffset >= relativeChildOffset);
                 AbsoluteNodeOffset absoluteChildOffset = absoluteDescriptorOffset - relativeChildOffset;
-                size_t offsetInChildrenArray = childDescriptorOffsetLUT.find(absoluteChildOffset)->second;
-                result.children.push_back(offsetInChildrenArray);
-			} else if (descriptorPtr->isLeaf(i)) {
-				AbsoluteNodeOffset absoluteLeafOffset = static_cast<AbsoluteNodeOffset>(*(childPtr++));
-				result.children.push_back(absoluteLeafOffset); // Absolute offset with respect to the SVO/DAGs local leaf allocator
-			}
+                AbsoluteNodeOffset offsetInChildrenArray = childDescriptorOffsetLUT.find(absoluteChildOffset)->second;
+                result.children.push_back({ false, offsetInChildrenArray });
+            } else if (descriptorPtr->isLeaf(i)) {
+                AbsoluteNodeOffset absoluteLeafOffset = static_cast<AbsoluteNodeOffset>(*(childPtr++));
+                result.children.push_back({ true, absoluteLeafOffset }); // Absolute offset with respect to the SVO/DAGs local leaf allocator
+            }
         }
         return result;
     };
@@ -202,40 +207,38 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
         return offset;
     };
 
-	std::vector<uint64_t> leafAllocator;
-	std::vector<RelativeNodeOffset> allocator;
+    std::vector<uint64_t> leafAllocator;
+    std::vector<RelativeNodeOffset> allocator;
     auto storeDescriptor = [&](const FullDescriptor& fullDescriptor) -> AbsoluteNodeOffset {
         AbsoluteNodeOffset absoluteDescriptorOffset = static_cast<AbsoluteNodeOffset>(allocator.size());
 
         allocator.push_back(static_cast<RelativeNodeOffset>(fullDescriptor.descriptor));
-		int j = 0;
-        for (int i = 0; i < 8; i++) {
-			if (fullDescriptor.descriptor.isInnerNode(i)) {
-				AbsoluteNodeOffset absoluteChildOffset = fullDescriptor.children[j++];
-				RelativeNodeOffset relativeChildOffset = static_cast<RelativeNodeOffset>(absoluteDescriptorOffset - absoluteChildOffset);
-				allocator.push_back(relativeChildOffset);
-			} else if (fullDescriptor.descriptor.isLeaf(i)) {
-				AbsoluteNodeOffset absoluteLeafOffset = fullDescriptor.children[j++];
-				allocator.push_back(static_cast<RelativeNodeOffset>(absoluteLeafOffset));
-			}
+        for (auto [isleaf, absoluteOffset] : fullDescriptor.children) {
+            if (!isleaf) {
+                assert(absoluteDescriptorOffset - absoluteOffset < std::numeric_limits<RelativeNodeOffset>::max());
+                RelativeNodeOffset relativeChildOffset = static_cast<RelativeNodeOffset>(absoluteDescriptorOffset - absoluteOffset);
+                allocator.push_back(relativeChildOffset);
+            } else {
+                assert(absoluteOffset < std::numeric_limits<RelativeNodeOffset>::max());
+                allocator.push_back(static_cast<RelativeNodeOffset>(absoluteOffset));
+            }
         }
-		assert(j == fullDescriptor.descriptor.numChildren());
 
         return absoluteDescriptorOffset;
     };
 
-	auto storeLeaf = [&](const uint64_t leaf) -> AbsoluteNodeOffset {
-		AbsoluteNodeOffset absoluteDescriptorOffset = static_cast<AbsoluteNodeOffset>(leafAllocator.size());
-		leafAllocator.push_back(leaf);
-		return absoluteDescriptorOffset;
-	};
+    auto storeLeaf = [&](const uint64_t leaf) -> AbsoluteNodeOffset {
+        AbsoluteNodeOffset absoluteDescriptorOffset = static_cast<AbsoluteNodeOffset>(leafAllocator.size());
+        leafAllocator.push_back(leaf);
+        return absoluteDescriptorOffset;
+    };
 
-	std::unordered_map<FullDescriptor, AbsoluteNodeOffset, FullDescriptorHasher> descriptorLUT; // Look-up table from descriptors (pointing into DAG allocator array) to nodes in the DAG allocator array
-	std::unordered_map<uint64_t, AbsoluteNodeOffset> leafLUT; // Look-up table from 64-bit leaf to offset in the DAG leaf allocator array
+    std::unordered_map<FullDescriptor, AbsoluteNodeOffset, FullDescriptorHasher> descriptorLUT; // Look-up table from descriptors (pointing into DAG allocator array) to nodes in the DAG allocator array
+    std::unordered_map<uint64_t, AbsoluteNodeOffset> leafLUT; // Look-up table from 64-bit leaf to offset in the DAG leaf allocator array
 
     for (auto& svo : svos) {
-        std::unordered_map<AbsoluteNodeOffset, size_t> childDescriptorOffsetLUT; // Maps absolute offsets into encoded (NodeOffset*) array to offsets into the childDescriptors array
-        std::unordered_map<AbsoluteNodeOffset, size_t> descriptorOffsetLUT; // Maps absolute offsets into encoded (NodeOffset*) array to offsets into the descriptors array
+        std::unordered_map<AbsoluteNodeOffset, AbsoluteNodeOffset> childDescriptorOffsetLUT; // Maps absolute offsets into encoded (NodeOffset*) array to offsets into the childDescriptors array
+        std::unordered_map<AbsoluteNodeOffset, AbsoluteNodeOffset> descriptorOffsetLUT; // Maps absolute offsets into encoded (NodeOffset*) array to offsets into the descriptors array
         std::vector<FullDescriptor> childDescriptors; // Previous level descriptors pointing into DAG allocator array
         std::vector<FullDescriptor> descriptors; // Descriptors at the currrent level pointing into the children array
 
@@ -264,57 +267,49 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 
             // Update child pointers to pointers into the DAG allocator array; inserting any children that are not in the DAG allocator array yet.
             for (auto& mutDescriptor : descriptors) {
-                //for (auto& childOffset : mutDescriptor.children) {
-				int j = 0;
-				for (int i = 0; i < 8; i++) {
-					if (mutDescriptor.descriptor.isInnerNode(i)) {
-						AbsoluteNodeOffset& mutChildOffset = mutDescriptor.children[j++];
-
-						const auto& child = childDescriptors[mutChildOffset];
-						AbsoluteNodeOffset newNodeAbsoluteOffset = allocator.size();
-						if (auto[iter, succeeded] = descriptorLUT.try_emplace(child, newNodeAbsoluteOffset); succeeded) {
-							AbsoluteNodeOffset offset = storeDescriptor(child); // Unique node => insert into DAG allocator array
-							assert(offset == iter->second);
-							mutChildOffset = iter->second;
-						} else {
-							assert(iter != descriptorLUT.end());
-							mutChildOffset = iter->second;
-						}
-					} else if (mutDescriptor.descriptor.isLeaf(i)) {
-						AbsoluteNodeOffset& mutLeafOffset = mutDescriptor.children[j++];
-
-						uint64_t leaf = svo.m_leafData[mutLeafOffset];
-						AbsoluteNodeOffset newLeafAbsoluteOffset = leafAllocator.size();
-						if (auto[iter, succeeded] = leafLUT.try_emplace(leaf, newLeafAbsoluteOffset); succeeded) {
-							AbsoluteNodeOffset offset = storeLeaf(leaf);
-							assert(iter->second == offset);
-							mutLeafOffset = iter->second;
-						} else {
-							assert(iter != leafLUT.end());
-							mutLeafOffset = iter->second;
-						}
-					}
-				}
-				assert(j == (int)mutDescriptor.children.size());
-
-                //}
+                for (auto& mutChild : mutDescriptor.children) {
+                    if (!mutChild.isLeaf) {
+                        const auto& child = childDescriptors[mutChild.offset];
+                        AbsoluteNodeOffset newNodeAbsoluteOffset = allocator.size();
+                        if (auto [iter, succeeded] = descriptorLUT.try_emplace(child, newNodeAbsoluteOffset); succeeded) {
+                            AbsoluteNodeOffset offset = storeDescriptor(child); // Unique node => insert into DAG allocator array
+                            assert(offset == iter->second);
+                            mutChild.offset = iter->second;
+                        } else {
+                            assert(iter != descriptorLUT.end());
+                            mutChild.offset = iter->second;
+                        }
+                    } else {
+                        uint64_t leaf = svo.m_leafData[mutChild.offset];
+                        AbsoluteNodeOffset newLeafAbsoluteOffset = leafAllocator.size();
+                        if (auto [iter, succeeded] = leafLUT.try_emplace(leaf, newLeafAbsoluteOffset); succeeded) {
+                            AbsoluteNodeOffset offset = storeLeaf(leaf);
+                            assert(iter->second == offset);
+                            mutChild.offset = iter->second;
+                        } else {
+                            assert(iter != leafLUT.end());
+                            mutChild.offset = iter->second;
+                        }
+                    }
+                }
             }
         }
 
         assert(descriptors.size() == 1);
         svo.m_rootNodeOffset = storeDescriptor(descriptors[0]);
-		svo.m_allocator.clear();
-		svo.m_allocator.shrink_to_fit();
-		svo.m_leafAllocator.clear();
-		svo.m_allocator.shrink_to_fit();
+        svo.m_allocator.clear();
+        svo.m_allocator.shrink_to_fit();
+        svo.m_leafAllocator.clear();
+        svo.m_allocator.shrink_to_fit();
     }
 
     for (auto& svo : svos) {
-		svo.m_data = allocator.data(); // Set this after all work on the allocator is done (and the pointer cant change because of reallocations)
-		svo.m_leafData = leafAllocator.data(); // Set this after all work on the allocator is done (and the pointer cant change because of reallocations)
+        svo.m_data = allocator.data(); // Set this after all work on the allocator is done (and the pointer cant change because of reallocations)
+        svo.m_leafData = leafAllocator.data(); // Set this after all work on the allocator is done (and the pointer cant change because of reallocations)
     }
-	svos[0].m_allocator = std::move(allocator);
-	svos[0].m_leafAllocator = std::move(leafAllocator);
+
+    svos[0].m_allocator = std::move(allocator);
+    svos[0].m_leafAllocator = std::move(leafAllocator);
 }
 
 SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
@@ -347,14 +342,14 @@ void SparseVoxelDAG::intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) 
         ispc::SparseVoxelDAG16 svdag;
         svdag.descriptors = reinterpret_cast<const uint16_t*>(m_data); // Using contexpr if-statements dont fix this???
         svdag.rootNodeOffset = static_cast<uint32_t>(m_rootNodeOffset);
-		svdag.leafs = reinterpret_cast<const uint32_t*>(m_leafData);
+        svdag.leafs = reinterpret_cast<const uint32_t*>(m_leafData);
         ispc::SparseVoxelDAG16_intersect(svdag, rays, hits, N);
     }
     if constexpr (std::is_same_v<RelativeNodeOffset, uint32_t>) {
         ispc::SparseVoxelDAG32 svdag;
         svdag.descriptors = reinterpret_cast<const uint32_t*>(m_data); // Using contexpr if-statements dont fix this???
         svdag.rootNodeOffset = static_cast<uint32_t>(m_rootNodeOffset);
-		svdag.leafs = reinterpret_cast<const uint32_t*>(m_leafData);
+        svdag.leafs = reinterpret_cast<const uint32_t*>(m_leafData);
         ispc::SparseVoxelDAG32_intersect(svdag, rays, hits, N);
     }
 }
@@ -459,14 +454,14 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
         glm::vec3 tCorner = pos * tCoef - tBias;
         float tcMax = minComponent(tCorner);
 
-		int bitIndex = 63 - ((idx & 0b111111) ^ (octantMask | (octantMask << 3)));
+        int bitIndex = 63 - ((idx & 0b111111) ^ (octantMask | (octantMask << 3)));
         if (depthInLeaf == 2 && (leafData & (1llu << bitIndex))) {
             break;
         }
 
         // Process voxel if the corresponding bit in the parents valid mask is set
         int childIndex = 7 - ((idx & 0b111) ^ octantMask);
-		if (depthInLeaf == 1 || (depthInLeaf == 0 && parent->isValid(childIndex))) {
+        if (depthInLeaf == 1 || (depthInLeaf == 0 && parent->isValid(childIndex))) {
             float half = scaleExp2 * 0.5f;
             glm::vec3 tCenter = half * tCoef + tCorner;
 
@@ -487,7 +482,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             }
 
             // Select the child voxel that the ray enters first.
-            idx = (idx & 0b111) << 3;// Keep the index in the current level which is required for accessing leaf node bits (which are 2 levels deep conceptually)
+            idx = (idx & 0b111) << 3; // Keep the index in the current level which is required for accessing leaf node bits (which are 2 levels deep conceptually)
             scale--;
             scaleExp2 = half;
             if (tCenter.x > tMin) {
@@ -542,11 +537,10 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
                 scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest set bit (equivalent of a reverse bit scan)
                 scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
                 assert(oldScale < scale);
-				depthInLeaf = std::max(0, depthInLeaf - (scale - oldScale));
+                depthInLeaf = std::max(0, depthInLeaf - (scale - oldScale));
 
                 // Restore parent voxel from the stack
                 parent = stack[scale];
-
             }
 
             // Round cube position and extract child slot index
@@ -556,8 +550,8 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             pos.x = intAsFloat(shx << scale);
             pos.y = intAsFloat(shy << scale);
             pos.z = intAsFloat(shz << scale);
-			//idx = ((shx & 1) << 0) | ((shy & 1) << 1) | ((shz & 1) << 2) | (((shx & 2) >> 1) << 3) | (((shy & 2) >> 1) << 4) | (((shz & 2) >> 1) << 5);
-			idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2) | ((shx & 2) << 2) | ((shy & 2) << 3) | ((shz & 2) << 4);
+            //idx = ((shx & 1) << 0) | ((shy & 1) << 1) | ((shz & 1) << 2) | (((shx & 2) >> 1) << 3) | (((shy & 2) >> 1) << 4) | (((shz & 2) >> 1) << 5);
+            idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2) | ((shx & 2) << 2) | ((shy & 2) << 3) | ((shz & 2) << 4);
         } // Push / pop
     } // While
 
@@ -621,25 +615,24 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
                     };
                     std::array quads = { glm::ivec4 { 0, 1, 2, 3 }, glm::ivec4 { 4, 5, 6, 7 }, glm::ivec4 { 8, 9, 10, 11 }, glm::ivec4 { 12, 13, 14, 15 }, glm::ivec4 { 16, 17, 18, 19 }, glm::ivec4 { 20, 21, 22, 23 } };
 
-					int voxelExtent = halfExtent / 4;
-					uint64_t leafNode = getLeaf(stackItem.descriptor, childIdx);
-					for (int v = 0; v < 64; v++) {
-						if (leafNode & (1llu << v))
-						{
-							glm::ivec3 offset((int)positions.size());
-							for (auto& q : quads) {
-								triangles.push_back(glm::ivec3 { q.x, q.y, q.z } + offset);
-								triangles.push_back(glm::ivec3 { q.x, q.z, q.w } + offset);
-							}
+                    int voxelExtent = halfExtent / 4;
+                    uint64_t leafNode = getLeaf(stackItem.descriptor, childIdx);
+                    for (int v = 0; v < 64; v++) {
+                        if (leafNode & (1llu << v)) {
+                            glm::ivec3 offset((int)positions.size());
+                            for (auto& q : quads) {
+                                triangles.push_back(glm::ivec3 { q.x, q.y, q.z } + offset);
+                                triangles.push_back(glm::ivec3 { q.x, q.z, q.w } + offset);
+                            }
 
-							uint_fast16_t vX, vY, vZ;
-							libmorton::morton3D_32_decode(v, vX, vY, vZ);
-							glm::ivec3 voxelPos(vX, vY, vZ);
-							for (int t = 0; t < 24; ++t) {
-								positions.push_back(glm::vec3(cubeStart + voxelPos * voxelExtent) + static_cast<float>(voxelExtent) * cubePositions[t]);
-							}
-						}
-					}
+                            uint_fast16_t vX, vY, vZ;
+                            libmorton::morton3D_32_decode(v, vX, vY, vZ);
+                            glm::ivec3 voxelPos(vX, vY, vZ);
+                            for (int t = 0; t < 24; ++t) {
+                                positions.push_back(glm::vec3(cubeStart + voxelPos * voxelExtent) + static_cast<float>(voxelExtent) * cubePositions[t]);
+                            }
+                        }
+                    }
                 }
             }
         }
