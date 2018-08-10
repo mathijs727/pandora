@@ -550,17 +550,16 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
         // Loop visit in morton order?
         int halfExtent = stackItem.extent / 2;
 
-        //int childID = 0;
-        for (uint_fast32_t i = 0; i < 8; i++) {
+        for (uint_fast32_t childIdx = 0; childIdx < 8; childIdx++) {
             uint_fast16_t x, y, z;
-            libmorton::morton3D_32_decode(i, x, y, z);
+            libmorton::morton3D_32_decode(childIdx, x, y, z);
             glm::ivec3 cubeStart = stackItem.start + glm::ivec3(x * halfExtent, y * halfExtent, z * halfExtent);
 
-            if (stackItem.descriptor->isValid(i)) {
-                if (!stackItem.descriptor->isLeaf(i)) {
+            if (stackItem.descriptor->isValid(childIdx)) {
+                if (!stackItem.descriptor->isLeaf(childIdx)) {
                     //uint32_t childOffset = *(reinterpret_cast<const uint32_t*>(stackItem.descriptor) + childID++);
                     //const auto* childDescriptor = reinterpret_cast<const Descriptor*>(&m_allocator[childOffset]);
-                    const auto* childDescriptor = getChild(stackItem.descriptor, i);
+                    const auto* childDescriptor = getChild(stackItem.descriptor, childIdx);
                     stack.push_back(StackItem { childDescriptor, cubeStart, halfExtent });
                 } else {
                     // https://github.com/ddiakopoulos/tinyply/blob/master/source/example.cpp
@@ -574,18 +573,25 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
                     };
                     std::array quads = { glm::ivec4 { 0, 1, 2, 3 }, glm::ivec4 { 4, 5, 6, 7 }, glm::ivec4 { 8, 9, 10, 11 }, glm::ivec4 { 12, 13, 14, 15 }, glm::ivec4 { 16, 17, 18, 19 }, glm::ivec4 { 20, 21, 22, 23 } };
 
-                    //if (halfExtent > 1)
-                    //	continue;
+					int voxelExtent = halfExtent / 4;
+					uint64_t leafNode = getLeaf(stackItem.descriptor, childIdx);
+					for (int v = 0; v < 64; v++) {
+						if (leafNode & (1llu << v))
+						{
+							glm::ivec3 offset((int)positions.size());
+							for (auto& q : quads) {
+								triangles.push_back(glm::ivec3 { q.x, q.y, q.z } + offset);
+								triangles.push_back(glm::ivec3 { q.x, q.z, q.w } + offset);
+							}
 
-                    glm::ivec3 offset((int)positions.size());
-                    for (auto& q : quads) {
-                        triangles.push_back(glm::ivec3 { q.x, q.y, q.z } + offset);
-                        triangles.push_back(glm::ivec3 { q.x, q.z, q.w } + offset);
-                    }
-
-                    for (int i = 0; i < 24; ++i) {
-                        positions.push_back(glm::vec3(cubeStart) + static_cast<float>(halfExtent) * cubePositions[i]);
-                    }
+							uint_fast16_t vX, vY, vZ;
+							libmorton::morton3D_32_decode(v, vX, vY, vZ);
+							glm::ivec3 voxelPos(vX, vY, vZ);
+							for (int t = 0; t < 24; ++t) {
+								positions.push_back(glm::vec3(cubeStart + voxelPos * voxelExtent) + static_cast<float>(voxelExtent) * cubePositions[t]);
+							}
+						}
+					}
                 }
             }
         }
