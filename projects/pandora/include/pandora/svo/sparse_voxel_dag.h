@@ -73,6 +73,7 @@ private:
 	std::vector<RelativeNodeOffset> m_allocator;
 	std::vector<uint64_t> m_leafAllocator;
 	const RelativeNodeOffset* m_data;
+	const uint64_t* m_leafData;
 };
 
 }
