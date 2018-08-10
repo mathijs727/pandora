@@ -23,7 +23,7 @@ SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
     m_allocator.shrink_to_fit();
     m_data = m_allocator.data();
 
-    std::cout << "Size of SparseVoxelDAG before compression: " << m_allocator.size() * sizeof(decltype(m_allocator)::value_type) << " bytes" << std::endl;
+	std::cout << "Size of SparseVoxelDAG before compression: " << this->size() << std::endl;
 }
 
 SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
@@ -410,28 +410,14 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
         glm::vec3 tCorner = pos * tCoef - tBias;
         float tcMax = minComponent(tCorner);
 
-        if (depthInLeaf == 2) {
-			//int bitIndex = ((idx & 0b111111) ^ (octantMask | (octantMask << 3)));
-			//int bitIndex = (idx & 0b111000) ^ (octantMask << 3);
-			int bitIndex = (0b111 & (idx >> 3)) ^ octantMask;
-			//int bitIndex = 7 - ((idx & 0b111) ^ octantMask);
-			assert(bitIndex >= 0 && bitIndex < 64);
-			//if (leafData & (1llu << bitIndex))
-			if (bitIndex == 0)
-			{
-                break;
-			}
+		int bitIndex = 63 - ((idx & 0b111111) ^ (octantMask | (octantMask << 3)));
+        if (depthInLeaf == 2 && (leafData & (1llu << bitIndex))) {
+            break;
         }
 
         // Process voxel if the corresponding bit in the parents valid mask is set
         int childIndex = 7 - ((idx & 0b111) ^ octantMask);
-        //if (parent->isValid(childIndex)) {
 		if (depthInLeaf == 1 || (depthInLeaf == 0 && parent->isValid(childIndex))) {
-		//if ((depthInLeaf == 0 && parent->isValid(childIndex))) {
-            //if (parent->isLeaf(childIndex)) {
-            //    break; // Line 231
-            //}
-
             float half = scaleExp2 * 0.5f;
             glm::vec3 tCenter = half * tCoef + tCorner;
 
@@ -453,8 +439,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
 
             // Select the child voxel that the ray enters first.
 			int parentIdx = idx & 0b111;
-            idx = (idx & 0b111) << 3;
-			assert((idx & 0b111) == 0);
+            idx = (idx & 0b111) << 3;// Keep the index in the current level which is required for accessing leaf node bits (which are 2 levels deep conceptually)
             scale--;
             scaleExp2 = half;
             if (tCenter.x > tMin) {
@@ -469,15 +454,6 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
                 idx ^= (1 << 2);
                 pos.z += scaleExp2;
             }
-
-			{
-				// Round cube position and extract child slot index
-				int shx = floatAsInt(pos.x) >> scale;
-				int shy = floatAsInt(pos.y) >> scale;
-				int shz = floatAsInt(pos.z) >> scale;
-				int controlIdx = ((shx & 1) << 0) | ((shy & 1) << 1) | ((shz & 1) << 2) | (((shx & 2) >> 1) << 3) | (((shy & 2) >> 1) << 4) | (((shz & 2) >> 1) << 5);
-				assert(idx == controlIdx);
-			}
         } else {
             // === ADVANCE ===
 
@@ -522,8 +498,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
                 parent = stack[scale];
 
                 assert(oldScale < scale);
-				if (depthInLeaf > 0)
-					depthInLeaf = std::max(0, depthInLeaf - (scale - oldScale));
+				depthInLeaf = std::max(0, depthInLeaf - (scale - oldScale));
             }
 
             // Round cube position and extract child slot index
@@ -533,7 +508,8 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             pos.x = intAsFloat(shx << scale);
             pos.y = intAsFloat(shy << scale);
             pos.z = intAsFloat(shz << scale);
-			idx = ((shx & 1) << 0) | ((shy & 1) << 1) | ((shz & 1) << 2) | (((shx & 2) >> 1) << 3) | (((shy & 2) >> 1) << 4) | (((shz & 2) >> 1) << 5);
+			//idx = ((shx & 1) << 0) | ((shy & 1) << 1) | ((shz & 1) << 2) | (((shx & 2) >> 1) << 3) | (((shy & 2) >> 1) << 4) | (((shz & 2) >> 1) << 5);
+			idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2) | ((shx & 2) << 2) | ((shy & 2) << 3) | ((shz & 2) << 4);
         } // Child is empty (can't push)
     } // While
 
