@@ -248,8 +248,9 @@ export void SparseVoxelDAG16_intersect(const uniform SparseVoxelDAG16& svdag, co
                     pos.z = intAsFloat(shz & mask);
                 }
                 {
-                    int mask = 0x1 << scale;
-                    idx = ((shx & mask) | ((shy & mask) << 1) | ((shz & mask) << 2)) >> scale;
+					int mask1 = 0x1 << scale;
+					int mask2 = 0x2 << scale;
+                    idx = ((shx & mask1) | ((shy & mask1) << 1) | ((shz & mask1) << 2) | ((shx & mask2) << 2) | ((shy & mask2) << 3) | ((shz & mask2) << 4)) >> scale;
                 }
 #endif
             } // Push / pop
