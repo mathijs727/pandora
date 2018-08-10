@@ -19,7 +19,7 @@ inline bool Descriptor_isLeaf(const Descriptor descriptor, int i)
 
 struct SparseVoxelDAG16 {
     const uniform RelativeNodeOffset* descriptors;
-    const uniform uint64_t* leafs;
+    const uniform uint32_t* leafs;
     const uniform uint32_t rootNodeOffset;
 };
 
@@ -36,7 +36,7 @@ inline void SparseVoxelDAG16_getChild(const uniform SparseVoxelDAG16& dag, const
     outDescriptorOffset = absoluteOffset;
 }
 
-inline uint64_t SparseVoxelDAG16_getLeaf(const uniform SparseVoxelDAG16& dag, const Descriptor descriptor, uint32_t descriptorOffset, const int idx)
+inline void SparseVoxelDAG16_getLeaf(const uniform SparseVoxelDAG16& dag, const Descriptor descriptor, uint32_t descriptorOffset, const int idx, uint32_t& out1, uint32_t& out2)
 {
     uint32_t validMask = descriptor >> 8;
     uint32_t childrenBeforeIdxMask = validMask & ((1 << idx) - 1);
@@ -44,7 +44,8 @@ inline uint64_t SparseVoxelDAG16_getLeaf(const uniform SparseVoxelDAG16& dag, co
 
     uint32_t leafOffsetOffset = descriptorOffset + 1 + childrenBeforeIdx;
     uint32_t absoluteLeafOffset = (uint32_t)dag.descriptors[leafOffsetOffset];
-    return dag.leafs[absoluteLeafOffset];
+	out1 = dag.leafs[2 * absoluteLeafOffset];
+	out2 = dag.leafs[2 * absoluteLeafOffset + 1];
 }
 
 struct HitSOA {
@@ -124,15 +125,20 @@ export void SparseVoxelDAG16_intersect(const uniform SparseVoxelDAG16& svdag, co
         uint32_t stackParentOffsets[24];
 
         int depthInLeaf = 0; // 1 if at 2x2x2 level, 2 if at 4x4x4 level, 0 otherwise
-        uint64_t leafData;
+		uint32_t leafData1;
+		uint32_t leafData2;
         while (scale < CAST_STACK_DEPTH) {
             // === INTERSECT ===
             // Determine the maximum t-value of the cube by evaluating tx(), ty() and tz() at its corner
             vec3 tCorner = pos * tCoef - tBias;
             float tcMax = minComponent(tCorner);
 
-            int bitIndex = 63 - ((idx & 0b111111) ^ (octantMask | (octantMask << 3)));
-			if (depthInLeaf == 2 && (leafData & (1llu << bitIndex))) {
+            int bitIndex64 = 63 - ((idx & 0b111111) ^ (octantMask | (octantMask << 3)));
+			uint32_t bitMask32 = (1lu << (bitIndex64 & 0b11111));
+			int potentialHit1 = leafData1 & bitMask32;
+			int potentialHit2 = leafData2 & bitMask32;
+			int isUpper = bitIndex64 & 0b100000;
+			if (depthInLeaf == 2 && ((isUpper && potentialHit2) || (!isUpper && potentialHit1)))  {
                 break;
             }
 
@@ -148,7 +154,7 @@ export void SparseVoxelDAG16_intersect(const uniform SparseVoxelDAG16& svdag, co
 
                 if (depthInLeaf == 0) {
                     if (Descriptor_isLeaf(parent, childIndex)) {
-                        leafData = SparseVoxelDAG16_getLeaf(svdag, parent, parentOffset, childIndex);
+                        SparseVoxelDAG16_getLeaf(svdag, parent, parentOffset, childIndex, leafData1, leafData2);
                         depthInLeaf = 1;
                         parent = 0;
                     } else {

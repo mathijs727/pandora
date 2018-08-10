@@ -18,3 +18,6 @@ Scalar release (32 bit): ~17.8ms
 Scalar release (16 bit): 17.9~18.0ms
 ISPC release (32 bit): 15.1~15.2ms
 ISPC release (16 bit): ~15.3ms
+
+Store 64-bit leaf in 2 32-bit registers:
+ISPC release (16 bit): ~15.1ms

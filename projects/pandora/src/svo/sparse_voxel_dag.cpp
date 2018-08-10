@@ -300,7 +300,7 @@ void SparseVoxelDAG::intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) 
         ispc::SparseVoxelDAG16 svdag;
         svdag.descriptors = reinterpret_cast<const uint16_t*>(m_data); // Using contexpr if-statements dont fix this???
         svdag.rootNodeOffset = static_cast<uint32_t>(m_rootNodeOffset);
-		svdag.leafs = m_leafAllocator.data();
+		svdag.leafs = reinterpret_cast<const uint32_t*>(m_leafAllocator.data());
         ispc::SparseVoxelDAG16_intersect(svdag, rays, hits, N);
     }
     if constexpr (std::is_same_v<RelativeNodeOffset, uint32_t>) {
