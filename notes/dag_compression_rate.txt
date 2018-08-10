@@ -1,8 +1,12 @@
-=== DAG compression (dragon, bunny, cornell) @ 128 ===
+=== DAG compression (dragon, bunny, cornell box) @ 128 ===
+
+Before compression, 32-bit descriptors: 105628, 147412, 270340 bytes for dragon, bunny, cornell box respectively
+Before compression, 16-bit descriptors: 52814, 73706, 135170
 
 Original (with LUT clear at each depth level, 32 bit descriptors, no special leaf nodes)
 Separate compression: 62204 + 81832 + 13344 = 157380 bytes
 Compressed together: 153092 bytes
+
 
 After rewrite of using offsets from the current node (32 bit descriptors)
 Separate compression: 62184 + 81796 + 13308 = 157288
@@ -11,3 +15,6 @@ Compressed together: 150000 bytes
 After rewrite of using offsets from the current node (16 bit descriptors)
 Separate compression: 31092 + 40898 + 6654 = 78644
 Compressed together: 76500 bytes
+
+
+Before compression, 16-bit descriptors + 64-bit leaf nodes: 26658 + 38636 + 70380 bytes for dragon, bunny, cornell box respectively

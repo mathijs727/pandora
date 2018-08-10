@@ -40,8 +40,8 @@ int main()
         };
 
         std::vector<SparseVoxelDAG> DAGs;
-        for (const auto& [filePath, canonicalName] : files) {
-            (void)canonicalName;
+        for (const auto& [filePath, outFile] : files) {
+			std::cout << "Model: " << outFile << std::endl;
             DAGs.emplace_back(std::move(createSVO(filePath)));
         }
 

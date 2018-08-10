@@ -12,3 +12,5 @@ Scalar release (32 bit): 16.0~16.1ms
 Scalar release (16 bit): ~16.0ms
 ISPC release (32 bit): ~12.4ms
 ISPC release (16 bit): 12.4~12.5ms
+
+64 bit leaf nodes:

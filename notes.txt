@@ -74,3 +74,5 @@ NOTE: compressing child nodes & keeping indices to parents misses nodes that are
 This would be so much easier on a single tree; can be integrated into SVO construction
 
 IPSC traversal is a bit wonky. Using pointers instead of values everywhere breaks even the SVO traversal unless 64-bit addressing is enabled. The problem is worse in the DAG version; it seems like the ISPC compiler has problems with reinterpret casting. Solution is to keep it simple: always index from the start of the allocator array. This requires a second stack (1 for the descriptor, 1 for the corresponding descriptor offset).
+
+64 bit leaf nodes are a relatively minor change to the traversal algorithm (although it requires a good understanding of the traversal algorithm). The traversal algorithm still traverses to the same depth but idx now keeps track of the child index two of the parent (in its parent). By sticking those two together we get the morton code of the corresponding bit in the leaf block (64 bit integer). This does require some more branching which degrades performance.

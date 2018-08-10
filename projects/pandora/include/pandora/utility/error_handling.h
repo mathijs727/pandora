@@ -26,6 +26,13 @@ inline void LOG_WARNING(std::string_view warningMessage)
 	std::cerr << warningMessage << std::endl;
 }
 
+inline void ALWAYS_ASSERT(bool value)
+{
+	if (!value) {
+		THROW_ERROR("");
+	}
+}
+
 inline void ALWAYS_ASSERT(bool value, std::string_view errorMessage)
 {
 	if (!value) {
