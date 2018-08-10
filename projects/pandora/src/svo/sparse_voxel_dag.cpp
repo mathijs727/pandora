@@ -295,7 +295,7 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 						}
 					}
 				}
-				assert(j == mutDescriptor.children.size());
+				assert(j == (int)mutDescriptor.children.size());
 
                 //}
             }
