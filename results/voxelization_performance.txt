@@ -1,4 +1,5 @@
-Stanford Dragon:
+Stanford Dragon @ 128x128
+Average over 20 frames
 
 Naive implementation with separate pre-process (initial)
 Release: ~290ms
@@ -26,3 +27,10 @@ Release: ~36ms
 Scalar: single bit per voxel
 RelWithDebInfo: ~88ms
 Release: ~78ms
+
+FRESH REBOOT:
+Scalar release: ~68ms
+ISPC release: ~32ms
+
+ISPC: remove special case for triangles with AABB of size (1, 1, 1)
+Release: ~30ms

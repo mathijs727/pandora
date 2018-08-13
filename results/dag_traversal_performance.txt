@@ -1,0 +1,24 @@
+Stanford Bunny @ 64x64
+Average over 60 frames
+
+BASELINE (without intersecting; measuring overhead)
+Release: ~8.1ms
+
+SVO scalar version (different descriptor layout than SVO class)
+Release: 16.0~16.1ms
+
+Using relative offsets:
+Scalar release (32 bit): 16.0~16.1ms
+Scalar release (16 bit): ~16.0ms
+ISPC release (32 bit): ~12.4ms
+ISPC release (16 bit): 12.4~12.5ms
+
+Switch to 64 bit leaf nodes (naive ISPC implementation):
+Scalar release (32 bit): ~17.8ms
+Scalar release (16 bit): 17.9~18.0ms
+ISPC release (32 bit): 15.1~15.2ms
+ISPC release (16 bit): ~15.3ms
+
+Store 64-bit leaf in 2 32-bit registers:
+ISPC release (16 bit): 15.1~15.2ms
+ISPC release (32 bit): ~15.0ms

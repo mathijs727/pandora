@@ -5,6 +5,8 @@
 #include "pandora/integrators/direct_lighting_integrator.h"
 #include "pandora/integrators/naive_direct_lighting_integrator.h"
 #include "pandora/integrators/path_integrator.h"
+#include "pandora/integrators/svo_test_integrator.h"
+#include "pandora/integrators/svo_depth_test_integrator.h"
 #include "pandora/lights/environment_light.h"
 #include "pandora/materials/matte_material.h"
 #include "pandora/materials/metal_material.h"
@@ -49,7 +51,8 @@ int main()
     glm::ivec2 resolution = glm::ivec2(width, height);
     PerspectiveCamera camera = PerspectiveCamera(resolution, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
-    camera.setPosition(glm::vec3(0.25f, 0.8f, -1.5f));
+    camera.setPosition(glm::vec3(1.5f, 1.5f, 0.0f));
+	//camera.setPosition(glm::vec3(0.25f, 0.8f, -1.5f));
 
     Scene scene;
 
@@ -58,13 +61,15 @@ int main()
 	auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
-	addCornellBox(scene);
-	//addStanfordBunny(scene);
-	addStanfordDragon(scene, false);
+	//addCornellBox(scene);
+	addStanfordBunny(scene);
+	//addStanfordDragon(scene, false);
     
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    PathIntegrator integrator(20, scene, camera.getSensor(), 1);
+    //PathIntegrator integrator(20, scene, camera.getSensor(), 1);
+	SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
+	//SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
@@ -84,11 +89,11 @@ int main()
         integrator.render(camera);
         samples++;
 
-		if (samples % 20 == 0)
+		if (samples % 50 == 0)
 		{
 			auto now = std::chrono::high_resolution_clock::now();
 			auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(now - previousTimestamp);
-			std::cout << "Time time per frame (over last 20 frames): " << timeDelta.count() / 20.0f / 1000.0f << " miliseconds" << std::endl;
+			std::cout << "Time time per frame (over last 50 frames): " << timeDelta.count() / 50.0f / 1000.0f << " miliseconds" << std::endl;
 			previousTimestamp = now;
 		}
 

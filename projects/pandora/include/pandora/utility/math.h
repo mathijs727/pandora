@@ -136,6 +136,25 @@ inline glm::vec3 permute(const glm::vec3& p, int x, int y, int z)
     return glm::vec3(p[x], p[y], p[z]);
 }
 
+inline bool isPowerOf2(int n)
+{
+	// https://stackoverflow.com/questions/108318/whats-the-simplest-way-to-test-whether-a-number-is-a-power-of-2-in-c
+	return (n & (n - 1)) == 0;
+}
+
+inline int intLog2(int n)
+{
+	assert(isPowerOf2(n));
+
+	int shift = 0;
+	while ((n >> shift) != 0x1)
+	{
+		shift++;
+	}
+
+	return shift;
+}
+
 // https://github.com/mmp/pbrt-v3/blob/aaecc9112522cf8a791a3ecb5e3efe716ce30793/src/core/pbrt.h
 inline float erfInv(float x) {
 	float w, p;
@@ -190,6 +209,28 @@ inline float erf(float x) {
 		(((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * std::exp(-x * x);
 
 	return sign * y;
+}
+
+inline int floatAsInt(float v)
+{
+	static_assert(sizeof(float) == sizeof(unsigned));
+
+	// Using reinterpret_cast might lead to undefined behavior because of illegal type aliasing, use memcpy instead
+	// https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing
+	unsigned r;
+	std::memcpy(&r, &v, sizeof(float));
+	return r;
+}
+
+inline float intAsFloat(int v)
+{
+	static_assert(sizeof(float) == sizeof(int));
+
+	// Using reinterpret_cast might lead to undefined behavior because of illegal type aliasing, use memcpy instead
+	// https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing
+	float r;
+	std::memcpy(&r, &v, sizeof(float));
+	return r;
 }
 
 }

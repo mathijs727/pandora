@@ -1,6 +1,8 @@
 #include "pandora/svo/voxel_grid.h"
 #include "pandora/utility/math.h"
+#include <libmorton/morton.h>
 #include <array>
+#include <iostream>
 
 namespace pandora {
 
@@ -86,7 +88,7 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> VoxelGrid::generateSu
         }
     }
 
-    return { positions, triangles };
+    return { std::move(positions), std::move(triangles) };
 }
 
 void VoxelGrid::fillSphere()
@@ -107,16 +109,37 @@ void VoxelGrid::fillSphere()
     }
 }
 
+void VoxelGrid::fillCube()
+{
+	for (int z = 0; z < (int)m_extent.z; z++) {
+		for (int y = 3; y < (int)m_extent.y; y++) {
+			for (int x = 0; x < (int)m_extent.x; x++) {
+				set(x, y, z, true);
+			}
+		}
+	}
+}
+
 bool VoxelGrid::get(int x, int y, int z) const
 {
 	const auto [pBlock, bit] = index(x, y, z);
     return *pBlock & (1 << bit);
 }
 
+bool VoxelGrid::getMorton(uint_fast32_t mortonCode) const
+{
+	uint_fast16_t x, y, z;
+	libmorton::morton3D_32_decode(mortonCode, x, y, z);
+	return get(x, y, z);
+}
+
 void VoxelGrid::set(int x, int y, int z, bool value)
 {
 	const auto[pBlock, bit] = index(x, y, z);
-	*pBlock |= (1 << bit);
+	if (value)
+		*pBlock |= (1 << bit);
+	else
+		*pBlock &= ~(1 << bit);
 }
 
 std::pair<uint32_t*, int> VoxelGrid::index(int x, int y, int z) const

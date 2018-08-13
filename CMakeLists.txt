@@ -39,6 +39,12 @@ target_link_libraries(tbb INTERFACE "${TBB_LIBRARIES}")
 add_library(mio INTERFACE)
 target_include_directories(mio INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/mio/include/")
 
+# https://github.com/Forceflow/libmorton
+add_library(libmorton INTERFACE)
+target_include_directories(libmorton INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/libmorton/include/")
+
+find_package(Boost REQUIRED)
+
 if (BUILD_TESTS)
     find_package(GTest REQUIRED)
 endif ()

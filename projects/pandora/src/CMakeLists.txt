@@ -17,6 +17,8 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/integrators/naive_direct_lighting_integrator.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/direct_lighting_integrator.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/sampler_integrator.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/integrators/svo_depth_test_integrator.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/integrators/svo_test_integrator.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/lights/area_light.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/lights/environment_light.cpp"
@@ -25,6 +27,8 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/samplers/uniform_sampler.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_dag.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_octree.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/svo/voxel_grid.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/materials/matte_material.cpp"
@@ -55,6 +59,12 @@ target_sources(libPandora
 )
 
 if (PANDORA_ISPC_SUPPORT)
-	ADD_ISPC_LIBRARY(pandoraISPC STATIC "${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.ispc")
+	set(PANDORA_ISPC_ADDRESSING "32")
+	set(ISPC_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/")
+	ADD_ISPC_LIBRARY(pandoraISPC STATIC
+		"${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.ispc"
+		"${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_dag_traversal16.ispc"
+		"${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_dag_traversal32.ispc"
+		"${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_octree_traversal.ispc")
 	target_link_libraries(libPandora PUBLIC pandoraISPC)
 endif()

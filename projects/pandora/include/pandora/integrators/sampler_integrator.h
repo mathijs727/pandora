@@ -36,7 +36,7 @@ protected:
     virtual void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h) = 0;
     virtual void rayMiss(const Ray& r, const RayState& s) = 0;
 
-    void spawnNextSample(const glm::vec2& pixel, bool initialSample = false);
+    void spawnNextSample(const glm::ivec2& pixel, bool initialSample = false);
 
     void specularReflect(const SurfaceInteraction& si, Sampler& sampler, MemoryArena& memoryArena, const sampler_integrator::ContinuationRayState& rayState);
     void specularTransmit(const SurfaceInteraction& si, Sampler& sampler, MemoryArena& memoryArena, const sampler_integrator::ContinuationRayState& rayState);

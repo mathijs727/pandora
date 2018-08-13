@@ -1,5 +1,7 @@
 #include "pandora/geometry/triangle.h"
 #include "pandora/svo/mesh_to_voxel.h"
+#include "pandora/svo/sparse_voxel_dag.h"
+#include "pandora/svo/sparse_voxel_octree.h"
 #include "pandora/svo/voxel_grid.h"
 #include <array>
 #include <cassert>
@@ -15,6 +17,113 @@
 using namespace std::string_literals;
 using namespace tinyply;
 using namespace pandora;
+
+const std::string projectBasePath = "../../"s;
+const int resolution = 128;
+
+using SVO = SparseVoxelDAG;
+void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, std::string_view filePath);
+SVO createSVO(std::string_view meshFile);
+void testDAGCompressionTogether(const gsl::span<std::pair<std::string, std::string>> files);
+void testDAGCompressionSeparate(const gsl::span<std::pair<std::string, std::string>> files);
+
+int main()
+{
+    const std::string projectBasePath = "../../"s;
+    std::string dragonFile = projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply";
+    std::string bunnyFile = projectBasePath + "assets/3dmodels/stanford/bun_zipper.ply";
+    std::string cornellBoxFile = projectBasePath + "assets/3dmodels/cornell_box.obj";
+
+    if (std::is_same_v<SVO, SparseVoxelDAG>) {
+        std::vector<std::pair<std::string, std::string>> files = {
+            { dragonFile, "dag_dragon.ply" },
+            { bunnyFile, "dag_bunny.ply" },
+            { cornellBoxFile, "dag_cornell.ply" }
+        };
+
+		testDAGCompressionSeparate(files);
+    }
+
+    std::cout << "INPUT CHARACTER AND PRESS ENTER TO EXIT:" << std::endl;
+    char x;
+    std::cin >> x;
+    return 0;
+}
+
+void testDAGCompressionTogether(const gsl::span<std::pair<std::string, std::string>> files)
+{
+	std::vector<SparseVoxelDAG> DAGs;
+	for (const auto&[filePath, outFile] : files) {
+		std::cout << "Model: " << outFile << std::endl;
+		DAGs.emplace_back(std::move(createSVO(filePath)));
+	}
+
+	using clock = std::chrono::high_resolution_clock;
+	auto start = clock::now();
+
+	compressDAGs(DAGs);
+
+	auto end = clock::now();
+	auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+	std::cout << "\nTime to compress SVOs to DAGs: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
+	std::cout << "Combined size after compression: " << DAGs[0].size() << " bytes" << std::endl;
+
+	for (int i = 0; i < files.size(); i++) {
+		auto[vertices, triangles] = DAGs[i].generateSurfaceMesh();
+		exportMesh(vertices, triangles, files[i].second);
+	}
+}
+
+void testDAGCompressionSeparate(const gsl::span<std::pair<std::string, std::string>> files)
+{
+	for (const auto&[filePath, outFile] : files) {
+		std::vector<SparseVoxelDAG> DAGs;
+		std::cout << "Model: " << outFile << std::endl;
+		DAGs.emplace_back(std::move(createSVO(filePath)));
+
+		using clock = std::chrono::high_resolution_clock;
+		auto start = clock::now();
+
+		compressDAGs(DAGs);
+
+		auto end = clock::now();
+		auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+		std::cout << "Time to compress SVOs to DAGs: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
+		std::cout << "Size after compression: " << DAGs[0].size() << " bytes\n" << std::endl;
+
+		auto[vertices, triangles] = DAGs[0].generateSurfaceMesh();
+		exportMesh(vertices, triangles, outFile);
+	}
+}
+
+SVO createSVO(std::string_view meshFile)
+{
+    auto meshes = TriangleMesh::loadFromFile(meshFile);
+
+    Bounds gridBounds;
+    for (const auto& mesh : meshes)
+        gridBounds.extend(mesh->getBounds());
+
+    VoxelGrid voxelGrid(resolution);
+    using clock = std::chrono::high_resolution_clock;
+    {
+        auto start = clock::now();
+        for (const auto& mesh : meshes) {
+            meshToVoxelGrid(voxelGrid, gridBounds, *mesh);
+        }
+        auto end = clock::now();
+        auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        std::cout << "Time to voxelize: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
+    }
+
+    auto svoConstructionStart = clock::now();
+    SVO svo(voxelGrid);
+    auto svoConstructionEnd = clock::now();
+    auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(svoConstructionEnd - svoConstructionStart);
+    std::cout << "Time to construct SVO: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
+
+    return std::move(svo);
+}
 
 void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, std::string_view filePath)
 {
@@ -34,33 +143,4 @@ void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, 
 
     plyFile.write(outStream, true); // write ascii
     fb.close();
-}
-
-int main()
-{
-    const std::string projectBasePath = "../../"s;
-    auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply");
-    //auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj");
-
-    Bounds gridBounds;
-    for (const auto& mesh : meshes)
-        gridBounds.extend(mesh->getBounds());
-
-    VoxelGrid voxelGrid(128);
-
-    using clock = std::chrono::high_resolution_clock;
-    auto start = clock::now();
-    for (const auto& mesh : meshes) {
-        meshToVoxelGrid(voxelGrid, gridBounds, *mesh);
-    }
-
-    auto end = clock::now();
-    auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout << "Time to voxelize: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
-
-    auto [vertices, triangles] = voxelGrid.generateSurfaceMesh();
-    exportMesh(vertices, triangles, "hello_world.ply");
-
-    std::cout << "HELLO WORLD!" << std::endl;
-    return 0;
 }
