@@ -28,7 +28,7 @@ TEST(ContiguousAllocatorTS, SingleThreadAllocationN)
 
     for (int i = 0; i < 5000; i += 2) {
         // Allocate and test alignment
-        auto [handle, ptr] = allocator.allocateN<2>(3);
+        auto [handle, ptr] = allocator.allocateN(2, 3);
         auto& v1 = allocator.get(handle);
         auto& v2 = allocator.get(++handle);
 
@@ -70,7 +70,7 @@ TEST(ContiguousAllocatorTS, SingleThreadAllocationAlignmentN)
 
     for (int i = 0; i < 10; i++) {
         // Allocate and test alignment
-        auto [handle, ptr] = allocator.allocateN<3>();
+        auto [handle, ptr] = allocator.allocateN(3);
         MyStruct* ptr1 = &allocator.get(handle);
         MyStruct* ptr2 = &allocator.get(++handle);
         MyStruct* ptr3 = &allocator.get(++handle);
