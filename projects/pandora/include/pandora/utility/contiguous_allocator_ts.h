@@ -16,6 +16,7 @@ namespace pandora {
 template <typename T>
 class ContiguousAllocatorTS {
 public:
+    ContiguousAllocatorTS(ContiguousAllocatorTS&& other);
     ContiguousAllocatorTS(uint32_t maxSize, uint32_t blockSize = 4096);
     ContiguousAllocatorTS(const serialization::ContiguousAllocator* serializedAllocator);
 
@@ -23,8 +24,8 @@ public:
     template <typename... Args>
     std::pair<Handle, T*> allocate(Args... args);
 
-    template <int N, typename... Args>
-    std::pair<Handle, T*> allocateN(Args... args);
+    template <typename... Args>
+    std::pair<Handle, T*> allocateN(unsigned N, Args... args);
 
     inline T& get(Handle handle) const { return m_start[handle]; };
 
@@ -52,6 +53,16 @@ private:
 };
 
 template <typename T>
+inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(ContiguousAllocatorTS&& other) :
+	m_maxSize(other.m_maxSize),
+	m_blockSize(other.m_blockSize),
+	m_start(std::move(other.m_start)),
+	m_currentSize(other.m_currentSize.load()),
+	m_threadLocalBlocks(std::move(other.m_threadLocalBlocks))
+{
+}
+
+template <typename T>
 inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(uint32_t maxSize, uint32_t blockSize)
     : m_maxSize((uint32_t)std::thread::hardware_concurrency() * std::min(maxSize, blockSize) + maxSize)
     , m_blockSize(std::min(maxSize, blockSize))
@@ -67,19 +78,19 @@ inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(const serialization::Cont
     , m_start(new T[serializedAllocator->maxSize()])
     , m_currentSize(serializedAllocator->currentSize())
 {
-	std::memcpy(m_start.get(), serializedAllocator->data()->Data(), m_currentSize * sizeof(T));
+    std::memcpy(m_start.get(), serializedAllocator->data()->Data(), m_currentSize * sizeof(T));
 }
 
 template <typename T>
 template <typename... Args>
 inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAllocatorTS<T>::allocate(Args... args)
 {
-    return allocateN<1>(args...);
+    return allocateN(1, args...);
 }
 
 template <typename T>
-template <int N, typename... Args>
-inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAllocatorTS<T>::allocateN(Args... args)
+template <typename... Args>
+inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAllocatorTS<T>::allocateN(unsigned N, Args... args)
 {
     assert(N <= m_blockSize);
 

@@ -20,7 +20,7 @@ public:
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
 public:
-	InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback);
+    InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback);
     ~InCoreAccelerationStructure() = default;
 
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
@@ -33,13 +33,29 @@ private:
         inline bool intersectPrimitive(unsigned primitiveID, Ray& ray, SurfaceInteraction& si) const;
     };
 
-	static PauseableBVH4<LeafNode> buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>);
-	static WiVeBVH8Build8<LeafNode> buildBVH(gsl::span<const std::unique_ptr<SceneObject>>);
+    class PauseableLeafNode {
+    public:
+		PauseableLeafNode() = default;
+        PauseableLeafNode(const SceneObject* sceneObject, uint32_t primitiveID)
+            : sceneObject(sceneObject)
+            , primitiveID(primitiveID)
+        {
+        }
+        bool intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle handle) const;
+
+    private:
+        const SceneObject* sceneObject;
+        uint32_t primitiveID;
+    };
+
+    static PauseableBVH4<PauseableLeafNode> buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>);
+    static WiVeBVH8Build8<LeafNode> buildBVH(gsl::span<const std::unique_ptr<SceneObject>>);
 
 private:
     //EmbreeBVH<LeafNode> m_bvh;
-	//NaiveSingleRayBVH2<LeafNode> m_bvh;
-	WiVeBVH8Build8<LeafNode> m_bvh;
+    //NaiveSingleRayBVH2<LeafNode> m_bvh;
+    //WiVeBVH8Build8<LeafNode> m_bvh;
+    PauseableBVH4<PauseableLeafNode> m_bvh;
 
     HitCallback m_hitCallback;
     MissCallback m_missCallback;
@@ -47,38 +63,42 @@ private:
 
 template <typename UserState>
 inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
-    : m_bvh(std::move(buildBVH(sceneObjects)))
+    : m_bvh(std::move(buildPauseableBVH(sceneObjects)))
     , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
 {
-	//m_bvh.saveToFile("scene.bvh");
-	//m_bvh.loadFromFile("scene.bvh", leafs);
+    //m_bvh.saveToFile("scene.bvh");
+    //m_bvh.loadFromFile("scene.bvh", leafs);
 }
 
-template<typename UserState>
+template <typename UserState>
 inline WiVeBVH8Build8<typename InCoreAccelerationStructure<UserState>::LeafNode> InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
 {
-	std::vector<const LeafNode*> leafs;
-	for (const auto& sceneObject : sceneObjects) {
-		// Reinterpret sceneObject pointer as LeafNode pointer. This allows us to remove an unnecessary indirection (BVH -> LeafNode -> SceneObject becomes BVH -> SceneObject).
-		leafs.push_back(reinterpret_cast<const LeafNode*>(sceneObject.get()));
-	}
-	
-	WiVeBVH8Build8<LeafNode> bvh;
-	bvh.build(leafs);
-	return std::move(bvh);
+    std::vector<const LeafNode*> leafs;
+    for (const auto& sceneObject : sceneObjects) {
+        // Reinterpret sceneObject pointer as LeafNode pointer. This allows us to remove an unnecessary indirection (BVH -> LeafNode -> SceneObject becomes BVH -> SceneObject).
+        leafs.push_back(reinterpret_cast<const LeafNode*>(sceneObject.get()));
+    }
+
+    WiVeBVH8Build8<LeafNode> bvh;
+    bvh.build(leafs);
+    return std::move(bvh);
 }
 
-template<typename UserState>
-inline PauseableBVH4<typename InCoreAccelerationStructure<UserState>::LeafNode> InCoreAccelerationStructure<UserState>::buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>)
+template <typename UserState>
+inline PauseableBVH4<typename InCoreAccelerationStructure<UserState>::PauseableLeafNode> InCoreAccelerationStructure<UserState>::buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
 {
-	std::vector<const LeafNode*> leafs;
-	for (const auto& sceneObject : sceneObjects) {
-		// Reinterpret sceneObject pointer as LeafNode pointer. This allows us to remove an unnecessary indirection (BVH -> LeafNode -> SceneObject becomes BVH -> SceneObject).
-		leafs.push_back(reinterpret_cast<const LeafNode*>(sceneObject.get()));
-	}
+    std::vector<PauseableLeafNode> leafs;
+	std::vector<Bounds> bounds;
+    for (const auto& sceneObject : sceneObjects) {
+        unsigned numPrimitives = sceneObject->getMesh().numTriangles();
+		for (uint32_t primitiveID = 0; primitiveID < numPrimitives; primitiveID++) {
+            leafs.emplace_back(sceneObject.get(), primitiveID);
+			bounds.emplace_back(sceneObject->getMesh().getPrimitiveBounds(primitiveID));
+		}
+    }
 
-	return PauseableBVH4<LeafNode>(leafs);
+    return PauseableBVH4<PauseableLeafNode>(leafs, bounds);
 }
 
 template <typename UserState>
@@ -130,6 +150,19 @@ inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersectPrimitive
         si.primitiveID = primitiveID;
         ray.tfar = tHit;
     }
+    return hit;
+}
+
+template <typename UserState>
+inline bool InCoreAccelerationStructure<UserState>::PauseableLeafNode::intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle handle) const
+{
+	float tHit;
+	bool hit = sceneObject->getMesh().intersectPrimitive(primitiveID, ray, tHit, si);
+	if (hit) {
+		si.sceneObject = sceneObject;
+		si.primitiveID = primitiveID;
+		ray.tfar = tHit;
+	}
     return hit;
 }
 
