@@ -10,11 +10,11 @@ template <>
 class mask8<1> {
 public:
     mask8() = default;
-	mask8(bool v)
+	inline explicit mask8(bool v)
 	{
 		std::fill(std::begin(m_values), std::end(m_values), v);
 	}
-    mask8(bool v0, bool v1, bool v2, bool v3, bool v4, bool v5, bool v6, bool v7)
+	inline explicit  mask8(bool v0, bool v1, bool v2, bool v3, bool v4, bool v5, bool v6, bool v7)
     {
         m_values[0] = v0;
         m_values[1] = v1;
@@ -73,17 +73,17 @@ class vec8_base<T, 1> {
 public:
     vec8_base() = default;
 
-    vec8_base(gsl::span<const T, 8> v)
+	inline explicit vec8_base(gsl::span<const T, 8> v)
     {
         std::copy(std::begin(v), std::end(v), std::begin(m_values));
     }
 
-    vec8_base(T value)
+	inline explicit vec8_base(T value)
     {
         std::fill(std::begin(m_values), std::end(m_values), value);
     }
 
-    vec8_base(T v0, T v1, T v2, T v3, T v4, T v5, T v6, T v7)
+	inline explicit vec8_base(T v0, T v1, T v2, T v3, T v4, T v5, T v6, T v7)
     {
         m_values[0] = v0;
         m_values[1] = v1;
@@ -216,14 +216,32 @@ public:
         return result;
     }
 
-    inline vec8<uint32_t, 1> operator>>(const vec8<uint32_t, 1>& amount) const
-    {
-        vec8<uint32_t, 1> result;
-        for (int i = 0; i < 8; i++) {
-            result.m_values[i] = m_values[i] >> amount.m_values[i];
-        }
-        return result;
-    }
+	inline vec8<uint32_t, 1> operator<<(uint32_t amount) const
+	{
+		vec8<uint32_t, 1> result;
+		for (int i = 0; i < 8; i++) {
+			result.m_values[i] = m_values[i] << amount;
+		}
+		return result;
+	}
+
+	inline vec8<uint32_t, 1> operator>>(const vec8<uint32_t, 1>& amount) const
+	{
+		vec8<uint32_t, 1> result;
+		for (int i = 0; i < 8; i++) {
+			result.m_values[i] = m_values[i] >> amount.m_values[i];
+		}
+		return result;
+	}
+
+	inline vec8<uint32_t, 1> operator>>(uint32_t amount) const
+	{
+		vec8<uint32_t, 1> result;
+		for (int i = 0; i < 8; i++) {
+			result.m_values[i] = m_values[i] >> amount;
+		}
+		return result;
+	}
 
     inline vec8<uint32_t, 1> operator&(const vec8<uint32_t, 1>& other) const
     {
@@ -268,32 +286,6 @@ public:
         return result;
     }
 };
-
-/*template <>
-class vec8<int32_t, 1> : public vec8_base<int32_t, 1> {
-public:
-    // Inherit constructors
-    using vec8_base<int32_t, 1>::vec8_base;
-    friend class vec8_base<float, 1>; // Make friend so it can access us in permute & compress operations
-
-    inline vec8<int32_t, 1> operator<<(const vec8<uint32_t, 1>& amount) const
-    {
-        vec8<int32_t, 1> result;
-        for (int i = 0; i < 8; i++) {
-            result.m_values[i] = m_values[i] << amount.m_values[i];
-        }
-        return result;
-    }
-
-    inline vec8<int32_t, 1> operator>>(const vec8<uint32_t, 1>& amount) const
-    {
-        vec8<int32_t, 1> result;
-        for (int i = 0; i < 8; i++) {
-            result.m_values[i] = m_values[i] >> amount.m_values[i];
-        }
-        return result;
-    }
-};*/
 
 template <typename T>
 inline vec8<T, 1> min(const vec8<T, 1>& a, const vec8<T, 1>& b)

@@ -84,7 +84,25 @@ void simd4Tests()
 	}
 
 	if constexpr (std::is_same_v<T, uint32_t>) {
-		auto v3 = v2 << v1;
+		auto v4 = simd::vec4<T, S>(0, 1, 2, 3);
+		auto v3 = v2 << v4;
+		std::array<T, 4> values;
+		v3.store(values);
+		for (int i = 0; i < 4; i++)
+			ASSERT_EQ_T(values[i], (4 + i) << (i % 4));
+	}
+
+	if constexpr (std::is_same_v<T, uint32_t>) {
+		auto v4 = simd::vec4<T, S>(1, 1, 2, 2);
+		auto v3 = v2 >> v4;
+		std::array<T, 4> values;
+		v3.store(values);
+		for (int i = 0; i < 4; i++)
+			ASSERT_EQ_T(values[i], (4 + i) >> (1 + ((i / 2) % 2)));
+	}
+
+	if constexpr (std::is_same_v<T, uint32_t>) {
+		auto v3 = v2 << 2;
 		std::array<T, 4> values;
 		v3.store(values);
 		for (int i = 0; i < 4; i++)
@@ -92,7 +110,7 @@ void simd4Tests()
 	}
 
 	if constexpr (std::is_same_v<T, uint32_t>) {
-		auto v3 = v2 >> v1;
+		auto v3 = v2 >> 2;
 		std::array<T, 4> values;
 		v3.store(values);
 		for (int i = 0; i < 4; i++)
@@ -183,8 +201,8 @@ TEST(SIMD4, Scalar)
 	simd4Tests<uint32_t, 1>();
 }
 
-/*TEST(SIMD4, SSE42)
+TEST(SIMD4, AVX2)
 {
-	simd4Tests<float, 4>();
 	simd4Tests<uint32_t, 4>();
-}*/
+	//simd4Tests<float, 4>();
+}

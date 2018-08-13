@@ -84,20 +84,38 @@ void simd8Tests()
     }
 
     if constexpr (std::is_same_v<T, uint32_t>) {
-        auto v3 = v2 << v1;
+        auto v4 = simd::vec8<T, S>(0, 1, 2, 3, 0, 1, 2, 3);
+        auto v3 = v2 << v4;
         std::array<T, 8> values;
         v3.store(values);
         for (int i = 0; i < 8; i++)
-            ASSERT_EQ_T(values[i], (4 + i) << 2);
+            ASSERT_EQ_T(values[i], (4 + i) << (i % 4));
     }
 
     if constexpr (std::is_same_v<T, uint32_t>) {
-        auto v3 = v2 >> v1;
+		auto v4 = simd::vec8<T, S>(1, 1, 2, 2, 1, 1, 2, 2);
+        auto v3 = v2 >> v4;
         std::array<T, 8> values;
         v3.store(values);
         for (int i = 0; i < 8; i++)
-            ASSERT_EQ_T(values[i], (4 + i) >> 2);
+            ASSERT_EQ_T(values[i], (4 + i) >> (1 + ((i / 2) % 2)));
     }
+
+	if constexpr (std::is_same_v<T, uint32_t>) {
+		auto v3 = v2 << 2;
+		std::array<T, 8> values;
+		v3.store(values);
+		for (int i = 0; i < 8; i++)
+			ASSERT_EQ_T(values[i], (4 + i) << 2);
+	}
+
+	if constexpr (std::is_same_v<T, uint32_t>) {
+		auto v3 = v2 >> 2;
+		std::array<T, 8> values;
+		v3.store(values);
+		for (int i = 0; i < 8; i++)
+			ASSERT_EQ_T(values[i], (4 + i) >> 2);
+	}
 
     if constexpr (std::is_same_v<T, uint32_t>) {
         simd::vec8<uint32_t, S> mask(0xFF, 0x0F, 0xF0, 0x0, 0x1, 0x2, 0x3, 0xF0F0F);
@@ -141,11 +159,11 @@ void simd8Tests()
         ASSERT_EQ(mask.count(), 3);
     }
 
-	{
-		auto v3 = simd::vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
-		simd::mask8<S> mask = v2 >= v3;
-		ASSERT_EQ(mask.count(), 5);
-	}
+    {
+        auto v3 = simd::vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
+        simd::mask8<S> mask = v2 >= v3;
+        ASSERT_EQ(mask.count(), 5);
+    }
 
     {
         simd::mask8<S> mask(false, false, true, false, true, true, false, true);

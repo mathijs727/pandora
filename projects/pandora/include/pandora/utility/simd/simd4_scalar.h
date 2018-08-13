@@ -214,11 +214,29 @@ public:
 		return result;
 	}
 
+	inline vec4<uint32_t, 1> operator<<(uint32_t amount) const
+	{
+		vec4<uint32_t, 1> result;
+		for (int i = 0; i < 4; i++) {
+			result.m_values[i] = m_values[i] << amount;
+		}
+		return result;
+	}
+
 	inline vec4<uint32_t, 1> operator>>(const vec4<uint32_t, 1>& amount) const
 	{
 		vec4<uint32_t, 1> result;
 		for (int i = 0; i < 4; i++) {
 			result.m_values[i] = m_values[i] >> amount.m_values[i];
+		}
+		return result;
+	}
+
+	inline vec4<uint32_t, 1> operator>>(uint32_t amount) const
+	{
+		vec4<uint32_t, 1> result;
+		for (int i = 0; i < 4; i++) {
+			result.m_values[i] = m_values[i] >> amount;
 		}
 		return result;
 	}

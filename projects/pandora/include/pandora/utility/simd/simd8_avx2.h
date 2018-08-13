@@ -4,7 +4,7 @@
 #include <gsl/span>
 #include <immintrin.h> // AVX / AVX2
 
-static constexpr std::array<uint64_t, 256> genCompressLUT()
+constexpr std::array<uint64_t, 256> genCompressLUT8()
 {
     std::array<uint64_t, 256> result = {};
     for (uint64_t mask = 0; mask < 256; mask++) {
@@ -20,8 +20,8 @@ static constexpr std::array<uint64_t, 256> genCompressLUT()
     }
     return result;
 }
-static constexpr std::array<uint64_t, 256> s_indicesLUT = genCompressLUT();
-static const __m256i s_avxMaskOnes = _mm256_set1_epi32(0xFFFFFFFF);
+constexpr std::array<uint64_t, 256> s_avxIndicesLUT = genCompressLUT8();
+const __m256i s_avxMaskOnes = _mm256_set1_epi32(0xFFFFFFFF);
 
 template <typename T, int S>
 class vec8;
@@ -33,12 +33,12 @@ template <>
 class alignas(32) mask8<8> {
 public:
     //mask8() = default;
-    inline mask8(const __m256i& value)
+	explicit inline mask8(const __m256i& value)
         : m_value(value)
         , m_bitMask(_mm256_movemask_ps(_mm256_castsi256_ps(m_value)))
     {
     }
-    inline mask8(const __m256& value)
+	explicit inline mask8(const __m256& value)
         : m_value(_mm256_castps_si256(value))
         , m_bitMask(_mm256_movemask_ps(value))
     {
@@ -70,7 +70,7 @@ public:
 
 	inline __m256i computeCompressPermutation() const
 	{
-		uint64_t wantedIndices = s_indicesLUT[m_bitMask];
+		uint64_t wantedIndices = s_avxIndicesLUT[m_bitMask];
 
 		/*// https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask/36951611
 		// Emulate compress operation since it is not part of AVX2 (only AVX512)
@@ -90,7 +90,7 @@ private:
     unsigned m_bitMask;
 
     template <typename T, int S>
-    friend class vec8; // Not possible to friend only vec8_base<T, 1>
+    friend class vec8;
 };
 
 template <>
@@ -99,19 +99,19 @@ public:
     friend class vec8<float, 8>; // Make friend so it can access us in permute & compress operations
 
     vec8() = default;
-    inline vec8(gsl::span<const uint32_t, 8> v)
+	explicit inline vec8(gsl::span<const uint32_t, 8> v)
     {
         load(v);
     }
-    inline vec8(uint32_t value)
+    explicit inline vec8(uint32_t value)
     {
         broadcast(value);
     }
-    inline vec8(uint32_t v0, uint32_t v1, uint32_t v2, uint32_t v3, uint32_t v4, uint32_t v5, uint32_t v6, uint32_t v7)
+    explicit inline vec8(uint32_t v0, uint32_t v1, uint32_t v2, uint32_t v3, uint32_t v4, uint32_t v5, uint32_t v6, uint32_t v7)
     {
         m_value = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
     }
-    inline vec8(__m256i value)
+    explicit inline vec8(__m256i value)
         : m_value(value)
     {
     }
@@ -163,10 +163,20 @@ public:
         return vec8(_mm256_sllv_epi32(m_value, amount.m_value));
     }
 
+	inline vec8<uint32_t, 8> operator<<(uint32_t amount) const
+	{
+		return vec8(_mm256_slli_epi32(m_value, amount));
+	}
+
     inline vec8<uint32_t, 8> operator>>(const vec8<uint32_t, 8>& amount) const
     {
         return vec8(_mm256_srlv_epi32(m_value, amount.m_value));
     }
+
+	inline vec8<uint32_t, 8> operator>>(uint32_t amount) const
+	{
+		return vec8(_mm256_srli_epi32(m_value, amount));
+	}
 
     inline vec8<uint32_t, 8> operator&(const vec8<uint32_t, 8>& other) const
     {
@@ -219,19 +229,19 @@ template <>
 class alignas(32) vec8<float, 8> {
 public:
     vec8() = default;
-    inline vec8(gsl::span<const float, 8> v)
+	explicit inline vec8(gsl::span<const float, 8> v)
     {
         load(v);
     }
-    inline vec8(float value)
+	explicit inline vec8(float value)
     {
         broadcast(value);
     }
-    inline vec8(float v0, float v1, float v2, float v3, float v4, float v5, float v6, float v7)
+	explicit inline vec8(float v0, float v1, float v2, float v3, float v4, float v5, float v6, float v7)
     {
         m_value = _mm256_set_ps(v7, v6, v5, v4, v3, v2, v1, v0);
     }
-    inline vec8(__m256 value)
+	explicit inline vec8(__m256 value)
         : m_value(value)
     {
     }

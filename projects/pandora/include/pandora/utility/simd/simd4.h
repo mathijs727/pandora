@@ -14,7 +14,7 @@ class vec4_base;
 template <typename T, int S>
 class vec4;
 
-//#include "pandora/utility/simd/simd4_sse42.h"
+#include "pandora/utility/simd/simd4_avx2.h"
 #include "pandora/utility/simd/simd4_scalar.h"
 
 using vec4_f32 = vec4<float, SIMD4_WIDTH>;
