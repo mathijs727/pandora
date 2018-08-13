@@ -18,6 +18,6 @@ class vec8;
 #include "pandora/utility/simd/simd8_scalar.h"
 
 using vec8_f32 = vec8<float, SIMD8_WIDTH>;
-using vec8_i32 = vec8<int32_t, SIMD8_WIDTH>;
+//using vec8_i32 = vec8<int32_t, SIMD8_WIDTH>;
 using vec8_u32 = vec8<uint32_t, SIMD8_WIDTH>;
 }

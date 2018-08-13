@@ -5,6 +5,7 @@
 #include "pandora/traversal/bvh/naive_single_bvh2.h"
 //#include "pandora/traversal/bvh/wive_bvh8_build2.h"
 #include "pandora/traversal/bvh/wive_bvh8_build8.h"
+#include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/memory_arena_ts.h"
 #include <gsl/gsl>
 #include <memory>
@@ -20,7 +21,7 @@ public:
 
 public:
 	InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback);
-    ~InCoreAccelerationStructure();
+    ~InCoreAccelerationStructure() = default;
 
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
 
@@ -31,6 +32,9 @@ private:
         Bounds getPrimitiveBounds(unsigned primitiveID) const;
         inline bool intersectPrimitive(unsigned primitiveID, Ray& ray, SurfaceInteraction& si) const;
     };
+
+	static PauseableBVH4<LeafNode> buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>);
+	static WiVeBVH8Build8<LeafNode> buildBVH(gsl::span<const std::unique_ptr<SceneObject>>);
 
 private:
     //EmbreeBVH<LeafNode> m_bvh;
@@ -43,23 +47,38 @@ private:
 
 template <typename UserState>
 inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
-    : m_bvh()
+    : m_bvh(std::move(buildBVH(sceneObjects)))
     , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
 {
-	std::vector<const LeafNode*> leafs;
-    for (const auto& sceneObject : sceneObjects) {
-        // Reinterpret sceneObject pointer as LeafNode pointer. This allows us to remove an unnecessary indirection (BVH -> LeafNode -> SceneObject becomes BVH -> SceneObject).
-		leafs.push_back(reinterpret_cast<const LeafNode*>(sceneObject.get()));
-    }
-    m_bvh.build(leafs);
 	//m_bvh.saveToFile("scene.bvh");
 	//m_bvh.loadFromFile("scene.bvh", leafs);
 }
 
-template <typename UserState>
-inline InCoreAccelerationStructure<UserState>::~InCoreAccelerationStructure()
+template<typename UserState>
+inline WiVeBVH8Build8<typename InCoreAccelerationStructure<UserState>::LeafNode> InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
 {
+	std::vector<const LeafNode*> leafs;
+	for (const auto& sceneObject : sceneObjects) {
+		// Reinterpret sceneObject pointer as LeafNode pointer. This allows us to remove an unnecessary indirection (BVH -> LeafNode -> SceneObject becomes BVH -> SceneObject).
+		leafs.push_back(reinterpret_cast<const LeafNode*>(sceneObject.get()));
+	}
+	
+	WiVeBVH8Build8<LeafNode> bvh;
+	bvh.build(leafs);
+	return std::move(bvh);
+}
+
+template<typename UserState>
+inline PauseableBVH4<typename InCoreAccelerationStructure<UserState>::LeafNode> InCoreAccelerationStructure<UserState>::buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>)
+{
+	std::vector<const LeafNode*> leafs;
+	for (const auto& sceneObject : sceneObjects) {
+		// Reinterpret sceneObject pointer as LeafNode pointer. This allows us to remove an unnecessary indirection (BVH -> LeafNode -> SceneObject becomes BVH -> SceneObject).
+		leafs.push_back(reinterpret_cast<const LeafNode*>(sceneObject.get()));
+	}
+
+	return PauseableBVH4<LeafNode>(leafs);
 }
 
 template <typename UserState>

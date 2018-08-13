@@ -51,8 +51,8 @@ int main()
     glm::ivec2 resolution = glm::ivec2(width, height);
     PerspectiveCamera camera = PerspectiveCamera(resolution, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
-    camera.setPosition(glm::vec3(1.5f, 1.5f, 0.0f));
-	//camera.setPosition(glm::vec3(0.25f, 0.8f, -1.5f));
+    //camera.setPosition(glm::vec3(1.5f, 1.5f, 0.0f));
+	camera.setPosition(glm::vec3(0.25f, 0.8f, -1.5f));
 
     Scene scene;
 
@@ -65,10 +65,10 @@ int main()
 	addStanfordBunny(scene);
 	//addStanfordDragon(scene, false);
     
-    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
+    DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
     //PathIntegrator integrator(20, scene, camera.getSensor(), 1);
-	SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
+	//SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
 	//SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;

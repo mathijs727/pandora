@@ -16,7 +16,8 @@ namespace pandora {
 template <typename LeafObj>
 class WiVeBVH8 : public BVH<LeafObj> {
 public:
-    WiVeBVH8() = default;
+	WiVeBVH8() = default;
+	WiVeBVH8(WiVeBVH8&&) = default;
     ~WiVeBVH8() = default;
 
     void build(gsl::span<const LeafObj*> objects) override final;
@@ -72,7 +73,7 @@ protected:
         simd::vec8_f32 maxZ; // 32 bytes
         simd::vec8_u32 children; // Child indices
         //simd::vec8_u32 permOffsetsAndFlags; // Per child: [child flags (1 byte) - permutation offsets (3 bytes)]
-        simd::vec8_u32 permutationOffsets; // 3 bytes. Can use the other byte for flags but storing it on the stack during traversal is expensive
+        simd::vec8_u32 permutationOffsets; // 3 bytes. Can use the other byte for flags but storing it on the stack during traversal is expensive.
     };
 
     struct alignas(32) BVHLeaf {
