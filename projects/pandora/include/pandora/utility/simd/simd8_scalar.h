@@ -1,5 +1,3 @@
-#pragma once
-
 template <typename T>
 vec8<T, 1> min(const vec8<T, 1>& a, const vec8<T, 1>& b);
 
@@ -45,6 +43,18 @@ public:
                 c++;
         return c;
     }
+
+	inline bool none() const {
+		return count() == 0;
+	}
+
+	inline bool any() const {
+		return count() > 0;
+	}
+
+	inline bool all() const {
+		return count() == 8;
+	}
 
 	inline std::array<uint32_t, 8> computeCompressPermutation() const
 	{
@@ -192,6 +202,34 @@ public:
 			result.m_values[j] = 0;
         return result;
     }
+
+	inline uint64_t horizontalMinPos() const
+	{
+		std::array<T, 8> values;
+		store(values);
+		return std::distance(std::begin(values), std::min_element(std::begin(values), std::end(values)));
+	}
+
+	inline T horizontalMin() const
+	{
+		std::array<T, 8> values;
+		store(values);
+		return *std::min_element(std::begin(values), std::end(values));
+	}
+
+	inline uint64_t horizontalMaxPos() const
+	{
+		std::array<T, 8> values;
+		store(values);
+		return std::distance(std::begin(values), std::max_element(std::begin(values), std::end(values)));
+	}
+
+	inline T horizontalMax() const
+	{
+		std::array<T, 8> values;
+		store(values);
+		return *std::max_element(std::begin(values), std::end(values));
+	}
 
     friend vec8<T, 1> min<T>(const vec8<T, 1>& a, const vec8<T, 1>& b);
     friend vec8<T, 1> max<T>(const vec8<T, 1>& a, const vec8<T, 1>& b);

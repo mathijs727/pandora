@@ -1,6 +1,14 @@
 #pragma once
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <emmintrin.h> // SSE2
+#include <functional>
 #include <gsl/span>
+#include <immintrin.h> // AVX / AVX2
 #include <iostream>
+#include <nmmintrin.h> // Popcount
+#include <xmmintrin.h> // SSE
 
 constexpr static int SIMD4_WIDTH = 1;
 

@@ -142,6 +142,30 @@ void simd4Tests()
 	}
 
 	{
+		simd::mask4<S> mask1(true, false, true, false);
+		ASSERT_TRUE(mask1.any());
+
+		simd::mask4<S> mask2(false, false, false, false);
+		ASSERT_FALSE(mask2.any());
+	}
+
+	{
+		simd::mask4<S> mask1(true, false, true, false);
+		ASSERT_FALSE(mask1.none());
+
+		simd::mask4<S> mask2(false, false, false, false);
+		ASSERT_TRUE(mask2.none());
+	}
+
+	{
+		simd::mask4<S> mask1(true, false, true, false);
+		ASSERT_FALSE(mask1.all());
+
+		simd::mask4<S> mask2(true, true, true, true);
+		ASSERT_TRUE(mask2.all());
+	}
+
+	{
 		auto v3 = simd::vec4<T, S>(1, 42, 1, 7);
 		simd::mask4<S> mask = v2 < v3;
 		ASSERT_EQ(mask.count(), 1);
@@ -193,6 +217,15 @@ void simd4Tests()
 			ASSERT_EQ(valuesCompress[i], valuesPermuteCompress[i]);
 		}
 	}
+
+	{
+		simd::vec4<T, S> values(5, 3, 7, 6);
+		ASSERT_EQ(values.horizontalMin(), (T)3);
+		ASSERT_EQ(values.horizontalMinPos(), 1);
+
+		ASSERT_EQ(values.horizontalMax(), (T)7);
+		ASSERT_EQ(values.horizontalMaxPos(), 2);
+	}
 }
 
 TEST(SIMD4, Scalar)
@@ -204,5 +237,5 @@ TEST(SIMD4, Scalar)
 TEST(SIMD4, AVX2)
 {
 	simd4Tests<uint32_t, 4>();
-	//simd4Tests<float, 4>();
+	simd4Tests<float, 4>();
 }

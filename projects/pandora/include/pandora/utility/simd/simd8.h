@@ -1,5 +1,10 @@
 #pragma once
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <functional>
 #include <gsl/span>
+#include <immintrin.h> // AVX / AVX2
 #include <iostream>
 
 constexpr static int SIMD8_WIDTH = 8;

@@ -141,6 +141,31 @@ void simd8Tests()
         ASSERT_EQ(mask.count(), 5);
     }
 
+	{
+		simd::mask8<S> mask1(true, false, true, false, false, false, true, false);
+		ASSERT_TRUE(mask1.any());
+
+		simd::mask8<S> mask2(false, false, false, false, false, false, false, false);
+		ASSERT_FALSE(mask2.any());
+	}
+
+	{
+		simd::mask8<S> mask1(true, false, true, false, false, false, true, false);
+		ASSERT_FALSE(mask1.none());
+
+		simd::mask8<S> mask2(false, false, false, false, false, false, false, false);
+		ASSERT_TRUE(mask2.none());
+	}
+
+	{
+		simd::mask8<S> mask1(true, false, true, false, false, false, true, false);
+		ASSERT_FALSE(mask1.all());
+
+		simd::mask8<S> mask2(true, true, true, true, true, true, true, true);
+		ASSERT_TRUE(mask2.all());
+	}
+
+
     {
         auto v3 = simd::vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
         simd::mask8<S> mask = v2 < v3;
@@ -195,6 +220,15 @@ void simd8Tests()
             ASSERT_EQ(valuesCompress[i], valuesPermuteCompress[i]);
         }
     }
+
+	{
+		simd::vec8<T, S> values(5, 3, 7, 6, 1, 8, 11, 4);
+		ASSERT_EQ(values.horizontalMin(), (T)1);
+		ASSERT_EQ(values.horizontalMinPos(), 4);
+
+		ASSERT_EQ(values.horizontalMax(), (T)11);
+		ASSERT_EQ(values.horizontalMaxPos(), 6);
+	}
 }
 
 TEST(SIMD8, Scalar)

@@ -1,9 +1,3 @@
-#pragma once
-#include <array>
-#include <cstdint>
-#include <gsl/span>
-#include <immintrin.h> // AVX / AVX2
-
 constexpr std::array<uint64_t, 256> genCompressLUT8()
 {
     std::array<uint64_t, 256> result = {};
@@ -33,12 +27,12 @@ template <>
 class alignas(32) mask8<8> {
 public:
     //mask8() = default;
-	explicit inline mask8(const __m256i& value)
+    explicit inline mask8(const __m256i& value)
         : m_value(value)
         , m_bitMask(_mm256_movemask_ps(_mm256_castsi256_ps(m_value)))
     {
     }
-	explicit inline mask8(const __m256& value)
+    explicit inline mask8(const __m256& value)
         : m_value(_mm256_castps_si256(value))
         , m_bitMask(_mm256_movemask_ps(value))
     {
@@ -57,22 +51,37 @@ public:
         m_bitMask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value));
     }
 
-	inline int count(unsigned validMask) const
-	{
-		uint32_t mask = m_bitMask & validMask;
-		return _mm_popcnt_u32(mask);
-	}
+    inline int count(unsigned validMask) const
+    {
+        uint32_t mask = m_bitMask & validMask;
+        return _mm_popcnt_u32(mask);
+    }
 
     inline int count() const
     {
         return _mm_popcnt_u32(m_bitMask);
     }
 
-	inline __m256i computeCompressPermutation() const
-	{
-		uint64_t wantedIndices = s_avxIndicesLUT[m_bitMask];
+    inline bool none() const
+    {
+        return count() == 0;
+    }
 
-		/*// https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask/36951611
+    inline bool any() const
+    {
+        return count() > 0;
+    }
+
+    inline bool all() const
+    {
+        return count() == 8;
+    }
+
+    inline __m256i computeCompressPermutation() const
+    {
+        uint64_t wantedIndices = s_avxIndicesLUT[m_bitMask];
+
+        /*// https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask/36951611
 		// Emulate compress operation since it is not part of AVX2 (only AVX512)
 		uint64_t expandedMask = _pdep_u64(mask.m_bitMask, 0x0101010101010101); // Unpack each bit to a byte
 		expandedMask *= 0xFF; // mask |= mask<<1 | mask<<2 | ... | mask<<7;
@@ -81,9 +90,9 @@ public:
 		const uint64_t identityIndices = 0x0706050403020100; // The identity shuffle for vpermps, packed to one index per byte
 		uint64_t wantedIndices = _pext_u64(identityIndices, expandedMask);*/
 
-		__m128i byteVec = _mm_cvtsi64_si128(wantedIndices);
-		return _mm256_cvtepu8_epi32(byteVec);
-	}
+        __m128i byteVec = _mm_cvtsi64_si128(wantedIndices);
+        return _mm256_cvtepu8_epi32(byteVec);
+    }
 
 private:
     __m256i m_value;
@@ -99,7 +108,7 @@ public:
     friend class vec8<float, 8>; // Make friend so it can access us in permute & compress operations
 
     vec8() = default;
-	explicit inline vec8(gsl::span<const uint32_t, 8> v)
+    explicit inline vec8(gsl::span<const uint32_t, 8> v)
     {
         load(v);
     }
@@ -116,15 +125,15 @@ public:
     {
     }
 
-	inline void loadAligned(gsl::span<const uint32_t, 8> v)
-	{
-		m_value = _mm256_load_si256(reinterpret_cast<const __m256i*>(v.data()));
-	}
+    inline void loadAligned(gsl::span<const uint32_t, 8> v)
+    {
+        m_value = _mm256_load_si256(reinterpret_cast<const __m256i*>(v.data()));
+    }
 
-	inline void storeAligned(gsl::span<uint32_t, 8> v) const
-	{
-		_mm256_store_si256(reinterpret_cast<__m256i*>(v.data()), m_value);
-	}
+    inline void storeAligned(gsl::span<uint32_t, 8> v) const
+    {
+        _mm256_store_si256(reinterpret_cast<__m256i*>(v.data()), m_value);
+    }
 
     inline void load(gsl::span<const uint32_t, 8> v)
     {
@@ -163,20 +172,20 @@ public:
         return vec8(_mm256_sllv_epi32(m_value, amount.m_value));
     }
 
-	inline vec8<uint32_t, 8> operator<<(uint32_t amount) const
-	{
-		return vec8(_mm256_slli_epi32(m_value, amount));
-	}
+    inline vec8<uint32_t, 8> operator<<(uint32_t amount) const
+    {
+        return vec8(_mm256_slli_epi32(m_value, amount));
+    }
 
     inline vec8<uint32_t, 8> operator>>(const vec8<uint32_t, 8>& amount) const
     {
         return vec8(_mm256_srlv_epi32(m_value, amount.m_value));
     }
 
-	inline vec8<uint32_t, 8> operator>>(uint32_t amount) const
-	{
-		return vec8(_mm256_srli_epi32(m_value, amount));
-	}
+    inline vec8<uint32_t, 8> operator>>(uint32_t amount) const
+    {
+        return vec8(_mm256_srli_epi32(m_value, amount));
+    }
 
     inline vec8<uint32_t, 8> operator&(const vec8<uint32_t, 8>& other) const
     {
@@ -188,24 +197,24 @@ public:
         return mask8<8>(_mm256_cmpgt_epi32(other.m_value, m_value));
     }
 
-	inline mask8<8> operator<=(const vec8<uint32_t, 8>& other) const
-	{
-		__m256i greaterThan = _mm256_cmpgt_epi32(m_value, other.m_value);
-		__m256i notGreaterThan = _mm256_xor_si256(greaterThan, s_avxMaskOnes);
-		return mask8<8>(notGreaterThan);
-	}
+    inline mask8<8> operator<=(const vec8<uint32_t, 8>& other) const
+    {
+        __m256i greaterThan = _mm256_cmpgt_epi32(m_value, other.m_value);
+        __m256i notGreaterThan = _mm256_xor_si256(greaterThan, s_avxMaskOnes);
+        return mask8<8>(notGreaterThan);
+    }
 
     inline mask8<8> operator>(const vec8<uint32_t, 8>& other) const
     {
         return mask8<8>(_mm256_cmpgt_epi32(m_value, other.m_value));
     }
 
-	inline mask8<8> operator>=(const vec8<uint32_t, 8>& other) const
-	{
-		__m256i lessThan = _mm256_cmpgt_epi32(other.m_value, m_value);
-		__m256i notLessThan = _mm256_xor_si256(lessThan, s_avxMaskOnes);
-		return mask8<8>(notLessThan);
-	}
+    inline mask8<8> operator>=(const vec8<uint32_t, 8>& other) const
+    {
+        __m256i lessThan = _mm256_cmpgt_epi32(other.m_value, m_value);
+        __m256i notLessThan = _mm256_xor_si256(lessThan, s_avxMaskOnes);
+        return mask8<8>(notLessThan);
+    }
 
     inline vec8<uint32_t, 8> permute(const vec8<uint32_t, 8>& index) const
     {
@@ -214,8 +223,36 @@ public:
 
     inline vec8<uint32_t, 8> compress(const mask8<8>& mask) const
     {
-		__m256i shuffleMask = mask.computeCompressPermutation();
+        __m256i shuffleMask = mask.computeCompressPermutation();
         return vec8(_mm256_permutevar8x32_epi32(m_value, shuffleMask));
+    }
+
+    inline uint64_t horizontalMinPos() const
+    {
+        std::array<uint32_t, 8> values;
+        store(values);
+        return std::distance(std::begin(values), std::min_element(std::begin(values), std::end(values)));
+    }
+
+    inline uint32_t horizontalMin() const
+    {
+        std::array<uint32_t, 8> values;
+        store(values);
+        return *std::min_element(std::begin(values), std::end(values));
+    }
+
+    inline uint64_t horizontalMaxPos() const
+    {
+        std::array<uint32_t, 8> values;
+        store(values);
+        return std::distance(std::begin(values), std::max_element(std::begin(values), std::end(values)));
+    }
+
+    inline uint32_t horizontalMax() const
+    {
+        std::array<uint32_t, 8> values;
+        store(values);
+        return *std::max_element(std::begin(values), std::end(values));
     }
 
     friend vec8<uint32_t, 8> min(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b);
@@ -229,32 +266,32 @@ template <>
 class alignas(32) vec8<float, 8> {
 public:
     vec8() = default;
-	explicit inline vec8(gsl::span<const float, 8> v)
+    explicit inline vec8(gsl::span<const float, 8> v)
     {
         load(v);
     }
-	explicit inline vec8(float value)
+    explicit inline vec8(float value)
     {
         broadcast(value);
     }
-	explicit inline vec8(float v0, float v1, float v2, float v3, float v4, float v5, float v6, float v7)
+    explicit inline vec8(float v0, float v1, float v2, float v3, float v4, float v5, float v6, float v7)
     {
         m_value = _mm256_set_ps(v7, v6, v5, v4, v3, v2, v1, v0);
     }
-	explicit inline vec8(__m256 value)
+    explicit inline vec8(__m256 value)
         : m_value(value)
     {
     }
 
-	inline void loadAligned(gsl::span<const float, 8> v)
-	{
-		m_value = _mm256_load_ps(v.data());
-	}
+    inline void loadAligned(gsl::span<const float, 8> v)
+    {
+        m_value = _mm256_load_ps(v.data());
+    }
 
-	inline void storeAligned(gsl::span<float, 8> v) const
-	{
-		_mm256_store_ps(v.data(), m_value);
-	}
+    inline void storeAligned(gsl::span<float, 8> v) const
+    {
+        _mm256_store_ps(v.data(), m_value);
+    }
 
     inline void load(gsl::span<const float, 8> v)
     {
@@ -293,23 +330,23 @@ public:
 
     inline mask8<8> operator<(const vec8<float, 8>& other) const
     {
-		return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_LT_OS));
+        return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_LT_OS));
     }
 
-	inline mask8<8> operator<=(const vec8<float, 8>& other) const
-	{
-		return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_LE_OS));
-	}
+    inline mask8<8> operator<=(const vec8<float, 8>& other) const
+    {
+        return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_LE_OS));
+    }
 
     inline mask8<8> operator>(const vec8<float, 8>& other) const
     {
         return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_GT_OS));
     }
 
-	inline mask8<8> operator>=(const vec8<float, 8>& other) const
-	{
-		return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_GE_OS));
-	}
+    inline mask8<8> operator>=(const vec8<float, 8>& other) const
+    {
+        return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_GE_OS));
+    }
 
     inline vec8<float, 8> permute(const vec8<uint32_t, 8>& index) const
     {
@@ -318,8 +355,36 @@ public:
 
     inline vec8<float, 8> compress(const mask8<8>& mask) const
     {
-		__m256i shuffleMask = mask.computeCompressPermutation();
+        __m256i shuffleMask = mask.computeCompressPermutation();
         return vec8(_mm256_permutevar8x32_ps(m_value, shuffleMask));
+    }
+
+    inline uint64_t horizontalMinPos() const
+    {
+        std::array<float, 8> values;
+        store(values);
+        return std::distance(std::begin(values), std::min_element(std::begin(values), std::end(values)));
+    }
+
+    inline float horizontalMin() const
+    {
+        std::array<float, 8> values;
+        store(values);
+        return *std::min_element(std::begin(values), std::end(values));
+    }
+
+    inline uint64_t horizontalMaxPos() const
+    {
+        std::array<float, 8> values;
+        store(values);
+        return std::distance(std::begin(values), std::max_element(std::begin(values), std::end(values)));
+    }
+
+    inline float horizontalMax() const
+    {
+        std::array<float, 8> values;
+        store(values);
+        return *std::max_element(std::begin(values), std::end(values));
     }
 
     friend vec8<float, 8> min(const vec8<float, 8>& a, const vec8<float, 8>& b);
