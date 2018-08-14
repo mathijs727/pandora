@@ -51,7 +51,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
             // Inner node
             simd::vec8_u32 childrenSIMD;
             simd::vec8_f32 distancesSIMD;
-            uint32_t numChildren = traverseCluster(node, simdRay, childrenSIMD, distancesSIMD);
+            uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
 
             if (numChildren > 0) {
                 childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
@@ -100,7 +100,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 }
 
 template <typename LeafObj>
-inline uint32_t WiVeBVH8<LeafObj>::traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const
+inline uint32_t WiVeBVH8<LeafObj>::intersectInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const
 {
     simd::vec8_f32 tx1 = (n->minX - ray.originX) * ray.invDirectionX;
     simd::vec8_f32 tx2 = (n->maxX - ray.originX) * ray.invDirectionX;

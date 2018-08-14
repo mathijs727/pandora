@@ -7,7 +7,7 @@
 namespace pandora
 {
 
-using PauseableBVHInsertHandle = uint32_t;
+using PauseableBVHInsertHandle = std::pair<uint32_t, uint64_t>;
 
 template <typename T>
 struct is_pauseable_leaf_obj {
