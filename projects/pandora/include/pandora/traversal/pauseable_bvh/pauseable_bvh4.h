@@ -137,7 +137,7 @@ inline PauseableBVH4<LeafObj>::PauseableBVH4(gsl::span<const LeafObj> objects, g
 template <typename LeafObj>
 inline bool PauseableBVH4<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 {
-    return intersect(ray, si, { m_rootHandle, 0b1111 });
+    return intersect(ray, si, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
 }
 
 template <typename LeafObj>
@@ -170,75 +170,79 @@ inline bool PauseableBVH4<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si, 
     auto [nodeHandle, rayStack] = insertInfo;
     const BVHNode* node = &m_innerNodeAllocator.get(nodeHandle);
     uint64_t stack = rayStack;
-    while (stack != 0) {
+    while (true) {
         // Get traversal bits at the current depth
         int bitPos = 4 * node->depth;
-        auto interestBitMask = (stack >> bitPos) & 0b1111;
-        // clang-format off
-		const simd::mask4 interestMask(
-			interestBitMask & 0x1,
-			interestBitMask & 0x2,
-			interestBitMask & 0x4,
-			interestBitMask & 0x8);
-        // clang-format on
+        uint64_t interestBitMask = (stack >> bitPos) & 0b1111;
+		if (interestBitMask != 0) {
+			// clang-format off
+			const simd::mask4 interestMask(
+				interestBitMask & 0x1,
+				interestBitMask & 0x2,
+				interestBitMask & 0x4,
+				interestBitMask & 0x8);
+			// clang-format on
 
-        // Find the nearest intersection of hte ray and the child boxes
-        const simd::vec4_f32 tx1 = (node->minX - simdRay.originX) * simdRay.invDirectionX;
-        const simd::vec4_f32 tx2 = (node->maxX - simdRay.originX) * simdRay.invDirectionX;
-        const simd::vec4_f32 ty1 = (node->minY - simdRay.originY) * simdRay.invDirectionY;
-        const simd::vec4_f32 ty2 = (node->maxY - simdRay.originY) * simdRay.invDirectionY;
-        const simd::vec4_f32 tz1 = (node->minZ - simdRay.originZ) * simdRay.invDirectionZ;
-        const simd::vec4_f32 tz2 = (node->maxZ - simdRay.originZ) * simdRay.invDirectionZ;
-        const simd::vec4_f32 txMin = simd::min(tx1, tx2);
-        const simd::vec4_f32 tyMin = simd::min(ty1, ty2);
-        const simd::vec4_f32 tzMin = simd::min(tz1, tz2);
-        const simd::vec4_f32 txMax = simd::max(tx1, tx2);
-        const simd::vec4_f32 tyMax = simd::max(ty1, ty2);
-        const simd::vec4_f32 tzMax = simd::max(tz1, tz2);
-        const simd::vec4_f32 tmin = simd::max(simdRay.tnear, simd::max(txMin, simd::max(tyMin, tzMin)));
-        const simd::vec4_f32 tmax = simd::min(simdRay.tfar, simd::min(txMax, simd::min(tyMax, tzMax)));
-        const simd::mask4 hitMask = tmin <= tmax;
+			// Find the nearest intersection of hte ray and the child boxes
+			const simd::vec4_f32 tx1 = (node->minX - simdRay.originX) * simdRay.invDirectionX;
+			const simd::vec4_f32 tx2 = (node->maxX - simdRay.originX) * simdRay.invDirectionX;
+			const simd::vec4_f32 ty1 = (node->minY - simdRay.originY) * simdRay.invDirectionY;
+			const simd::vec4_f32 ty2 = (node->maxY - simdRay.originY) * simdRay.invDirectionY;
+			const simd::vec4_f32 tz1 = (node->minZ - simdRay.originZ) * simdRay.invDirectionZ;
+			const simd::vec4_f32 tz2 = (node->maxZ - simdRay.originZ) * simdRay.invDirectionZ;
+			const simd::vec4_f32 txMin = simd::min(tx1, tx2);
+			const simd::vec4_f32 tyMin = simd::min(ty1, ty2);
+			const simd::vec4_f32 tzMin = simd::min(tz1, tz2);
+			const simd::vec4_f32 txMax = simd::max(tx1, tx2);
+			const simd::vec4_f32 tyMax = simd::max(ty1, ty2);
+			const simd::vec4_f32 tzMax = simd::max(tz1, tz2);
+			const simd::vec4_f32 tmin = simd::max(simdRay.tnear, simd::max(txMin, simd::max(tyMin, tzMin)));
+			const simd::vec4_f32 tmax = simd::min(simdRay.tfar, simd::min(txMax, simd::min(tyMax, tzMax)));
+			const simd::mask4 hitMask = tmin <= tmax;
 
-        const simd::mask4 toVisitMask = hitMask && interestMask;
-        if (toVisitMask.any()) {
-            // Find nearest active child for this ray
-            const static simd::vec4_f32 inf4(std::numeric_limits<float>::max());
-            const simd::vec4_f32 maskedDistances = simd::blend(inf4, tmin, toVisitMask);
-            unsigned childIndex = maskedDistances.horizontalMinIndex();
+			const simd::mask4 toVisitMask = hitMask && interestMask;
+			if (toVisitMask.any()) {
+				// Find nearest active child for this ray
+				const static simd::vec4_f32 inf4(std::numeric_limits<float>::max());
+				const simd::vec4_f32 maskedDistances = simd::blend(inf4, tmin, toVisitMask);
+				unsigned childIndex = maskedDistances.horizontalMinIndex();
+				assert(childIndex <= 4);
 
-            int toVisitBitMask = toVisitMask.bitMask();
-			toVisitBitMask ^= (1 << childIndex); // Set the bit of the child we are visiting to 0
-			stack ^= interestBitMask << bitPos; // Set the bits in the stack corresponding to the current node to 0
-            stack |= toVisitBitMask << bitPos; // And replace them by the new mask
+				uint64_t toVisitBitMask = toVisitMask.bitMask();
+				toVisitBitMask ^= (1llu << childIndex); // Set the bit of the child we are visiting to 0
+				stack = stack ^ (interestBitMask << bitPos); // Set the bits in the stack corresponding to the current node to 0
+				stack = stack | (toVisitBitMask << bitPos); // And replace them by the new mask
 
-            if (node->isInnerNode(childIndex)) {
-                node = &m_innerNodeAllocator.get(node->childrenHandles[childIndex]);
-                continue;
-            }
+				if (node->isInnerNode(childIndex)) {
+					node = &m_innerNodeAllocator.get(node->childrenHandles[childIndex]);
+				} else {
+					// Reached leaf
+					auto handle = node->childrenHandles[childIndex];
+					auto& leaf = m_leafAllocator.get(handle);
+					if (leaf.intersect(ray, si, insertInfo)) {
+						hit = true;
+						simdRay.tfar.broadcast(ray.tfar);
+					}
+				}
 
-            // Reached leaf
-            auto handle = node->childrenHandles[childIndex];
-            auto& leaf = m_leafAllocator.get(handle);
-            if (leaf.intersect(ray, si, insertInfo)) {
-                hit = true;
-                simdRay.tfar.broadcast(ray.tfar);
-            }
-        } else {
-            // No children left to visit; find the first ancestor that has work left
-
-            // Clear upper bits starting from bitPos
-            stack &= (1llu << bitPos) - 1;
-            if (stack == 0)
-                break;
-
-			int prevDepth = node->depth;
-			const auto* oldNode = node;
-			node = &m_innerNodeAllocator.get(node->parentHandle);
-			assert(node != oldNode);
-			assert(node->depth == prevDepth - 1);
-            //int index = bitScanReverse64(stack);
-			//node = m_innerNodeAllocator.get(node.ancestors[index >> 2]); // (index >> 2) == (index / 4)
+				continue;
+			}
         }
+
+        // No children left to visit; find the first ancestor that has work left
+
+        // Set all bits after bitPos to 1
+		uint64_t oldStack = stack;
+		stack = stack | (0xFFFFFFFFFFFFFFFF << bitPos);
+        if (stack == 0xFFFFFFFFFFFFFFFF)
+            break;
+
+		int prevDepth = node->depth;
+		node = &m_innerNodeAllocator.get(node->parentHandle);
+		assert(node->depth == prevDepth - 1);
+
+        //int index = bitScanReverse64(stack);
+		//node = m_innerNodeAllocator.get(node.ancestors[index >> 2]); // (index >> 2) == (index / 4)
     }
 
     return hit;
@@ -342,12 +346,12 @@ inline void PauseableBVH4<LeafObj>::innerNodeSetChildren(void* nodePtr, void** c
     uint32_t leafMask = 0x0;
     for (unsigned i = 0; i < numChildren; i++) {
         auto [isLeaf, childNodeHandle] = decodeBVHConstructionHandle(childPtr[i]);
-        BVHNode& childNode = self->m_innerNodeAllocator.get(childNodeHandle);
 
         validMask |= 1 << i;
         if (isLeaf) {
             leafMask |= 1 << i;
         } else {
+			BVHNode& childNode = self->m_innerNodeAllocator.get(childNodeHandle);
             childNode.parentHandle = nodeHandle;
         }
 

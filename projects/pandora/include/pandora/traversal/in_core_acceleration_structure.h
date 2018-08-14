@@ -63,7 +63,8 @@ private:
 
 template <typename UserState>
 inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
-    : m_bvh(std::move(buildPauseableBVH(sceneObjects)))
+	: m_bvh(std::move(buildPauseableBVH(sceneObjects)))
+	//: m_bvh(std::move(buildBVH(sceneObjects)))
     , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
 {
