@@ -14,19 +14,20 @@
 constexpr static int SIMD4_WIDTH = 1;
 
 namespace pandora::simd {
-template <int S = SIMD4_WIDTH>
-class mask4;
+template <int S>
+class _mask4;
 
 template <typename T, int S>
-class vec4_base;
+class _vec4_base;
 
 template <typename T, int S>
-class vec4;
+class _vec4;
 
 #include "pandora/utility/simd/simd4_avx2.h"
 #include "pandora/utility/simd/simd4_scalar.h"
 
-using vec4_f32 = vec4<float, SIMD4_WIDTH>;
+using mask4 = _mask4<SIMD4_WIDTH>;
+using vec4_f32 = _vec4<float, SIMD4_WIDTH>;
 //using vec4_i32 = vec4<int32_t, SIMD4_WIDTH>;
-using vec4_u32 = vec4<uint32_t, SIMD4_WIDTH>;
+using vec4_u32 = _vec4<uint32_t, SIMD4_WIDTH>;
 }

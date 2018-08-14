@@ -15,8 +15,8 @@ using namespace pandora;
 template <typename T, int S>
 void simd8Tests()
 {
-    simd::vec8<T, S> v1(2);
-    simd::vec8<T, S> v2(4, 5, 6, 7, 8, 9, 10, 11);
+    simd::_vec8<T, S> v1(2);
+    simd::_vec8<T, S> v2(4, 5, 6, 7, 8, 9, 10, 11);
 
     {
         std::array<T, 8> values;
@@ -85,7 +85,7 @@ void simd8Tests()
     }
 
 	{
-		simd::mask8<S> mask(false, false, false, false, true, true, true, true);
+		simd::_mask8<S> mask(false, false, false, false, true, true, true, true);
 		auto v3 = simd::blend(v1, v2, mask);
 
 		std::array<T, 8> values;
@@ -95,7 +95,7 @@ void simd8Tests()
 	}
 
     if constexpr (std::is_same_v<T, uint32_t>) {
-        auto v4 = simd::vec8<T, S>(0, 1, 2, 3, 0, 1, 2, 3);
+        auto v4 = simd::_vec8<T, S>(0, 1, 2, 3, 0, 1, 2, 3);
         auto v3 = v2 << v4;
         std::array<T, 8> values;
         v3.store(values);
@@ -104,7 +104,7 @@ void simd8Tests()
     }
 
     if constexpr (std::is_same_v<T, uint32_t>) {
-		auto v4 = simd::vec8<T, S>(1, 1, 2, 2, 1, 1, 2, 2);
+		auto v4 = simd::_vec8<T, S>(1, 1, 2, 2, 1, 1, 2, 2);
         auto v3 = v2 >> v4;
         std::array<T, 8> values;
         v3.store(values);
@@ -129,8 +129,8 @@ void simd8Tests()
 	}
 
     if constexpr (std::is_same_v<T, uint32_t>) {
-        simd::vec8<uint32_t, S> mask(0xFF, 0x0F, 0xF0, 0x0, 0x1, 0x2, 0x3, 0xF0F0F);
-        simd::vec8<uint32_t, S> source(123, 0xF3, 0xDD, 0xFFFFFFFF, 0b0101, 0b0101, 0xFF, 0xABCDE);
+        simd::_vec8<uint32_t, S> mask(0xFF, 0x0F, 0xF0, 0x0, 0x1, 0x2, 0x3, 0xF0F0F);
+        simd::_vec8<uint32_t, S> source(123, 0xF3, 0xDD, 0xFFFFFFFF, 0b0101, 0b0101, 0xFF, 0xABCDE);
         std::array<uint32_t, 8> expectedResults = { 123, 0x3, 0xD0, 0x0, 0x1, 0x0, 0x3, 0xA0C0E };
         std::array<T, 8> values;
         (source & mask).store(values);
@@ -139,7 +139,7 @@ void simd8Tests()
     }
 
     {
-        simd::vec8<uint32_t, S> index(7, 6, 5, 4, 3, 2, 1, 0);
+        simd::_vec8<uint32_t, S> index(7, 6, 5, 4, 3, 2, 1, 0);
         auto v3 = v2.permute(index);
         std::array<T, 8> values;
         v3.store(values);
@@ -148,71 +148,71 @@ void simd8Tests()
     }
 
     {
-        simd::mask8<S> mask(false, false, true, false, true, true, true, true);
+        simd::_mask8<S> mask(false, false, true, false, true, true, true, true);
         ASSERT_EQ(mask.count(), 5);
     }
 
 	{
-		simd::mask8<S> mask1(true, false, true, false, false, false, true, false);
+		simd::_mask8<S> mask1(true, false, true, false, false, false, true, false);
 		ASSERT_TRUE(mask1.any());
 
-		simd::mask8<S> mask2(false, false, false, false, false, false, false, false);
+		simd::_mask8<S> mask2(false, false, false, false, false, false, false, false);
 		ASSERT_FALSE(mask2.any());
 	}
 
 	{
-		simd::mask8<S> mask1(true, false, true, false, false, false, true, false);
+		simd::_mask8<S> mask1(true, false, true, false, false, false, true, false);
 		ASSERT_FALSE(mask1.none());
 
-		simd::mask8<S> mask2(false, false, false, false, false, false, false, false);
+		simd::_mask8<S> mask2(false, false, false, false, false, false, false, false);
 		ASSERT_TRUE(mask2.none());
 	}
 
 	{
-		simd::mask8<S> mask1(true, false, true, false, false, false, true, false);
+		simd::_mask8<S> mask1(true, false, true, false, false, false, true, false);
 		ASSERT_FALSE(mask1.all());
 
-		simd::mask8<S> mask2(true, true, true, true, true, true, true, true);
+		simd::_mask8<S> mask2(true, true, true, true, true, true, true, true);
 		ASSERT_TRUE(mask2.all());
 	}
 
 
     {
-        auto v3 = simd::vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
-        simd::mask8<S> mask = v2 < v3;
+        auto v3 = simd::_vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
+        simd::_mask8<S> mask = v2 < v3;
         ASSERT_EQ(mask.count(), 3);
     }
 
     {
-        auto v3 = simd::vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
-        simd::mask8<S> mask = v2 <= v3;
+        auto v3 = simd::_vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
+        simd::_mask8<S> mask = v2 <= v3;
         ASSERT_EQ(mask.count(), 5);
     }
 
     {
-        auto v3 = simd::vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
-        simd::mask8<S> mask = v2 > v3;
+        auto v3 = simd::_vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
+        simd::_mask8<S> mask = v2 > v3;
         ASSERT_EQ(mask.count(), 3);
     }
 
     {
-        auto v3 = simd::vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
-        simd::mask8<S> mask = v2 >= v3;
+        auto v3 = simd::_vec8<T, S>(1, 42, 1, 7, 8, 42, 1, 42);
+        simd::_mask8<S> mask = v2 >= v3;
         ASSERT_EQ(mask.count(), 5);
     }
 
 	{
-		simd::mask8<S> mask1(true, false, true, true, true, false, true, false);
-		simd::mask8<S> mask2(false, false, false, true, true, false, false, false);
+		simd::_mask8<S> mask1(true, false, true, true, true, false, true, false);
+		simd::_mask8<S> mask2(false, false, false, true, true, false, false, false);
 
-		simd::mask8<S> andMask = mask1 && mask2;
-		simd::mask8<S> orMask = mask1 || mask2;
+		simd::_mask8<S> andMask = mask1 && mask2;
+		simd::_mask8<S> orMask = mask1 || mask2;
 		ASSERT_TRUE(andMask.count() == 2);
 		ASSERT_TRUE(orMask.count() == 5);
 	}
 
     {
-        simd::mask8<S> mask(false, false, true, false, true, true, false, true);
+        simd::_mask8<S> mask(false, false, true, false, true, true, false, true);
         auto v3 = v2.compress(mask);
         std::array<T, 8> values;
         v3.store(values);
@@ -227,9 +227,9 @@ void simd8Tests()
     }
 
     {
-        simd::mask8<S> mask(false, false, true, false, true, true, false, true);
+        simd::_mask8<S> mask(false, false, true, false, true, true, false, true);
         auto v3 = v2.compress(mask);
-        simd::vec8<uint32_t, S> indices(mask.computeCompressPermutation());
+        simd::_vec8<uint32_t, S> indices(mask.computeCompressPermutation());
         auto v4 = v2.permute(indices);
 
         std::array<T, 8> valuesCompress;
@@ -243,7 +243,7 @@ void simd8Tests()
     }
 
 	{
-		simd::vec8<T, S> values(5, 3, 7, 6, 1, 8, 11, 4);
+		simd::_vec8<T, S> values(5, 3, 7, 6, 1, 8, 11, 4);
 		ASSERT_EQ(values.horizontalMin(), (T)1);
 		ASSERT_EQ(values.horizontalMinPos(), 4);
 

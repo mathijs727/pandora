@@ -1,27 +1,27 @@
 template <typename T, int S>
-class vec4;
+class _vec4;
 
 template <int S>
-class mask4;
+class _mask4;
 
 template <typename T>
-vec4<T, 1> min(const vec4<T, 1>& a, const vec4<T, 1>& b);
+_vec4<T, 1> min(const _vec4<T, 1>& a, const _vec4<T, 1>& b);
 
 template <typename T>
-vec4<T, 1> max(const vec4<T, 1>& a, const vec4<T, 1>& b);
+_vec4<T, 1> max(const _vec4<T, 1>& a, const _vec4<T, 1>& b);
 
 template <typename T>
-vec4<T, 1> blend(const vec4<T, 1>& a, const vec4<T, 1>& b, const mask4<1>& mask);
+_vec4<T, 1> blend(const _vec4<T, 1>& a, const _vec4<T, 1>& b, const _mask4<1>& mask);
 
 template <>
-class mask4<1> {
+class _mask4<1> {
 public:
-    mask4() = default;
-    inline mask4(bool v)
+    _mask4() = default;
+    inline _mask4(bool v)
     {
         std::fill(std::begin(m_values), std::end(m_values), v);
     }
-    inline mask4(bool v0, bool v1, bool v2, bool v3)
+    inline _mask4(bool v0, bool v1, bool v2, bool v3)
     {
         m_values[0] = v0;
         m_values[1] = v1;
@@ -29,9 +29,9 @@ public:
         m_values[3] = v3;
     }
 
-    inline mask4 operator&&(const mask4& other)
+    inline _mask4 operator&&(const _mask4& other)
     {
-        mask4 result;
+        _mask4 result;
         std::transform(
             std::begin(m_values),
             std::end(m_values),
@@ -41,9 +41,9 @@ public:
         return result;
     }
 
-    inline mask4 operator||(const mask4& other)
+    inline _mask4 operator||(const _mask4& other)
     {
-        mask4 result;
+        _mask4 result;
         std::transform(
             std::begin(m_values),
             std::end(m_values),
@@ -105,30 +105,30 @@ private:
     std::array<bool, 4> m_values;
 
 	template <typename T>
-	friend vec4<T, 1> blend<T>(const vec4<T, 1>& a, const vec4<T, 1>& b, const mask4<1>& mask);
+	friend _vec4<T, 1> blend<T>(const _vec4<T, 1>& a, const _vec4<T, 1>& b, const _mask4<1>& mask);
 
     template <typename T, int S>
-    friend class vec4_base; // Not possible to friend only vec4_base<T, 1>
+    friend class _vec4_base; // Not possible to friend only _vec4_base<T, 1>
 };
 
 // Partial template specialization does not inherit members/functions from less precise specializations.
 // Use a templated base class to inherit functions/members that are the same between different template specializations (i.e. floats & ints)
 template <typename T>
-class vec4_base<T, 1> {
+class _vec4_base<T, 1> {
 public:
-    vec4_base() = default;
+    _vec4_base() = default;
 
-    vec4_base(gsl::span<const T, 4> v)
+    _vec4_base(gsl::span<const T, 4> v)
     {
         std::copy(std::begin(v), std::end(v), std::begin(m_values));
     }
 
-    vec4_base(T value)
+    _vec4_base(T value)
     {
         std::fill(std::begin(m_values), std::end(m_values), value);
     }
 
-    vec4_base(T v0, T v1, T v2, T v3)
+    _vec4_base(T v0, T v1, T v2, T v3)
     {
         m_values[0] = v0;
         m_values[1] = v1;
@@ -166,65 +166,65 @@ public:
         std::fill(std::begin(m_values), std::end(m_values), v);
     }
 
-    inline vec4<T, 1> operator+(const vec4<T, 1>& other) const
+    inline _vec4<T, 1> operator+(const _vec4<T, 1>& other) const
     {
-        vec4<T, 1> result;
+        _vec4<T, 1> result;
         for (int i = 0; i < 4; i++)
             result.m_values[i] = m_values[i] + other.m_values[i];
         return result;
     }
 
-    inline vec4<T, 1> operator-(const vec4<T, 1>& other) const
+    inline _vec4<T, 1> operator-(const _vec4<T, 1>& other) const
     {
-        vec4<T, 1> result;
+        _vec4<T, 1> result;
         for (int i = 0; i < 4; i++)
             result.m_values[i] = m_values[i] - other.m_values[i];
         return result;
     }
 
-    inline vec4<T, 1> operator*(const vec4<T, 1>& other) const
+    inline _vec4<T, 1> operator*(const _vec4<T, 1>& other) const
     {
-        vec4<T, 1> result;
+        _vec4<T, 1> result;
         for (int i = 0; i < 4; i++)
             result.m_values[i] = m_values[i] * other.m_values[i];
         return result;
     }
 
-    inline mask4<1> operator<(const vec4<T, 1>& other) const
+    inline _mask4<1> operator<(const _vec4<T, 1>& other) const
     {
-        mask4<1> mask;
+        _mask4<1> mask;
         for (int i = 0; i < 4; i++)
             mask.m_values[i] = (m_values[i] < other.m_values[i]);
         return mask;
     }
 
-    inline mask4<1> operator<=(const vec4<T, 1>& other) const
+    inline _mask4<1> operator<=(const _vec4<T, 1>& other) const
     {
-        mask4<1> mask;
+        _mask4<1> mask;
         for (int i = 0; i < 4; i++)
             mask.m_values[i] = (m_values[i] <= other.m_values[i]);
         return mask;
     }
 
-    inline mask4<1> operator>(const vec4<T, 1>& other) const
+    inline _mask4<1> operator>(const _vec4<T, 1>& other) const
     {
-        mask4<1> mask;
+        _mask4<1> mask;
         for (int i = 0; i < 4; i++)
             mask.m_values[i] = (m_values[i] > other.m_values[i]);
         return mask;
     }
 
-    inline mask4<1> operator>=(const vec4<T, 1>& other) const
+    inline _mask4<1> operator>=(const _vec4<T, 1>& other) const
     {
-        mask4<1> mask;
+        _mask4<1> mask;
         for (int i = 0; i < 4; i++)
             mask.m_values[i] = (m_values[i] >= other.m_values[i]);
         return mask;
     }
 
-    inline vec4<T, 1> compress(mask4<1> mask) const
+    inline _vec4<T, 1> compress(_mask4<1> mask) const
     {
-        vec4<T, 1> result;
+        _vec4<T, 1> result;
         int j = 0;
         for (int i = 0; i < 4; i++) {
             if (mask.m_values[i])
@@ -263,70 +263,70 @@ public:
         return *std::max_element(std::begin(values), std::end(values));
     }
 
-    friend vec4<T, 1> min<T>(const vec4<T, 1>& a, const vec4<T, 1>& b);
-    friend vec4<T, 1> max<T>(const vec4<T, 1>& a, const vec4<T, 1>& b);
+    friend _vec4<T, 1> min<T>(const _vec4<T, 1>& a, const _vec4<T, 1>& b);
+    friend _vec4<T, 1> max<T>(const _vec4<T, 1>& a, const _vec4<T, 1>& b);
 
-    friend vec4<T, 1> blend<T>(const vec4<T, 1>& a, const vec4<T, 1>& b, const mask4<1>& mask);
+    friend _vec4<T, 1> blend<T>(const _vec4<T, 1>& a, const _vec4<T, 1>& b, const _mask4<1>& mask);
 
 protected:
     std::array<T, 4> m_values;
 };
 
 template <>
-class vec4<uint32_t, 1> : public vec4_base<uint32_t, 1> {
+class _vec4<uint32_t, 1> : public _vec4_base<uint32_t, 1> {
 public:
     // Inherit constructors
-    using vec4_base<uint32_t, 1>::vec4_base;
-    friend class vec4<float, 1>; // Make friend so it can access us in permute & compress operations
+    using _vec4_base<uint32_t, 1>::_vec4_base;
+    friend class _vec4<float, 1>; // Make friend so it can access us in permute & compress operations
 
-    inline vec4<uint32_t, 1> operator<<(const vec4<uint32_t, 1>& amount) const
+    inline _vec4<uint32_t, 1> operator<<(const _vec4<uint32_t, 1>& amount) const
     {
-        vec4<uint32_t, 1> result;
+        _vec4<uint32_t, 1> result;
         for (int i = 0; i < 4; i++) {
             result.m_values[i] = m_values[i] << amount.m_values[i];
         }
         return result;
     }
 
-    inline vec4<uint32_t, 1> operator<<(uint32_t amount) const
+    inline _vec4<uint32_t, 1> operator<<(uint32_t amount) const
     {
-        vec4<uint32_t, 1> result;
+        _vec4<uint32_t, 1> result;
         for (int i = 0; i < 4; i++) {
             result.m_values[i] = m_values[i] << amount;
         }
         return result;
     }
 
-    inline vec4<uint32_t, 1> operator>>(const vec4<uint32_t, 1>& amount) const
+    inline _vec4<uint32_t, 1> operator>>(const _vec4<uint32_t, 1>& amount) const
     {
-        vec4<uint32_t, 1> result;
+        _vec4<uint32_t, 1> result;
         for (int i = 0; i < 4; i++) {
             result.m_values[i] = m_values[i] >> amount.m_values[i];
         }
         return result;
     }
 
-    inline vec4<uint32_t, 1> operator>>(uint32_t amount) const
+    inline _vec4<uint32_t, 1> operator>>(uint32_t amount) const
     {
-        vec4<uint32_t, 1> result;
+        _vec4<uint32_t, 1> result;
         for (int i = 0; i < 4; i++) {
             result.m_values[i] = m_values[i] >> amount;
         }
         return result;
     }
 
-    inline vec4<uint32_t, 1> operator&(const vec4<uint32_t, 1>& other) const
+    inline _vec4<uint32_t, 1> operator&(const _vec4<uint32_t, 1>& other) const
     {
-        vec4<uint32_t, 1> result;
+        _vec4<uint32_t, 1> result;
         for (int i = 0; i < 4; i++) {
             result.m_values[i] = m_values[i] & other.m_values[i];
         }
         return result;
     }
 
-    inline vec4<uint32_t, 1> permute(const vec4<uint32_t, 1>& index) const
+    inline _vec4<uint32_t, 1> permute(const _vec4<uint32_t, 1>& index) const
     {
-        vec4<uint32_t, 1> result;
+        _vec4<uint32_t, 1> result;
         for (int i = 0; i < 4; i++) {
             result.m_values[i] = m_values[index.m_values[i]];
         }
@@ -335,23 +335,23 @@ public:
 };
 
 template <>
-class vec4<float, 1> : public vec4_base<float, 1> {
+class _vec4<float, 1> : public _vec4_base<float, 1> {
 public:
     // Inherit constructors
-    using vec4_base<float, 1>::vec4_base;
+    using _vec4_base<float, 1>::_vec4_base;
 
     // Not in base class because we will not support it on integers
-    inline vec4<float, 1> operator/(const vec4<float, 1>& other) const
+    inline _vec4<float, 1> operator/(const _vec4<float, 1>& other) const
     {
-        vec4<float, 1> result;
+        _vec4<float, 1> result;
         for (int i = 0; i < 4; i++)
             result.m_values[i] = m_values[i] / other.m_values[i];
         return result;
     }
 
-    inline vec4<float, 1> permute(const vec4<uint32_t, 1>& index) const
+    inline _vec4<float, 1> permute(const _vec4<uint32_t, 1>& index) const
     {
-        vec4<float, 1> result;
+        _vec4<float, 1> result;
         for (int i = 0; i < 4; i++) {
             result.m_values[i] = m_values[index.m_values[i]];
         }
@@ -360,27 +360,27 @@ public:
 };
 
 template <typename T>
-inline vec4<T, 1> min(const vec4<T, 1>& a, const vec4<T, 1>& b)
+inline _vec4<T, 1> min(const _vec4<T, 1>& a, const _vec4<T, 1>& b)
 {
-    vec4<T, 1> result;
+    _vec4<T, 1> result;
     for (int i = 0; i < 4; i++)
         result.m_values[i] = std::min(a.m_values[i], b.m_values[i]);
     return result;
 }
 
 template <typename T>
-inline vec4<T, 1> max(const vec4<T, 1>& a, const vec4<T, 1>& b)
+inline _vec4<T, 1> max(const _vec4<T, 1>& a, const _vec4<T, 1>& b)
 {
-    vec4<T, 1> result;
+    _vec4<T, 1> result;
     for (int i = 0; i < 4; i++)
         result.m_values[i] = std::max(a.m_values[i], b.m_values[i]);
     return result;
 }
 
 template <typename T>
-inline vec4<T, 1> blend(const vec4<T, 1>& a, const vec4<T, 1>& b, const mask4<1>& mask)
+inline _vec4<T, 1> blend(const _vec4<T, 1>& a, const _vec4<T, 1>& b, const _mask4<1>& mask)
 {
-	vec4<T, 1> result;
+	_vec4<T, 1> result;
 	for (int i = 0; i < 4; i++)
 		result.m_values[i] = mask.m_values[i] ? b.m_values[i] : a.m_values[i];
 	return result;

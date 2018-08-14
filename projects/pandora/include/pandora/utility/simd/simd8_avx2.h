@@ -18,29 +18,29 @@ constexpr std::array<uint64_t, 256> s_avxIndicesLUT = genCompressLUT8();
 const __m256i s_avxMaskOnes = _mm256_set1_epi32(0xFFFFFFFF);
 
 template <typename T, int S>
-class vec8;
+class _vec8;
 
 template <int S>
-class mask8;
+class _mask8;
 
 template <typename T>
-vec8<T, 8> blend(const vec8<T, 8>& a, const vec8<T, 8>& b, const mask8<8>& mask);
+_vec8<T, 8> blend(const _vec8<T, 8>& a, const _vec8<T, 8>& b, const _mask8<8>& mask);
 
 template <>
-class alignas(32) mask8<8> {
+class alignas(32) _mask8<8> {
 public:
-    mask8() = default;
-    explicit inline mask8(const __m256i& value)
+    _mask8() = default;
+    explicit inline _mask8(const __m256i& value)
         : m_value(value)
         , m_bitMask(_mm256_movemask_ps(_mm256_castsi256_ps(m_value)))
     {
     }
-    explicit inline mask8(const __m256& value)
+    explicit inline _mask8(const __m256& value)
         : m_value(_mm256_castps_si256(value))
         , m_bitMask(_mm256_movemask_ps(value))
     {
     }
-    inline mask8(bool v0, bool v1, bool v2, bool v3, bool v4, bool v5, bool v6, bool v7)
+    inline _mask8(bool v0, bool v1, bool v2, bool v3, bool v4, bool v5, bool v6, bool v7)
     {
         m_value = _mm256_set_epi32(
             v7 ? 0xFFFFFFFF : 0x0,
@@ -54,17 +54,17 @@ public:
         m_bitMask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value));
     }
 
-	inline mask8 operator&&(const mask8& other)
+	inline _mask8 operator&&(const _mask8& other)
 	{
-		mask8 result;
+		_mask8 result;
 		result.m_bitMask = m_bitMask & other.m_bitMask;
 		result.m_value = _mm256_and_si256(m_value, other.m_value);
 		return result;
 	}
 
-	inline mask8 operator||(const mask8& other)
+	inline _mask8 operator||(const _mask8& other)
 	{
-		mask8 result;
+		_mask8 result;
 		result.m_bitMask = m_bitMask | other.m_bitMask;
 		result.m_value = _mm256_or_si256(m_value, other.m_value);
 		return result;
@@ -118,31 +118,31 @@ private:
     unsigned m_bitMask;
 
     template <typename T, int S>
-    friend class vec8;
+    friend class _vec8;
 
-	friend vec8<uint32_t, 8> blend(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b, const mask8<8>& mask);
-	friend vec8<float, 8> blend(const vec8<float, 8>& a, const vec8<float, 8>& b, const mask8<8>& mask);
+	friend _vec8<uint32_t, 8> blend(const _vec8<uint32_t, 8>& a, const _vec8<uint32_t, 8>& b, const _mask8<8>& mask);
+	friend _vec8<float, 8> blend(const _vec8<float, 8>& a, const _vec8<float, 8>& b, const _mask8<8>& mask);
 };
 
 template <>
-class alignas(32) vec8<uint32_t, 8> {
+class alignas(32) _vec8<uint32_t, 8> {
 public:
-    friend class vec8<float, 8>; // Make friend so it can access us in permute & compress operations
+    friend class _vec8<float, 8>; // Make friend so it can access us in permute & compress operations
 
-    vec8() = default;
-    explicit inline vec8(gsl::span<const uint32_t, 8> v)
+    _vec8() = default;
+    explicit inline _vec8(gsl::span<const uint32_t, 8> v)
     {
         load(v);
     }
-    explicit inline vec8(uint32_t value)
+    explicit inline _vec8(uint32_t value)
     {
         broadcast(value);
     }
-    explicit inline vec8(uint32_t v0, uint32_t v1, uint32_t v2, uint32_t v3, uint32_t v4, uint32_t v5, uint32_t v6, uint32_t v7)
+    explicit inline _vec8(uint32_t v0, uint32_t v1, uint32_t v2, uint32_t v3, uint32_t v4, uint32_t v5, uint32_t v6, uint32_t v7)
     {
         m_value = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
     }
-    explicit inline vec8(__m256i value)
+    explicit inline _vec8(__m256i value)
         : m_value(value)
     {
     }
@@ -172,81 +172,81 @@ public:
         m_value = _mm256_broadcastd_epi32(_mm_set_epi32(value, value, value, value));
     }
 
-    inline vec8<uint32_t, 8> operator+(const vec8<uint32_t, 8>& other) const
+    inline _vec8<uint32_t, 8> operator+(const _vec8<uint32_t, 8>& other) const
     {
-        return vec8(_mm256_add_epi32(m_value, other.m_value));
+        return _vec8(_mm256_add_epi32(m_value, other.m_value));
     }
 
-    inline vec8<uint32_t, 8> operator-(const vec8<uint32_t, 8>& other) const
+    inline _vec8<uint32_t, 8> operator-(const _vec8<uint32_t, 8>& other) const
     {
-        return vec8(_mm256_sub_epi32(m_value, other.m_value));
+        return _vec8(_mm256_sub_epi32(m_value, other.m_value));
     }
 
-    inline vec8<uint32_t, 8> operator*(const vec8<uint32_t, 8>& other) const
+    inline _vec8<uint32_t, 8> operator*(const _vec8<uint32_t, 8>& other) const
     {
-        return vec8(_mm256_mullo_epi32(m_value, other.m_value));
+        return _vec8(_mm256_mullo_epi32(m_value, other.m_value));
     }
 
     // No integer divide (not part of AVX anyways)
 
-    inline vec8<uint32_t, 8> operator<<(const vec8<uint32_t, 8>& amount) const
+    inline _vec8<uint32_t, 8> operator<<(const _vec8<uint32_t, 8>& amount) const
     {
-        return vec8(_mm256_sllv_epi32(m_value, amount.m_value));
+        return _vec8(_mm256_sllv_epi32(m_value, amount.m_value));
     }
 
-    inline vec8<uint32_t, 8> operator<<(uint32_t amount) const
+    inline _vec8<uint32_t, 8> operator<<(uint32_t amount) const
     {
-        return vec8(_mm256_slli_epi32(m_value, amount));
+        return _vec8(_mm256_slli_epi32(m_value, amount));
     }
 
-    inline vec8<uint32_t, 8> operator>>(const vec8<uint32_t, 8>& amount) const
+    inline _vec8<uint32_t, 8> operator>>(const _vec8<uint32_t, 8>& amount) const
     {
-        return vec8(_mm256_srlv_epi32(m_value, amount.m_value));
+        return _vec8(_mm256_srlv_epi32(m_value, amount.m_value));
     }
 
-    inline vec8<uint32_t, 8> operator>>(uint32_t amount) const
+    inline _vec8<uint32_t, 8> operator>>(uint32_t amount) const
     {
-        return vec8(_mm256_srli_epi32(m_value, amount));
+        return _vec8(_mm256_srli_epi32(m_value, amount));
     }
 
-    inline vec8<uint32_t, 8> operator&(const vec8<uint32_t, 8>& other) const
+    inline _vec8<uint32_t, 8> operator&(const _vec8<uint32_t, 8>& other) const
     {
-        return vec8(_mm256_and_si256(m_value, other.m_value));
+        return _vec8(_mm256_and_si256(m_value, other.m_value));
     }
 
-    inline mask8<8> operator<(const vec8<uint32_t, 8>& other) const
+    inline _mask8<8> operator<(const _vec8<uint32_t, 8>& other) const
     {
-        return mask8<8>(_mm256_cmpgt_epi32(other.m_value, m_value));
+        return _mask8<8>(_mm256_cmpgt_epi32(other.m_value, m_value));
     }
 
-    inline mask8<8> operator<=(const vec8<uint32_t, 8>& other) const
+    inline _mask8<8> operator<=(const _vec8<uint32_t, 8>& other) const
     {
         __m256i greaterThan = _mm256_cmpgt_epi32(m_value, other.m_value);
         __m256i notGreaterThan = _mm256_xor_si256(greaterThan, s_avxMaskOnes);
-        return mask8<8>(notGreaterThan);
+        return _mask8<8>(notGreaterThan);
     }
 
-    inline mask8<8> operator>(const vec8<uint32_t, 8>& other) const
+    inline _mask8<8> operator>(const _vec8<uint32_t, 8>& other) const
     {
-        return mask8<8>(_mm256_cmpgt_epi32(m_value, other.m_value));
+        return _mask8<8>(_mm256_cmpgt_epi32(m_value, other.m_value));
     }
 
-    inline mask8<8> operator>=(const vec8<uint32_t, 8>& other) const
+    inline _mask8<8> operator>=(const _vec8<uint32_t, 8>& other) const
     {
         __m256i lessThan = _mm256_cmpgt_epi32(other.m_value, m_value);
         __m256i notLessThan = _mm256_xor_si256(lessThan, s_avxMaskOnes);
-        return mask8<8>(notLessThan);
+        return _mask8<8>(notLessThan);
     }
 
-    inline vec8<uint32_t, 8> permute(const vec8<uint32_t, 8>& index) const
+    inline _vec8<uint32_t, 8> permute(const _vec8<uint32_t, 8>& index) const
     {
-        return vec8(_mm256_permutevar8x32_epi32(m_value, index.m_value));
+        return _vec8(_mm256_permutevar8x32_epi32(m_value, index.m_value));
     }
 
-    inline vec8<uint32_t, 8> compress(const mask8<8>& mask) const
+    inline _vec8<uint32_t, 8> compress(const _mask8<8>& mask) const
     {
         __m256i shuffleMask = mask.computeCompressPermutation();
-        return vec8(_mm256_permutevar8x32_epi32(m_value, shuffleMask));
+        return _vec8(_mm256_permutevar8x32_epi32(m_value, shuffleMask));
     }
 
     inline uint64_t horizontalMinPos() const
@@ -277,31 +277,31 @@ public:
         return *std::max_element(std::begin(values), std::end(values));
     }
 
-    friend vec8<uint32_t, 8> min(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b);
-    friend vec8<uint32_t, 8> max(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b);
-	friend vec8<uint32_t, 8> blend(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b, const mask8<8>& mask);
+    friend _vec8<uint32_t, 8> min(const _vec8<uint32_t, 8>& a, const _vec8<uint32_t, 8>& b);
+    friend _vec8<uint32_t, 8> max(const _vec8<uint32_t, 8>& a, const _vec8<uint32_t, 8>& b);
+	friend _vec8<uint32_t, 8> blend(const _vec8<uint32_t, 8>& a, const _vec8<uint32_t, 8>& b, const _mask8<8>& mask);
 
 private:
     __m256i m_value;
 };
 
 template <>
-class alignas(32) vec8<float, 8> {
+class alignas(32) _vec8<float, 8> {
 public:
-    vec8() = default;
-    explicit inline vec8(gsl::span<const float, 8> v)
+    _vec8() = default;
+    explicit inline _vec8(gsl::span<const float, 8> v)
     {
         load(v);
     }
-    explicit inline vec8(float value)
+    explicit inline _vec8(float value)
     {
         broadcast(value);
     }
-    explicit inline vec8(float v0, float v1, float v2, float v3, float v4, float v5, float v6, float v7)
+    explicit inline _vec8(float v0, float v1, float v2, float v3, float v4, float v5, float v6, float v7)
     {
         m_value = _mm256_set_ps(v7, v6, v5, v4, v3, v2, v1, v0);
     }
-    explicit inline vec8(__m256 value)
+    explicit inline _vec8(__m256 value)
         : m_value(value)
     {
     }
@@ -331,55 +331,55 @@ public:
         m_value = _mm256_broadcast_ss(&value);
     }
 
-    inline vec8<float, 8> operator+(const vec8<float, 8>& other) const
+    inline _vec8<float, 8> operator+(const _vec8<float, 8>& other) const
     {
-        return vec8(_mm256_add_ps(m_value, other.m_value));
+        return _vec8(_mm256_add_ps(m_value, other.m_value));
     }
 
-    inline vec8<float, 8> operator-(const vec8<float, 8>& other) const
+    inline _vec8<float, 8> operator-(const _vec8<float, 8>& other) const
     {
-        return vec8(_mm256_sub_ps(m_value, other.m_value));
+        return _vec8(_mm256_sub_ps(m_value, other.m_value));
     }
 
-    inline vec8<float, 8> operator*(const vec8<float, 8>& other) const
+    inline _vec8<float, 8> operator*(const _vec8<float, 8>& other) const
     {
-        return vec8(_mm256_mul_ps(m_value, other.m_value));
+        return _vec8(_mm256_mul_ps(m_value, other.m_value));
     }
 
-    inline vec8<float, 8> operator/(const vec8<float, 8>& other) const
+    inline _vec8<float, 8> operator/(const _vec8<float, 8>& other) const
     {
-        return vec8(_mm256_div_ps(m_value, other.m_value));
+        return _vec8(_mm256_div_ps(m_value, other.m_value));
     }
 
-    inline mask8<8> operator<(const vec8<float, 8>& other) const
+    inline _mask8<8> operator<(const _vec8<float, 8>& other) const
     {
-        return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_LT_OS));
+        return _mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_LT_OS));
     }
 
-    inline mask8<8> operator<=(const vec8<float, 8>& other) const
+    inline _mask8<8> operator<=(const _vec8<float, 8>& other) const
     {
-        return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_LE_OS));
+        return _mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_LE_OS));
     }
 
-    inline mask8<8> operator>(const vec8<float, 8>& other) const
+    inline _mask8<8> operator>(const _vec8<float, 8>& other) const
     {
-        return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_GT_OS));
+        return _mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_GT_OS));
     }
 
-    inline mask8<8> operator>=(const vec8<float, 8>& other) const
+    inline _mask8<8> operator>=(const _vec8<float, 8>& other) const
     {
-        return mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_GE_OS));
+        return _mask8<8>(_mm256_cmp_ps(m_value, other.m_value, _CMP_GE_OS));
     }
 
-    inline vec8<float, 8> permute(const vec8<uint32_t, 8>& index) const
+    inline _vec8<float, 8> permute(const _vec8<uint32_t, 8>& index) const
     {
-        return vec8(_mm256_permutevar8x32_ps(m_value, index.m_value));
+        return _vec8(_mm256_permutevar8x32_ps(m_value, index.m_value));
     }
 
-    inline vec8<float, 8> compress(const mask8<8>& mask) const
+    inline _vec8<float, 8> compress(const _mask8<8>& mask) const
     {
         __m256i shuffleMask = mask.computeCompressPermutation();
-        return vec8(_mm256_permutevar8x32_ps(m_value, shuffleMask));
+        return _vec8(_mm256_permutevar8x32_ps(m_value, shuffleMask));
     }
 
     inline uint64_t horizontalMinPos() const
@@ -410,51 +410,51 @@ public:
         return *std::max_element(std::begin(values), std::end(values));
     }
 
-    friend vec8<float, 8> min(const vec8<float, 8>& a, const vec8<float, 8>& b);
-    friend vec8<float, 8> max(const vec8<float, 8>& a, const vec8<float, 8>& b);
-	friend vec8<float, 8> blend(const vec8<float, 8>& a, const vec8<float, 8>& b, const mask8<8>& mask);;
+    friend _vec8<float, 8> min(const _vec8<float, 8>& a, const _vec8<float, 8>& b);
+    friend _vec8<float, 8> max(const _vec8<float, 8>& a, const _vec8<float, 8>& b);
+	friend _vec8<float, 8> blend(const _vec8<float, 8>& a, const _vec8<float, 8>& b, const _mask8<8>& mask);;
 
 private:
     __m256 m_value;
 };
 
-inline vec8<uint32_t, 8> min(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b)
+inline _vec8<uint32_t, 8> min(const _vec8<uint32_t, 8>& a, const _vec8<uint32_t, 8>& b)
 {
-    vec8<uint32_t, 8> result;
+    _vec8<uint32_t, 8> result;
     result.m_value = _mm256_min_epu32(a.m_value, b.m_value);
     return result;
 }
 
-inline vec8<uint32_t, 8> max(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b)
+inline _vec8<uint32_t, 8> max(const _vec8<uint32_t, 8>& a, const _vec8<uint32_t, 8>& b)
 {
-    vec8<uint32_t, 8> result;
+    _vec8<uint32_t, 8> result;
     result.m_value = _mm256_max_epu32(a.m_value, b.m_value);
     return result;
 }
 
-inline vec8<float, 8> min(const vec8<float, 8>& a, const vec8<float, 8>& b)
+inline _vec8<float, 8> min(const _vec8<float, 8>& a, const _vec8<float, 8>& b)
 {
-    vec8<float, 8> result;
+    _vec8<float, 8> result;
     result.m_value = _mm256_min_ps(a.m_value, b.m_value);
     return result;
 }
 
-inline vec8<float, 8> max(const vec8<float, 8>& a, const vec8<float, 8>& b)
+inline _vec8<float, 8> max(const _vec8<float, 8>& a, const _vec8<float, 8>& b)
 {
-    vec8<float, 8> result;
+    _vec8<float, 8> result;
     result.m_value = _mm256_max_ps(a.m_value, b.m_value);
     return result;
 }
 
-inline vec8<uint32_t, 8> blend(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b, const mask8<8>& mask)
+inline _vec8<uint32_t, 8> blend(const _vec8<uint32_t, 8>& a, const _vec8<uint32_t, 8>& b, const _mask8<8>& mask)
 {
 	// Cant use _mm_blend_epi32 because it relies on a compile time constant mask
 	// Casting to float because _mm_blendv_ps faster than _mm_blendv_epi8
-	return vec8<uint32_t, 8>(_mm256_castps_si256(_mm256_blendv_ps(_mm256_castsi256_ps(a.m_value), _mm256_castsi256_ps(b.m_value), _mm256_castsi256_ps(mask.m_value))));
+	return _vec8<uint32_t, 8>(_mm256_castps_si256(_mm256_blendv_ps(_mm256_castsi256_ps(a.m_value), _mm256_castsi256_ps(b.m_value), _mm256_castsi256_ps(mask.m_value))));
 }
 
-inline vec8<float, 8> blend(const vec8<float, 8>& a, const vec8<float, 8>& b, const mask8<8>& mask)
+inline _vec8<float, 8> blend(const _vec8<float, 8>& a, const _vec8<float, 8>& b, const _mask8<8>& mask)
 {
 	// Cant use _mm_blend_ps because it relies on a compile time constant mask
-	return vec8<float, 8>(_mm256_blendv_ps(a.m_value, b.m_value, _mm256_castsi256_ps(mask.m_value)));
+	return _vec8<float, 8>(_mm256_blendv_ps(a.m_value, b.m_value, _mm256_castsi256_ps(mask.m_value)));
 }
