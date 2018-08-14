@@ -146,6 +146,11 @@ void simd4Tests()
             ASSERT_EQ_T(values[i], 7 - i);
     }
 
+	{
+		simd::_mask4<S> mask(false, false, true, false);
+		ASSERT_EQ(mask.bitMask(), 0b0100);
+	}
+
     {
         simd::_mask4<S> mask(false, false, true, false);
         ASSERT_EQ(mask.count(), 1);

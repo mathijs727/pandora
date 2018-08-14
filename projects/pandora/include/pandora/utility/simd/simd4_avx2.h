@@ -98,6 +98,10 @@ public:
         return count() == 4;
     }
 
+	inline int bitMask() const {
+		return m_bitMask;
+	}
+
     inline __m128i computeCompressPermutation() const
     {
         uint32_t wantedIndices = s_sseIndicesLUT[m_bitMask];
@@ -243,11 +247,11 @@ public:
         return permute(_vec4(shuffleMask));
     }
 
-    inline uint64_t horizontalMinIndex() const
+    inline unsigned horizontalMinIndex() const
     {
         std::array<uint32_t, 4> values;
         store(values);
-        return std::distance(std::begin(values), std::min_element(std::begin(values), std::end(values)));
+		return static_cast<unsigned>(std::distance(std::begin(values), std::min_element(std::begin(values), std::end(values))));
     }
 
     inline uint32_t horizontalMin() const
@@ -257,11 +261,11 @@ public:
         return *std::min_element(std::begin(values), std::end(values));
     }
 
-    inline uint64_t horizontalMaxIndex() const
+    inline unsigned horizontalMaxIndex() const
     {
         std::array<uint32_t, 4> values;
         store(values);
-        return std::distance(std::begin(values), std::max_element(std::begin(values), std::end(values)));
+        return static_cast<unsigned>(std::distance(std::begin(values), std::max_element(std::begin(values), std::end(values))));
     }
 
     inline uint32_t horizontalMax() const
@@ -377,11 +381,11 @@ public:
         return permute(_vec4<uint32_t, 4>(shuffleMask));
     }
 
-    inline uint64_t horizontalMinIndex() const
+    inline unsigned horizontalMinIndex() const
     {
         std::array<float, 4> values;
         store(values);
-        return std::distance(std::begin(values), std::min_element(std::begin(values), std::end(values)));
+        return static_cast<unsigned>(std::distance(std::begin(values), std::min_element(std::begin(values), std::end(values))));
     }
 
     inline float horizontalMin() const
@@ -391,11 +395,11 @@ public:
         return *std::min_element(std::begin(values), std::end(values));
     }
 
-    inline uint64_t horizontalMaxIndex() const
+    inline unsigned horizontalMaxIndex() const
     {
         std::array<float, 4> values;
         store(values);
-        return std::distance(std::begin(values), std::max_element(std::begin(values), std::end(values)));
+        return static_cast<unsigned>(std::distance(std::begin(values), std::max_element(std::begin(values), std::end(values))));
     }
 
     inline float horizontalMax() const

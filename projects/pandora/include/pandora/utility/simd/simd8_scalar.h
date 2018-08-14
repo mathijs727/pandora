@@ -83,6 +83,14 @@ public:
 		return count() == 8;
 	}
 
+	inline int bitMask() const {
+		int bitMask = 0;
+		for (int i = 0; i < 8; i++)
+			if (m_values[i])
+				bitMask |= (1 << i);
+		return bitMask;
+	}
+
 	inline std::array<uint32_t, 8> computeCompressPermutation() const
 	{
 		std::array<uint32_t, 8> result;
@@ -233,11 +241,11 @@ public:
         return result;
     }
 
-	inline uint64_t horizontalMinIndex() const
+	inline unsigned horizontalMinIndex() const
 	{
 		std::array<T, 8> values;
 		store(values);
-		return std::distance(std::begin(values), std::min_element(std::begin(values), std::end(values)));
+		return static_cast<unsigned>(std::distance(std::begin(values), std::min_element(std::begin(values), std::end(values))));
 	}
 
 	inline T horizontalMin() const
@@ -247,11 +255,11 @@ public:
 		return *std::min_element(std::begin(values), std::end(values));
 	}
 
-	inline uint64_t horizontalMaxIndex() const
+	inline unsigned horizontalMaxIndex() const
 	{
 		std::array<T, 8> values;
 		store(values);
-		return std::distance(std::begin(values), std::max_element(std::begin(values), std::end(values)));
+		return static_cast<unsigned>(std::distance(std::begin(values), std::max_element(std::begin(values), std::end(values))));
 	}
 
 	inline T horizontalMax() const
