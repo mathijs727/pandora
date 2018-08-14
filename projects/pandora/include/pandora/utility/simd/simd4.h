@@ -9,6 +9,7 @@
 #include <iostream>
 #include <nmmintrin.h> // Popcount
 #include <xmmintrin.h> // SSE
+#include <smmintrin.h> // SSE4.1
 
 constexpr static int SIMD4_WIDTH = 1;
 

@@ -62,6 +62,7 @@ void simd8Tests()
             ASSERT_EQ_T(values[i], (T)2 * (4 + i));
     }
 
+
     if constexpr (std::is_same_v<T, float>) {
         std::array<T, 8> values;
         auto v3 = v1 / v2;
@@ -82,6 +83,16 @@ void simd8Tests()
         for (int i = 0; i < 8; i++)
             ASSERT_EQ_T(values[i], (T)6 + i);
     }
+
+	{
+		simd::mask8<S> mask(false, false, false, false, true, true, true, true);
+		auto v3 = simd::blend(v1, v2, mask);
+
+		std::array<T, 8> values;
+		v3.store(values);
+		for (int i = 0; i < 8; i++)
+			ASSERT_EQ_T(values[i], i < 4 ? 2 : (4 + i));
+	}
 
     if constexpr (std::is_same_v<T, uint32_t>) {
         auto v4 = simd::vec8<T, S>(0, 1, 2, 3, 0, 1, 2, 3);

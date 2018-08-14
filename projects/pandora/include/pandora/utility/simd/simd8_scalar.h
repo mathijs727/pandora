@@ -4,6 +4,9 @@ vec8<T, 1> min(const vec8<T, 1>& a, const vec8<T, 1>& b);
 template <typename T>
 vec8<T, 1> max(const vec8<T, 1>& a, const vec8<T, 1>& b);
 
+template <typename T>
+vec8<T, 1> blend(const vec8<T, 1>& a, const vec8<T, 1>& b, const mask8<1>& mask);
+
 template <>
 class mask8<1> {
 public:
@@ -95,6 +98,9 @@ public:
 
 private:
     std::array<bool, 8> m_values;
+
+	template <typename T>
+	friend vec8<T, 1> blend<T>(const vec8<T, 1>& a, const vec8<T, 1>& b, const mask8<1>& mask);
 
     template <typename T, int S>
     friend class vec8_base; // Not possible to friend only vec8_base<T, 1>
@@ -258,6 +264,8 @@ public:
     friend vec8<T, 1> min<T>(const vec8<T, 1>& a, const vec8<T, 1>& b);
     friend vec8<T, 1> max<T>(const vec8<T, 1>& a, const vec8<T, 1>& b);
 
+	friend vec8<T, 1> blend<T>(const vec8<T, 1>& a, const vec8<T, 1>& b, const mask8<1>& mask);
+
 protected:
     std::array<T, 8> m_values;
 };
@@ -366,3 +374,13 @@ inline vec8<T, 1> max(const vec8<T, 1>& a, const vec8<T, 1>& b)
 		result.m_values[i] = std::max(a.m_values[i], b.m_values[i]);
 	return result;
 }
+
+template <typename T>
+inline vec8<T, 1> blend(const vec8<T, 1>& a, const vec8<T, 1>& b, const mask8<1>& mask)
+{
+	vec8<T, 1> result;
+	for (int i = 0; i < 8; i++)
+		result.m_values[i] = mask.m_values[i] ? b.m_values[i] : a.m_values[i];
+	return result;
+}
+

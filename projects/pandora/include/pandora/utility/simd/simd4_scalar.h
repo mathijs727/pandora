@@ -10,6 +10,9 @@ vec4<T, 1> min(const vec4<T, 1>& a, const vec4<T, 1>& b);
 template <typename T>
 vec4<T, 1> max(const vec4<T, 1>& a, const vec4<T, 1>& b);
 
+template <typename T>
+vec4<T, 1> blend(const vec4<T, 1>& a, const vec4<T, 1>& b, const mask4<1>& mask);
+
 template <>
 class mask4<1> {
 public:
@@ -100,6 +103,9 @@ public:
 
 private:
     std::array<bool, 4> m_values;
+
+	template <typename T>
+	friend vec4<T, 1> blend<T>(const vec4<T, 1>& a, const vec4<T, 1>& b, const mask4<1>& mask);
 
     template <typename T, int S>
     friend class vec4_base; // Not possible to friend only vec4_base<T, 1>
@@ -260,6 +266,8 @@ public:
     friend vec4<T, 1> min<T>(const vec4<T, 1>& a, const vec4<T, 1>& b);
     friend vec4<T, 1> max<T>(const vec4<T, 1>& a, const vec4<T, 1>& b);
 
+    friend vec4<T, 1> blend<T>(const vec4<T, 1>& a, const vec4<T, 1>& b, const mask4<1>& mask);
+
 protected:
     std::array<T, 4> m_values;
 };
@@ -367,4 +375,13 @@ inline vec4<T, 1> max(const vec4<T, 1>& a, const vec4<T, 1>& b)
     for (int i = 0; i < 4; i++)
         result.m_values[i] = std::max(a.m_values[i], b.m_values[i]);
     return result;
+}
+
+template <typename T>
+inline vec4<T, 1> blend(const vec4<T, 1>& a, const vec4<T, 1>& b, const mask4<1>& mask)
+{
+	vec4<T, 1> result;
+	for (int i = 0; i < 4; i++)
+		result.m_values[i] = mask.m_values[i] ? b.m_values[i] : a.m_values[i];
+	return result;
 }

@@ -23,6 +23,9 @@ class vec8;
 template <int S>
 class mask8;
 
+template <typename T>
+vec8<T, 8> blend(const vec8<T, 8>& a, const vec8<T, 8>& b, const mask8<8>& mask);
+
 template <>
 class alignas(32) mask8<8> {
 public:
@@ -116,6 +119,9 @@ private:
 
     template <typename T, int S>
     friend class vec8;
+
+	friend vec8<uint32_t, 8> blend(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b, const mask8<8>& mask);
+	friend vec8<float, 8> blend(const vec8<float, 8>& a, const vec8<float, 8>& b, const mask8<8>& mask);
 };
 
 template <>
@@ -273,6 +279,7 @@ public:
 
     friend vec8<uint32_t, 8> min(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b);
     friend vec8<uint32_t, 8> max(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b);
+	friend vec8<uint32_t, 8> blend(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b, const mask8<8>& mask);
 
 private:
     __m256i m_value;
@@ -405,6 +412,7 @@ public:
 
     friend vec8<float, 8> min(const vec8<float, 8>& a, const vec8<float, 8>& b);
     friend vec8<float, 8> max(const vec8<float, 8>& a, const vec8<float, 8>& b);
+	friend vec8<float, 8> blend(const vec8<float, 8>& a, const vec8<float, 8>& b, const mask8<8>& mask);;
 
 private:
     __m256 m_value;
@@ -436,4 +444,17 @@ inline vec8<float, 8> max(const vec8<float, 8>& a, const vec8<float, 8>& b)
     vec8<float, 8> result;
     result.m_value = _mm256_max_ps(a.m_value, b.m_value);
     return result;
+}
+
+inline vec8<uint32_t, 8> blend(const vec8<uint32_t, 8>& a, const vec8<uint32_t, 8>& b, const mask8<8>& mask)
+{
+	// Cant use _mm_blend_epi32 because it relies on a compile time constant mask
+	// Casting to float because _mm_blendv_ps faster than _mm_blendv_epi8
+	return vec8<uint32_t, 8>(_mm256_castps_si256(_mm256_blendv_ps(_mm256_castsi256_ps(a.m_value), _mm256_castsi256_ps(b.m_value), _mm256_castsi256_ps(mask.m_value))));
+}
+
+inline vec8<float, 8> blend(const vec8<float, 8>& a, const vec8<float, 8>& b, const mask8<8>& mask)
+{
+	// Cant use _mm_blend_ps because it relies on a compile time constant mask
+	return vec8<float, 8>(_mm256_blendv_ps(a.m_value, b.m_value, _mm256_castsi256_ps(mask.m_value)));
 }

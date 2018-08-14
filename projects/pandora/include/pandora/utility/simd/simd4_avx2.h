@@ -29,6 +29,9 @@ vec4<T, 4> min(const vec4<T, 4>& a, const vec4<T, 4>& b);
 template <typename T>
 vec4<T, 4> max(const vec4<T, 4>& a, const vec4<T, 4>& b);
 
+template <typename T>
+vec4<T, 4> blend(const vec4<T, 4>& a, const vec4<T, 4>& b, const mask4<4>& mask);
+
 template <>
 class alignas(16) mask4<4> {
 public:
@@ -46,10 +49,10 @@ public:
     mask4(bool v0, bool v1, bool v2, bool v3)
     {
         m_value = _mm_set_epi32(
-            v0 ? 0xFFFFFFFF : 0x0,
-            v1 ? 0xFFFFFFFF : 0x0,
+            v3 ? 0xFFFFFFFF : 0x0,
             v2 ? 0xFFFFFFFF : 0x0,
-            v3 ? 0xFFFFFFFF : 0x0);
+            v1 ? 0xFFFFFFFF : 0x0,
+            v0 ? 0xFFFFFFFF : 0x0);
         m_bitMask = _mm_movemask_ps(_mm_castsi128_ps(m_value));
     }
 
@@ -103,10 +106,13 @@ public:
 
 private:
     __m128i m_value;
-    unsigned m_bitMask;
+    int32_t m_bitMask;
 
     template <typename T, int S>
     friend class vec4;
+
+	friend vec4<uint32_t, 4> blend(const vec4<uint32_t, 4>& a, const vec4<uint32_t, 4>& b, const mask4<4>& mask);
+	friend vec4<float, 4> blend(const vec4<float, 4>& a, const vec4<float, 4>& b, const mask4<4>& mask);
 };
 
 template <>
@@ -268,6 +274,7 @@ public:
     friend vec4<uint32_t, 4> min(const vec4<uint32_t, 4>& a, const vec4<uint32_t, 4>& b);
     friend vec4<uint32_t, 4> max(const vec4<uint32_t, 4>& a, const vec4<uint32_t, 4>& b);
 
+	friend vec4<uint32_t, 4> blend(const vec4<uint32_t, 4>& a, const vec4<uint32_t, 4>& b, const mask4<4>& mask);
 private:
     __m128i m_value;
 };
@@ -401,6 +408,8 @@ public:
     friend vec4<float, 4> min(const vec4<float, 4>& a, const vec4<float, 4>& b);
     friend vec4<float, 4> max(const vec4<float, 4>& a, const vec4<float, 4>& b);
 
+	friend vec4<float, 4> blend(const vec4<float, 4>& a, const vec4<float, 4>& b, const mask4<4>& mask);
+
 private:
     __m128 m_value;
 };
@@ -424,3 +433,17 @@ inline vec4<float, 4> max(const vec4<float, 4>& a, const vec4<float, 4>& b)
 {
     return vec4<float, 4>(_mm_max_ps(a.m_value, b.m_value));
 }
+
+inline vec4<uint32_t, 4> blend(const vec4<uint32_t, 4>& a, const vec4<uint32_t, 4>& b, const mask4<4>& mask)
+{
+	// Cant use _mm_blend_epi32 because it relies on a compile time constant mask
+	// Casting to float because _mm_blendv_ps faster than _mm_blendv_epi8
+	return vec4<uint32_t, 4>(_mm_castps_si128(_mm_blendv_ps(_mm_castsi128_ps(a.m_value), _mm_castsi128_ps(b.m_value), _mm_castsi128_ps(mask.m_value))));
+}
+
+inline vec4<float, 4> blend(const vec4<float, 4>& a, const vec4<float, 4>& b, const mask4<4>& mask)
+{
+	// Cant use _mm_blend_ps because it relies on a compile time constant mask
+	return vec4<float, 4>(_mm_blendv_ps(a.m_value, b.m_value, _mm_castsi128_ps(mask.m_value)));
+}
+
