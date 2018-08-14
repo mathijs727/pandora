@@ -49,13 +49,14 @@ private:
     };
 
     static PauseableBVH4<PauseableLeafNode> buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>);
-    static WiVeBVH8Build8<LeafNode> buildBVH(gsl::span<const std::unique_ptr<SceneObject>>);
+	template <typename T>
+    static T buildBVH(gsl::span<const std::unique_ptr<SceneObject>>);
 
 private:
-    //EmbreeBVH<LeafNode> m_bvh;
+    EmbreeBVH<LeafNode> m_bvh;
     //NaiveSingleRayBVH2<LeafNode> m_bvh;
     //WiVeBVH8Build8<LeafNode> m_bvh;
-    PauseableBVH4<PauseableLeafNode> m_bvh;
+    //PauseableBVH4<PauseableLeafNode> m_bvh;
 
     HitCallback m_hitCallback;
     MissCallback m_missCallback;
@@ -63,8 +64,8 @@ private:
 
 template <typename UserState>
 inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
-	: m_bvh(std::move(buildPauseableBVH(sceneObjects)))
-	//: m_bvh(std::move(buildBVH(sceneObjects)))
+	//: m_bvh(std::move(buildPauseableBVH(sceneObjects)))
+	: m_bvh(std::move(buildBVH<decltype(m_bvh)>(sceneObjects)))
     , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
 {
@@ -73,7 +74,8 @@ inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::
 }
 
 template <typename UserState>
-inline WiVeBVH8Build8<typename InCoreAccelerationStructure<UserState>::LeafNode> InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
+template <typename T>
+inline T InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
 {
     std::vector<const LeafNode*> leafs;
     for (const auto& sceneObject : sceneObjects) {
@@ -81,7 +83,7 @@ inline WiVeBVH8Build8<typename InCoreAccelerationStructure<UserState>::LeafNode>
         leafs.push_back(reinterpret_cast<const LeafNode*>(sceneObject.get()));
     }
 
-    WiVeBVH8Build8<LeafNode> bvh;
+    T bvh;
     bvh.build(leafs);
     return std::move(bvh);
 }

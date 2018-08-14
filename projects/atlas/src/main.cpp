@@ -65,8 +65,8 @@ int main()
 	addStanfordBunny(scene);
 	//addStanfordDragon(scene, false);
     
-    DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
-    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
+    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
+    NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
     //PathIntegrator integrator(20, scene, camera.getSensor(), 1);
 	//SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
 	//SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
