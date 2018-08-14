@@ -11,7 +11,7 @@
 #include <xmmintrin.h> // SSE
 #include <smmintrin.h> // SSE4.1
 
-constexpr static int SIMD4_WIDTH = 1;
+constexpr static int SIMD4_WIDTH = 4;
 
 namespace pandora::simd {
 template <int S>
