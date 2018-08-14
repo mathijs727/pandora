@@ -29,7 +29,7 @@ public:
         m_values[3] = v3;
     }
 
-    inline _mask4 operator&&(const _mask4& other)
+    inline _mask4 operator&&(const _mask4& other) const
     {
         _mask4 result;
         std::transform(
@@ -41,7 +41,7 @@ public:
         return result;
     }
 
-    inline _mask4 operator||(const _mask4& other)
+    inline _mask4 operator||(const _mask4& other) const
     {
         _mask4 result;
         std::transform(

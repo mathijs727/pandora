@@ -27,7 +27,7 @@ public:
         m_values[7] = v7;
     }
 
-	inline _mask8 operator&&(const _mask8& other)
+	inline _mask8 operator&&(const _mask8& other) const
 	{
 		_mask8 result;
 		std::transform(
@@ -39,7 +39,7 @@ public:
 		return result;
 	}
 
-	inline _mask8 operator||(const _mask8& other)
+	inline _mask8 operator||(const _mask8& other) const
 	{
 		_mask8 result;
 		std::transform(

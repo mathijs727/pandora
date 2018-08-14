@@ -56,7 +56,7 @@ public:
         m_bitMask = _mm_movemask_ps(_mm_castsi128_ps(m_value));
     }
 
-	inline _mask4 operator&&(const _mask4& other)
+	inline _mask4 operator&&(const _mask4& other) const
 	{
 		_mask4 result;
 		result.m_bitMask = m_bitMask & other.m_bitMask;
@@ -64,7 +64,7 @@ public:
 		return result;
 	}
 
-	inline _mask4 operator||(const _mask4& other)
+	inline _mask4 operator||(const _mask4& other) const
 	{
 		_mask4 result;
 		result.m_bitMask = m_bitMask | other.m_bitMask;
