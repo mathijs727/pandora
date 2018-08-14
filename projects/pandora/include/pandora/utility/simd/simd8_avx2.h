@@ -249,7 +249,7 @@ public:
         return _vec8(_mm256_permutevar8x32_epi32(m_value, shuffleMask));
     }
 
-    inline uint64_t horizontalMinPos() const
+    inline uint64_t horizontalMinIndex() const
     {
         std::array<uint32_t, 8> values;
         store(values);
@@ -263,7 +263,7 @@ public:
         return *std::min_element(std::begin(values), std::end(values));
     }
 
-    inline uint64_t horizontalMaxPos() const
+    inline uint64_t horizontalMaxIndex() const
     {
         std::array<uint32_t, 8> values;
         store(values);
@@ -382,7 +382,7 @@ public:
         return _vec8(_mm256_permutevar8x32_ps(m_value, shuffleMask));
     }
 
-    inline uint64_t horizontalMinPos() const
+    inline uint64_t horizontalMinIndex() const
     {
         std::array<float, 8> values;
         store(values);
@@ -396,7 +396,7 @@ public:
         return *std::min_element(std::begin(values), std::end(values));
     }
 
-    inline uint64_t horizontalMaxPos() const
+    inline uint64_t horizontalMaxIndex() const
     {
         std::array<float, 8> values;
         store(values);

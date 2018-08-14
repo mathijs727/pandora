@@ -243,7 +243,7 @@ public:
         return permute(_vec4(shuffleMask));
     }
 
-    inline uint64_t horizontalMinPos() const
+    inline uint64_t horizontalMinIndex() const
     {
         std::array<uint32_t, 4> values;
         store(values);
@@ -257,7 +257,7 @@ public:
         return *std::min_element(std::begin(values), std::end(values));
     }
 
-    inline uint64_t horizontalMaxPos() const
+    inline uint64_t horizontalMaxIndex() const
     {
         std::array<uint32_t, 4> values;
         store(values);
@@ -377,7 +377,7 @@ public:
         return permute(_vec4<uint32_t, 4>(shuffleMask));
     }
 
-    inline uint64_t horizontalMinPos() const
+    inline uint64_t horizontalMinIndex() const
     {
         std::array<float, 4> values;
         store(values);
@@ -391,7 +391,7 @@ public:
         return *std::min_element(std::begin(values), std::end(values));
     }
 
-    inline uint64_t horizontalMaxPos() const
+    inline uint64_t horizontalMaxIndex() const
     {
         std::array<float, 4> values;
         store(values);

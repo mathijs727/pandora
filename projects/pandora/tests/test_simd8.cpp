@@ -245,10 +245,10 @@ void simd8Tests()
 	{
 		simd::_vec8<T, S> values(5, 3, 7, 6, 1, 8, 11, 4);
 		ASSERT_EQ(values.horizontalMin(), (T)1);
-		ASSERT_EQ(values.horizontalMinPos(), 4);
+		ASSERT_EQ(values.horizontalMinIndex(), 4);
 
 		ASSERT_EQ(values.horizontalMax(), (T)11);
-		ASSERT_EQ(values.horizontalMaxPos(), 6);
+		ASSERT_EQ(values.horizontalMaxIndex(), 6);
 	}
 }
 

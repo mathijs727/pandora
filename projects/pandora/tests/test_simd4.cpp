@@ -242,10 +242,10 @@ void simd4Tests()
     {
         simd::_vec4<T, S> values(5, 3, 7, 6);
         ASSERT_EQ(values.horizontalMin(), (T)3);
-        ASSERT_EQ(values.horizontalMinPos(), 1);
+        ASSERT_EQ(values.horizontalMinIndex(), 1);
 
         ASSERT_EQ(values.horizontalMax(), (T)7);
-        ASSERT_EQ(values.horizontalMaxPos(), 2);
+        ASSERT_EQ(values.horizontalMaxIndex(), 2);
     }
 }
 
