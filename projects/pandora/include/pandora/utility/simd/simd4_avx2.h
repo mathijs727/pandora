@@ -32,7 +32,7 @@ vec4<T, 4> max(const vec4<T, 4>& a, const vec4<T, 4>& b);
 template <>
 class alignas(16) mask4<4> {
 public:
-    //mask4() = default;
+    mask4() = default;
     explicit inline mask4(const __m128i& value)
         : m_value(value)
         , m_bitMask(_mm_movemask_ps(_mm_castsi128_ps(m_value)))
@@ -52,6 +52,22 @@ public:
             v3 ? 0xFFFFFFFF : 0x0);
         m_bitMask = _mm_movemask_ps(_mm_castsi128_ps(m_value));
     }
+
+	inline mask4 operator&&(const mask4& other)
+	{
+		mask4 result;
+		result.m_bitMask = m_bitMask & other.m_bitMask;
+		result.m_value = _mm_and_si128(m_value, other.m_value);
+		return result;
+	}
+
+	inline mask4 operator||(const mask4& other)
+	{
+		mask4 result;
+		result.m_bitMask = m_bitMask | other.m_bitMask;
+		result.m_value = _mm_or_si128(m_value, other.m_value);
+		return result;
+	}
 
     inline int count(unsigned validMask) const
     {

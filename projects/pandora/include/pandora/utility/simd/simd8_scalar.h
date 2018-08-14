@@ -24,6 +24,30 @@ public:
         m_values[7] = v7;
     }
 
+	inline mask8 operator&&(const mask8& other)
+	{
+		mask8 result;
+		std::transform(
+			std::begin(m_values),
+			std::end(m_values),
+			std::begin(other.m_values),
+			std::begin(result.m_values),
+			std::logical_and<bool>());
+		return result;
+	}
+
+	inline mask8 operator||(const mask8& other)
+	{
+		mask8 result;
+		std::transform(
+			std::begin(m_values),
+			std::end(m_values),
+			std::begin(other.m_values),
+			std::begin(result.m_values),
+			std::logical_or<bool>());
+		return result;
+	}
+
 	inline int count(unsigned validMask) const
 	{
 		int c = 0;

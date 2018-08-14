@@ -190,6 +190,17 @@ void simd4Tests()
 	}
 
 	{
+		simd::mask4<S> mask1(true, false, true, false);
+		simd::mask4<S> mask2(true, true, true, true);
+
+		simd::mask4<S> andMask = mask1 && mask2;
+		simd::mask4<S> orMask = mask1 || mask2;
+
+		ASSERT_TRUE(andMask.count() == 2);
+		ASSERT_TRUE(orMask.count() == 4);
+	}
+
+	{
 		simd::mask4<S> mask(false, true, true, false);
 		auto v3 = v2.compress(mask);
 		std::array<T, 4> values;

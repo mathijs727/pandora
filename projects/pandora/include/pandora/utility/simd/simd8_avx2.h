@@ -26,7 +26,7 @@ class mask8;
 template <>
 class alignas(32) mask8<8> {
 public:
-    //mask8() = default;
+    mask8() = default;
     explicit inline mask8(const __m256i& value)
         : m_value(value)
         , m_bitMask(_mm256_movemask_ps(_mm256_castsi256_ps(m_value)))
@@ -50,6 +50,22 @@ public:
             v0 ? 0xFFFFFFFF : 0x0);
         m_bitMask = _mm256_movemask_ps(_mm256_castsi256_ps(m_value));
     }
+
+	inline mask8 operator&&(const mask8& other)
+	{
+		mask8 result;
+		result.m_bitMask = m_bitMask & other.m_bitMask;
+		result.m_value = _mm256_and_si256(m_value, other.m_value);
+		return result;
+	}
+
+	inline mask8 operator||(const mask8& other)
+	{
+		mask8 result;
+		result.m_bitMask = m_bitMask | other.m_bitMask;
+		result.m_value = _mm256_or_si256(m_value, other.m_value);
+		return result;
+	}
 
     inline int count(unsigned validMask) const
     {

@@ -26,7 +26,7 @@ public:
         m_values[3] = v3;
     }
 
-    /*inline mask4 operator&&(const mask4& other)
+    inline mask4 operator&&(const mask4& other)
     {
         mask4 result;
         std::transform(
@@ -48,7 +48,7 @@ public:
             std::begin(result.m_values),
             std::logical_or<bool>());
         return result;
-    }*/
+    }
 
     inline int count(unsigned validMask) const
     {

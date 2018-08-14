@@ -190,6 +190,16 @@ void simd8Tests()
         ASSERT_EQ(mask.count(), 5);
     }
 
+	{
+		simd::mask8<S> mask1(true, false, true, true, true, false, true, false);
+		simd::mask8<S> mask2(false, false, false, true, true, false, false, false);
+
+		simd::mask8<S> andMask = mask1 && mask2;
+		simd::mask8<S> orMask = mask1 || mask2;
+		ASSERT_TRUE(andMask.count() == 2);
+		ASSERT_TRUE(orMask.count() == 5);
+	}
+
     {
         simd::mask8<S> mask(false, false, true, false, true, true, false, true);
         auto v3 = v2.compress(mask);
