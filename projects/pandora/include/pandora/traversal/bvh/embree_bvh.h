@@ -12,6 +12,7 @@ class EmbreeBVH : public BVH<LeafObj>
 {
 public:
 	EmbreeBVH();
+	EmbreeBVH(EmbreeBVH&&);
 	~EmbreeBVH();
 
 	void build(gsl::span<const LeafObj*> objects) override final;

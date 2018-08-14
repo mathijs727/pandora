@@ -5,6 +5,25 @@ namespace pandora {
 template <typename LeafObj>
 tbb::enumerable_thread_specific<std::pair<gsl::span<Ray>, gsl::span<SurfaceInteraction>>> EmbreeBVH<LeafObj>::m_intersectRayData;
 
+template<typename LeafObj>
+inline EmbreeBVH<LeafObj>::EmbreeBVH(EmbreeBVH&& other) :
+	m_device(std::move(other.m_device)),
+	m_scene(std::move(other.m_scene))
+	//m_intersectRayData(other.m_intersectRayData)
+{
+	other.m_device = nullptr;
+	other.m_scene = nullptr;
+}
+
+template <typename LeafObj>
+EmbreeBVH<LeafObj>::~EmbreeBVH()
+{
+	if (m_scene)
+		rtcReleaseScene(m_scene);
+	if (m_device)
+		rtcReleaseDevice(m_device);
+}
+
 template <unsigned N>
 void convertRays(gsl::span<const Ray> rays, RTCRayHitN* embreeRayHits)
 {
@@ -63,13 +82,6 @@ EmbreeBVH<LeafObj>::EmbreeBVH()
 
     m_scene = rtcNewScene(m_device);
     rtcSetSceneBuildQuality(m_scene, RTC_BUILD_QUALITY_HIGH);
-}
-
-template <typename LeafObj>
-EmbreeBVH<LeafObj>::~EmbreeBVH()
-{
-    rtcReleaseScene(m_scene);
-    rtcReleaseDevice(m_device);
 }
 
 template <typename LeafObj>
