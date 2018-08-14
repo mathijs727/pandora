@@ -245,6 +245,8 @@ inline bool PauseableBVH4<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si, 
 		//node = m_innerNodeAllocator.get(node.ancestors[index >> 2]); // (index >> 2) == (index / 4)
     }
 
+	si.wo = -ray.direction;
+
     return hit;
 }
 
