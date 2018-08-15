@@ -416,7 +416,7 @@ public:
 
     friend _vec8<float, 8> min(const _vec8<float, 8>& a, const _vec8<float, 8>& b);
     friend _vec8<float, 8> max(const _vec8<float, 8>& a, const _vec8<float, 8>& b);
-	friend _vec8<float, 8> blend(const _vec8<float, 8>& a, const _vec8<float, 8>& b, const _mask8<8>& mask);;
+	friend _vec8<float, 8> blend(const _vec8<float, 8>& a, const _vec8<float, 8>& b, const _mask8<8>& mask);
 
 private:
     __m256 m_value;
