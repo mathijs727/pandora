@@ -37,7 +37,6 @@ inline void WiVeBVH8Build8<LeafObj>::commit()
     rtcReleaseDevice(device);
 
     // Release temporary (Embree) primitive memory
-    std::cout << "Actual prim count: " << this->m_primitives.size() << std::endl;
     this->m_primitives.clear();
     this->m_primitives.shrink_to_fit();
 
