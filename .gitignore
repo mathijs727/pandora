@@ -4,7 +4,6 @@ CMakeSettings.json
 .vs
 projects/.vs/
 
-
 # Clion
 .idea
 
@@ -24,3 +23,7 @@ CMakeSettings.json
 CMakeSettings.json
 *.ply
 CMakeSettings.json
+
+# Temporary python cache files
+*.pyc
+

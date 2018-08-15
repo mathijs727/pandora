@@ -161,12 +161,7 @@ template <typename UserState>
 inline bool InCoreBatchingAccelerationStructure<UserState>::TopLevelLeafNode::intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle insertHandle) const
 {
     (void)insertHandle;
-    assert(!m_moved);
-    bool hit = m_leafBVH.intersect(ray, si);
-    if (hit) {
-        assert(si.sceneObject);
-    }
-    return hit;
+    return m_leafBVH.intersect(ray, si);
 }
 
 template <typename UserState>

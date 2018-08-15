@@ -27,26 +27,26 @@ inline void WiVeBVH8Build8<LeafObj>::commit()
     arguments.createLeaf = leafCreate;
     arguments.userPtr = this;
 
-    m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>((uint32_t)this->m_primitives.size() / 4, 16);
-    m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>((uint32_t)this->m_primitives.size(), 16);
+    this->m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>((uint32_t)this->m_primitives.size() / 4, 16);
+    this->m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>((uint32_t)this->m_primitives.size(), 16);
 
-    m_compressedRootHandle = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rtcBuildBVH(&arguments)));
+    this->m_compressedRootHandle = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rtcBuildBVH(&arguments)));
 
-	ALWAYS_ASSERT(isInnerNode(m_compressedRootHandle));
+	ALWAYS_ASSERT(this->isInnerNode(this->m_compressedRootHandle));
 
     // Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);
     rtcReleaseDevice(device);
 
     // Release temporary (Embree) primitive memory
-    m_primitives.clear();
-    m_primitives.shrink_to_fit();
+    this->m_primitives.clear();
+    this->m_primitives.shrink_to_fit();
 
     // Shrink to fit BVH allocators
-    m_innerNodeAllocator->compact();
-    m_leafNodeAllocator->compact();
+    this->m_innerNodeAllocator->compact();
+    this->m_leafNodeAllocator->compact();
 
-    testBVH();
+    this->testBVH();
 }
 
 template <typename LeafObj>
