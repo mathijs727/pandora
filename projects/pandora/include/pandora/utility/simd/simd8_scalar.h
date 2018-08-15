@@ -108,7 +108,7 @@ private:
     std::array<bool, 8> m_values;
 
 	template <typename T>
-	friend _vec8<T, 1> blend<T>(const _vec8<T, 1>& a, const _vec8<T, 1>& b, const _mask8<1>& mask);
+	friend _vec8<T, 1> blend(const _vec8<T, 1>& a, const _vec8<T, 1>& b, const _mask8<1>& mask);
 
     template <typename T, int S>
     friend class _vec8_base; // Not possible to friend only _vec8_base<T, 1>

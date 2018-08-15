@@ -5,7 +5,7 @@
 
 namespace pandora {
 
-#ifdef _MSC_VER
+#ifdef _MSC_VERS
 
 inline int bitScan32(uint32_t mask)
 {
@@ -52,18 +52,18 @@ inline int bitScan64(uint64_t mask)
 		13, 18,  8, 12,  7,  6,  5, 63
 	};
 
-    const uint64_t debruijn64 = C64(0x03f79d71b4cb0a89);
-    assert(bb != 0);
-    bb |= bb >> 1;
-    bb |= bb >> 2;
-    bb |= bb >> 4;
-    bb |= bb >> 8;
-    bb |= bb >> 16;
-    bb |= bb >> 32;
-    return index64[(bb * debruijn64) >> 58];
+    const uint64_t debruijn64 = 0x03f79d71b4cb0a89;
+    assert(mask != 0);
+    mask |= mask >> 1;
+    mask |= mask >> 2;
+    mask |= mask >> 4;
+    mask |= mask >> 8;
+    mask |= mask >> 16;
+    mask |= mask >> 32;
+    return index64[(mask * debruijn64) >> 58];
 }
 
-inline int bitScanReverse64(uint64_t bb)
+inline int bitScanReverse64(uint64_t mask)
 {
 	// http://chessprogramming.wikispaces.com/BitScan
 	const static int index64[64] = {
@@ -77,15 +77,15 @@ inline int bitScanReverse64(uint64_t bb)
 		13, 18,  8, 12,  7,  6,  5, 63
 	};
 
-	const uint64_t debruijn64 = C64(0x03f79d71b4cb0a89);
-	assert(bb != 0);
-	bb |= bb >> 1;
-	bb |= bb >> 2;
-	bb |= bb >> 4;
-	bb |= bb >> 8;
-	bb |= bb >> 16;
-	bb |= bb >> 32;
-	return index64[(bb * debruijn64) >> 58];
+	const uint64_t debruijn64 = 0x03f79d71b4cb0a89;
+	assert(mask != 0);
+	mask |= mask >> 1;
+	mask |= mask >> 2;
+	mask |= mask >> 4;
+	mask |= mask >> 8;
+	mask |= mask >> 16;
+	mask |= mask >> 32;
+	return index64[(mask * debruijn64) >> 58];
 }
 
 inline int bitScan32(uint32_t mask)

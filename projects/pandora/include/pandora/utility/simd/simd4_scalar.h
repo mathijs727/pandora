@@ -113,7 +113,7 @@ private:
     std::array<bool, 4> m_values;
 
 	template <typename T>
-	friend _vec4<T, 1> blend<T>(const _vec4<T, 1>& a, const _vec4<T, 1>& b, const _mask4<1>& mask);
+	friend _vec4<T, 1> blend(const _vec4<T, 1>& a, const _vec4<T, 1>& b, const _mask4<1>& mask);
 
     template <typename T, int S>
     friend class _vec4_base; // Not possible to friend only _vec4_base<T, 1>

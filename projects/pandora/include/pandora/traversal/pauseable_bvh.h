@@ -11,7 +11,7 @@ using PauseableBVHInsertHandle = std::pair<uint32_t, uint64_t>;
 
 template <typename T>
 struct is_pauseable_leaf_obj {
-	BOOST_TTI_HAS_MEMBER_FUNCTION(intersect);
+	BOOST_TTI_HAS_MEMBER_FUNCTION(intersect)
 	static constexpr bool value = has_member_function_intersect<T, bool, boost::mpl::vector<Ray&, SurfaceInteraction&, PauseableBVHInsertHandle>, boost::function_types::const_qualified>::value;
 };
 

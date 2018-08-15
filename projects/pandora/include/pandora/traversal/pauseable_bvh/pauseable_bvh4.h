@@ -50,11 +50,10 @@ private:
         simd::vec4_f32 maxZ;
         std::array<uint32_t, 4> childrenHandles;
         uint32_t parentHandle;
-        struct {
-            uint32_t validMask : 4;
-            uint32_t leafMask : 4;
-            uint32_t depth : 8;
-        };
+
+        uint32_t validMask : 4;
+        uint32_t leafMask : 4;
+        uint32_t depth : 8;
 
         uint32_t numChildren() const;
         bool isLeaf(unsigned childIdx) const;
