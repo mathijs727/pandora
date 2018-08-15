@@ -4,7 +4,7 @@
 #include "pandora/samplers/uniform_sampler.h"
 #include "pandora/core/sensor.h"
 #include "pandora/traversal/in_core_acceleration_structure.h"
-//#include "pandora/traversal/in_core_batching_acceleration_structure.h"
+#include "pandora/traversal/in_core_batching_acceleration_structure.h"
 
 namespace pandora {
 
@@ -28,8 +28,8 @@ protected:
 
 protected:
     const Scene& m_scene;
-	InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
-	//InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
+	//InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
+	InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
 
     Sensor& m_sensor;
     const int m_sppPerCall;
@@ -50,7 +50,6 @@ inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& senso
               rayMiss(r, s);
           })
     , m_sensor(sensor)
-    //, m_samplers(sensor.getResolution().x * sensor.getResolution().y, spp)
     , m_sppPerCall(sppPerCall)
     , m_sppThisFrame(0)
 {

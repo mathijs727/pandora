@@ -7,7 +7,7 @@
 #include <immintrin.h> // AVX / AVX2
 #include <iostream>
 
-constexpr static int SIMD8_WIDTH = 8;
+constexpr static int SIMD8_WIDTH = 1;
 
 namespace pandora::simd {
 template <int S>

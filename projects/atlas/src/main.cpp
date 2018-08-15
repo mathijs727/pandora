@@ -63,7 +63,7 @@ int main()
 
 	//addCornellBox(scene);
 	addStanfordBunny(scene);
-	//addStanfordDragon(scene, false);
+	addStanfordDragon(scene, false);
     
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);

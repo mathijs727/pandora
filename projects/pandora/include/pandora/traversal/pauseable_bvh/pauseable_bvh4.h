@@ -13,7 +13,7 @@ namespace pandora {
 template <typename LeafObj>
 class PauseableBVH4 : PauseableBVH<LeafObj> {
 public:
-    PauseableBVH4(gsl::span<const LeafObj> object, gsl::span<const Bounds> bounds);
+    PauseableBVH4(gsl::span<LeafObj> object, gsl::span<const Bounds> bounds);
     PauseableBVH4(PauseableBVH4&&) = default;
     ~PauseableBVH4() = default;
 
@@ -62,7 +62,7 @@ private:
 
     ContiguousAllocatorTS<typename PauseableBVH4::BVHNode> m_innerNodeAllocator;
     ContiguousAllocatorTS<LeafObj> m_leafAllocator;
-    gsl::span<const LeafObj> m_tmpConstructionLeafs;
+    gsl::span<LeafObj> m_tmpConstructionLeafs;
 
     uint32_t m_rootHandle;
 
@@ -70,7 +70,7 @@ private:
 };
 
 template <typename LeafObj>
-inline PauseableBVH4<LeafObj>::PauseableBVH4(gsl::span<const LeafObj> objects, gsl::span<const Bounds> objectsBounds)
+inline PauseableBVH4<LeafObj>::PauseableBVH4(gsl::span<LeafObj> objects, gsl::span<const Bounds> objectsBounds)
     : m_innerNodeAllocator(objects.size())
     , m_leafAllocator(objects.size())
 {
@@ -217,7 +217,7 @@ inline bool PauseableBVH4<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si, 
 				} else {
 					// Reached leaf
 					auto handle = node->childrenHandles[childIndex];
-					auto& leaf = m_leafAllocator.get(handle);
+					const auto& leaf = m_leafAllocator.get(handle);
 					if (leaf.intersect(ray, si, insertInfo)) {
 						hit = true;
 						simdRay.tfar.broadcast(ray.tfar);
@@ -402,7 +402,7 @@ inline void* PauseableBVH4<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, c
     // Allocate node
     auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
     auto [nodeHandle, nodePtr] = self->m_leafAllocator.allocate();
-    *nodePtr = self->m_tmpConstructionLeafs[prims[0].primID];
+    *nodePtr = std::move(self->m_tmpConstructionLeafs[prims[0].primID]);
     return encodeBVHConstructionLeafHandle(nodeHandle);
 }
 
