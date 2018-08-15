@@ -32,7 +32,7 @@ inline void WiVeBVH8Build8<LeafObj>::commit()
 
     m_compressedRootHandle = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rtcBuildBVH(&arguments)));
 
-	assert(isInnerNode(m_compressedRootHandle));
+	ALWAYS_ASSERT(isInnerNode(m_compressedRootHandle));
 
     // Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);

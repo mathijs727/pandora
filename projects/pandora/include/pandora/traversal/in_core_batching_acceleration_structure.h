@@ -37,17 +37,8 @@ private:
     public:
         TopLevelLeafNode() = default;
         TopLevelLeafNode(const SceneObject* sceneObject);
-        TopLevelLeafNode(TopLevelLeafNode&& other)
-            : m_leafBVH(std::move(other.m_leafBVH))
-        {
-            other.m_moved = true;
-        }
-        TopLevelLeafNode& operator=(TopLevelLeafNode&& other)
-        {
-            m_leafBVH = std::move(other.m_leafBVH);
-            other.m_moved = true;
-			return *this;
-        }
+        TopLevelLeafNode(TopLevelLeafNode&& other) = default;
+        TopLevelLeafNode& operator=(TopLevelLeafNode&& other) = default;
 
         bool intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle insertHandle) const;
 
@@ -56,7 +47,6 @@ private:
 
     private:
         WiVeBVH8Build8<BotLevelLeafNode> m_leafBVH;
-        bool m_moved = false;
     };
 
     static PauseableBVH4<TopLevelLeafNode> buildBVH(gsl::span<const std::unique_ptr<SceneObject>>);
@@ -106,12 +96,12 @@ inline void InCoreBatchingAccelerationStructure<UserState>::placeIntersectReques
         SurfaceInteraction si;
         Ray ray = rays[i]; // Copy so we can mutate it
 
-		if (m_bvh.intersect(ray, si)) {
-			assert(si.sceneObject);
-			m_hitCallback(ray, si, perRayUserData[i], nullptr);
-		} else {
+        if (m_bvh.intersect(ray, si)) {
+            assert(si.sceneObject);
+            m_hitCallback(ray, si, perRayUserData[i], nullptr);
+        } else {
             m_missCallback(ray, perRayUserData[i]);
-		}
+        }
     }
 }
 
@@ -124,8 +114,8 @@ inline PauseableBVH4<typename InCoreBatchingAccelerationStructure<UserState>::To
         leafs.emplace_back(sceneObject.get());
         bounds.emplace_back(sceneObject->getMesh().getBounds());
     }
-	auto result = PauseableBVH4<TopLevelLeafNode>(leafs, bounds);
-	return std::move(result);
+    auto result = PauseableBVH4<TopLevelLeafNode>(leafs, bounds);
+    return std::move(result);
 }
 
 template <typename UserState>
@@ -156,7 +146,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState>::BotLevelLeafNode::in
         si.sceneObject = sceneObject;
         si.primitiveID = primitiveID;
         ray.tfar = tHit;
-		assert(si.sceneObject);
+        assert(si.sceneObject);
     }
     return hit;
 }
@@ -171,12 +161,12 @@ template <typename UserState>
 inline bool InCoreBatchingAccelerationStructure<UserState>::TopLevelLeafNode::intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle insertHandle) const
 {
     (void)insertHandle;
-	assert(!m_moved);
+    assert(!m_moved);
     bool hit = m_leafBVH.intersect(ray, si);
-	if (hit) {
-		assert(si.sceneObject);
-	}
-	return hit;
+    if (hit) {
+        assert(si.sceneObject);
+    }
+    return hit;
 }
 
 template <typename UserState>

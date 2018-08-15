@@ -12,7 +12,6 @@ namespace pandora {
 template <typename LeafObj>
 inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 {
-    si.sceneObject = nullptr;
     bool hit = false;
 
     SIMDRay simdRay;
