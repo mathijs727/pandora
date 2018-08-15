@@ -1,3 +1,12 @@
 [submodule "third_party/eastl"]
 	path = third_party/eastl
 	url = git@github.com:electronicarts/EASTL.git
+[submodule "third_party/libmorton"]
+	path = third_party/libmorton
+	url = git@github.com:Forceflow/libmorton.git
+[submodule "third_party/mio"]
+	path = third_party/mio
+	url = git@github.com:mandreyel/mio.git
+[submodule "third_party/tinyply"]
+	path = third_party/tinyply
+	url = git@github.com:ddiakopoulos/tinyply.git
