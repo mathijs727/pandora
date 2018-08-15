@@ -41,7 +41,7 @@ target_include_directories(mio INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/
 
 # https://github.com/Forceflow/libmorton
 add_library(libmorton INTERFACE)
-target_include_directories(libmorton INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/libmorton/include/")
+target_include_directories(libmorton INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/libmorton/libmorton/include/")
 
 find_package(Boost REQUIRED)
 

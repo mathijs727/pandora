@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstring>
 #include <immintrin.h>
-#include <libmorton/morton.h>
+#include <morton.h>
 #include <limits>
 
 namespace pandora {
