@@ -1,9 +1,3 @@
-[submodule "external/gl3w"]
-	path = external/gl3w
-	url = https://github.com/skaslev/gl3w
-[submodule "external/glbinding"]
-	path = external/glbinding
-	url = git@github.com:cginternals/glbinding.git
-[submodule "external/--force"]
-	path = external/--force
-	url = https://github.com/Microsoft/GSL.git
+[submodule "third_party/eastl"]
+	path = third_party/eastl
+	url = git@github.com:electronicarts/EASTL.git
