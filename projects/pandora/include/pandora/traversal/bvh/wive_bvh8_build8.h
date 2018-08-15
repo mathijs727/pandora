@@ -10,16 +10,16 @@ public:
     using WiVeBVH8<LeafObj>::WiVeBVH8;
     WiVeBVH8Build8(WiVeBVH8Build8<LeafObj>&& other)
     {
-		m_leafObjects = std::move(other.m_leafObjects);
-		m_primitives = std::move(other.m_primitives);
-		m_innerNodeAllocator = std::move(other.m_innerNodeAllocator);
-		m_leafNodeAllocator = std::move(other.m_leafNodeAllocator);
-		m_compressedRootHandle = other.m_compressedRootHandle;
-		other.m_leafObjects.clear();
-		other.m_primitives.clear();
-		other.m_innerNodeAllocator = nullptr;
-		other.m_leafNodeAllocator = nullptr;
-		other.m_compressedRootHandle = 0;
+        m_leafObjects = std::move(other.m_leafObjects);
+        m_primitives = std::move(other.m_primitives);
+        m_innerNodeAllocator = std::move(other.m_innerNodeAllocator);
+        m_leafNodeAllocator = std::move(other.m_leafNodeAllocator);
+        m_compressedRootHandle = other.m_compressedRootHandle;
+        other.m_leafObjects.clear();
+        other.m_primitives.clear();
+        other.m_innerNodeAllocator = nullptr;
+        other.m_leafNodeAllocator = nullptr;
+        other.m_compressedRootHandle = 0;
     }
 
     WiVeBVH8Build8<LeafObj>& operator=(WiVeBVH8Build8<LeafObj>&& other)
@@ -29,11 +29,11 @@ public:
         m_innerNodeAllocator = std::move(other.m_innerNodeAllocator);
         m_leafNodeAllocator = std::move(other.m_leafNodeAllocator);
         m_compressedRootHandle = other.m_compressedRootHandle;
-		other.m_leafObjects.clear();
-		other.m_primitives.clear();
-		other.m_innerNodeAllocator = nullptr;
-		other.m_leafNodeAllocator = nullptr;
-		other.m_compressedRootHandle = 0;
+        other.m_leafObjects.clear();
+        other.m_primitives.clear();
+        other.m_innerNodeAllocator = nullptr;
+        other.m_leafNodeAllocator = nullptr;
+        other.m_compressedRootHandle = 0;
         return *this;
     }
 

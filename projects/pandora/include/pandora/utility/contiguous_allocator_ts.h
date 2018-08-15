@@ -10,6 +10,7 @@
 #include <tbb/enumerable_thread_specific.h>
 #include <thread>
 #include <tuple>
+#include <unordered_map>
 
 namespace pandora {
 
@@ -46,6 +47,7 @@ private:
     std::atomic_uint32_t m_currentSize;
 
     struct ThreadLocalData {
+        bool isInitialized = false;
         uint32_t index = 0;
         uint32_t space = 0;
     };
@@ -53,12 +55,12 @@ private:
 };
 
 template <typename T>
-inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(ContiguousAllocatorTS&& other) :
-	m_maxSize(other.m_maxSize),
-	m_blockSize(other.m_blockSize),
-	m_start(std::move(other.m_start)),
-	m_currentSize(other.m_currentSize.load()),
-	m_threadLocalBlocks(std::move(other.m_threadLocalBlocks))
+inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(ContiguousAllocatorTS&& other)
+    : m_maxSize(other.m_maxSize)
+    , m_blockSize(other.m_blockSize)
+    , m_start(std::move(other.m_start))
+    , m_currentSize(other.m_currentSize.load())
+    , m_threadLocalBlocks(std::move(other.m_threadLocalBlocks))
 {
 }
 
@@ -96,6 +98,7 @@ inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAlloca
 
     auto& currentBlock = m_threadLocalBlocks.local();
     if (currentBlock.space < N) {
+        currentBlock.isInitialized = true;
         currentBlock.index = allocateBlock();
         currentBlock.space = m_blockSize;
     }
@@ -123,8 +126,33 @@ inline uint32_t ContiguousAllocatorTS<T>::allocateBlock()
 template <typename T>
 inline void ContiguousAllocatorTS<T>::compact()
 {
+    // Determine the actual current size (substracting any empty space in thread local blocks)
+    std::unordered_map<uint32_t, uint32_t> threadLocalBlocks;
+    for (const auto& block : m_threadLocalBlocks) {
+        if (block.isInitialized) {
+            uint32_t itemsInBlock = (m_blockSize - block.space);
+            uint32_t startOfBlock = block.index - itemsInBlock;
+            threadLocalBlocks.insert({ startOfBlock, itemsInBlock });
+        }
+    }
+
+    // Move the data per block. We need to take care of blocks that are not completely filled.
     auto compactedData = std::make_unique<T[]>(m_currentSize);
-    std::memcpy(compactedData.get(), m_start.get(), m_currentSize * sizeof(T));
+    for (uint32_t blockStart = 0; blockStart < m_currentSize; blockStart += m_blockSize) {
+        if (auto iter = threadLocalBlocks.find(blockStart); iter != threadLocalBlocks.end()) {
+            // Partially filled block
+            for (uint32_t i = blockStart; i < blockStart + iter->second; i++) {
+                compactedData[i] = std::move(m_start[i]);
+            }
+        } else {
+            // Fully filled block
+            uint32_t blockEnd = blockStart + m_blockSize;
+            for (uint32_t i = blockStart; i < blockEnd; i++) {
+                compactedData[i] = std::move(m_start[i]);
+            }
+        }
+    }
+
     m_start = std::move(compactedData);
     m_maxSize = m_currentSize;
 }

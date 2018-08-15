@@ -216,17 +216,26 @@ inline bool PauseableBVH4<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si, 
 					node = &m_innerNodeAllocator.get(node->childrenHandles[childIndex]);
 				} else {
 					// Reached leaf
+					bool hitBefore = hit;
+
 					auto handle = node->childrenHandles[childIndex];
 					const auto& leaf = m_leafAllocator.get(handle);
 					if (leaf.intersect(ray, si, insertInfo)) {
 						hit = true;
+						assert(si.sceneObject);
 						simdRay.tfar.broadcast(ray.tfar);
 					}
+
+					if (hit)
+						assert(si.sceneObject);
 				}
 
 				continue;
 			}
         }
+
+		if (hit)
+			assert(si.sceneObject);
 
         // No children left to visit; find the first ancestor that has work left
 
@@ -245,6 +254,7 @@ inline bool PauseableBVH4<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si, 
     }
 
 	si.wo = -ray.direction;
+	assert(!hit || si.sceneObject);
 
     return hit;
 }
