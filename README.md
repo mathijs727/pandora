@@ -50,4 +50,4 @@ ninja install
 
 All dependencies can be installed through pacman and yaourt (to access the Arch User Repository). Travis currently also uses Arch Linux (in a Docker container) to install all the dependencies.
 
-At the time of writing, the latest release of OpenImageIO contains header files that are not C++17 ISO compliant. A work-around is to replace the problematic files with updated copies from the OpenImageIO master branch (see Travis as a reference).
+At the time of writing, the latest release of OpenEXR (included by OpenImageIO) contains header files that are not C++17 ISO compliant. A work-around is to replace the problematic files with updated copies from the OpenImageIO master branch (see Travis as a reference).
