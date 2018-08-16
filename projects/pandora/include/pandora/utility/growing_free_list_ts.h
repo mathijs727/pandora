@@ -4,8 +4,33 @@
 #include <cstddef>
 #include <tbb/enumerable_thread_specific.h>
 #include <vector>
+#include <type_traits>
 
 namespace pandora {
+
+// Explicit specialization in non-namespace scope is not allowed in ISO C++
+namespace growing_free_list_ts_impl
+{
+
+template <typename T, typename Enable = void>
+struct _FreeListNode;
+
+template <typename T>
+struct _FreeListNode<T, typename std::enable_if<(sizeof(T) > sizeof(void*))>::type>
+{
+    _FreeListNode<T>* next;
+private:
+    constexpr static size_t paddingAmount = sizeof(T) - sizeof(void*);
+    std::byte __padding[paddingAmount];
+};
+
+template <typename T>
+struct _FreeListNode<T, typename std::enable_if<(sizeof(T) == sizeof(void*))>::type>
+{
+    _FreeListNode<T>* next;
+};
+
+}
 
 // Thread-safe free list that does a heap allocation for each new item when it is full.
 // WARNING: the freelist does not call T's destructors when it is deleted
@@ -23,21 +48,8 @@ public:
     void deallocate(T* p);
 
 private:
-    template <int Padding>
-    struct alignas(std::alignment_of_v<T>) _FreeListNode {
-        _FreeListNode<Padding>* next;
-    private:
-        std::byte __padding[Padding];
-    };
-
-    // Use template specialization to disable the padding bytes when the padding is 0
-    template <>
-    struct alignas(std::alignment_of_v<T>) _FreeListNode<0> {
-        _FreeListNode<0>* next;
-    };
-
-    static constexpr size_t s_padding = sizeof(T) - sizeof(_FreeListNode<0>);
-    using FreeListNode = _FreeListNode<s_padding>;
+    using FreeListNode = growing_free_list_ts_impl::_FreeListNode<T>;
+    static_assert(sizeof(FreeListNode) == sizeof(T));
 
     std::atomic<FreeListNode*> m_freeListHead;
 

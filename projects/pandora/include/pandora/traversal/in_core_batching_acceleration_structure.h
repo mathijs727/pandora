@@ -7,8 +7,11 @@
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/memory_arena_ts.h"
 #include <array>
+#include <atomic>
 #include <gsl/gsl>
 #include <memory>
+#include <tbb/enumerable_thread_specific.h>
+#include <tuple>
 
 namespace pandora {
 
@@ -56,28 +59,95 @@ private:
     static PauseableBVH4<TopLevelLeafNode> buildBVH(gsl::span<const std::unique_ptr<SceneObject>>);
 
 private:
-    /*template <size_t Size>
-	class RayBatch {
-	public:
-		RayBatch() = default;
-		PauseableLeafNode(const SceneObject* sceneObject, uint32_t primitiveID)
-			: sceneObject(sceneObject)
-			, primitiveID(primitiveID)
-		{
-		}
-		bool intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle handle) const;
+    template <size_t Size>
+    struct RayBatch {
+    public:
+        bool tryPush(const Ray& ray, const UserState& state, SurfaceInteraction& si);
 
-	private:
-		const SceneObject* sceneObject;
-		std::array<Ray, Size>;
-		std::array<SurfaceInteraction, Size>;// TODO: only keep track of this for rays that have already hit something
-	};*/
+        struct iterator {
+        public:
+            using iterator_category = std::random_access_iterator_tag;
+            using value_type = std::tuple<Ray&, UserState&, SurfaceInteraction&>;
+            using difference_type = std::ptrdiff_t;
+            using pointer = value_type*;
+            using reference = value_type&;
+
+            explicit iterator(Ray* ray, UserState* userState, SurfaceInteraction* si);
+            iterator& operator++(); // pre-increment
+            iterator operator++(int); // post-increment
+            bool operator==(iterator other) const;
+            bool operator!=(iterator other) const;
+            value_type operator*() const;
+
+        private:
+            Ray* m_ray;
+            UserState* m_userState;
+            SurfaceInteraction* m_si;
+        };
+
+        iterator begin();
+        iterator end();
+
+    private:
+        std::array<Ray, Size> m_rays;
+        std::array<UserState, Size> m_userStates;
+        std::array<SurfaceInteraction, Size> m_surfaceInteractions; // TODO: only keep track of this for rays that have already hit something
+        tbb::enumerable_thread_specific<size_t> m_threadLocalIndex;
+    };
 
     PauseableBVH4<TopLevelLeafNode> m_bvh;
 
     HitCallback m_hitCallback;
     MissCallback m_missCallback;
 };
+
+template <typename UserState>
+template <size_t Size>
+inline InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::iterator(Ray* ray, UserState* userState, SurfaceInteraction* si)
+    : m_ray(ray)
+    , m_userState(userState)
+    , m_si(si)
+{
+}
+
+template <typename UserState>
+template <size_t Size>
+inline typename InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator& InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator++()
+{
+    ++m_ray;
+    ++m_userState;
+    ++m_si;
+}
+
+template <typename UserState>
+template <size_t Size>
+inline typename InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator++(int)
+{
+    m_ray++;
+    m_userState++;
+    m_si++;
+}
+
+template <typename UserState>
+template <size_t Size>
+inline bool InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator==(InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator other) const
+{
+    return (m_ray == other.m_ray && m_userState == other.m_userState && m_si == other.m_si);
+}
+
+template <typename UserState>
+template <size_t Size>
+inline bool InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator!=(InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator other) const
+{
+    return (m_ray != other.m_ray || m_userState != other.m_userState || m_si != other.m_si);
+}
+
+template <typename UserState>
+template <size_t Size>
+inline std::tuple<Ray&, UserState&, SurfaceInteraction&> InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator*() const
+{
+    return { *m_ray, *m_userState, *m_si };
+}
 
 template <typename UserState>
 inline InCoreBatchingAccelerationStructure<UserState>::InCoreBatchingAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
