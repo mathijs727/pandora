@@ -8,6 +8,7 @@
 #include "pandora/utility/memory_arena_ts.h"
 #include <array>
 #include <atomic>
+#include <bitset>
 #include <gsl/gsl>
 #include <memory>
 #include <tbb/enumerable_thread_specific.h>
@@ -64,6 +65,7 @@ private:
     public:
         bool tryPush(const Ray& ray, const UserState& state, SurfaceInteraction& si);
 
+        // https://www.fluentcpp.com/2018/05/08/std-iterator-deprecated/
         struct iterator {
         public:
             using iterator_category = std::random_access_iterator_tag;
@@ -72,7 +74,7 @@ private:
             using pointer = value_type*;
             using reference = value_type&;
 
-            explicit iterator(Ray* ray, UserState* userState, SurfaceInteraction* si);
+            explicit iterator(const RayBatch* batch);
             iterator& operator++(); // pre-increment
             iterator operator++(int); // post-increment
             bool operator==(iterator other) const;
@@ -80,19 +82,18 @@ private:
             value_type operator*() const;
 
         private:
-            Ray* m_ray;
-            UserState* m_userState;
-            SurfaceInteraction* m_si;
+            const RayBatch* m_rayBatch;
+            size_t m_index;
         };
 
-        iterator begin();
-        iterator end();
+        const iterator begin() const;
+        const iterator end() const;
 
     private:
         std::array<Ray, Size> m_rays;
         std::array<UserState, Size> m_userStates;
         std::array<SurfaceInteraction, Size> m_surfaceInteractions; // TODO: only keep track of this for rays that have already hit something
-        tbb::enumerable_thread_specific<size_t> m_threadLocalIndex;
+        std::bitset<Size> m_isValid; // Mask indicating whether the an item is filled with valid data
     };
 
     PauseableBVH4<TopLevelLeafNode> m_bvh;
@@ -103,10 +104,23 @@ private:
 
 template <typename UserState>
 template <size_t Size>
-inline InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::iterator(Ray* ray, UserState* userState, SurfaceInteraction* si)
-    : m_ray(ray)
-    , m_userState(userState)
-    , m_si(si)
+inline const typename InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::begin() const
+{
+    return iterator(this);
+}
+
+template <typename UserState>
+template <size_t Size>
+inline const typename InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::end() const
+{
+    return iterator(this);
+}
+
+template <typename UserState>
+template <size_t Size>
+inline InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::iterator(const InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>* batch)
+    : m_rayBatch(batch)
+    , m_index(0)
 {
 }
 
@@ -114,39 +128,44 @@ template <typename UserState>
 template <size_t Size>
 inline typename InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator& InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator++()
 {
-    ++m_ray;
-    ++m_userState;
-    ++m_si;
+    m_index++;
+    while (!m_rayBatch->m_isValid[m_index] && m_index < Size)
+        m_index++;
+    return *this;
 }
 
 template <typename UserState>
 template <size_t Size>
 inline typename InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator++(int)
 {
-    m_ray++;
-    m_userState++;
-    m_si++;
+    auto r = *this;
+    m_index++;
+    while (!m_rayBatch->m_isValid[m_index] && m_index < Size)
+        m_index++;
+    return r;
 }
 
 template <typename UserState>
 template <size_t Size>
 inline bool InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator==(InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator other) const
 {
-    return (m_ray == other.m_ray && m_userState == other.m_userState && m_si == other.m_si);
+    assert(m_rayBatch == other.m_rayBatch);
+    return m_index == other.m_index;
 }
 
 template <typename UserState>
 template <size_t Size>
 inline bool InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator!=(InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator other) const
 {
-    return (m_ray != other.m_ray || m_userState != other.m_userState || m_si != other.m_si);
+    assert(m_rayBatch == other.m_rayBatch);
+    return m_index != other.m_index;
 }
 
 template <typename UserState>
 template <size_t Size>
 inline std::tuple<Ray&, UserState&, SurfaceInteraction&> InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator*() const
 {
-    return { *m_ray, *m_userState, *m_si };
+    return { m_rayBatch->m_rays[m_index], m_rayBatch->m_userStates[m_index], m_rayBatch->m_surfaceInteractions[m_index] };
 }
 
 template <typename UserState>
