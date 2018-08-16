@@ -6,7 +6,7 @@ This project aims at improving the rendering performance of existing worked base
 A lot of parts of the code are directly based on, or inspired by [PBRTv3](https://github.com/mmp/pbrt-v3) and the corresponding book ([Physically Based Rendering from Theory to Implementation, Third Edition](http://www.pbrt.org/)). The bottom level BVH traversal code is based on [Accelerated single ray tracing for wide vector units](https://dl.acm.org/citation.cfm?id=3105785) (Embree's traversal kernels cannot be used because they do not support storing the BVH to disk). The top level BVH traversal will be based on the following work: [Fast Divergent Ray Traversal by Batching Rays in a BVH](https://dspace.library.uu.nl/handle/1874/343844). The early-out testing geometry will be represented using a [Sparse Voxel DAG](https://dl.acm.org/citation.cfm?id=2462024).
 
 ## Dependencies
-To build Pandora, CMake and a C++17 compiler are required. The user is responsible for installing all the required libraries except EASTL and mio.
+To build Pandora, CMake and a C++17 compiler are required. The user is responsible for installing all the required libraries except for EASTL, mio, libmorton and tinylpy (which are included as git submodules because they are not commonly found in package managers).
 
 Pandora uses the following third-party libraries:
  - [Guideline Support Library](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md) ([implemented by Microsoft](https://github.com/Microsoft/GSL))
@@ -14,12 +14,14 @@ Pandora uses the following third-party libraries:
  - [Embree 3](https://embree.github.io)
  - [GLM](https://github.com/g-truc/glm)
  - [Assimp](https://github.com/assimp/assimp)
+ - [tinyply](https://github.com/ddiakopoulos/tinyply)
  - [OpenImageIO](https://github.com/OpenImageIO/oiio)
  - [EASTL](https://github.com/electronicarts/EASTL) (bundled)
  - [mio](https://github.com/mandreyel/mio) (bundled)
  - [flatbuffers](https://github.com/google/flatbuffers)
  - [libmorton](https://github.com/Forceflow/libmorton)
  - [Boost Hash](https://www.boost.org/)
+ - [Boost TTI](https://www.boost.org/) (until concepts make it into the language)
  - [Google Test](https://github.com/google/googletest) (only when tests are enabled)
 
 In addition Atlas, the real-time viewer, requires:
