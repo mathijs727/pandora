@@ -104,14 +104,14 @@ private:
 
 template <typename UserState>
 template <size_t Size>
-inline const typename InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::begin() const
+inline const typename InCoreBatchingAccelerationStructure<UserState>::template RayBatch<Size>::iterator InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::begin() const
 {
     return iterator(this);
 }
 
 template <typename UserState>
 template <size_t Size>
-inline const typename InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::end() const
+inline const typename InCoreBatchingAccelerationStructure<UserState>::template RayBatch<Size>::iterator InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::end() const
 {
     return iterator(this);
 }
@@ -126,7 +126,7 @@ inline InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator:
 
 template <typename UserState>
 template <size_t Size>
-inline typename InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator& InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator++()
+inline typename InCoreBatchingAccelerationStructure<UserState>::template RayBatch<Size>::iterator& InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator++()
 {
     m_index++;
     while (!m_rayBatch->m_isValid[m_index] && m_index < Size)
@@ -136,7 +136,7 @@ inline typename InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::
 
 template <typename UserState>
 template <size_t Size>
-inline typename InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator++(int)
+inline typename InCoreBatchingAccelerationStructure<UserState>::template RayBatch<Size>::iterator InCoreBatchingAccelerationStructure<UserState>::RayBatch<Size>::iterator::operator++(int)
 {
     auto r = *this;
     m_index++;

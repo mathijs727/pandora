@@ -16,7 +16,7 @@ template <typename T, typename Enable = void>
 struct _FreeListNode;
 
 template <typename T>
-struct _FreeListNode<T, typename std::enable_if<(sizeof(T) > sizeof(void*))>::type>
+struct alignas(std::alignment_of_v<T>) _FreeListNode<T, typename std::enable_if<(sizeof(T) > sizeof(void*))>::type>
 {
     _FreeListNode<T>* next;
 private:
@@ -25,7 +25,7 @@ private:
 };
 
 template <typename T>
-struct _FreeListNode<T, typename std::enable_if<(sizeof(T) == sizeof(void*))>::type>
+struct alignas(std::alignment_of_v<T>) _FreeListNode<T, typename std::enable_if<(sizeof(T) == sizeof(void*))>::type>
 {
     _FreeListNode<T>* next;
 };
