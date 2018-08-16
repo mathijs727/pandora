@@ -19,6 +19,7 @@
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
 
+#include <algorithm>
 #include <iostream>
 #include <pmmintrin.h>
 #include <string>
@@ -66,8 +67,8 @@ int main()
 	addStanfordDragon(scene, false);
     
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
-    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    PathIntegrator integrator(20, scene, camera.getSensor(), 1);
+    NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
+    //PathIntegrator integrator(20, scene, camera.getSensor(), 1);
 	//SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
 	//SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
 
@@ -115,7 +116,22 @@ void addStanfordBunny(Scene& scene)
 	auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
 	//auto material = std::make_shared<MatteMaterial>(kd, roughness);
 	auto material = MetalMaterial::createCopper(roughness, true);
-	for (const auto& mesh : meshes)
+
+    assert(meshes.size() == 1);
+    std::shared_ptr<TriangleMesh> bunnyMesh = meshes[0];
+    unsigned numPrimitives = bunnyMesh->numTriangles();
+
+    unsigned primsPart1 = 25000;
+    std::vector<unsigned> primitives1(primsPart1);
+    std::vector<unsigned> primitives2(numPrimitives - primsPart1);
+    std::iota(std::begin(primitives1), std::end(primitives1), 0);
+    std::iota(std::begin(primitives2), std::end(primitives2), primsPart1);
+    
+    std::vector<std::shared_ptr<TriangleMesh>> splitMeshes;
+    splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh->subMesh(primitives1))));
+    splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh->subMesh(primitives2))));
+
+	for (const auto& mesh : splitMeshes)
 		scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
 }
 
@@ -134,7 +150,7 @@ void addStanfordDragon(Scene& scene, bool loadFromCache)
 		scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
 	} else {
 		auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply", transform, false);
-		meshes[0]->saveToFile("dragon.geom");// Only a single mesh
+		meshes[0]->saveToCacheFile("dragon.geom");// Only a single mesh
 		for (const auto& mesh : meshes) {
 			scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
 		}
