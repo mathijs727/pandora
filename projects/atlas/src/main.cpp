@@ -62,9 +62,9 @@ int main()
 	auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
-	//addCornellBox(scene);
-	addStanfordBunny(scene);
-	addStanfordDragon(scene, false);
+	addCornellBox(scene);
+	//addStanfordBunny(scene);
+	//addStanfordDragon(scene, false);
     
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);

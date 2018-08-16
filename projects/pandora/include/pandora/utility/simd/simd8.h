@@ -7,7 +7,11 @@
 #include <immintrin.h> // AVX / AVX2
 #include <iostream>
 
+#ifdef NDEBUG
+constexpr static int SIMD8_WIDTH = 8;
+#else
 constexpr static int SIMD8_WIDTH = 1;
+#endif
 
 namespace pandora::simd {
 template <int S>

@@ -11,7 +11,11 @@
 #include <xmmintrin.h> // SSE
 #include <smmintrin.h> // SSE4.1
 
+#ifdef NDEBUG
 constexpr static int SIMD4_WIDTH = 4;
+#else
+constexpr static int SIMD4_WIDTH = 1;
+#endif
 
 namespace pandora::simd {
 template <int S>

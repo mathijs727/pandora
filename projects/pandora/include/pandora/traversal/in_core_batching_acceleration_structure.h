@@ -36,14 +36,14 @@ private:
     class TopLevelLeafNode {
     public:
         TopLevelLeafNode() = default;
-        TopLevelLeafNode(const SceneObject* sceneObject);
+        TopLevelLeafNode(gsl::span<const SceneObject*> sceneObjects);
         TopLevelLeafNode(TopLevelLeafNode&& other) = default;
         TopLevelLeafNode& operator=(TopLevelLeafNode&& other) = default;
 
         bool intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle insertHandle) const;
 
     private:
-        static WiVeBVH8Build8<BotLevelLeafNode> buildBVH(const SceneObject* sceneObject);
+        static WiVeBVH8Build8<BotLevelLeafNode> buildBVH(gsl::span<const SceneObject*> sceneObject);
 
     private:
         WiVeBVH8Build8<BotLevelLeafNode> m_leafBVH;
@@ -110,10 +110,31 @@ inline PauseableBVH4<typename InCoreBatchingAccelerationStructure<UserState>::To
 {
     std::vector<TopLevelLeafNode> leafs;
     std::vector<Bounds> bounds;
+
+    const unsigned minPrimitivesPerLeaf = 8;
+
+    // Group small SceneObjects together into a single leaf node to create a better balance in the bottom level trees
+    unsigned numPrimitivesInCurrentLeaf = 0;
+    std::vector<const SceneObject*> sceneObjectsCurrentLeaf;
+    Bounds currentLeafBounds;
     for (const auto& sceneObject : sceneObjects) {
-        leafs.emplace_back(sceneObject.get());
-        bounds.emplace_back(sceneObject->getMesh().getBounds());
+        sceneObjectsCurrentLeaf.push_back(sceneObject.get());
+        currentLeafBounds.extend(sceneObject->getMesh().getBounds());
+
+        numPrimitivesInCurrentLeaf += sceneObject->getMesh().numTriangles();
+        if (numPrimitivesInCurrentLeaf >= minPrimitivesPerLeaf) {
+            leafs.emplace_back(sceneObjectsCurrentLeaf);
+            bounds.emplace_back(currentLeafBounds);
+
+            numPrimitivesInCurrentLeaf = 0;
+            currentLeafBounds = Bounds();
+        }
     }
+    if (numPrimitivesInCurrentLeaf > 0) {
+        leafs.emplace_back(sceneObjectsCurrentLeaf);
+        bounds.emplace_back(currentLeafBounds);
+    }
+
     auto result = PauseableBVH4<TopLevelLeafNode>(leafs, bounds);
     return std::move(result);
 }
@@ -152,8 +173,8 @@ inline bool InCoreBatchingAccelerationStructure<UserState>::BotLevelLeafNode::in
 }
 
 template <typename UserState>
-inline InCoreBatchingAccelerationStructure<UserState>::TopLevelLeafNode::TopLevelLeafNode(const SceneObject* sceneObject)
-    : m_leafBVH(std::move(buildBVH(sceneObject)))
+inline InCoreBatchingAccelerationStructure<UserState>::TopLevelLeafNode::TopLevelLeafNode(gsl::span<const SceneObject*> sceneObjects)
+    : m_leafBVH(std::move(buildBVH(sceneObjects)))
 {
 }
 
@@ -165,11 +186,12 @@ inline bool InCoreBatchingAccelerationStructure<UserState>::TopLevelLeafNode::in
 }
 
 template <typename UserState>
-inline WiVeBVH8Build8<typename InCoreBatchingAccelerationStructure<UserState>::BotLevelLeafNode> InCoreBatchingAccelerationStructure<UserState>::TopLevelLeafNode::buildBVH(const SceneObject* sceneObject)
+inline WiVeBVH8Build8<typename InCoreBatchingAccelerationStructure<UserState>::BotLevelLeafNode> InCoreBatchingAccelerationStructure<UserState>::TopLevelLeafNode::buildBVH(gsl::span<const SceneObject*> sceneObjects)
 {
-    std::vector<const BotLevelLeafNode*> leafs = {
-        reinterpret_cast<const BotLevelLeafNode*>(sceneObject)
-    };
+    std::vector<const BotLevelLeafNode*> leafs(sceneObjects.size());
+    std::transform(std::begin(sceneObjects), std::end(sceneObjects), std::begin(leafs), [](const SceneObject* sceneObject) {
+        return reinterpret_cast<const BotLevelLeafNode*>(sceneObject);
+    });
 
     WiVeBVH8Build8<BotLevelLeafNode> bvh;
     bvh.build(leafs);
