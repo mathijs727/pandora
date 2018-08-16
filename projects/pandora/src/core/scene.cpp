@@ -4,7 +4,7 @@
 #include <iostream>
 #include <tbb/concurrent_vector.h>
 
-void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
+static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
 
 namespace pandora {
 

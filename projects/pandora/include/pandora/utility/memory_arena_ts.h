@@ -53,6 +53,7 @@ public:
     static const size_t maxAlignment = 64;
 
     MemoryArenaTS(uint32_t blockSizeBytes = 4096);
+    ~MemoryArenaTS() = default;
 
     template <class T, class... Args>
     std::pair<Handle<T>, T*> allocate(Args... args);
