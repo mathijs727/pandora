@@ -94,7 +94,7 @@ inline unsigned InCoreAccelerationStructure<UserState>::LeafNode::numPrimitives(
 {
     // this pointer is actually a pointer to the sceneObject (see constructor)
     auto sceneObject = reinterpret_cast<const SceneObject*>(this);
-    return sceneObject->getMesh().numTriangles();
+    return sceneObject->getMeshRef().numTriangles();
 }
 
 template <typename UserState>
@@ -102,7 +102,7 @@ inline Bounds InCoreAccelerationStructure<UserState>::LeafNode::getPrimitiveBoun
 {
     // this pointer is actually a pointer to the sceneObject (see constructor)
     auto sceneObject = reinterpret_cast<const SceneObject*>(this);
-    return sceneObject->getMesh().getPrimitiveBounds(primitiveID);
+    return sceneObject->getMeshRef().getPrimitiveBounds(primitiveID);
 }
 
 template <typename UserState>
@@ -112,7 +112,7 @@ inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersectPrimitive
     auto sceneObject = reinterpret_cast<const SceneObject*>(this);
 
     float tHit;
-    bool hit = sceneObject->getMesh().intersectPrimitive(primitiveID, ray, tHit, si);
+    bool hit = sceneObject->getMeshRef().intersectPrimitive(primitiveID, ray, tHit, si);
     if (hit) {
         si.sceneObject = sceneObject;
         si.primitiveID = primitiveID;

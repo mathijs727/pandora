@@ -61,7 +61,7 @@ void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, MemoryArena&
 {
     // TODO: compute ray differentials
 
-    sceneObject->getMaterial().computeScatteringFunctions(*this, arena, mode, allowMultipleLobes);
+    sceneObject->getMaterialRef().computeScatteringFunctions(*this, arena, mode, allowMultipleLobes);
     assert(this->bsdf != nullptr);
 }
 

@@ -12,6 +12,8 @@
 
 namespace pandora {
 
+static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 4096;
+
 template <typename UserState>
 class InCoreBatchingAccelerationStructure {
 public:
@@ -26,6 +28,8 @@ public:
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
 
 private:
+    static constexpr unsigned PRIMITIVES_PER_LEAF = IN_CORE_BATCHING_PRIMS_PER_LEAF;
+
     class BotLevelLeafNode {
     public:
         unsigned numPrimitives() const;
@@ -111,24 +115,25 @@ inline PauseableBVH4<typename InCoreBatchingAccelerationStructure<UserState>::To
     std::vector<TopLevelLeafNode> leafs;
     std::vector<Bounds> bounds;
 
-    const unsigned minPrimitivesPerLeaf = 8;
-
     // Group small SceneObjects together into a single leaf node to create a better balance in the bottom level trees
     unsigned numPrimitivesInCurrentLeaf = 0;
     std::vector<const SceneObject*> sceneObjectsCurrentLeaf;
     Bounds currentLeafBounds;
     for (const auto& sceneObject : sceneObjects) {
-        sceneObjectsCurrentLeaf.push_back(sceneObject.get());
-        currentLeafBounds.extend(sceneObject->getMesh().getBounds());
-
-        numPrimitivesInCurrentLeaf += sceneObject->getMesh().numTriangles();
-        if (numPrimitivesInCurrentLeaf >= minPrimitivesPerLeaf) {
+        const unsigned numPrimitives = sceneObject->getMeshRef().numTriangles();
+        ALWAYS_ASSERT(numPrimitives < PRIMITIVES_PER_LEAF);
+        if (numPrimitivesInCurrentLeaf + numPrimitives >= PRIMITIVES_PER_LEAF) {
             leafs.emplace_back(sceneObjectsCurrentLeaf);
             bounds.emplace_back(currentLeafBounds);
 
             numPrimitivesInCurrentLeaf = 0;
+            sceneObjectsCurrentLeaf.clear();
             currentLeafBounds = Bounds();
         }
+
+        numPrimitivesInCurrentLeaf += numPrimitives;
+        sceneObjectsCurrentLeaf.push_back(sceneObject.get());
+        currentLeafBounds.extend(sceneObject->getMeshRef().getBounds());
     }
     if (numPrimitivesInCurrentLeaf > 0) {
         leafs.emplace_back(sceneObjectsCurrentLeaf);
@@ -144,7 +149,7 @@ inline unsigned InCoreBatchingAccelerationStructure<UserState>::BotLevelLeafNode
 {
     // this pointer is actually a pointer to the sceneObject (see constructor)
     auto sceneObject = reinterpret_cast<const SceneObject*>(this);
-    return sceneObject->getMesh().numTriangles();
+    return sceneObject->getMeshRef().numTriangles();
 }
 
 template <typename UserState>
@@ -152,7 +157,7 @@ inline Bounds InCoreBatchingAccelerationStructure<UserState>::BotLevelLeafNode::
 {
     // this pointer is actually a pointer to the sceneObject (see constructor)
     auto sceneObject = reinterpret_cast<const SceneObject*>(this);
-    return sceneObject->getMesh().getPrimitiveBounds(primitiveID);
+    return sceneObject->getMeshRef().getPrimitiveBounds(primitiveID);
 }
 
 template <typename UserState>
@@ -162,7 +167,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState>::BotLevelLeafNode::in
     auto sceneObject = reinterpret_cast<const SceneObject*>(this);
 
     float tHit;
-    bool hit = sceneObject->getMesh().intersectPrimitive(primitiveID, ray, tHit, si);
+    bool hit = sceneObject->getMeshRef().intersectPrimitive(primitiveID, ray, tHit, si);
     if (hit) {
         si.sceneObject = sceneObject;
         si.primitiveID = primitiveID;

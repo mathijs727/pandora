@@ -62,10 +62,12 @@ int main()
 	auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
-	addCornellBox(scene);
-	//addStanfordBunny(scene);
+	//addCornellBox(scene);
+	addStanfordBunny(scene);
 	//addStanfordDragon(scene, false);
     
+    scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
+
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
     //PathIntegrator integrator(20, scene, camera.getSensor(), 1);
@@ -117,22 +119,27 @@ void addStanfordBunny(Scene& scene)
 	//auto material = std::make_shared<MatteMaterial>(kd, roughness);
 	auto material = MetalMaterial::createCopper(roughness, true);
 
-    assert(meshes.size() == 1);
-    const TriangleMesh& bunnyMesh = meshes[0];
-    unsigned numPrimitives = bunnyMesh.numTriangles();
+    if constexpr (true) {
+        for (auto& mesh : meshes)
+            scene.addSceneObject(std::make_unique<SceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
+    } else {
+        assert(meshes.size() == 1);
+        const TriangleMesh& bunnyMesh = meshes[0];
+        unsigned numPrimitives = bunnyMesh.numTriangles();
 
-    unsigned primsPart1 = 25000;
-    std::vector<unsigned> primitives1(primsPart1);
-    std::vector<unsigned> primitives2(numPrimitives - primsPart1);
-    std::iota(std::begin(primitives1), std::end(primitives1), 0);
-    std::iota(std::begin(primitives2), std::end(primitives2), primsPart1);
+        unsigned primsPart1 = 25000;
+        std::vector<unsigned> primitives1(primsPart1);
+        std::vector<unsigned> primitives2(numPrimitives - primsPart1);
+        std::iota(std::begin(primitives1), std::end(primitives1), 0);
+        std::iota(std::begin(primitives2), std::end(primitives2), primsPart1);
     
-    std::vector<std::shared_ptr<TriangleMesh>> splitMeshes;
-    splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh.subMesh(primitives1))));
-    splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh.subMesh(primitives2))));
+        std::vector<std::shared_ptr<TriangleMesh>> splitMeshes;
+        splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh.subMesh(primitives1))));
+        splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh.subMesh(primitives2))));
 
-	for (const auto& mesh : splitMeshes)
-		scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+	    for (const auto& mesh : splitMeshes)
+		    scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+    }
 }
 
 void addStanfordDragon(Scene& scene, bool loadFromCache)

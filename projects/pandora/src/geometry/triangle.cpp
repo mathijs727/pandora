@@ -73,10 +73,12 @@ TriangleMesh::TriangleMesh(
         m_bounds.grow(m_positions[v]);
 }
 
-TriangleMesh TriangleMesh::subMesh(gsl::span<unsigned> primitives) const
+TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
 {
     std::vector<bool> usedVertices(numVertices());
-    for (const auto& triangle : getTriangles()) {
+    std::fill(std::begin(usedVertices), std::end(usedVertices), false);
+    for (const unsigned primitiveID : primitives) {
+        const auto& triangle = m_triangles[primitiveID];
         usedVertices[triangle[0]] = true;
         usedVertices[triangle[1]] = true;
         usedVertices[triangle[2]] = true;
@@ -119,6 +121,7 @@ TriangleMesh TriangleMesh::subMesh(gsl::span<unsigned> primitives) const
             currentVertex++;
         }
     }
+    assert(currentVertex <= currentTriangle * 3);
 
     return TriangleMesh(currentTriangle, currentVertex, std::move(triangles), std::move(positions), std::move(normals), std::move(tangents), std::move(uvCoords));
 }
