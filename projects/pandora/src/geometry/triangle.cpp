@@ -10,10 +10,10 @@
 #include <fstream>
 #include <iostream>
 #include <mio/mmap.hpp>
-#include <unordered_map>
 #include <stack>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 
 using namespace std::string_literals;
 
@@ -73,7 +73,7 @@ TriangleMesh::TriangleMesh(
         m_bounds.grow(m_positions[v]);
 }
 
-TriangleMesh TriangleMesh::subMesh(gsl::span<unsigned> primitives)
+TriangleMesh TriangleMesh::subMesh(gsl::span<unsigned> primitives) const
 {
     std::vector<bool> usedVertices(numVertices());
     for (const auto& triangle : getTriangles()) {
@@ -92,7 +92,7 @@ TriangleMesh TriangleMesh::subMesh(gsl::span<unsigned> primitives)
 
     std::unique_ptr<glm::ivec3[]> triangles = std::make_unique<glm::ivec3[]>(primitives.size());
     unsigned currentTriangle = 0;
-    for (unsigned triangleIndex : primitives){
+    for (unsigned triangleIndex : primitives) {
         glm::ivec3 originalTriangle = m_triangles[triangleIndex];
         glm::ivec3 triangle = {
             vertexIndexMapping[originalTriangle[0]],
@@ -120,10 +120,10 @@ TriangleMesh TriangleMesh::subMesh(gsl::span<unsigned> primitives)
         }
     }
 
-    return std::move(TriangleMesh(currentTriangle, currentVertex, std::move(triangles), std::move(positions), std::move(normals), std::move(tangents), std::move(uvCoords)));
+    return TriangleMesh(currentTriangle, currentVertex, std::move(triangles), std::move(positions), std::move(normals), std::move(tangents), std::move(uvCoords));
 }
 
-std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals)
+TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals)
 {
     const aiMesh* mesh = scene->mMeshes[meshIndex];
 
@@ -169,18 +169,17 @@ std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scen
         }
     }*/
 
-    return std::shared_ptr<TriangleMesh>(
-        new TriangleMesh(
-            mesh->mNumFaces,
-            mesh->mNumVertices,
-            std::move(indices),
-            std::move(positions),
-            std::move(normals),
-            std::move(tangents),
-            std::move(uvCoords)));
+    return TriangleMesh(
+        mesh->mNumFaces,
+        mesh->mNumVertices,
+        std::move(indices),
+        std::move(positions),
+        std::move(normals),
+        std::move(tangents),
+        std::move(uvCoords));
 }
 
-std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform, bool ignoreVertexNormals)
+std::vector<TriangleMesh> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform, bool ignoreVertexNormals)
 {
     if (!fileExists(filename)) {
         LOG_WARNING("Could not find mesh file: "s + std::string(filename));
@@ -196,7 +195,7 @@ std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std:
         return {};
     }
 
-    std::vector<std::shared_ptr<TriangleMesh>> result;
+    std::vector<TriangleMesh> result;
 
     std::stack<std::tuple<aiNode*, glm::mat4>> stack;
     stack.push({ scene->mRootNode, modelTransform * assimpMatrix(scene->mRootNode->mTransformation) });
@@ -219,7 +218,7 @@ std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std:
     return result;
 }
 
-std::shared_ptr<TriangleMesh> TriangleMesh::loadFromCacheFile(const std::string_view filename)
+TriangleMesh TriangleMesh::loadFromCacheFile(const std::string_view filename)
 {
     auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
     auto triangleMesh = serialization::GetTriangleMesh(mmapFile.data());
@@ -252,15 +251,14 @@ std::shared_ptr<TriangleMesh> TriangleMesh::loadFromCacheFile(const std::string_
 
     mmapFile.unmap();
 
-    return std::shared_ptr<TriangleMesh>(
-        new TriangleMesh(
-            numTriangles,
-            numVertices,
-            std::move(triangles),
-            std::move(positions),
-            std::move(normals),
-            std::move(tangents),
-            std::move(uvCoords)));
+    return TriangleMesh(
+        numTriangles,
+        numVertices,
+        std::move(triangles),
+        std::move(positions),
+        std::move(normals),
+        std::move(tangents),
+        std::move(uvCoords));
 }
 
 void TriangleMesh::saveToCacheFile(const std::string_view filename)

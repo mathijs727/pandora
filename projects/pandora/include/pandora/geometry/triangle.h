@@ -31,11 +31,11 @@ public:
     TriangleMesh(TriangleMesh&&) = default;
 	~TriangleMesh() = default;
 
-    TriangleMesh subMesh(gsl::span<unsigned> primitives);
+    TriangleMesh subMesh(gsl::span<unsigned> primitives) const;
 
-    static std::vector<std::shared_ptr<TriangleMesh>> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1), bool ignoreVertexNormals = false);
+    static std::vector<TriangleMesh> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1), bool ignoreVertexNormals = false);
 	
-	static std::shared_ptr<TriangleMesh> loadFromCacheFile(const std::string_view filename);
+	static TriangleMesh loadFromCacheFile(const std::string_view filename);
 	void saveToCacheFile(const std::string_view filename);
 
     unsigned numTriangles() const;
@@ -57,7 +57,7 @@ public:
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const;
 
 private:
-    static std::shared_ptr<TriangleMesh> createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
+    static TriangleMesh createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
 
     gsl::span<const glm::vec3> getNormals() const;
     gsl::span<const glm::vec3> getTangents() const;
@@ -67,7 +67,7 @@ private:
     void getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
 
 private:
-    const unsigned m_numTriangles, m_numVertices;
+    unsigned m_numTriangles, m_numVertices;
 
     std::unique_ptr<glm::ivec3[]> m_triangles;
     std::unique_ptr<glm::vec3[]> m_positions;

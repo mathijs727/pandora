@@ -118,8 +118,8 @@ void addStanfordBunny(Scene& scene)
 	auto material = MetalMaterial::createCopper(roughness, true);
 
     assert(meshes.size() == 1);
-    std::shared_ptr<TriangleMesh> bunnyMesh = meshes[0];
-    unsigned numPrimitives = bunnyMesh->numTriangles();
+    const TriangleMesh& bunnyMesh = meshes[0];
+    unsigned numPrimitives = bunnyMesh.numTriangles();
 
     unsigned primsPart1 = 25000;
     std::vector<unsigned> primitives1(primsPart1);
@@ -128,8 +128,8 @@ void addStanfordBunny(Scene& scene)
     std::iota(std::begin(primitives2), std::end(primitives2), primsPart1);
     
     std::vector<std::shared_ptr<TriangleMesh>> splitMeshes;
-    splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh->subMesh(primitives1))));
-    splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh->subMesh(primitives2))));
+    splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh.subMesh(primitives1))));
+    splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh.subMesh(primitives2))));
 
 	for (const auto& mesh : splitMeshes)
 		scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
@@ -146,13 +146,13 @@ void addStanfordDragon(Scene& scene, bool loadFromCache)
 	//auto material = std::make_shared<MatteMaterial>(kd, roughness);
 	auto material = MetalMaterial::createCopper(roughness, true);
 	if (loadFromCache) {
-		auto mesh = TriangleMesh::loadFromCacheFile("dragon.geom");
+		auto mesh = std::make_shared<TriangleMesh>(std::move(TriangleMesh::loadFromCacheFile("dragon.geom")));
 		scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
 	} else {
 		auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply", transform, false);
-		meshes[0]->saveToCacheFile("dragon.geom");// Only a single mesh
-		for (const auto& mesh : meshes) {
-			scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+		meshes[0].saveToCacheFile("dragon.geom");// Only a single mesh
+		for (auto& mesh : meshes) {
+			scene.addSceneObject(std::make_unique<SceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
 		}
 	}
 }
@@ -165,13 +165,14 @@ void addCornellBox(Scene& scene)
     auto roughness = std::make_shared<ConstantTexture<float>>(0.0f);
 
     for (size_t i = 0; i < meshes.size(); i++) {
-        const auto& mesh = meshes[i];
+        auto& mesh = meshes[i];
+        auto meshPtr = std::make_shared<TriangleMesh>(std::move(mesh));
 
         if (i == 0) {
             // Back box
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
             auto material = std::make_shared<MatteMaterial>(kd, roughness);
-            scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+            scene.addSceneObject(std::make_unique<SceneObject>(meshPtr, material));
         } else if (i == 1) {
             continue;
 
@@ -179,17 +180,17 @@ void addCornellBox(Scene& scene)
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
             auto ks = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.2f, 0.9f));
             auto material = std::make_shared<PlasticMaterial>(kd, ks, roughness);
-            scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+            scene.addSceneObject(std::make_unique<SceneObject>(meshPtr, material));
         } else if (i == 5) {
             // Ceiling
             Spectrum light(1.0f);
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
             auto material = std::make_shared<MatteMaterial>(kd, roughness);
-            scene.addSceneObject(std::make_unique<SceneObject>(mesh, material, light));
+            scene.addSceneObject(std::make_unique<SceneObject>(meshPtr, material, light));
         } else {
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.8f, 0.8f, 0.8f));
             auto material = std::make_shared<MatteMaterial>(kd, roughness);
-            scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+            scene.addSceneObject(std::make_unique<SceneObject>(meshPtr, material));
         }
     }
 }
