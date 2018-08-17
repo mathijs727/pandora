@@ -28,8 +28,8 @@ protected:
 
 protected:
     const Scene& m_scene;
-	//InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
-	InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
+	InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
+	//InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
 
     Sensor& m_sensor;
     const int m_sppPerCall;

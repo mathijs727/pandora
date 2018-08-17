@@ -25,6 +25,7 @@ public:
 
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
 
+    void flush() {}; // Dummy
 private:
     class LeafNode {
     public:
@@ -76,7 +77,7 @@ inline PauseableBVH4<typename InCoreAccelerationStructure<UserState>::PauseableL
         }
     }
 
-    return PauseableBVH4<PauseableLeafNode>(leafs, bounds);
+    return PauseableBVH4<PauseableLeafNode, UserState>(leafs, bounds);
 }
 
 template <typename UserState>
