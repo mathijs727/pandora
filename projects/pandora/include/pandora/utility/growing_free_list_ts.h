@@ -45,9 +45,6 @@ public:
     T* allocate(Args... args);
 
     void deallocate(T* p);
-
-    std::atomic_size_t m_currentSize;
-    std::atomic_size_t m_maxSize;
 private:
     using FreeListNode = growing_free_list_ts_impl::_FreeListNode<T>;
     static_assert(sizeof(FreeListNode) == sizeof(T));
@@ -60,8 +57,6 @@ private:
 template <typename T>
 inline GrowingFreeListTS<T>::GrowingFreeListTS()
     : m_freeListHead(nullptr)
-    , m_currentSize(0)
-    , m_maxSize(0)
 {
 }
 
@@ -87,8 +82,6 @@ inline void GrowingFreeListTS<T>::deallocate(T* p)
         std::memory_order_relaxed)) {
         // Empty loop body
     }
-
-    m_currentSize.fetch_sub(1);
 }
 
 template <typename T>
@@ -107,12 +100,8 @@ inline T* GrowingFreeListTS<T>::allocate(Args... args)
         auto newNode = std::make_unique<FreeListNode>();
         node = newNode.get();
         m_allocatedNodes.local().push_back(std::move(newNode));
-
-        assert(m_maxSize.load() - m_currentSize.load() < 20);
-        m_maxSize.fetch_add(1);
     }
 
-    m_currentSize.fetch_add(1);
     return new (reinterpret_cast<void*>(node)) T(args...);
 }
 

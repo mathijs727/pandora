@@ -16,10 +16,11 @@
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_for_each.h>
 #include <tbb/reader_writer_lock.h>
+#include <tbb/parallel_sort.h>
 
 namespace pandora {
 
-static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 1024;
+static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 8096;
 
 template <typename UserState, size_t BatchSize = 1024>
 class InCoreBatchingAccelerationStructure {
@@ -108,6 +109,7 @@ private:
 
         bool intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
 
+        uint32_t numFullBatches();
         void flush(); // Traverses all rays through the lower-level BVH. This function is thread-safe.
 
     private:
@@ -117,6 +119,7 @@ private:
         WiVeBVH8Build8<BotLevelLeafNode> m_leafBVH;
         tbb::reader_writer_lock m_changeBatchLock;
         RayBatch* m_currentBatch;
+        uint32_t m_numFullBatches;
         InCoreBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
     };
 
@@ -128,8 +131,6 @@ private:
     GrowingFreeListTS<RayBatch> m_batchAllocator;
     PauseableBVH4<TopLevelLeafNode, UserState> m_bvh;
 
-    tbb::enumerable_thread_specific<size_t> m_numRaysInSystem;
-
     HitCallback m_hitCallback;
     MissCallback m_missCallback;
 };
@@ -138,7 +139,6 @@ template <typename UserState, size_t BatchSize>
 inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::InCoreBatchingAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
     : m_batchAllocator()
     , m_bvh(std::move(buildBVH(sceneObjects, *this)))
-    , m_numRaysInSystem()
     , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
 {
@@ -165,8 +165,6 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
             } else {
                 m_missCallback(ray, userState);
             }
-        } else {
-            m_numRaysInSystem.local()++;
         }
     }
 }
@@ -177,27 +175,22 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
     tbb::concurrent_vector<TopLevelLeafNode*> leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
 
     while (!leafsWithBatchedRays.empty()) {
-        // TODO: multithreading & processing full batches first
 #ifndef NDEBUG
         for (auto* topLevelLeafNode : leafsWithBatchedRays) {
             topLevelLeafNode->flush();
         }
 #else
-        for (auto* topLevelLeafNode : leafsWithBatchedRays) {
+        // Sort full batches first
+        tbb::parallel_sort(leafsWithBatchedRays, [](auto* node1, auto* node2) -> bool {
+            return node1->numFullBatches() > node2->numFullBatches();
+        });
+        tbb::parallel_for_each(leafsWithBatchedRays, [](auto* topLevelLeafNode) {
             topLevelLeafNode->flush();
-        }
-        /*tbb::parallel_for_each(leafsWithBatchedRays, [](auto* topLevelLeafNode) {
-            topLevelLeafNode->flush();
-        });*/
+        });
 #endif
 
         leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
     }
-
-    size_t raysInSystem = std::accumulate(std::begin(m_numRaysInSystem), std::end(m_numRaysInSystem), static_cast<size_t>(0));
-    assert(raysInSystem == 0);
-
-    ALWAYS_ASSERT(m_batchAllocator.m_currentSize == 0);
 }
 
 template <typename UserState, size_t BatchSize>
@@ -257,16 +250,27 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
         }
 
         // The current batch is full, try to replace it by a new one
-        tbb::reader_writer_lock::scoped_lock writeLock(mutThisPtr->m_changeBatchLock);
-        if (mutThisPtr->m_currentBatch == oldBatch) // Another thread might have beat us to the race and allocated a new block first
-        {
-            mutThisPtr->m_currentBatch = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate(oldBatch);
-            if (oldBatch == nullptr)
-                mutThisPtr->m_accelerationStructurePtr->m_leafsWithBatchedRays.push_back(mutThisPtr);
+        { // Write lock scope
+            tbb::reader_writer_lock::scoped_lock writeLock(mutThisPtr->m_changeBatchLock);
+            if (mutThisPtr->m_currentBatch == oldBatch) // Another thread might have beat us to the race and allocated a new block first
+            {
+                mutThisPtr->m_currentBatch = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate(oldBatch);
+                if (oldBatch == nullptr)
+                    mutThisPtr->m_accelerationStructurePtr->m_leafsWithBatchedRays.push_back(mutThisPtr);
+                mutThisPtr->m_numFullBatches++;
+            }
         }
     }
 
     return false;
+}
+
+template <typename UserState, size_t BatchSize>
+inline uint32_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::numFullBatches()
+{
+    // Read lock scope
+    tbb::reader_writer_lock::scoped_lock_read readLock(m_changeBatchLock);
+    return m_numFullBatches;
 }
 
 template <typename UserState, size_t BatchSize>
@@ -277,6 +281,7 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
         tbb::reader_writer_lock::scoped_lock writeLock(m_changeBatchLock);
         batch = m_currentBatch;
         m_currentBatch = nullptr;
+        m_numFullBatches = 0;
     }
 
     while (batch) {
@@ -292,7 +297,6 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
                 } else {
                     m_accelerationStructurePtr->m_missCallback(ray, userState);
                 }
-                m_accelerationStructurePtr->m_numRaysInSystem.local()--;
             }
         }
 

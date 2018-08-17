@@ -1,8 +1,8 @@
 #pragma once
 #include "pandora/core/pandora.h"
 #include "pandora/core/scene.h"
-#include "pandora/samplers/uniform_sampler.h"
 #include "pandora/core/sensor.h"
+#include "pandora/samplers/uniform_sampler.h"
 #include "pandora/traversal/in_core_acceleration_structure.h"
 #include "pandora/traversal/in_core_batching_acceleration_structure.h"
 
@@ -19,7 +19,7 @@ public:
     int getCurrentFrameSpp() const;
 
 protected:
-	using InsertHandle = typename InCoreAccelerationStructure<IntegratorState>::InsertHandle;
+    using InsertHandle = typename InCoreAccelerationStructure<IntegratorState>::InsertHandle;
     virtual void rayHit(const Ray& r, SurfaceInteraction si, const IntegratorState& s, const InsertHandle& h) = 0;
     virtual void rayMiss(const Ray& r, const IntegratorState& s) = 0;
 
@@ -28,12 +28,13 @@ protected:
 
 protected:
     const Scene& m_scene;
-	//InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
-	InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
+    //InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
+    InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
 
     Sensor& m_sensor;
     const int m_sppPerCall;
     int m_sppThisFrame;
+
 private:
     std::vector<UniformSampler> m_samplers;
 };
