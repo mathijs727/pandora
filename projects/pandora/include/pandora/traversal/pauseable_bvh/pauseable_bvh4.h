@@ -55,6 +55,9 @@ private:
     void testBVH() const;
     void testBVHRecurse(const BVHNode* node, int depth, TestBVHData& out) const;
 
+    std::vector<LeafObj*> collectLeafs() const;
+    void collectLeafsRecurse(const BVHNode& node, std::vector<LeafObj*>& outLeafObjects) const;
+
     static void* encodeBVHConstructionLeafHandle(uint32_t handle);
     static void* encodeBVHConstructionInnerNodeHandle(uint32_t handle);
     static std::tuple<bool, uint32_t> decodeBVHConstructionHandle(void* handle);
@@ -90,7 +93,7 @@ private:
     ContiguousAllocatorTS<LeafObj> m_leafAllocator;
     gsl::span<LeafObj> m_tmpConstructionLeafs;
 
-    tbb::concurrent_vector<LeafObj*> m_leafs;
+    std::vector<LeafObj*> m_leafs;
 
     uint32_t m_rootHandle;
 
@@ -207,6 +210,9 @@ inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> objec
 
     m_leafAllocator.compact();
     m_innerNodeAllocator.compact();
+
+    // Do this after we call m_leafAllocator.compact() which will move the leafs to a new block of memory
+    m_leafs = collectLeafs();
 
     testBVH();
 }
@@ -364,6 +370,29 @@ inline void PauseableBVH4<LeafObj, UserState>::testBVHRecurse(const BVHNode* nod
 }
 
 template <typename LeafObj, typename UserState>
+inline std::vector<LeafObj*> PauseableBVH4<LeafObj, UserState>::collectLeafs() const
+{
+    // Leafs get moved from their original location and then once more when the leaf allocator is compacted.
+    // So we can only collect the final leaf objects after the BVH is created.
+    std::vector<LeafObj*> result;
+    collectLeafsRecurse(m_innerNodeAllocator.get(m_rootHandle), result);
+    return result;
+}
+
+template <typename LeafObj, typename UserState>
+inline void PauseableBVH4<LeafObj, UserState>::collectLeafsRecurse(const BVHNode& node, std::vector<LeafObj*>& outLeafObjects) const
+{
+    unsigned numChildrenReference = 0;
+    for (unsigned childIdx = 0; childIdx < 4; childIdx++) {
+        if (node.isLeaf(childIdx)) {
+            outLeafObjects.push_back(&m_leafAllocator.get(node.childrenHandles[childIdx]));
+        } else if (node.isInnerNode(childIdx)) {
+            collectLeafsRecurse(m_innerNodeAllocator.get(node.childrenHandles[childIdx]), outLeafObjects);
+        }
+    }
+}
+
+template <typename LeafObj, typename UserState>
 inline void* PauseableBVH4<LeafObj, UserState>::encodeBVHConstructionLeafHandle(uint32_t handle)
 {
     assert((handle & 0x7FFFFFFF) == handle);
@@ -478,7 +507,6 @@ inline void* PauseableBVH4<LeafObj, UserState>::leafCreate(RTCThreadLocalAllocat
     auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
     auto [nodeHandle, nodePtr] = self->m_leafAllocator.allocate();
     *nodePtr = std::move(self->m_tmpConstructionLeafs[prims[0].primID]);
-    self->m_leafs.push_back(nodePtr);
     return encodeBVHConstructionLeafHandle(nodeHandle);
 }
 

@@ -118,7 +118,7 @@ private:
     private:
         WiVeBVH8Build8<BotLevelLeafNode> m_leafBVH;
         tbb::reader_writer_lock m_changeBatchLock;
-        RayBatch* m_currentBatch;
+        RayBatch* m_currentBatch = nullptr;
         uint32_t m_numFullBatches;
         InCoreBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
     };
@@ -127,7 +127,6 @@ private:
 
 private:
     tbb::concurrent_vector<TopLevelLeafNode*> m_leafsWithBatchedRays;
-    std::vector<TopLevelLeafNode*> m_leafNodes;
     GrowingFreeListTS<RayBatch> m_batchAllocator;
     PauseableBVH4<TopLevelLeafNode, UserState> m_bvh;
 
@@ -176,15 +175,21 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
 
     while (!leafsWithBatchedRays.empty()) {
 #ifndef NDEBUG
-        for (auto* topLevelLeafNode : leafsWithBatchedRays) {
+        int i = 0;
+        for (auto* topLevelLeafNode : m_bvh.leafs()) {
             topLevelLeafNode->flush();
+            i++;
         }
 #else
-        // Sort full batches first
+        /*// Sort full batches first
         tbb::parallel_sort(leafsWithBatchedRays, [](auto* node1, auto* node2) -> bool {
             return node1->numFullBatches() > node2->numFullBatches();
         });
         tbb::parallel_for_each(leafsWithBatchedRays, [](auto* topLevelLeafNode) {
+            topLevelLeafNode->flush();
+        });*/
+
+        tbb::parallel_for_each(m_bvh.leafs(), [](auto* topLevelLeafNode) {
             topLevelLeafNode->flush();
         });
 #endif
@@ -259,6 +264,12 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
                     mutThisPtr->m_accelerationStructurePtr->m_leafsWithBatchedRays.push_back(mutThisPtr);
                 mutThisPtr->m_numFullBatches++;
             }
+        }
+
+        // Outside scope of lock because flush also requires a write lock (and locking twice is not supported by the read/write lock)
+        if (mutThisPtr->m_numFullBatches > 2)
+        {
+            mutThisPtr->flush();
         }
     }
 
