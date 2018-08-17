@@ -399,7 +399,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch:
 template <typename UserState, size_t BatchSize>
 inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::value_type InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator*() const
 {
-    assert(m_raybatch->m_isValid[m_index]);
+    assert(m_rayBatch->m_isValid[m_index]);
      return { m_rayBatch->m_rays[m_index], m_rayBatch->m_surfaceInteractions[m_index], m_rayBatch->m_userStates[m_index], m_rayBatch->m_insertHandles[m_index] };
 }
 }
