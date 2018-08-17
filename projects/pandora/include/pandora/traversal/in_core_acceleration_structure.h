@@ -5,6 +5,7 @@
 #include "pandora/traversal/bvh/naive_single_bvh2.h"
 //#include "pandora/traversal/bvh/wive_bvh8_build2.h"
 #include "pandora/traversal/bvh/wive_bvh8_build8.h"
+#include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/memory_arena_ts.h"
 #include <gsl/gsl>
 #include <memory>
@@ -32,21 +33,69 @@ private:
         inline bool intersectPrimitive(unsigned primitiveID, Ray& ray, SurfaceInteraction& si) const;
     };
 
-	template <typename T>
+    class PauseableLeafNode {
+    public:
+        PauseableLeafNode() = default;
+        PauseableLeafNode(const SceneObject* sceneObject, uint32_t primitiveID)
+            : sceneObject(sceneObject)
+            , primitiveID(primitiveID)
+        {
+        }
+        bool intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle handle) const;
+
+    private:
+        const SceneObject* sceneObject;
+        uint32_t primitiveID;
+    };
+
+    template <typename T>
     static T buildBVH(gsl::span<const std::unique_ptr<SceneObject>>);
+
+    static PauseableBVH4<PauseableLeafNode> buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>);
 
 private:
     //EmbreeBVH<LeafNode> m_bvh;
     //NaiveSingleRayBVH2<LeafNode> m_bvh;
-    WiVeBVH8Build8<LeafNode> m_bvh;
+    //WiVeBVH8Build8<LeafNode> m_bvh;
+    PauseableBVH4<PauseableLeafNode> m_bvh;
 
     HitCallback m_hitCallback;
     MissCallback m_missCallback;
 };
 
 template <typename UserState>
+inline PauseableBVH4<typename InCoreAccelerationStructure<UserState>::PauseableLeafNode> InCoreAccelerationStructure<UserState>::buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
+{
+    std::vector<PauseableLeafNode> leafs;
+    std::vector<Bounds> bounds;
+    for (const auto& sceneObject : sceneObjects) {
+        unsigned numPrimitives = sceneObject->getMeshRef().numTriangles();
+        for (uint32_t primitiveID = 0; primitiveID < numPrimitives; primitiveID++) {
+            leafs.emplace_back(sceneObject.get(), primitiveID);
+            bounds.emplace_back(sceneObject->getMeshRef().getPrimitiveBounds(primitiveID));
+        }
+    }
+
+    return PauseableBVH4<PauseableLeafNode>(leafs, bounds);
+}
+
+template <typename UserState>
+inline bool InCoreAccelerationStructure<UserState>::PauseableLeafNode::intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle insertHandle) const
+{
+    float tHit;
+    bool hit = sceneObject->getMeshRef().intersectPrimitive(primitiveID, ray, tHit, si);
+    if (hit) {
+        si.sceneObject = sceneObject;
+        si.primitiveID = primitiveID;
+        ray.tfar = tHit;
+    }
+    return hit;
+}
+
+template <typename UserState>
 inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
-	: m_bvh(std::move(buildBVH<decltype(m_bvh)>(sceneObjects)))
+    //: m_bvh(std::move(buildBVH<decltype(m_bvh)>(sceneObjects)))
+    : m_bvh(std::move(buildPauseableBVH(sceneObjects)))
     , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
 {

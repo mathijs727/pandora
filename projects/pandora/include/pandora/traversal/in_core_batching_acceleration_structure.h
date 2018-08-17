@@ -16,7 +16,7 @@
 
 namespace pandora {
 
-static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 4096;
+static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 1024;
 
 template <typename UserState>
 class InCoreBatchingAccelerationStructure {
@@ -44,7 +44,7 @@ private:
     class TopLevelLeafNode {
     public:
         TopLevelLeafNode() = default;
-        TopLevelLeafNode(gsl::span<const SceneObject*> sceneObjects);
+        TopLevelLeafNode(const SceneObject* sceneObjects);
         TopLevelLeafNode(TopLevelLeafNode&& other) = default;
         TopLevelLeafNode& operator=(TopLevelLeafNode&& other) = default;
 
@@ -203,34 +203,12 @@ inline PauseableBVH4<typename InCoreBatchingAccelerationStructure<UserState>::To
 {
     std::vector<TopLevelLeafNode> leafs;
     std::vector<Bounds> bounds;
-
-    // Group small SceneObjects together into a single leaf node to create a better balance in the bottom level trees
-    unsigned numPrimitivesInCurrentLeaf = 0;
-    std::vector<const SceneObject*> sceneObjectsCurrentLeaf;
-    Bounds currentLeafBounds;
     for (const auto& sceneObject : sceneObjects) {
-        const unsigned numPrimitives = sceneObject->getMeshRef().numTriangles();
-        ALWAYS_ASSERT(numPrimitives < PRIMITIVES_PER_LEAF);
-        if (numPrimitivesInCurrentLeaf + numPrimitives >= PRIMITIVES_PER_LEAF) {
-            leafs.emplace_back(sceneObjectsCurrentLeaf);
-            bounds.emplace_back(currentLeafBounds);
-
-            numPrimitivesInCurrentLeaf = 0;
-            sceneObjectsCurrentLeaf.clear();
-            currentLeafBounds = Bounds();
-        }
-
-        numPrimitivesInCurrentLeaf += numPrimitives;
-        sceneObjectsCurrentLeaf.push_back(sceneObject.get());
-        currentLeafBounds.extend(sceneObject->getMeshRef().getBounds());
-    }
-    if (numPrimitivesInCurrentLeaf > 0) {
-        leafs.emplace_back(sceneObjectsCurrentLeaf);
-        bounds.emplace_back(currentLeafBounds);
+        leafs.emplace_back(sceneObject.get());
+        bounds.emplace_back(sceneObject->getMeshRef().getBounds());
     }
 
-    auto result = PauseableBVH4<TopLevelLeafNode>(leafs, bounds);
-    return std::move(result);
+    return PauseableBVH4<TopLevelLeafNode>(leafs, bounds);
 }
 
 template <typename UserState>
@@ -267,8 +245,8 @@ inline bool InCoreBatchingAccelerationStructure<UserState>::BotLevelLeafNode::in
 }
 
 template <typename UserState>
-inline InCoreBatchingAccelerationStructure<UserState>::TopLevelLeafNode::TopLevelLeafNode(gsl::span<const SceneObject*> sceneObjects)
-    : m_leafBVH(std::move(buildBVH(sceneObjects)))
+inline InCoreBatchingAccelerationStructure<UserState>::TopLevelLeafNode::TopLevelLeafNode(const SceneObject* sceneObject)
+    : m_leafBVH(std::move(buildBVH(gsl::make_span(&sceneObject, 1))))
 {
 }
 
@@ -291,5 +269,4 @@ inline WiVeBVH8Build8<typename InCoreBatchingAccelerationStructure<UserState>::B
     bvh.build(leafs);
     return std::move(bvh);
 }
-
 }

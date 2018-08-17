@@ -28,7 +28,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
 
     // Generate camera rays
     glm::ivec2 resolution = m_sensor.getResolution();
-#ifdef _DEBUG
+#ifndef NDEBUG
     for (int y = 0; y < resolution.y; y++) {
         for (int x = 0; x < resolution.x; x++) {
             // Initialize camera sample for current sample

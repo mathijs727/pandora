@@ -94,7 +94,9 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
         }
     }
 
-    si.wo = -ray.direction;
+    if (hit) 
+        si.wo = -ray.direction;
+
     return hit;
 }
 
