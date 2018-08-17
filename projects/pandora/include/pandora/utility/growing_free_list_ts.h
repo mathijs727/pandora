@@ -3,32 +3,31 @@
 #include <atomic>
 #include <cstddef>
 #include <tbb/enumerable_thread_specific.h>
-#include <vector>
 #include <type_traits>
+#include <vector>
+#include <cassert>
 
 namespace pandora {
 
 // Explicit specialization in non-namespace scope is not allowed in ISO C++
-namespace growing_free_list_ts_impl
-{
+namespace growing_free_list_ts_impl {
 
-template <typename T, typename Enable = void>
-struct _FreeListNode;
+    template <typename T, typename Enable = void>
+    struct _FreeListNode;
 
-template <typename T>
-struct alignas(std::alignment_of_v<T>) _FreeListNode<T, typename std::enable_if<(sizeof(T) > sizeof(void*))>::type>
-{
-    _FreeListNode<T>* next;
-private:
-    constexpr static size_t paddingAmount = sizeof(T) - sizeof(void*);
-    std::byte __padding[paddingAmount];
-};
+    template <typename T>
+    struct alignas(std::alignment_of_v<T>) _FreeListNode<T, typename std::enable_if<(sizeof(T) > sizeof(void*))>::type> {
+        _FreeListNode<T>* next;
 
-template <typename T>
-struct alignas(std::alignment_of_v<T>) _FreeListNode<T, typename std::enable_if<(sizeof(T) == sizeof(void*))>::type>
-{
-    _FreeListNode<T>* next;
-};
+    private:
+        constexpr static size_t paddingAmount = sizeof(T) - sizeof(void*);
+        std::byte __padding[paddingAmount];
+    };
+
+    template <typename T>
+    struct alignas(std::alignment_of_v<T>) _FreeListNode<T, typename std::enable_if<(sizeof(T) == sizeof(void*))>::type> {
+        _FreeListNode<T>* next;
+    };
 
 }
 
@@ -47,6 +46,8 @@ public:
 
     void deallocate(T* p);
 
+    std::atomic_size_t m_currentSize;
+    std::atomic_size_t m_maxSize;
 private:
     using FreeListNode = growing_free_list_ts_impl::_FreeListNode<T>;
     static_assert(sizeof(FreeListNode) == sizeof(T));
@@ -59,12 +60,16 @@ private:
 template <typename T>
 inline GrowingFreeListTS<T>::GrowingFreeListTS()
     : m_freeListHead(nullptr)
+    , m_currentSize(0)
+    , m_maxSize(0)
 {
 }
 
 template <typename T>
 inline void GrowingFreeListTS<T>::deallocate(T* p)
 {
+    p->~T();
+
     // https://en.cppreference.com/w/cpp/atomic/atomic_compare_exchange
     auto* newNode = reinterpret_cast<FreeListNode*>(p);
 
@@ -82,6 +87,8 @@ inline void GrowingFreeListTS<T>::deallocate(T* p)
         std::memory_order_relaxed)) {
         // Empty loop body
     }
+
+    m_currentSize.fetch_sub(1);
 }
 
 template <typename T>
@@ -90,13 +97,9 @@ inline T* GrowingFreeListTS<T>::allocate(Args... args)
 {
     // Pop
     auto* node = m_freeListHead.load(std::memory_order_relaxed);
-    while (node) {
-        std::atomic_compare_exchange_weak_explicit(
-            &m_freeListHead,
-            &node,
-            node->next,
-            std::memory_order_relaxed,
-            std::memory_order_relaxed); // For allocation we don't care whether writes/reads are reordered.
+    while (node && !std::atomic_compare_exchange_weak_explicit(&m_freeListHead, &node, node->next,
+                       std::memory_order_relaxed, // For allocation we don't care whether writes/reads are reordered
+                       std::memory_order_relaxed)) {
     }
 
     if (!node) {
@@ -104,8 +107,12 @@ inline T* GrowingFreeListTS<T>::allocate(Args... args)
         auto newNode = std::make_unique<FreeListNode>();
         node = newNode.get();
         m_allocatedNodes.local().push_back(std::move(newNode));
+
+        assert(m_maxSize.load() - m_currentSize.load() < 20);
+        m_maxSize.fetch_add(1);
     }
 
+    m_currentSize.fetch_add(1);
     return new (reinterpret_cast<void*>(node)) T(args...);
 }
 

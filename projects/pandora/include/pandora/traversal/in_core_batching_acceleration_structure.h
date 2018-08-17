@@ -14,6 +14,7 @@
 #include <numeric>
 #include <tbb/concurrent_vector.h>
 #include <tbb/enumerable_thread_specific.h>
+#include <tbb/parallel_for_each.h>
 #include <tbb/reader_writer_lock.h>
 
 namespace pandora {
@@ -42,6 +43,8 @@ private:
     public:
         RayBatch(RayBatch* nextPtr = nullptr)
             : m_nextPtr(nextPtr)
+            , m_sharedIndex(0)
+            , m_threadLocalIndex()
         {
             std::fill(std::begin(m_isValid), std::end(m_isValid), false);
         }
@@ -83,8 +86,8 @@ private:
         RayBatch* m_nextPtr;
         std::atomic_size_t m_sharedIndex;
         struct ThreadLocalBlock {
-            size_t index;
-            size_t space;
+            size_t index = 0;
+            size_t space = 0;
         };
         tbb::enumerable_thread_specific<ThreadLocalBlock> m_threadLocalIndex;
     };
@@ -114,7 +117,6 @@ private:
         WiVeBVH8Build8<BotLevelLeafNode> m_leafBVH;
         tbb::reader_writer_lock m_changeBatchLock;
         RayBatch* m_currentBatch;
-        size_t m_numBatches;
         InCoreBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
     };
 
@@ -126,6 +128,8 @@ private:
     GrowingFreeListTS<RayBatch> m_batchAllocator;
     PauseableBVH4<TopLevelLeafNode, UserState> m_bvh;
 
+    tbb::enumerable_thread_specific<size_t> m_numRaysInSystem;
+
     HitCallback m_hitCallback;
     MissCallback m_missCallback;
 };
@@ -134,6 +138,7 @@ template <typename UserState, size_t BatchSize>
 inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::InCoreBatchingAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
     : m_batchAllocator()
     , m_bvh(std::move(buildBVH(sceneObjects, *this)))
+    , m_numRaysInSystem()
     , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
 {
@@ -160,6 +165,8 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
             } else {
                 m_missCallback(ray, userState);
             }
+        } else {
+            m_numRaysInSystem.local()++;
         }
     }
 }
@@ -171,12 +178,26 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
 
     while (!leafsWithBatchedRays.empty()) {
         // TODO: multithreading & processing full batches first
+#ifndef NDEBUG
         for (auto* topLevelLeafNode : leafsWithBatchedRays) {
             topLevelLeafNode->flush();
         }
+#else
+        for (auto* topLevelLeafNode : leafsWithBatchedRays) {
+            topLevelLeafNode->flush();
+        }
+        /*tbb::parallel_for_each(leafsWithBatchedRays, [](auto* topLevelLeafNode) {
+            topLevelLeafNode->flush();
+        });*/
+#endif
 
         leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
     }
+
+    size_t raysInSystem = std::accumulate(std::begin(m_numRaysInSystem), std::end(m_numRaysInSystem), static_cast<size_t>(0));
+    assert(raysInSystem == 0);
+
+    ALWAYS_ASSERT(m_batchAllocator.m_currentSize == 0);
 }
 
 template <typename UserState, size_t BatchSize>
@@ -264,10 +285,20 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
             m_leafBVH.intersect(ray, si);
 
             // Insert the ray back into the top-level  BVH
-            m_accelerationStructurePtr->m_bvh.intersect(ray, si, userState, insertHandle);
+            if (m_accelerationStructurePtr->m_bvh.intersect(ray, si, userState, insertHandle)) {
+                // Ray exited the system => call callbacks
+                if (si.sceneObject) {
+                    m_accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
+                } else {
+                    m_accelerationStructurePtr->m_missCallback(ray, userState);
+                }
+                m_accelerationStructurePtr->m_numRaysInSystem.local()--;
+            }
         }
 
-        batch = batch->next();
+        auto* next = batch->next();
+        m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
+        batch = next;
     }
 }
 
@@ -361,13 +392,16 @@ inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iter
     : m_rayBatch(batch)
     , m_index(index)
 {
+    // The first item could be invalid
+    while (m_index < BatchSize && !m_rayBatch->m_isValid[m_index])
+        m_index++;
 }
 
 template <typename UserState, size_t BatchSize>
 inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator& InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator++()
 {
     m_index++;
-    while (!m_rayBatch->m_isValid[m_index] && m_index < BatchSize)
+    while (m_index < BatchSize && !m_rayBatch->m_isValid[m_index])
         m_index++;
     return *this;
 }
@@ -377,7 +411,7 @@ inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBa
 {
     auto r = *this;
     m_index++;
-    while (!m_rayBatch->m_isValid[m_index] && m_index < BatchSize)
+    while (m_index < BatchSize && !m_rayBatch->m_isValid[m_index])
         m_index++;
     return r;
 }
@@ -400,6 +434,6 @@ template <typename UserState, size_t BatchSize>
 inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::value_type InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator*() const
 {
     assert(m_rayBatch->m_isValid[m_index]);
-     return { m_rayBatch->m_rays[m_index], m_rayBatch->m_surfaceInteractions[m_index], m_rayBatch->m_userStates[m_index], m_rayBatch->m_insertHandles[m_index] };
+    return { m_rayBatch->m_rays[m_index], m_rayBatch->m_surfaceInteractions[m_index], m_rayBatch->m_userStates[m_index], m_rayBatch->m_insertHandles[m_index] };
 }
 }

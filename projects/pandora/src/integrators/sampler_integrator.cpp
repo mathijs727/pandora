@@ -50,6 +50,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
 		}
 	});
 #endif
+
     m_accelerationStructure.flush();
 
     m_sppThisFrame += m_sppPerCall;
