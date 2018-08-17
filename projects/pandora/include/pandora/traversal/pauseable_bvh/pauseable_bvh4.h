@@ -7,18 +7,43 @@
 #include <limits>
 #include <nmmintrin.h> // popcnt
 #include <tuple>
+#include <tbb/concurrent_vector.h>
 
 namespace pandora {
 
-template <typename LeafObj>
-class PauseableBVH4 : PauseableBVH<LeafObj> {
+template <typename LeafObj, typename UserState>
+class PauseableBVH4 : PauseableBVH<LeafObj, UserState> {
 public:
     PauseableBVH4(gsl::span<LeafObj> object, gsl::span<const Bounds> bounds);
     PauseableBVH4(PauseableBVH4&&) = default;
     ~PauseableBVH4() = default;
 
-    bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
-    bool intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle handle) const override final;
+    std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const override final;
+    std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
+
+    gsl::span<LeafObj*> leafs() { return m_leafs; }
+
+    // https://www.fluentcpp.com/2018/05/08/std-iterator-deprecated/
+    struct BVHNode;
+    struct iterator {
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = LeafObj;
+        using difference_type = std::ptrdiff_t;
+        using pointer = value_type*;
+        using reference = value_type&;
+
+        explicit iterator(PauseableBVH4<LeafObj, UserState>::BVHNode* node, ContiguousAllocatorTS<typename PauseableBVH4::BVHNode>& allocator);
+        iterator& operator++(); // pre-increment
+        iterator operator++(int); // post-increment
+        bool operator==(iterator other) const;
+        bool operator!=(iterator other) const;
+        reference operator*();
+
+    private:
+        ContiguousAllocatorTS<typename PauseableBVH4::BVHNode>& m_allocator;
+        PauseableBVH4<LeafObj, UserState>::BVHNode* m_bvhNode;
+    };
 
 private:
     struct TestBVHData {
@@ -50,6 +75,7 @@ private:
         simd::vec4_f32 maxZ;
         std::array<uint32_t, 4> childrenHandles;
         uint32_t parentHandle;
+        uint32_t neighbourHandle;
 
         uint32_t validMask : 4;
         uint32_t leafMask : 4;
@@ -64,13 +90,65 @@ private:
     ContiguousAllocatorTS<LeafObj> m_leafAllocator;
     gsl::span<LeafObj> m_tmpConstructionLeafs;
 
+    tbb::concurrent_vector<LeafObj*> m_leafs;
+
     uint32_t m_rootHandle;
 
     static_assert(sizeof(BVHNode) <= 128);
 };
 
-template <typename LeafObj>
-inline PauseableBVH4<LeafObj>::PauseableBVH4(gsl::span<LeafObj> objects, gsl::span<const Bounds> objectsBounds)
+template <typename LeafObj, typename UserState>
+inline PauseableBVH4<LeafObj, UserState>::iterator::iterator(PauseableBVH4<LeafObj, UserState>::BVHNode* node, ContiguousAllocatorTS<typename PauseableBVH4<LeafObj, UserState>::BVHNode>& allocator)
+    : m_bvhNode(node)
+    , m_allocator(allocator)
+{
+}
+
+template <typename LeafObj, typename UserState>
+inline typename PauseableBVH4<LeafObj, UserState>::iterator& PauseableBVH4<LeafObj, UserState>::iterator::operator++()
+{
+    auto neighbourHandle = m_bvhNode->neighbourHandle;
+    if (neighbourHandle = 0xFFFFFFFF)
+        m_bvhNode = nullptr;
+    else
+        m_bvhNode = &m_allocator.get(neighbourHandle);
+    return *this;
+}
+
+template <typename LeafObj, typename UserState>
+inline typename PauseableBVH4<LeafObj, UserState>::iterator PauseableBVH4<LeafObj, UserState>::iterator::operator++(int)
+{
+    auto thisCopy = *this;
+
+    auto neighbourHandle = m_bvhNode->neighbourHandle;
+    if (neighbourHandle = 0xFFFFFFFF)
+        m_bvhNode = nullptr;
+    else
+        m_bvhNode = &m_allocator.get(neighbourHandle);
+
+    return thisCopy;
+}
+
+template <typename LeafObj, typename UserState>
+inline bool PauseableBVH4<LeafObj, UserState>::iterator::operator==(PauseableBVH4<LeafObj, UserState>::iterator other) const
+{
+    return m_bvhNode == other.m_bvhNode;
+}
+
+template <typename LeafObj, typename UserState>
+inline bool PauseableBVH4<LeafObj, UserState>::iterator::operator!=(PauseableBVH4<LeafObj, UserState>::iterator other) const
+{
+    return m_bvhNode != other.m_bvhNode;
+}
+
+template <typename LeafObj, typename UserState>
+inline LeafObj& PauseableBVH4<LeafObj, UserState>::iterator::operator*()
+{
+    return m_bvhNode->
+}
+
+template <typename LeafObj, typename UserState>
+inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> objects, gsl::span<const Bounds> objectsBounds)
     : m_innerNodeAllocator(objects.size())
     , m_leafAllocator(objects.size())
 {
@@ -133,14 +211,14 @@ inline PauseableBVH4<LeafObj>::PauseableBVH4(gsl::span<LeafObj> objects, gsl::sp
     testBVH();
 }
 
-template <typename LeafObj>
-inline bool PauseableBVH4<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
+template <typename LeafObj, typename UserState>
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const
 {
-    return intersect(ray, si, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
+    return intersect(ray, si, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
 }
 
-template <typename LeafObj>
-inline bool PauseableBVH4<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle insertInfo) const
+template <typename LeafObj, typename UserState>
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
 {
     struct SIMDRay {
         simd::vec4_f32 originX;
@@ -218,9 +296,15 @@ inline bool PauseableBVH4<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si, 
                     // Reached leaf
                     auto handle = node->childrenHandles[childIndex];
                     const auto& leaf = m_leafAllocator.get(handle);
-                    if (leaf.intersect(ray, si, insertInfo)) {
-                        hit = true;
-                        simdRay.tfar.broadcast(ray.tfar);
+                    std::optional<bool> intersectResult = leaf.intersect(ray, si, userState, insertInfo);
+                    if (intersectResult) {
+                        if (*intersectResult) {
+                            // Hit
+                            hit = true;
+                            simdRay.tfar.broadcast(ray.tfar);
+                        }
+                    } else {
+                        return {}; // Traversal paused
                     }
                 }
 
@@ -250,8 +334,8 @@ inline bool PauseableBVH4<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si, 
     return hit;
 }
 
-template <typename LeafObj>
-inline void PauseableBVH4<LeafObj>::testBVH() const
+template <typename LeafObj, typename UserState>
+inline void PauseableBVH4<LeafObj, UserState>::testBVH() const
 {
     TestBVHData results;
     testBVHRecurse(&m_innerNodeAllocator.get(m_rootHandle), 0, results);
@@ -267,8 +351,8 @@ inline void PauseableBVH4<LeafObj>::testBVH() const
     std::cout << std::endl;
 }
 
-template <typename LeafObj>
-inline void PauseableBVH4<LeafObj>::testBVHRecurse(const BVHNode* node, int depth, TestBVHData& out) const
+template <typename LeafObj, typename UserState>
+inline void PauseableBVH4<LeafObj, UserState>::testBVHRecurse(const BVHNode* node, int depth, TestBVHData& out) const
 {
     unsigned numChildrenReference = 0;
     for (unsigned childIdx = 0; childIdx < 4; childIdx++) {
@@ -289,22 +373,22 @@ inline void PauseableBVH4<LeafObj>::testBVHRecurse(const BVHNode* node, int dept
     out.numChildrenHistogram[numChildren]++;
 }
 
-template <typename LeafObj>
-inline void* PauseableBVH4<LeafObj>::encodeBVHConstructionLeafHandle(uint32_t handle)
+template <typename LeafObj, typename UserState>
+inline void* PauseableBVH4<LeafObj, UserState>::encodeBVHConstructionLeafHandle(uint32_t handle)
 {
     assert((handle & 0x7FFFFFFF) == handle);
     return reinterpret_cast<void*>(static_cast<uintptr_t>(handle | 0x80000000)); // Highest bit set to 1, indicating a leaf
 }
 
-template <typename LeafObj>
-inline void* PauseableBVH4<LeafObj>::encodeBVHConstructionInnerNodeHandle(uint32_t handle)
+template <typename LeafObj, typename UserState>
+inline void* PauseableBVH4<LeafObj, UserState>::encodeBVHConstructionInnerNodeHandle(uint32_t handle)
 {
     assert((handle & 0x7FFFFFFF) == handle);
     return reinterpret_cast<void*>(static_cast<uintptr_t>(handle & 0x7FFFFFFF)); // Highest bit set to 0, indicating an inner node
 }
 
-template <typename LeafObj>
-inline std::tuple<bool, uint32_t> PauseableBVH4<LeafObj>::decodeBVHConstructionHandle(void* encodedHandlePtr)
+template <typename LeafObj, typename UserState>
+inline std::tuple<bool, uint32_t> PauseableBVH4<LeafObj, UserState>::decodeBVHConstructionHandle(void* encodedHandlePtr)
 {
     uint32_t encodedHandle = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(encodedHandlePtr));
     bool isLeaf = encodedHandle & 0x80000000;
@@ -312,8 +396,8 @@ inline std::tuple<bool, uint32_t> PauseableBVH4<LeafObj>::decodeBVHConstructionH
     return { isLeaf, handle };
 }
 
-template <typename LeafObj>
-inline void PauseableBVH4<LeafObj>::setNodeDepth(BVHNode& node, uint32_t depth)
+template <typename LeafObj, typename UserState>
+inline void PauseableBVH4<LeafObj, UserState>::setNodeDepth(BVHNode& node, uint32_t depth)
 {
     node.depth = depth;
 
@@ -324,8 +408,8 @@ inline void PauseableBVH4<LeafObj>::setNodeDepth(BVHNode& node, uint32_t depth)
     }
 }
 
-template <typename LeafObj>
-inline void* PauseableBVH4<LeafObj>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
+template <typename LeafObj, typename UserState>
+inline void* PauseableBVH4<LeafObj, UserState>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
 {
     auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
     auto [nodeHandle, nodePtr] = self->m_innerNodeAllocator.allocate();
@@ -334,8 +418,8 @@ inline void* PauseableBVH4<LeafObj>::innerNodeCreate(RTCThreadLocalAllocator all
     return encodeBVHConstructionInnerNodeHandle(nodeHandle);
 }
 
-template <typename LeafObj>
-inline void PauseableBVH4<LeafObj>::innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr)
+template <typename LeafObj, typename UserState>
+inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr)
 {
     assert(numChildren <= 4);
 
@@ -363,8 +447,8 @@ inline void PauseableBVH4<LeafObj>::innerNodeSetChildren(void* nodePtr, void** c
     node.leafMask = leafMask;
 }
 
-template <typename LeafObj>
-inline void PauseableBVH4<LeafObj>::innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr)
+template <typename LeafObj, typename UserState>
+inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr)
 {
     assert(numChildren <= 4);
 
@@ -395,8 +479,8 @@ inline void PauseableBVH4<LeafObj>::innerNodeSetBounds(void* nodePtr, const RTCB
     node.maxZ.load(maxZ);
 }
 
-template <typename LeafObj>
-inline void* PauseableBVH4<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
+template <typename LeafObj, typename UserState>
+inline void* PauseableBVH4<LeafObj, UserState>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
 {
     assert(numPrims == 1);
 
@@ -404,23 +488,24 @@ inline void* PauseableBVH4<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, c
     auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
     auto [nodeHandle, nodePtr] = self->m_leafAllocator.allocate();
     *nodePtr = std::move(self->m_tmpConstructionLeafs[prims[0].primID]);
+    self->m_leafs.push_back(nodePtr);
     return encodeBVHConstructionLeafHandle(nodeHandle);
 }
 
-template <typename LeafObj>
-inline uint32_t PauseableBVH4<LeafObj>::BVHNode::numChildren() const
+template <typename LeafObj, typename UserState>
+inline uint32_t PauseableBVH4<LeafObj, UserState>::BVHNode::numChildren() const
 {
     return _mm_popcnt_u32(validMask);
 }
 
-template <typename LeafObj>
-inline bool PauseableBVH4<LeafObj>::BVHNode::isLeaf(unsigned childIdx) const
+template <typename LeafObj, typename UserState>
+inline bool PauseableBVH4<LeafObj, UserState>::BVHNode::isLeaf(unsigned childIdx) const
 {
     return (validMask & leafMask) & (1 << childIdx);
 }
 
-template <typename LeafObj>
-inline bool PauseableBVH4<LeafObj>::BVHNode::isInnerNode(unsigned childIdx) const
+template <typename LeafObj, typename UserState>
+inline bool PauseableBVH4<LeafObj, UserState>::BVHNode::isInnerNode(unsigned childIdx) const
 {
     return (validMask & (~leafMask)) & (1 << childIdx);
 }

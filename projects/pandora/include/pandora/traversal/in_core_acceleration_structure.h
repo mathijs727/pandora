@@ -41,7 +41,7 @@ private:
             , primitiveID(primitiveID)
         {
         }
-        bool intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle handle) const;
+        std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle handle) const;
 
     private:
         const SceneObject* sceneObject;
@@ -51,20 +51,20 @@ private:
     template <typename T>
     static T buildBVH(gsl::span<const std::unique_ptr<SceneObject>>);
 
-    static PauseableBVH4<PauseableLeafNode> buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>);
+    static PauseableBVH4<PauseableLeafNode, UserState> buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>);
 
 private:
     //EmbreeBVH<LeafNode> m_bvh;
     //NaiveSingleRayBVH2<LeafNode> m_bvh;
     //WiVeBVH8Build8<LeafNode> m_bvh;
-    PauseableBVH4<PauseableLeafNode> m_bvh;
+    PauseableBVH4<PauseableLeafNode, UserState> m_bvh;
 
     HitCallback m_hitCallback;
     MissCallback m_missCallback;
 };
 
 template <typename UserState>
-inline PauseableBVH4<typename InCoreAccelerationStructure<UserState>::PauseableLeafNode> InCoreAccelerationStructure<UserState>::buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
+inline PauseableBVH4<typename InCoreAccelerationStructure<UserState>::PauseableLeafNode, UserState> InCoreAccelerationStructure<UserState>::buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
 {
     std::vector<PauseableLeafNode> leafs;
     std::vector<Bounds> bounds;
@@ -80,8 +80,10 @@ inline PauseableBVH4<typename InCoreAccelerationStructure<UserState>::PauseableL
 }
 
 template <typename UserState>
-inline bool InCoreAccelerationStructure<UserState>::PauseableLeafNode::intersect(Ray& ray, SurfaceInteraction& si, PauseableBVHInsertHandle insertHandle) const
+inline std::optional<bool> InCoreAccelerationStructure<UserState>::PauseableLeafNode::intersect(Ray& ray, SurfaceInteraction& si, const UserState& state, PauseableBVHInsertHandle insertHandle) const
 {
+    (void)state;
+
     float tHit;
     bool hit = sceneObject->getMeshRef().intersectPrimitive(primitiveID, ray, tHit, si);
     if (hit) {

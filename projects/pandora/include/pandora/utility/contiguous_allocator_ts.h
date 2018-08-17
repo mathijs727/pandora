@@ -28,7 +28,7 @@ public:
     template <typename... Args>
     std::pair<Handle, T*> allocateN(unsigned N, Args... args);
 
-    inline T& get(Handle handle) const { return m_start[handle]; };
+    inline T& get(Handle handle) const { return reinterpret_cast<T&>(m_start[handle]); };
 
     size_t size() const { return m_currentSize; };
 
@@ -43,7 +43,11 @@ private:
     uint32_t m_maxSize;
     const uint32_t m_blockSize;
 
-    std::unique_ptr<T[]> m_start;
+    struct EmptyItem {
+    private:
+        std::byte __padding[sizeof(T)];
+    };
+    std::unique_ptr<EmptyItem[]> m_start;
     std::atomic_uint32_t m_currentSize;
 
     struct ThreadLocalData {
@@ -68,7 +72,7 @@ template <typename T>
 inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(uint32_t maxSize, uint32_t blockSize)
     : m_maxSize((uint32_t)std::thread::hardware_concurrency() * std::min(maxSize, blockSize) + maxSize)
     , m_blockSize(std::min(maxSize, blockSize))
-    , m_start(new T[m_maxSize])
+    , m_start(new EmptyItem[m_maxSize])
     , m_currentSize(0)
 {
 }
@@ -77,7 +81,7 @@ template <typename T>
 inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(const serialization::ContiguousAllocator* serializedAllocator)
     : m_maxSize(serializedAllocator->maxSize())
     , m_blockSize(serializedAllocator->blockSize())
-    , m_start(new T[serializedAllocator->maxSize()])
+    , m_start(new EmptyItem[serializedAllocator->maxSize()])
     , m_currentSize(serializedAllocator->currentSize())
 {
     std::memcpy(m_start.get(), serializedAllocator->data()->Data(), m_currentSize * sizeof(T));
@@ -107,7 +111,7 @@ inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAlloca
     currentBlock.index += N;
     currentBlock.space -= N;
 
-    T* dataPtr = m_start.get() + resultIndex;
+    T* dataPtr = reinterpret_cast<T*>(m_start.get() + resultIndex);
     for (uint32_t i = 0; i < N; i++)
         new (dataPtr + i) T(args...);
 
@@ -137,18 +141,18 @@ inline void ContiguousAllocatorTS<T>::compact()
     }
 
     // Move the data per block. We need to take care of blocks that are not completely filled.
-    auto compactedData = std::make_unique<T[]>(m_currentSize);
+    auto compactedData = std::make_unique<EmptyItem[]>(m_currentSize);
     for (uint32_t blockStart = 0; blockStart < m_currentSize; blockStart += m_blockSize) {
         if (auto iter = threadLocalBlocks.find(blockStart); iter != threadLocalBlocks.end()) {
             // Partially filled block
             for (uint32_t i = blockStart; i < blockStart + iter->second; i++) {
-                compactedData[i] = std::move(m_start[i]);
+                reinterpret_cast<T&>(compactedData[i]) = std::move(reinterpret_cast<T&>(m_start[i]));
             }
         } else {
             // Fully filled block
             uint32_t blockEnd = blockStart + m_blockSize;
             for (uint32_t i = blockStart; i < blockEnd; i++) {
-                compactedData[i] = std::move(m_start[i]);
+                reinterpret_cast<T&>(compactedData[i]) = std::move(reinterpret_cast<T&>(m_start[i]));
             }
         }
     }
