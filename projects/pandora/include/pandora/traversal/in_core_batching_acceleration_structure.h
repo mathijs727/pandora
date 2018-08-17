@@ -43,16 +43,17 @@ private:
         RayBatch(RayBatch* nextPtr = nullptr)
             : m_nextPtr(nextPtr)
         {
+            std::fill(std::begin(m_isValid), std::end(m_isValid), false);
         }
         RayBatch* next() { return m_nextPtr; }
 
-        bool tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state);
+        bool tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
 
         // https://www.fluentcpp.com/2018/05/08/std-iterator-deprecated/
         struct iterator {
         public:
             using iterator_category = std::random_access_iterator_tag;
-            using value_type = std::tuple<const Ray&, const SurfaceInteraction&, const UserState&>;
+            using value_type = std::tuple<Ray, SurfaceInteraction, UserState, PauseableBVHInsertHandle>;
             using difference_type = std::ptrdiff_t;
             using pointer = value_type*;
             using reference = value_type&;
@@ -76,7 +77,8 @@ private:
         std::array<Ray, BatchSize> m_rays;
         std::array<SurfaceInteraction, BatchSize> m_surfaceInteractions; // TODO: only keep track of this for rays that have already hit something
         std::array<UserState, BatchSize> m_userStates;
-        std::bitset<BatchSize> m_isValid; // Mask indicating whether the an item is filled with valid data
+        std::array<PauseableBVHInsertHandle, BatchSize> m_insertHandles;
+        std::array<bool, BatchSize> m_isValid; // Indicates whether each item is filled with valid data (using bitset here is not thread safe)
 
         RayBatch* m_nextPtr;
         std::atomic_size_t m_sharedIndex;
@@ -101,9 +103,9 @@ private:
         TopLevelLeafNode(const SceneObject* sceneObjects, InCoreBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure);
         TopLevelLeafNode& operator=(TopLevelLeafNode&& other);
 
-        std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
+        bool intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
 
-        void flush();// Traverses all rays through the lower-level BVH. This function is thread-safe.
+        void flush(); // Traverses all rays through the lower-level BVH. This function is thread-safe.
 
     private:
         static WiVeBVH8Build8<BotLevelLeafNode> buildBVH(gsl::span<const SceneObject*> sceneObject);
@@ -151,10 +153,9 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
         Ray ray = rays[i]; // Copy so we can mutate it
         UserState userState = perRayUserData[i];
 
-        std::optional<bool> hitOpt = m_bvh.intersect(ray, si, userState);
-        if (hitOpt) {
+        if (m_bvh.intersect(ray, si, userState)) {
             // We got the result immediately (traversal was not paused)
-            if (*hitOpt) {
+            if (si.sceneObject) {
                 m_hitCallback(ray, si, userState, nullptr);
             } else {
                 m_missCallback(ray, userState);
@@ -166,24 +167,16 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
 template <typename UserState, size_t BatchSize>
 inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
 {
-    tbb::concurrent_vector<TopLevelLeafNode> leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
+    tbb::concurrent_vector<TopLevelLeafNode*> leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
 
     while (!leafsWithBatchedRays.empty()) {
         // TODO: multithreading & processing full batches first
         for (auto* topLevelLeafNode : leafsWithBatchedRays) {
-            auto* rayBatch = topLevelLeafNode->getBatchesAndReset();
-            while (rayBatch) { // For each batch of rays waiting to be intersected with the associated bottom-level BVH
-                for (auto& [ray, si, userState] : rayBatch) {
-                    topLevelLeafNode->m_bvh->intersect();
-                }
-                rayBatch = rayBatch->next();
-            }
+            topLevelLeafNode->flush();
         }
 
         leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
     }
-
-    std::fill(std::begin(m_raysInSystem), std::end(m_raysInSystem), 0);
 }
 
 template <typename UserState, size_t BatchSize>
@@ -229,11 +222,8 @@ inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLe
 }
 
 template <typename UserState, size_t BatchSize>
-inline std::optional<bool> InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
+inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
 {
-    (void)insertHandle;
-    //return m_leafBVH.intersect(ray, si);
-
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
     while (true) {
@@ -241,7 +231,7 @@ inline std::optional<bool> InCoreBatchingAccelerationStructure<UserState, BatchS
         { // Read lock scope
             tbb::reader_writer_lock::scoped_lock_read readLock(mutThisPtr->m_changeBatchLock);
             oldBatch = mutThisPtr->m_currentBatch;
-            if (oldBatch && oldBatch->tryPush(ray, si, userState))
+            if (oldBatch && oldBatch->tryPush(ray, si, userState, insertHandle))
                 break; // Push succesfull
         }
 
@@ -255,22 +245,26 @@ inline std::optional<bool> InCoreBatchingAccelerationStructure<UserState, BatchS
         }
     }
 
-    return {};
+    return false;
 }
 
-template<typename UserState, size_t BatchSize>
+template <typename UserState, size_t BatchSize>
 inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::flush()
 {
     RayBatch* batch;
     {
-        tbb::reader_writer_lock::scoped_lock writeLock(mutThisPtr->m_changeBatchLock);
+        tbb::reader_writer_lock::scoped_lock writeLock(m_changeBatchLock);
         batch = m_currentBatch;
         m_currentBatch = nullptr;
     }
 
     while (batch) {
-        for (auto&[ray, si, userState] : batch) {
+        for (auto& [ray, si, userState, insertHandle] : *batch) {
+            // Intersect with the bottom-level BVH
             m_leafBVH.intersect(ray, si);
+
+            // Insert the ray back into the top-level  BVH
+            m_accelerationStructurePtr->m_bvh.intersect(ray, si, userState, insertHandle);
         }
 
         batch = batch->next();
@@ -324,7 +318,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelL
 }
 
 template <typename UserState, size_t BatchSize>
-inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state)
+inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
     static constexpr size_t threadLocalBlockSize = 4;
     static_assert(BatchSize % threadLocalBlockSize == 0);
@@ -343,6 +337,8 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch:
     m_rays[localBlock.index] = ray;
     m_userStates[localBlock.index] = state;
     m_surfaceInteractions[localBlock.index] = si;
+    m_insertHandles[localBlock.index] = insertHandle;
+    m_isValid[localBlock.index] = true;
     localBlock.index++;
     localBlock.space--;
     return true;
@@ -357,7 +353,7 @@ inline const typename InCoreBatchingAccelerationStructure<UserState, BatchSize>:
 template <typename UserState, size_t BatchSize>
 inline const typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::end() const
 {
-    return iterator(this, std::min(BatchSize, m_sharedIndex.load()));
+    return iterator(this, BatchSize);
 }
 
 template <typename UserState, size_t BatchSize>
@@ -371,7 +367,7 @@ template <typename UserState, size_t BatchSize>
 inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator& InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator++()
 {
     m_index++;
-    while (!m_rayBatch->m_isValid[m_index] && m_index < Size)
+    while (!m_rayBatch->m_isValid[m_index] && m_index < BatchSize)
         m_index++;
     return *this;
 }
@@ -381,7 +377,7 @@ inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBa
 {
     auto r = *this;
     m_index++;
-    while (!m_rayBatch->m_isValid[m_index] && m_index < Size)
+    while (!m_rayBatch->m_isValid[m_index] && m_index < BatchSize)
         m_index++;
     return r;
 }
@@ -401,8 +397,9 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch:
 }
 
 template <typename UserState, size_t BatchSize>
-inline std::tuple<const Ray&, const SurfaceInteraction&, const UserState&> InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator*() const
+inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::value_type InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator*() const
 {
-    return { m_rayBatch->m_rays[m_index], m_rayBatch->m_surfaceInteractions[m_index], m_rayBatch->m_userStates[m_index] };
+    assert(m_raybatch->m_isValid[m_index]);
+     return { m_rayBatch->m_rays[m_index], m_rayBatch->m_surfaceInteractions[m_index], m_rayBatch->m_userStates[m_index], m_rayBatch->m_insertHandles[m_index] };
 }
 }

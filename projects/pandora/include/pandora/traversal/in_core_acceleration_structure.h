@@ -41,7 +41,7 @@ private:
             , primitiveID(primitiveID)
         {
         }
-        std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle handle) const;
+        bool intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle handle) const;
 
     private:
         const SceneObject* sceneObject;
@@ -80,7 +80,7 @@ inline PauseableBVH4<typename InCoreAccelerationStructure<UserState>::PauseableL
 }
 
 template <typename UserState>
-inline std::optional<bool> InCoreAccelerationStructure<UserState>::PauseableLeafNode::intersect(Ray& ray, SurfaceInteraction& si, const UserState& state, PauseableBVHInsertHandle insertHandle) const
+inline bool InCoreAccelerationStructure<UserState>::PauseableLeafNode::intersect(Ray& ray, SurfaceInteraction& si, const UserState& state, PauseableBVHInsertHandle insertHandle) const
 {
     (void)state;
 
@@ -91,7 +91,7 @@ inline std::optional<bool> InCoreAccelerationStructure<UserState>::PauseableLeaf
         si.primitiveID = primitiveID;
         ray.tfar = tHit;
     }
-    return hit;
+    return true;
 }
 
 template <typename UserState>
@@ -132,11 +132,21 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
     for (int i = 0; i < rays.size(); i++) {
         SurfaceInteraction si;
         Ray ray = rays[i]; // Copy so we can mutate it
+        UserState userState = perRayUserData[i];
 
-        if (m_bvh.intersect(ray, si))
-            m_hitCallback(ray, si, perRayUserData[i], nullptr);
-        else
-            m_missCallback(ray, perRayUserData[i]);
+        if constexpr (std::is_same_v<decltype(m_bvh), PauseableBVH4<PauseableLeafNode, UserState>>) {
+            bool paused = !m_bvh.intersect(ray, si, userState);
+            assert(!paused);
+            if (si.sceneObject)
+                m_hitCallback(ray, si, perRayUserData[i], nullptr);
+            else
+                m_missCallback(ray, perRayUserData[i]);
+        } else {
+            if (m_bvh.intersect(ray, si))
+                m_hitCallback(ray, si, perRayUserData[i], nullptr);
+            else
+                m_missCallback(ray, perRayUserData[i]);
+        }
     }
 }
 

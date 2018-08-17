@@ -6,8 +6,8 @@
 #include <embree3/rtcore.h>
 #include <limits>
 #include <nmmintrin.h> // popcnt
-#include <tuple>
 #include <tbb/concurrent_vector.h>
+#include <tuple>
 
 namespace pandora {
 
@@ -18,8 +18,8 @@ public:
     PauseableBVH4(PauseableBVH4&&) = default;
     ~PauseableBVH4() = default;
 
-    std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const override final;
-    std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
+    bool intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const override final;
+    bool intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
 
     gsl::span<LeafObj*> leafs() { return m_leafs; }
 
@@ -212,13 +212,13 @@ inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> objec
 }
 
 template <typename LeafObj, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const
+inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const
 {
     return intersect(ray, si, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
 }
 
 template <typename LeafObj, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
 {
     struct SIMDRay {
         simd::vec4_f32 originX;
@@ -241,12 +241,10 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray
     simdRay.invDirectionZ = simd::vec4_f32(1.0f / ray.direction.z);
     simdRay.tnear = simd::vec4_f32(ray.tnear);
     simdRay.tfar = simd::vec4_f32(ray.tfar);
-    bool hit = false;
 
     // Stack
-    auto [nodeHandle, rayStack] = insertInfo;
+    auto [nodeHandle, stack] = insertInfo;
     const BVHNode* node = &m_innerNodeAllocator.get(nodeHandle);
-    uint64_t stack = rayStack;
     while (true) {
         // Get traversal bits at the current depth
         int bitPos = 4 * node->depth;
@@ -291,21 +289,14 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray
                 stack = stack | (toVisitBitMask << bitPos); // And replace them by the new mask
 
                 if (node->isInnerNode(childIndex)) {
-                    node = &m_innerNodeAllocator.get(node->childrenHandles[childIndex]);
+                    nodeHandle = node->childrenHandles[childIndex];
+                    node = &m_innerNodeAllocator.get(nodeHandle);
                 } else {
                     // Reached leaf
                     auto handle = node->childrenHandles[childIndex];
                     const auto& leaf = m_leafAllocator.get(handle);
-                    std::optional<bool> intersectResult = leaf.intersect(ray, si, userState, insertInfo);
-                    if (intersectResult) {
-                        if (*intersectResult) {
-                            // Hit
-                            hit = true;
-                            simdRay.tfar.broadcast(ray.tfar);
-                        }
-                    } else {
-                        return {}; // Traversal paused
-                    }
+                    if (!leaf.intersect(ray, si, userState, { nodeHandle, stack }))
+                        return false; // Ray was paused
                 }
 
                 continue;
@@ -321,17 +312,16 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray
             break;
 
         int prevDepth = node->depth;
-        node = &m_innerNodeAllocator.get(node->parentHandle);
+        nodeHandle = node->parentHandle;
+        node = &m_innerNodeAllocator.get(nodeHandle);
         assert(node->depth == prevDepth - 1);
 
         //int index = bitScanReverse64(stack);
         //node = m_innerNodeAllocator.get(node.ancestors[index >> 2]); // (index >> 2) == (index / 4)
     }
 
-    if (hit)
-        si.wo = -ray.direction;
-
-    return hit;
+    si.wo = -ray.direction;
+    return true;
 }
 
 template <typename LeafObj, typename UserState>
