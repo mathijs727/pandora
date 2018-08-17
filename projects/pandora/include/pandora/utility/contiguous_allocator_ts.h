@@ -43,7 +43,7 @@ private:
     uint32_t m_maxSize;
     const uint32_t m_blockSize;
 
-    struct EmptyItem {
+    struct alignas(std::alignment_of_v<T>) EmptyItem {
     private:
         std::byte __padding[sizeof(T)];
     };
