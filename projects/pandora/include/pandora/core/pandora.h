@@ -33,6 +33,7 @@ class Scene;
 class TriangleMesh;
 struct Bounds;
 struct Ray;
+struct RayHit;
 
 class MemoryArena;
 class MemoryArenaTS;

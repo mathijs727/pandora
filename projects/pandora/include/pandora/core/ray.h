@@ -32,6 +32,11 @@ public:
     float tfar;
 };
 
+struct RayHit {
+    const SceneObject* sceneObject = nullptr;
+    unsigned primitiveID;
+};
+
 template <int N>
 struct vec3SOA
 {

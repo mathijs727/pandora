@@ -23,6 +23,7 @@ public:
     void build(gsl::span<const LeafObj*> objects) override final;
 
     bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
+    bool intersect(Ray& ray, RayHit& hitInfo) const override final;
 
 	void loadFromFile(std::string_view filename, gsl::span<const LeafObj*> objects);
 	void saveToFile(std::string_view filename);
@@ -51,10 +52,13 @@ protected:
     struct BVHLeaf;
 
 private:
+    template <typename HitType>
+    bool intersectT(Ray& ray, HitType& hitData) const;
 
     struct SIMDRay;
     uint32_t intersectInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
-    bool intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, SurfaceInteraction& si) const;
+    template <typename HitType>
+    bool intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, HitType& hitData) const;
 
     struct TestBVHData {
         int numPrimitives = 0;

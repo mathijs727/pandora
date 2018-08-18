@@ -12,11 +12,12 @@
 #include <gsl/gsl>
 #include <memory>
 #include <numeric>
+#include <tbb/concurrent_unordered_set.h>
 #include <tbb/concurrent_vector.h>
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_for_each.h>
-#include <tbb/reader_writer_lock.h>
 #include <tbb/parallel_sort.h>
+#include <tbb/reader_writer_lock.h>
 
 namespace pandora {
 
@@ -51,13 +52,13 @@ private:
         }
         RayBatch* next() { return m_nextPtr; }
 
-        bool tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
+        bool tryPush(const Ray& ray, const RayHit& hitInfo, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
 
         // https://www.fluentcpp.com/2018/05/08/std-iterator-deprecated/
         struct iterator {
         public:
             using iterator_category = std::random_access_iterator_tag;
-            using value_type = std::tuple<Ray, SurfaceInteraction, UserState, PauseableBVHInsertHandle>;
+            using value_type = std::tuple<Ray, RayHit, UserState, PauseableBVHInsertHandle>;
             using difference_type = std::ptrdiff_t;
             using pointer = value_type*;
             using reference = value_type&;
@@ -79,7 +80,7 @@ private:
 
     private:
         std::array<Ray, BatchSize> m_rays;
-        std::array<SurfaceInteraction, BatchSize> m_surfaceInteractions; // TODO: only keep track of this for rays that have already hit something
+        std::array<RayHit, BatchSize> m_hitInfos;
         std::array<UserState, BatchSize> m_userStates;
         std::array<PauseableBVHInsertHandle, BatchSize> m_insertHandles;
         std::array<bool, BatchSize> m_isValid; // Indicates whether each item is filled with valid data (using bitset here is not thread safe)
@@ -97,7 +98,7 @@ private:
     public:
         unsigned numPrimitives() const;
         Bounds getPrimitiveBounds(unsigned primitiveID) const;
-        inline bool intersectPrimitive(unsigned primitiveID, Ray& ray, SurfaceInteraction& si) const;
+        bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const;
     };
 
     class TopLevelLeafNode {
@@ -107,7 +108,7 @@ private:
         TopLevelLeafNode(const SceneObject* sceneObjects, InCoreBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure);
         TopLevelLeafNode& operator=(TopLevelLeafNode&& other);
 
-        bool intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
+        bool intersect(Ray& ray, RayHit& rayInfo, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
 
         uint32_t numFullBatches();
         void flush(); // Traverses all rays through the lower-level BVH. This function is thread-safe.
@@ -153,13 +154,19 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
     assert(perRayUserData.size() == rays.size());
 
     for (int i = 0; i < rays.size(); i++) {
-        SurfaceInteraction si;
+        RayHit hitInfo;
         Ray ray = rays[i]; // Copy so we can mutate it
         UserState userState = perRayUserData[i];
 
-        if (m_bvh.intersect(ray, si, userState)) {
+        if (m_bvh.intersect(ray, hitInfo, userState)) {
             // We got the result immediately (traversal was not paused)
-            if (si.sceneObject) {
+            if (hitInfo.sceneObject) {
+                // Compute the full surface interaction
+                SurfaceInteraction si;
+                hitInfo.sceneObject->getMeshRef().intersectPrimitive(ray, si, hitInfo.primitiveID);
+                si.sceneObject = hitInfo.sceneObject;
+                si.primitiveID = hitInfo.primitiveID;
+
                 m_hitCallback(ray, si, userState, nullptr);
             } else {
                 m_missCallback(ray, userState);
@@ -181,17 +188,17 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
             i++;
         }
 #else
-        /*// Sort full batches first
+        // Sort full batches first
         tbb::parallel_sort(leafsWithBatchedRays, [](auto* node1, auto* node2) -> bool {
             return node1->numFullBatches() > node2->numFullBatches();
         });
         tbb::parallel_for_each(leafsWithBatchedRays, [](auto* topLevelLeafNode) {
             topLevelLeafNode->flush();
-        });*/
-
-        tbb::parallel_for_each(m_bvh.leafs(), [](auto* topLevelLeafNode) {
-            topLevelLeafNode->flush();
         });
+
+        /*tbb::parallel_for_each(m_bvh.leafs(), [](auto* topLevelLeafNode) {
+            topLevelLeafNode->flush();
+        });*/
 #endif
 
         leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
@@ -241,7 +248,7 @@ inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLe
 }
 
 template <typename UserState, size_t BatchSize>
-inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
+inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersect(Ray& ray, RayHit& rayInfo, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
 {
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
@@ -250,7 +257,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
         { // Read lock scope
             tbb::reader_writer_lock::scoped_lock_read readLock(mutThisPtr->m_changeBatchLock);
             oldBatch = mutThisPtr->m_currentBatch;
-            if (oldBatch && oldBatch->tryPush(ray, si, userState, insertHandle))
+            if (oldBatch && oldBatch->tryPush(ray, rayInfo, userState, insertHandle))
                 break; // Push succesfull
         }
 
@@ -267,10 +274,9 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
         }
 
         // Outside scope of lock because flush also requires a write lock (and locking twice is not supported by the read/write lock)
-        if (mutThisPtr->m_numFullBatches > 2)
-        {
-            mutThisPtr->flush();
-        }
+        //if (mutThisPtr->m_numFullBatches > 2) {
+        //    mutThisPtr->flush();
+        //}
     }
 
     return false;
@@ -296,14 +302,20 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
     }
 
     while (batch) {
-        for (auto& [ray, si, userState, insertHandle] : *batch) {
+        for (auto [ray, hitInfo, userState, insertHandle] : *batch) {
             // Intersect with the bottom-level BVH
-            m_leafBVH.intersect(ray, si);
+            static_assert(std::is_same_v<RayHit, decltype(hitInfo)>);
+            m_leafBVH.intersect(ray, hitInfo);
 
             // Insert the ray back into the top-level  BVH
-            if (m_accelerationStructurePtr->m_bvh.intersect(ray, si, userState, insertHandle)) {
+            if (m_accelerationStructurePtr->m_bvh.intersect(ray, hitInfo, userState, insertHandle)) {
                 // Ray exited the system => call callbacks
-                if (si.sceneObject) {
+                if (hitInfo.sceneObject) {
+                    // Compute the full surface interaction
+                    SurfaceInteraction si;
+                    hitInfo.sceneObject->getMeshRef().intersectPrimitive(ray, si, hitInfo.primitiveID);
+                    si.sceneObject = hitInfo.sceneObject;
+                    si.primitiveID = hitInfo.primitiveID;
                     m_accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
                 } else {
                     m_accelerationStructurePtr->m_missCallback(ray, userState);
@@ -347,24 +359,21 @@ inline Bounds InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLeve
 }
 
 template <typename UserState, size_t BatchSize>
-inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::intersectPrimitive(unsigned primitiveID, Ray& ray, SurfaceInteraction& si) const
+inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const
 {
     // this pointer is actually a pointer to the sceneObject (see constructor)
     auto sceneObject = reinterpret_cast<const SceneObject*>(this);
 
-    float tHit;
-    bool hit = sceneObject->getMeshRef().intersectPrimitive(primitiveID, ray, tHit, si);
+    bool hit = sceneObject->getMeshRef().intersectPrimitive(ray, hitInfo, primitiveID);
     if (hit) {
-        si.sceneObject = sceneObject;
-        si.primitiveID = primitiveID;
-        ray.tfar = tHit;
-        assert(si.sceneObject);
+        hitInfo.sceneObject = sceneObject;
+        hitInfo.primitiveID = primitiveID;
     }
     return hit;
 }
 
 template <typename UserState, size_t BatchSize>
-inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
+inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const RayHit& hitInfo, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
     static constexpr size_t threadLocalBlockSize = 4;
     static_assert(BatchSize % threadLocalBlockSize == 0);
@@ -382,7 +391,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch:
 
     m_rays[localBlock.index] = ray;
     m_userStates[localBlock.index] = state;
-    m_surfaceInteractions[localBlock.index] = si;
+    m_hitInfos[localBlock.index] = hitInfo;
     m_insertHandles[localBlock.index] = insertHandle;
     m_isValid[localBlock.index] = true;
     localBlock.index++;
@@ -449,6 +458,6 @@ template <typename UserState, size_t BatchSize>
 inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::value_type InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator*() const
 {
     assert(m_rayBatch->m_isValid[m_index]);
-    return { m_rayBatch->m_rays[m_index], m_rayBatch->m_surfaceInteractions[m_index], m_rayBatch->m_userStates[m_index], m_rayBatch->m_insertHandles[m_index] };
+    return { m_rayBatch->m_rays[m_index], m_rayBatch->m_hitInfos[m_index], m_rayBatch->m_userStates[m_index], m_rayBatch->m_insertHandles[m_index] };
 }
 }

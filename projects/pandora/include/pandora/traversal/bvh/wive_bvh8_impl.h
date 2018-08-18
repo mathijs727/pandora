@@ -12,6 +12,25 @@ namespace pandora {
 template <typename LeafObj>
 inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 {
+    if constexpr (is_bvh_Leaf_obj<LeafObj>::has_intersect_si)
+        return intersectT(ray, si);
+    else
+        return false;
+}
+
+template <typename LeafObj>
+inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
+{
+    if constexpr (is_bvh_Leaf_obj<LeafObj>::has_intersect_ray_hit)
+        return intersectT(ray, hitInfo);
+    else
+        return false;
+}
+
+template <typename LeafObj>
+template <typename HitType>
+inline bool WiVeBVH8<LeafObj>::intersectT(Ray& ray, HitType& hitData) const
+{
     bool hit = false;
 
     SIMDRay simdRay;
@@ -65,7 +84,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
             assert(isLeafNode(compressedNodeHandle));
 #endif
             // Leaf node
-            if (intersectLeaf(&m_leafNodeAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, si)) {
+            if (intersectLeaf(&m_leafNodeAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, hitData)) {
                 hit = true;
                 simdRay.tfar.broadcast(ray.tfar);
 
@@ -93,9 +112,6 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
             }
         }
     }
-
-    if (hit) 
-        si.wo = -ray.direction;
 
     return hit;
 }
@@ -132,13 +148,14 @@ inline uint32_t WiVeBVH8<LeafObj>::intersectInnerNode(const BVHNode* n, const SI
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, SurfaceInteraction& si) const
+template <typename HitType>
+inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, HitType& hitData) const
 {
     bool hit = false;
     const auto* leafObjectIDs = n->leafObjectIDs;
     const auto* primitiveIDs = n->primitiveIDs;
     for (uint32_t i = 0; i < primitiveCount; i++) {
-        hit |= m_leafObjects[leafObjectIDs[i]]->intersectPrimitive(primitiveIDs[i], ray, si);
+        hit |= m_leafObjects[leafObjectIDs[i]]->intersectPrimitive(ray, hitData, primitiveIDs[i]);
     }
     return hit;
 }
