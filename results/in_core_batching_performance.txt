@@ -1,0 +1,11 @@
+Sponza Crytek / path tracing (max depth = 10)
+
+Reference performance:
+WiVe8B8: ~3500ms
+Embree:  ~9350ms
+
+Initial implementation:
+Flush after all primary rays are inserted; keep flushing while there are non-empty batches. Before each flush iteration sort (in parallel) the leaf nodes based on the number of batches. For each node (in parallel) flush each batch (in parallel, so a single node with a lot of batches does not become a bottleneck). Batch read/writes are protected with a read/write lock so that we can safely change the current batch pointer. Writing in a batch happens using an atomic index (and some thread local indexing to prevent accessing the shared index on each access).
+Result: ~10500ms
+
+According to VTune waiting for the read/write lock that protects the current batch (from getting swapped when it gets full) takes more time than any of the traversal functions.

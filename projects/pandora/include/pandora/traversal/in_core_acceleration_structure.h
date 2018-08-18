@@ -56,9 +56,9 @@ private:
     static PauseableBVH4<PauseableLeafNode, UserState> buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>);
 
 private:
-    //EmbreeBVH<LeafNode> m_bvh;
+    EmbreeBVH<LeafNode> m_bvh;
     //NaiveSingleRayBVH2<LeafNode> m_bvh;
-    WiVeBVH8Build8<LeafNode> m_bvh;
+    //WiVeBVH8Build8<LeafNode> m_bvh;
     //PauseableBVH4<PauseableLeafNode, UserState> m_bvh;
 
     HitCallback m_hitCallback;

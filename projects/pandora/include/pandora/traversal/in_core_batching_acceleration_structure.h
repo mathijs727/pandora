@@ -22,7 +22,7 @@
 
 namespace pandora {
 
-static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 8096;
+static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 2048;
 
 template <typename UserState, size_t BatchSize = 1024>
 class InCoreBatchingAccelerationStructure {
