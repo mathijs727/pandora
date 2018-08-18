@@ -101,7 +101,7 @@ int main()
         if (samples % 1 == 0) {
             auto now = std::chrono::high_resolution_clock::now();
             auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(now - previousTimestamp);
-            std::cout << "Time time per frame (over last 50 frames): " << timeDelta.count() / 1.0f / 1000.0f << " miliseconds" << std::endl;
+            std::cout << "Time time per frame: " << timeDelta.count() / 1.0f / 1000.0f << " miliseconds" << std::endl;
             previousTimestamp = now;
         }
 

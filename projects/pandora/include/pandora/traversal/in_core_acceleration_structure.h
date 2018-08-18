@@ -58,8 +58,8 @@ private:
 private:
     //EmbreeBVH<LeafNode> m_bvh;
     //NaiveSingleRayBVH2<LeafNode> m_bvh;
-    //WiVeBVH8Build8<LeafNode> m_bvh;
-    PauseableBVH4<PauseableLeafNode, UserState> m_bvh;
+    WiVeBVH8Build8<LeafNode> m_bvh;
+    //PauseableBVH4<PauseableLeafNode, UserState> m_bvh;
 
     HitCallback m_hitCallback;
     MissCallback m_missCallback;
@@ -96,8 +96,8 @@ inline bool InCoreAccelerationStructure<UserState>::PauseableLeafNode::intersect
 
 template <typename UserState>
 inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
-    //: m_bvh(std::move(buildBVH<decltype(m_bvh)>(sceneObjects)))
-    : m_bvh(std::move(buildPauseableBVH(sceneObjects)))
+    : m_bvh(std::move(buildBVH<decltype(m_bvh)>(sceneObjects)))
+    //: m_bvh(std::move(buildPauseableBVH(sceneObjects)))
     , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
 {

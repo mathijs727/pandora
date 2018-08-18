@@ -18,6 +18,7 @@
 #include <tbb/parallel_for_each.h>
 #include <tbb/parallel_sort.h>
 #include <tbb/reader_writer_lock.h>
+#include <tbb/task_group.h>
 
 namespace pandora {
 
@@ -301,32 +302,35 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
         m_numFullBatches = 0;
     }
 
+    tbb::task_group taskGroup;
     while (batch) {
-        for (auto [ray, hitInfo, userState, insertHandle] : *batch) {
-            // Intersect with the bottom-level BVH
-            static_assert(std::is_same_v<RayHit, decltype(hitInfo)>);
-            m_leafBVH.intersect(ray, hitInfo);
+        taskGroup.run([=]() {
+            for (auto [ray, hitInfo, userState, insertHandle] : *batch) {
+                // Intersect with the bottom-level BVH
+                static_assert(std::is_same_v<RayHit, decltype(hitInfo)>);
+                m_leafBVH.intersect(ray, hitInfo);
 
-            // Insert the ray back into the top-level  BVH
-            if (m_accelerationStructurePtr->m_bvh.intersect(ray, hitInfo, userState, insertHandle)) {
-                // Ray exited the system => call callbacks
-                if (hitInfo.sceneObject) {
-                    // Compute the full surface interaction
-                    SurfaceInteraction si;
-                    hitInfo.sceneObject->getMeshRef().intersectPrimitive(ray, si, hitInfo.primitiveID);
-                    si.sceneObject = hitInfo.sceneObject;
-                    si.primitiveID = hitInfo.primitiveID;
-                    m_accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
-                } else {
-                    m_accelerationStructurePtr->m_missCallback(ray, userState);
+                // Insert the ray back into the top-level  BVH
+                if (m_accelerationStructurePtr->m_bvh.intersect(ray, hitInfo, userState, insertHandle)) {
+                    // Ray exited the system => call callbacks
+                    if (hitInfo.sceneObject) {
+                        // Compute the full surface interaction
+                        SurfaceInteraction si;
+                        hitInfo.sceneObject->getMeshRef().intersectPrimitive(ray, si, hitInfo.primitiveID);
+                        si.sceneObject = hitInfo.sceneObject;
+                        si.primitiveID = hitInfo.primitiveID;
+                        m_accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
+                    } else {
+                        m_accelerationStructurePtr->m_missCallback(ray, userState);
+                    }
                 }
             }
-        }
+            m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
+        });
 
-        auto* next = batch->next();
-        m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
-        batch = next;
+        batch = batch->next();
     }
+    taskGroup.wait();
 }
 
 template <typename UserState, size_t BatchSize>
