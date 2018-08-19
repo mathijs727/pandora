@@ -47,11 +47,14 @@ private:
         RayBatch(RayBatch* nextPtr = nullptr)
             : m_nextPtr(nextPtr)
             , m_sharedIndex(0)
-            , m_threadLocalIndex()
+            , m_writingThreadCount(0)
+        //, m_threadLocalIndex()
         {
             std::fill(std::begin(m_isValid), std::end(m_isValid), false);
         }
+        void setNext(RayBatch* nextPtr) { m_nextPtr = nextPtr; }
         RayBatch* next() { return m_nextPtr; }
+        size_t writingThreadCount() const { return m_writingThreadCount; }
 
         bool tryPush(const Ray& ray, const RayHit& hitInfo, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
 
@@ -88,11 +91,12 @@ private:
 
         RayBatch* m_nextPtr;
         std::atomic_size_t m_sharedIndex;
-        struct ThreadLocalBlock {
+        std::atomic_size_t m_writingThreadCount;
+        /*struct ThreadLocalBlock {
             size_t index = 0;
             size_t space = 0;
         };
-        tbb::enumerable_thread_specific<ThreadLocalBlock> m_threadLocalIndex;
+        tbb::enumerable_thread_specific<ThreadLocalBlock> m_threadLocalIndex;*/
     };
 
     class BotLevelLeafNode {
@@ -119,9 +123,9 @@ private:
 
     private:
         WiVeBVH8Build8<BotLevelLeafNode> m_leafBVH;
-        tbb::reader_writer_lock m_changeBatchLock;
-        RayBatch* m_currentBatch = nullptr;
-        uint32_t m_numFullBatches;
+        //tbb::reader_writer_lock m_changeBatchLock;
+        std::atomic<RayBatch*> m_currentBatch = nullptr;
+        std::atomic_uint32_t m_estimatedNumFullBatches;
         InCoreBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
     };
 
@@ -130,6 +134,7 @@ private:
 private:
     tbb::concurrent_vector<TopLevelLeafNode*> m_leafsWithBatchedRays;
     GrowingFreeListTS<RayBatch> m_batchAllocator;
+    tbb::enumerable_thread_specific<RayBatch*> m_preallocatedRayBatches;
     PauseableBVH4<TopLevelLeafNode, UserState> m_bvh;
 
     HitCallback m_hitCallback;
@@ -139,6 +144,7 @@ private:
 template <typename UserState, size_t BatchSize>
 inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::InCoreBatchingAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
     : m_batchAllocator()
+    , m_preallocatedRayBatches([this]() { return m_batchAllocator.allocate(); })
     , m_bvh(std::move(buildBVH(sceneObjects, *this)))
     , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
@@ -190,16 +196,16 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
         }
 #else
         // Sort full batches first
-        tbb::parallel_sort(leafsWithBatchedRays, [](auto* node1, auto* node2) -> bool {
+        /*tbb::parallel_sort(leafsWithBatchedRays, [](auto* node1, auto* node2) -> bool {
             return node1->numFullBatches() > node2->numFullBatches();
         });
         tbb::parallel_for_each(leafsWithBatchedRays, [](auto* topLevelLeafNode) {
             topLevelLeafNode->flush();
-        });
-
-        /*tbb::parallel_for_each(m_bvh.leafs(), [](auto* topLevelLeafNode) {
-            topLevelLeafNode->flush();
         });*/
+
+        tbb::parallel_for_each(m_bvh.leafs(), [](auto* topLevelLeafNode) {
+            topLevelLeafNode->flush();
+        });
 #endif
 
         leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
@@ -227,6 +233,7 @@ inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNo
     InCoreBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure)
     : m_leafBVH(std::move(buildBVH(gsl::make_span(&sceneObject, 1))))
     , m_currentBatch(nullptr)
+    , m_estimatedNumFullBatches(0)
     , m_accelerationStructurePtr(&accelerationStructure)
 {
 }
@@ -234,7 +241,8 @@ inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNo
 template <typename UserState, size_t BatchSize>
 inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(TopLevelLeafNode&& other)
     : m_leafBVH(std::move(other.m_leafBVH))
-    , m_currentBatch(other.m_currentBatch)
+    , m_currentBatch(other.m_currentBatch.load())
+    , m_estimatedNumFullBatches(other.m_estimatedNumFullBatches.load())
     , m_accelerationStructurePtr(other.m_accelerationStructurePtr)
 {
 }
@@ -243,7 +251,8 @@ template <typename UserState, size_t BatchSize>
 inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode& InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::operator=(TopLevelLeafNode&& other)
 {
     m_leafBVH = std::move(other.m_leafBVH);
-    m_currentBatch = other.m_currentBatch;
+    m_currentBatch.store(other.m_currentBatch.load());
+    m_estimatedNumFullBatches.store(other.m_estimatedNumFullBatches.load());
     m_accelerationStructurePtr = other.m_accelerationStructurePtr;
     return *this;
 }
@@ -253,13 +262,15 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
 {
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
+    std::atomic<RayBatch*>& atomicCurrentBatch = mutThisPtr->m_currentBatch;
+    RayBatch* batch = atomicCurrentBatch.load();
     while (true) {
-        RayBatch* oldBatch;
+        /*RayBatch* oldBatch;
         { // Read lock scope
             tbb::reader_writer_lock::scoped_lock_read readLock(mutThisPtr->m_changeBatchLock);
             oldBatch = mutThisPtr->m_currentBatch;
             if (oldBatch && oldBatch->tryPush(ray, rayInfo, userState, insertHandle))
-                break; // Push succesfull
+                break; // Push successful
         }
 
         // The current batch is full, try to replace it by a new one
@@ -272,6 +283,23 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
                     mutThisPtr->m_accelerationStructurePtr->m_leafsWithBatchedRays.push_back(mutThisPtr);
                 mutThisPtr->m_numFullBatches++;
             }
+        }*/
+        if (batch && batch->tryPush(ray, rayInfo, userState, insertHandle))
+            break; // Push successful
+
+        // Push failed: either there is no batch or the current batch is full.
+        auto* newBatch = m_accelerationStructurePtr->m_preallocatedRayBatches.local();
+        newBatch->setNext(batch); // Set next ptr
+        if (atomicCurrentBatch.compare_exchange_strong(batch, newBatch)) {
+            if (!batch) {
+                mutThisPtr->m_accelerationStructurePtr->m_leafsWithBatchedRays.push_back(mutThisPtr);
+                //std::cout << "FIRST BATCH FOR NODE: " << mutThisPtr << std::endl;
+            } else {
+                //std::cout << "OLD BATCH: " << batch << "; NEW BATCH: " << newBatch << "; NEXT PTR: " << atomicCurrentBatch.load()->next() << std::endl;
+            }
+            mutThisPtr->m_estimatedNumFullBatches.fetch_add(1);
+
+            m_accelerationStructurePtr->m_preallocatedRayBatches.local() = m_accelerationStructurePtr->m_batchAllocator.allocate();
         }
 
         // Outside scope of lock because flush also requires a write lock (and locking twice is not supported by the read/write lock)
@@ -287,23 +315,22 @@ template <typename UserState, size_t BatchSize>
 inline uint32_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::numFullBatches()
 {
     // Read lock scope
-    tbb::reader_writer_lock::scoped_lock_read readLock(m_changeBatchLock);
-    return m_numFullBatches;
+    //tbb::reader_writer_lock::scoped_lock_read readLock(m_changeBatchLock);
+    return m_estimatedNumFullBatches;
 }
 
 template <typename UserState, size_t BatchSize>
 inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::flush()
 {
-    RayBatch* batch;
-    {
-        tbb::reader_writer_lock::scoped_lock writeLock(m_changeBatchLock);
-        batch = m_currentBatch;
-        m_currentBatch = nullptr;
-        m_numFullBatches = 0;
+    RayBatch* batch = m_currentBatch.load();
+    while (!m_currentBatch.compare_exchange_strong(batch, nullptr)) {
     }
+    m_estimatedNumFullBatches.store(0);
 
     tbb::task_group taskGroup;
     while (batch) {
+        while (batch->writingThreadCount() > 0) {
+        }
         taskGroup.run([=]() {
             for (auto [ray, hitInfo, userState, insertHandle] : *batch) {
                 // Intersect with the bottom-level BVH
@@ -331,6 +358,46 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
         batch = batch->next();
     }
     taskGroup.wait();
+
+    /*RayBatch* batch;
+    {
+        tbb::reader_writer_lock::scoped_lock writeLock(m_changeBatchLock);
+        batch = m_currentBatch;
+        m_currentBatch = nullptr;
+        m_numFullBatches = 0;
+    }
+
+    tbb::task_group taskGroup;
+    while (batch) {
+        while (batch->writingThreadCount() > 0) {
+        };
+        taskGroup.run([=]() {
+            for (auto [ray, hitInfo, userState, insertHandle] : *batch) {
+                // Intersect with the bottom-level BVH
+                static_assert(std::is_same_v<RayHit, decltype(hitInfo)>);
+                m_leafBVH.intersect(ray, hitInfo);
+
+                // Insert the ray back into the top-level  BVH
+                if (m_accelerationStructurePtr->m_bvh.intersect(ray, hitInfo, userState, insertHandle)) {
+                    // Ray exited the system => call callbacks
+                    if (hitInfo.sceneObject) {
+                        // Compute the full surface interaction
+                        SurfaceInteraction si;
+                        hitInfo.sceneObject->getMeshRef().intersectPrimitive(ray, si, hitInfo.primitiveID);
+                        si.sceneObject = hitInfo.sceneObject;
+                        si.primitiveID = hitInfo.primitiveID;
+                        m_accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
+                    } else {
+                        m_accelerationStructurePtr->m_missCallback(ray, userState);
+                    }
+                }
+            }
+            m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
+        });
+
+        batch = batch->next();
+    }
+    taskGroup.wait();*/
 }
 
 template <typename UserState, size_t BatchSize>
@@ -382,7 +449,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch:
     static constexpr size_t threadLocalBlockSize = 4;
     static_assert(BatchSize % threadLocalBlockSize == 0);
 
-    auto localBlock = m_threadLocalIndex.local();
+    /*auto localBlock = m_threadLocalIndex.local();
     if (localBlock.space == 0) {
         // Reserve a new block from the batch that only this thread may allocate from
         auto newIndex = m_sharedIndex.fetch_add(threadLocalBlockSize);
@@ -391,15 +458,25 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch:
 
         localBlock.index = newIndex;
         localBlock.space = threadLocalBlockSize;
+    }*/
+
+    m_writingThreadCount.fetch_add(1);
+
+    auto index = m_sharedIndex.fetch_add(1);
+    if (index >= BatchSize) {
+        m_writingThreadCount.fetch_sub(1);
+        return false;
     }
 
-    m_rays[localBlock.index] = ray;
-    m_userStates[localBlock.index] = state;
-    m_hitInfos[localBlock.index] = hitInfo;
-    m_insertHandles[localBlock.index] = insertHandle;
-    m_isValid[localBlock.index] = true;
-    localBlock.index++;
-    localBlock.space--;
+    m_rays[index] = ray;
+    m_userStates[index] = state;
+    m_hitInfos[index] = hitInfo;
+    m_insertHandles[index] = insertHandle;
+    m_isValid[index] = true;
+    //localBlock.index++;
+    //localBlock.space--;
+
+    m_writingThreadCount.fetch_sub(1);
     return true;
 }
 
