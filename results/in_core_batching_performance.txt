@@ -25,3 +25,6 @@ Result: ~5700ms
 
 Fill batches in thread-local memory (using smaller batches of 64 rays) and split flush function in leaf traversal + top level traversal (inserting rays into new batches).
 Result: ~5000ms
+
+Let children nodes in PauseableBVH4 be contiguous in memory (+ sampler own their own )RNG
+Result: ~5100ms

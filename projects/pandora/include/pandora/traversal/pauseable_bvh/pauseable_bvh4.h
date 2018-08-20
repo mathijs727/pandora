@@ -33,30 +33,48 @@ private:
     void testBVH() const;
     void testBVHRecurse(const BVHNode* node, int depth, TestBVHData& out) const;
 
+    // Tuple returning node pointer and isLeaf
+    struct ConstructionInnerNode;
+    uint32_t generateFinalBVH(ConstructionInnerNode* node);
+    void generateFinalBVHRecurse(ConstructionInnerNode* node, uint32_t parentHandle, uint32_t depth, uint32_t outHandle);
+
     std::vector<LeafObj*> collectLeafs() const;
     void collectLeafsRecurse(const BVHNode& node, std::vector<LeafObj*>& outLeafObjects) const;
 
-    static void* encodeBVHConstructionLeafHandle(uint32_t handle);
+    /*static void* encodeBVHConstructionLeafHandle(uint32_t handle);
     static void* encodeBVHConstructionInnerNodeHandle(uint32_t handle);
     static std::tuple<bool, uint32_t> decodeBVHConstructionHandle(void* handle);
 
-    void setNodeDepth(BVHNode& node, uint32_t depth);
+    void setNodeDepth(BVHNode& node, uint32_t depth);*/
     static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
     static void innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr);
     static void innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr);
     static void* leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr);
 
 private:
-    struct alignas(16) BVHNode {
+    struct ConstructionNode {
+        virtual void dummy() const {};
+    };
+    struct ConstructionInnerNode : public ConstructionNode {
+        eastl::fixed_vector<Bounds, 4> childrenBounds;
+        eastl::fixed_vector<ConstructionNode*, 4> children;
+    };
+    struct ConstructionLeafNode : public ConstructionNode {
+        LeafObj* leafPtr;
+    };
+
+    struct alignas(64) BVHNode {
         simd::vec4_f32 minX;
         simd::vec4_f32 minY;
         simd::vec4_f32 minZ;
         simd::vec4_f32 maxX;
         simd::vec4_f32 maxY;
         simd::vec4_f32 maxZ;
-        std::array<uint32_t, 4> childrenHandles;
+
+        uint32_t firstChildHandle;
+        uint32_t firstLeafHandle;
+
         uint32_t parentHandle;
-        uint32_t neighbourHandle;
 
         uint32_t validMask : 4;
         uint32_t leafMask : 4;
@@ -65,7 +83,11 @@ private:
         uint32_t numChildren() const;
         bool isLeaf(unsigned childIdx) const;
         bool isInnerNode(unsigned childIdx) const;
+
+        uint32_t getInnerChildHandle(unsigned childIdx) const;
+        uint32_t getLeafChildHandle(unsigned childIdx) const;
     };
+    static_assert(sizeof(BVHNode) <= 128);
 
     ContiguousAllocatorTS<typename PauseableBVH4::BVHNode> m_innerNodeAllocator;
     ContiguousAllocatorTS<LeafObj> m_leafAllocator;
@@ -74,8 +96,6 @@ private:
     std::vector<LeafObj*> m_leafs;
 
     uint32_t m_rootHandle;
-
-    static_assert(sizeof(BVHNode) <= 128);
 };
 
 template <typename LeafObj, typename UserState>
@@ -127,10 +147,13 @@ inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> objec
     arguments.setNodeBounds = innerNodeSetBounds;
     arguments.createLeaf = leafCreate;
     arguments.userPtr = this;
-    auto [isLeaf, nodeHandle] = decodeBVHConstructionHandle(rtcBuildBVH(&arguments));
-    ALWAYS_ASSERT(!isLeaf);
-    m_rootHandle = nodeHandle;
-    setNodeDepth(m_innerNodeAllocator.get(nodeHandle), 0);
+    ConstructionNode* constructionRoot = reinterpret_cast<ConstructionNode*>(rtcBuildBVH(&arguments));
+    if (auto* constructionRootInner = dynamic_cast<ConstructionInnerNode*>(constructionRoot)) {
+        m_rootHandle = generateFinalBVH(constructionRootInner);
+    } else {
+        ALWAYS_ASSERT(false, "Leaf node cannot be the root of PauseableBVH4");
+    }
+    //setNodeDepth(m_innerNodeAllocator.get(nodeHandle), 0);
 
     // Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);
@@ -223,11 +246,13 @@ inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitIn
                 stack = stack | (toVisitBitMask << bitPos); // And replace them by the new mask
 
                 if (node->isInnerNode(childIndex)) {
-                    nodeHandle = node->childrenHandles[childIndex];
+                    //nodeHandle = node->childrenHandles[childIndex];
+                    nodeHandle = node->getInnerChildHandle(childIndex);
                     node = &m_innerNodeAllocator.get(nodeHandle);
                 } else {
                     // Reached leaf
-                    auto handle = node->childrenHandles[childIndex];
+                    //auto handle = node->childrenHandles[childIndex];
+                    auto handle = node->getLeafChildHandle(childIndex);
                     const auto& leaf = m_leafAllocator.get(handle);
                     if (!leaf.intersect(ray, hitInfo, userState, { nodeHandle, stack }))
                         return false; // Ray was paused
@@ -283,7 +308,7 @@ inline void PauseableBVH4<LeafObj, UserState>::testBVHRecurse(const BVHNode* nod
             out.numPrimitives++;
             numChildrenReference++;
         } else if (node->isInnerNode(childIdx)) {
-            testBVHRecurse(&m_innerNodeAllocator.get(node->childrenHandles[childIdx]), depth + 1, out);
+            testBVHRecurse(&m_innerNodeAllocator.get(node->getInnerChildHandle(childIdx)), depth + 1, out);
             numChildrenReference++;
         }
     }
@@ -294,6 +319,84 @@ inline void PauseableBVH4<LeafObj, UserState>::testBVHRecurse(const BVHNode* nod
     assert(depth == node->depth);
     out.maxDepth = std::max(out.maxDepth, depth);
     out.numChildrenHistogram[numChildren]++;
+}
+
+template <typename LeafObj, typename UserState>
+inline uint32_t PauseableBVH4<LeafObj, UserState>::generateFinalBVH(ConstructionInnerNode* node)
+{
+    auto [handle, ptr] = m_innerNodeAllocator.allocate();
+    generateFinalBVHRecurse(node, 0, 0, handle);
+    return handle;
+}
+
+template <typename LeafObj, typename UserState>
+inline void PauseableBVH4<LeafObj, UserState>::generateFinalBVHRecurse(ConstructionInnerNode* constructionInnerNode, uint32_t parentHandle, uint32_t depth, uint32_t outHandle)
+{
+    assert(constructionInnerNode->children.size() == constructionInnerNode->childrenBounds.size());
+    BVHNode& outNode = m_innerNodeAllocator.get(outHandle);
+
+    // Copy the bounding boxes
+    std::array<float, 4> minX, minY, minZ, maxX, maxY, maxZ;
+    for (size_t i = 0; i < constructionInnerNode->children.size(); i++) {
+        const auto& childBounds = constructionInnerNode->childrenBounds[i];
+        minX[i] = childBounds.min.x;
+        minY[i] = childBounds.min.y;
+        minZ[i] = childBounds.min.z;
+        maxX[i] = childBounds.max.x;
+        maxY[i] = childBounds.max.y;
+        maxZ[i] = childBounds.max.z;
+    }
+    for (size_t i = constructionInnerNode->children.size(); i < 4; i++) {
+        minX[i] = minY[i] = minZ[i] = maxX[i] = maxY[i] = maxZ[i] = 0.0f;
+    }
+    outNode.minX.load(minX);
+    outNode.minY.load(minY);
+    outNode.minZ.load(minZ);
+    outNode.maxX.load(maxX);
+    outNode.maxY.load(maxY);
+    outNode.maxZ.load(maxZ);
+
+    outNode.depth = depth;
+    outNode.parentHandle = parentHandle;
+
+    // Compute the valid & leaf masks and collect a typed list of the children
+    eastl::fixed_vector<ConstructionInnerNode*, 4> constructionInnerChildPointers;
+    eastl::fixed_vector<ConstructionLeafNode*, 4> constructionLeafChildPointers;
+    outNode.validMask = 0x0;
+    outNode.leafMask = 0x0;
+    for (unsigned i = 0; i < constructionInnerNode->children.size(); i++) {
+        bool isLeaf;
+        if (auto* innerPtr = dynamic_cast<ConstructionInnerNode*>(constructionInnerNode->children[i])) {
+            constructionInnerChildPointers.push_back(innerPtr);
+            isLeaf = false;
+        } else {
+            auto* leafPtr = dynamic_cast<ConstructionLeafNode*>(constructionInnerNode->children[i]);
+            constructionLeafChildPointers.push_back(leafPtr);
+            isLeaf = true;
+        }
+
+        outNode.validMask |= 1 << i;
+        if (isLeaf)
+            outNode.leafMask |= 1 << i;
+    }
+
+    // Copy the inner nodes to their final location
+    if (constructionLeafChildPointers.size() > 0) {
+        auto[handle, ptr] = m_leafAllocator.allocateN((unsigned)constructionLeafChildPointers.size(), [&](int i) {
+            return std::move(*constructionLeafChildPointers[i]->leafPtr);
+        });
+        outNode.firstLeafHandle = handle;
+    }
+
+    // Recursively generate all the inner node children
+    if (constructionInnerChildPointers.size() > 0) {
+        auto [firstInnerNodeHandle, ptr] = m_innerNodeAllocator.allocateN((unsigned)constructionInnerChildPointers.size());
+        auto handle = firstInnerNodeHandle;
+        for (auto* constructionInnerChildPtr : constructionInnerChildPointers) {
+            generateFinalBVHRecurse(constructionInnerChildPtr, outHandle, depth + 1, handle++);
+        }
+        outNode.firstChildHandle = firstInnerNodeHandle;
+    }
 }
 
 template <typename LeafObj, typename UserState>
@@ -312,14 +415,14 @@ inline void PauseableBVH4<LeafObj, UserState>::collectLeafsRecurse(const BVHNode
     unsigned numChildrenReference = 0;
     for (unsigned childIdx = 0; childIdx < 4; childIdx++) {
         if (node.isLeaf(childIdx)) {
-            outLeafObjects.push_back(&m_leafAllocator.get(node.childrenHandles[childIdx]));
+            outLeafObjects.push_back(&m_leafAllocator.get(node.getLeafChildHandle(childIdx)));
         } else if (node.isInnerNode(childIdx)) {
-            collectLeafsRecurse(m_innerNodeAllocator.get(node.childrenHandles[childIdx]), outLeafObjects);
+            collectLeafsRecurse(m_innerNodeAllocator.get(node.getInnerChildHandle(childIdx)), outLeafObjects);
         }
     }
 }
 
-template <typename LeafObj, typename UserState>
+/*template <typename LeafObj, typename UserState>
 inline void* PauseableBVH4<LeafObj, UserState>::encodeBVHConstructionLeafHandle(uint32_t handle)
 {
     assert((handle & 0x7FFFFFFF) == handle);
@@ -352,16 +455,19 @@ inline void PauseableBVH4<LeafObj, UserState>::setNodeDepth(BVHNode& node, uint3
             setNodeDepth(m_innerNodeAllocator.get(node.childrenHandles[childIdx]), depth + 1);
         }
     }
-}
+}*/
 
 template <typename LeafObj, typename UserState>
 inline void* PauseableBVH4<LeafObj, UserState>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
 {
-    auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
+    /*auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
     auto [nodeHandle, nodePtr] = self->m_innerNodeAllocator.allocate();
     (void)nodePtr;
 
-    return encodeBVHConstructionInnerNodeHandle(nodeHandle);
+    return encodeBVHConstructionInnerNodeHandle(nodeHandle);*/
+    auto ptr = rtcThreadLocalAlloc(alloc, sizeof(ConstructionInnerNode), 8);
+    new (ptr)ConstructionInnerNode();
+    return ptr;
 }
 
 template <typename LeafObj, typename UserState>
@@ -369,7 +475,7 @@ inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetChildren(void* nodePt
 {
     assert(numChildren <= 4);
 
-    auto [isLeaf, nodeHandle] = decodeBVHConstructionHandle(nodePtr);
+    /*auto [isLeaf, nodeHandle] = decodeBVHConstructionHandle(nodePtr);
     assert(!isLeaf);
     auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
     BVHNode& node = self->m_innerNodeAllocator.get(nodeHandle);
@@ -390,15 +496,21 @@ inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetChildren(void* nodePt
         node.childrenHandles[i] = childNodeHandle;
     }
     node.validMask = validMask;
-    node.leafMask = leafMask;
+    node.leafMask = leafMask;*/
+
+    ConstructionInnerNode& node = *reinterpret_cast<ConstructionInnerNode*>(nodePtr);
+    node.children.resize(numChildren);
+    for (unsigned i = 0; i < numChildren; i++) {
+        node.children[i] = reinterpret_cast<ConstructionNode*>(childPtr[i]);
+    }
 }
 
 template <typename LeafObj, typename UserState>
-inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr)
+inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetBounds(void* nodePtr, const RTCBounds** embreeBounds, unsigned numChildren, void* userPtr)
 {
     assert(numChildren <= 4);
 
-    auto [isLeaf, nodeHandle] = decodeBVHConstructionHandle(nodePtr);
+    /*auto [isLeaf, nodeHandle] = decodeBVHConstructionHandle(nodePtr);
     assert(!isLeaf);
     auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
     BVHNode& node = self->m_innerNodeAllocator.get(nodeHandle);
@@ -422,7 +534,20 @@ inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetBounds(void* nodePtr,
     node.minZ.load(minZ);
     node.maxX.load(maxX);
     node.maxY.load(maxY);
-    node.maxZ.load(maxZ);
+    node.maxZ.load(maxZ);*/
+
+    auto& node = *reinterpret_cast<ConstructionInnerNode*>(nodePtr);
+    node.childrenBounds.resize(numChildren);
+    for (unsigned i = 0; i < numChildren; i++) {
+        Bounds bounds;
+        bounds.min.x = embreeBounds[i]->lower_x;
+        bounds.min.y = embreeBounds[i]->lower_y;
+        bounds.min.z = embreeBounds[i]->lower_z;
+        bounds.max.x = embreeBounds[i]->upper_x;
+        bounds.max.y = embreeBounds[i]->upper_y;
+        bounds.max.z = embreeBounds[i]->upper_z;
+        node.childrenBounds[i] = bounds;
+    }
 }
 
 template <typename LeafObj, typename UserState>
@@ -430,10 +555,17 @@ inline void* PauseableBVH4<LeafObj, UserState>::leafCreate(RTCThreadLocalAllocat
 {
     assert(numPrims == 1);
 
-    // Allocate node
+    /*// Allocate node
     auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
     auto [nodeHandle, nodePtr] = self->m_leafAllocator.allocate(std::move(self->m_tmpConstructionLeafs[prims[0].primID]));
-    return encodeBVHConstructionLeafHandle(nodeHandle);
+    return encodeBVHConstructionLeafHandle(nodeHandle);*/
+
+    auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
+
+    auto ptr = rtcThreadLocalAlloc(alloc, sizeof(ConstructionLeafNode), 8);
+    auto leafNodePtr = new (ptr)ConstructionLeafNode();
+    leafNodePtr->leafPtr = &self->m_tmpConstructionLeafs[prims[0].primID];
+    return leafNodePtr;
 }
 
 template <typename LeafObj, typename UserState>
@@ -452,6 +584,22 @@ template <typename LeafObj, typename UserState>
 inline bool PauseableBVH4<LeafObj, UserState>::BVHNode::isInnerNode(unsigned childIdx) const
 {
     return (validMask & (~leafMask)) & (1 << childIdx);
+}
+
+template <typename LeafObj, typename UserState>
+inline uint32_t PauseableBVH4<LeafObj, UserState>::BVHNode::getInnerChildHandle(unsigned childIdx) const
+{
+    uint32_t innerNodeMaskBefore = (validMask & (~leafMask)) & ((1 << childIdx) - 1);
+    auto innerNodesBefore = _mm_popcnt_u32(innerNodeMaskBefore);
+    return firstChildHandle + innerNodesBefore;
+}
+
+template <typename LeafObj, typename UserState>
+inline uint32_t PauseableBVH4<LeafObj, UserState>::BVHNode::getLeafChildHandle(unsigned childIdx) const
+{
+    uint32_t leafNodeMaskBefore = (validMask & leafMask) & ((1 << childIdx) - 1);
+    auto leafNodesBefore = _mm_popcnt_u32(leafNodeMaskBefore);
+    return firstLeafHandle + leafNodesBefore;
 }
 
 }

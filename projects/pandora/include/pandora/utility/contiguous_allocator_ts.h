@@ -28,6 +28,9 @@ public:
     template <typename... Args>
     std::pair<Handle, T*> allocateN(unsigned N, Args&&... args);
 
+    template <typename InitF>
+    std::pair<Handle, T*> allocateN(unsigned N, InitF&& f);
+
     inline T& get(Handle handle) const { return reinterpret_cast<T&>(m_start[handle]); };
 
     size_t size() const { return m_currentSize; };
@@ -114,6 +117,30 @@ inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAlloca
     T* dataPtr = reinterpret_cast<T*>(m_start.get() + resultIndex);
     for (uint32_t i = 0; i < N; i++)
         new (dataPtr + i) T(std::forward<Args>(args)...);
+
+    return { resultIndex, dataPtr };
+}
+
+template <typename T>
+template <typename InitF>
+inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAllocatorTS<T>::allocateN(unsigned N, InitF&& initFunc)
+{
+    assert(N <= m_blockSize);
+
+    auto& currentBlock = m_threadLocalBlocks.local();
+    if (currentBlock.space < N) {
+        currentBlock.isInitialized = true;
+        currentBlock.index = allocateBlock();
+        currentBlock.space = m_blockSize;
+    }
+
+    uint32_t resultIndex = currentBlock.index;
+    currentBlock.index += N;
+    currentBlock.space -= N;
+
+    T* dataPtr = reinterpret_cast<T*>(m_start.get() + resultIndex);
+    for (uint32_t i = 0; i < N; i++)
+        new (dataPtr + i) T(initFunc(i));
 
     return { resultIndex, dataPtr };
 }

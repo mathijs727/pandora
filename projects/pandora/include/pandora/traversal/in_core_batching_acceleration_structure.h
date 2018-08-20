@@ -99,7 +99,6 @@ private:
 
     class TopLevelLeafNode {
     public:
-        //TopLevelLeafNode() = default;
         TopLevelLeafNode(TopLevelLeafNode&& other);
         TopLevelLeafNode(const SceneObject* sceneObjects, InCoreBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure);
 
@@ -257,7 +256,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
             do {
                 batch->setNext(oldHead);
             } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
-            mutThisPtr->m_approximateBatchCount.fetch_add(1);
+            //mutThisPtr->m_approximateBatchCount.fetch_add(1);
 
             if (!oldHead)
                 mutThisPtr->m_accelerationStructurePtr->m_leafsWithBatchedRays.push_back(mutThisPtr);
@@ -291,7 +290,7 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
 
             batch->setNext(m_immutableRayBatchList);
             m_immutableRayBatchList = batch;
-            m_approximateBatchCount.fetch_add(1);
+            //m_approximateBatchCount.fetch_add(1);
         }
         batch = nullptr;
     }
@@ -305,7 +304,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
     while (!m_immutableRayBatchList.compare_exchange_weak(batch, nullptr)) {
     }
 
-    m_approximateBatchCount.store(0);
+    //m_approximateBatchCount.store(0);
 
     if (!batch)
         return false;
