@@ -1,7 +1,5 @@
 #include "pandora/samplers/uniform_sampler.h"
-#include "rng/pcg.h"
-#include <atomic>
-#include <mutex>
+//#include "rng/pcg.h"
 
 // std::default_random_engine is very large (5KB). We can save a lot of memory by only storing one instance per thread.
 //static thread_local std::uniform_real_distribution<float> uniformDistribution = std::uniform_real_distribution<float>(0.0f, 1.0f);
@@ -9,16 +7,17 @@
 
 namespace pandora {
 
-static thread_local PcgRng randomNumberGenerator;
+//static thread_local PcgRng randomNumberGenerator;
 
-UniformSampler::UniformSampler(unsigned samplesPerPixel)
+UniformSampler::UniformSampler(unsigned samplesPerPixel, unsigned rngSeed)
     : Sampler(samplesPerPixel)
+    , m_rng(rngSeed)
 {
 }
 
 float UniformSampler::get1D()
 {
-    return randomNumberGenerator.uniformFloat();
+    return m_rng.uniformFloat();
     //return uniformDistribution(randomEngine);
 }
 

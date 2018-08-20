@@ -5,6 +5,7 @@
 #include "pandora/samplers/uniform_sampler.h"
 #include "pandora/traversal/in_core_acceleration_structure.h"
 #include "pandora/traversal/in_core_batching_acceleration_structure.h"
+#include <random>
 
 namespace pandora {
 
@@ -59,8 +60,10 @@ inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& senso
 
     int pixelCount = sensor.getResolution().x * sensor.getResolution().y;
     m_samplers.reserve(pixelCount);
+    std::mt19937 randomEngine;
+    std::uniform_int_distribution<unsigned> samplerSeedDistribution;
     for (int i = 0; i < pixelCount; i++)
-        m_samplers.push_back(UniformSampler(sppPerCall));
+        m_samplers.push_back(UniformSampler(sppPerCall, samplerSeedDistribution(randomEngine)));
 }
 
 template <typename IntegratorState>
