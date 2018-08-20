@@ -1,11 +1,11 @@
 #pragma once
 #include "pandora/utility/error_handling.h"
 #include <atomic>
+#include <cassert>
 #include <cstddef>
 #include <tbb/enumerable_thread_specific.h>
 #include <type_traits>
 #include <vector>
-#include <cassert>
 
 namespace pandora {
 
@@ -45,6 +45,7 @@ public:
     T* allocate(Args... args);
 
     void deallocate(T* p);
+
 private:
     using FreeListNode = growing_free_list_ts_impl::_FreeListNode<T>;
     static_assert(sizeof(FreeListNode) == sizeof(T));
@@ -69,17 +70,15 @@ inline void GrowingFreeListTS<T>::deallocate(T* p)
     auto* newNode = reinterpret_cast<FreeListNode*>(p);
 
     // Put the current value of m_freeListHead into newNode->next
-    newNode->next = m_freeListHead.load(std::memory_order_relaxed);
+    newNode->next = m_freeListHead.load();
 
     // Now make newNode the new head, but if the head is no longer what's stored in newNode->next
     // (some other thread must have inserted a node just now) then put that new head into
     // newNode->next and try again.
-    while (!std::atomic_compare_exchange_weak_explicit(
+    while (!std::atomic_compare_exchange_weak(
         &m_freeListHead,
         &newNode->next,
-        newNode,
-        std::memory_order_release,
-        std::memory_order_relaxed)) {
+        newNode)) {
         // Empty loop body
     }
 }
@@ -89,10 +88,8 @@ template <typename... Args>
 inline T* GrowingFreeListTS<T>::allocate(Args... args)
 {
     // Pop
-    auto* node = m_freeListHead.load(std::memory_order_relaxed);
-    while (node && !std::atomic_compare_exchange_weak_explicit(&m_freeListHead, &node, node->next,
-                       std::memory_order_relaxed, // For allocation we don't care whether writes/reads are reordered
-                       std::memory_order_relaxed)) {
+    auto* node = m_freeListHead.load();
+    while (node && !std::atomic_compare_exchange_weak(&m_freeListHead, &node, node->next)) {
     }
 
     if (!node) {

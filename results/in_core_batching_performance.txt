@@ -4,7 +4,7 @@ Everything was run in Release mode
 
 Reference performance:
 WiVe8B8: ~3500ms
-Embree:  ~9350ms
+Embree:  ~3950ms
 
 Initial implementation (2048 prims per leaf, 1024 rays per batch)
 Flush after all primary rays are inserted; keep flushing while there are non-empty batches. Before each flush iteration sort (in parallel) the leaf nodes based on the number of batches. For each node (in parallel) flush each batch (in parallel, so a single node with a lot of batches does not become a bottleneck). Batch read/writes are protected with a read/write lock so that we can safely change the current batch pointer. Writing in a batch happens using an atomic index (and some thread local indexing to prevent accessing the shared index on each access).
@@ -22,3 +22,6 @@ Result: ~6000ms
 
 Remove the valid checking for each item in a batch (not necessary when batches are filled from left to right)
 Result: ~5700ms
+
+Fill batches in thread-local memory (using smaller batches of 64 rays) and split flush function in leaf traversal + top level traversal (inserting rays into new batches).
+Result: ~5000ms

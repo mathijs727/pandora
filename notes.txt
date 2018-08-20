@@ -91,3 +91,5 @@ Why is the linked list using 32 bytes?
 Implementation tested in Crytek Sponza + path tracing because it is aimed at divergence ray performance. Initial results show that the read/write lock contention around the batching creates significant overhead.
 
 See results/in_core_batching_performance.txt for details
+
+Use a thread-local batch while filling and a shared list of (immutable) batches. Also use references in the batch iterator so we can first intersect all rays and then reinsert them into the top-level tree.

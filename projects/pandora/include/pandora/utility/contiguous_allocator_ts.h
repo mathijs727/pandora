@@ -23,10 +23,10 @@ public:
 
     using Handle = uint32_t;
     template <typename... Args>
-    std::pair<Handle, T*> allocate(Args... args);
+    std::pair<Handle, T*> allocate(Args&&... args);
 
     template <typename... Args>
-    std::pair<Handle, T*> allocateN(unsigned N, Args... args);
+    std::pair<Handle, T*> allocateN(unsigned N, Args&&... args);
 
     inline T& get(Handle handle) const { return reinterpret_cast<T&>(m_start[handle]); };
 
@@ -89,14 +89,14 @@ inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(const serialization::Cont
 
 template <typename T>
 template <typename... Args>
-inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAllocatorTS<T>::allocate(Args... args)
+inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAllocatorTS<T>::allocate(Args&&... args)
 {
-    return allocateN(1, args...);
+    return allocateN(1, std::forward<Args>(args)...);
 }
 
 template <typename T>
 template <typename... Args>
-inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAllocatorTS<T>::allocateN(unsigned N, Args... args)
+inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAllocatorTS<T>::allocateN(unsigned N, Args&&... args)
 {
     assert(N <= m_blockSize);
 
@@ -113,7 +113,7 @@ inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAlloca
 
     T* dataPtr = reinterpret_cast<T*>(m_start.get() + resultIndex);
     for (uint32_t i = 0; i < N; i++)
-        new (dataPtr + i) T(args...);
+        new (dataPtr + i) T(std::forward<Args>(args)...);
 
     return { resultIndex, dataPtr };
 }
@@ -146,13 +146,19 @@ inline void ContiguousAllocatorTS<T>::compact()
         if (auto iter = threadLocalBlocks.find(blockStart); iter != threadLocalBlocks.end()) {
             // Partially filled block
             for (uint32_t i = blockStart; i < blockStart + iter->second; i++) {
-                reinterpret_cast<T&>(compactedData[i]) = std::move(reinterpret_cast<T&>(m_start[i]));
+                // Call the move constructor
+                auto newAddress = reinterpret_cast<T*>(&compactedData[i]);
+                auto& oldValue = reinterpret_cast<T&>(m_start[i]);
+                new (newAddress) T(std::move(oldValue));
             }
         } else {
             // Fully filled block
             uint32_t blockEnd = blockStart + m_blockSize;
             for (uint32_t i = blockStart; i < blockEnd; i++) {
-                reinterpret_cast<T&>(compactedData[i]) = std::move(reinterpret_cast<T&>(m_start[i]));
+                // Call the move constructor
+                auto newAddress = reinterpret_cast<T*>(&compactedData[i]);
+                auto& oldValue = reinterpret_cast<T&>(m_start[i]);
+                new (newAddress) T(std::move(oldValue));
             }
         }
     }

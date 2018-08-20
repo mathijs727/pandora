@@ -432,8 +432,7 @@ inline void* PauseableBVH4<LeafObj, UserState>::leafCreate(RTCThreadLocalAllocat
 
     // Allocate node
     auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
-    auto [nodeHandle, nodePtr] = self->m_leafAllocator.allocate();
-    *nodePtr = std::move(self->m_tmpConstructionLeafs[prims[0].primID]);
+    auto [nodeHandle, nodePtr] = self->m_leafAllocator.allocate(std::move(self->m_tmpConstructionLeafs[prims[0].primID]));
     return encodeBVHConstructionLeafHandle(nodeHandle);
 }
 
