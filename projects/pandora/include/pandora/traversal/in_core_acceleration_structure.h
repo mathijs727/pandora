@@ -58,8 +58,8 @@ private:
 private:
     //EmbreeBVH<LeafNode> m_bvh;
     //NaiveSingleRayBVH2<LeafNode> m_bvh;
-    //WiVeBVH8Build8<LeafNode> m_bvh;
-    PauseableBVH4<PauseableLeafNode, UserState> m_bvh;
+    WiVeBVH8Build8<LeafNode> m_bvh;
+    //PauseableBVH4<PauseableLeafNode, UserState> m_bvh;
 
     HitCallback m_hitCallback;
     MissCallback m_missCallback;
@@ -85,6 +85,7 @@ template <typename UserState>
 inline bool InCoreAccelerationStructure<UserState>::PauseableLeafNode::intersect(Ray& ray, RayHit& hitInfo, const UserState& state, PauseableBVHInsertHandle insertHandle) const
 {
     (void)state;
+    (void)insertHandle;
 
     bool hit = sceneObject->getMeshRef().intersectPrimitive(ray, hitInfo, primitiveID);
     if (hit) {
@@ -96,8 +97,8 @@ inline bool InCoreAccelerationStructure<UserState>::PauseableLeafNode::intersect
 
 template <typename UserState>
 inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
-    //: m_bvh(std::move(buildBVH<decltype(m_bvh)>(sceneObjects)))
-    : m_bvh(std::move(buildPauseableBVH(sceneObjects)))
+    : m_bvh(std::move(buildBVH<decltype(m_bvh)>(sceneObjects)))
+    //: m_bvh(std::move(buildPauseableBVH(sceneObjects)))
     , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
 {
@@ -134,7 +135,13 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
         Ray ray = rays[i]; // Copy so we can mutate it
         UserState userState = perRayUserData[i];
 
-        bool paused = !m_bvh.intersect(ray, hitInfo, userState);
+        bool paused;
+        if constexpr (std::is_same_v<decltype(m_bvh), PauseableBVH4<PauseableLeafNode, UserState>>) {
+            paused = !m_bvh.intersect(ray, hitInfo, userState);
+        } else {
+            m_bvh.intersect(ray, hitInfo);
+            paused = false;
+        }
         assert(!paused);
         if (hitInfo.sceneObject) {
             SurfaceInteraction si = hitInfo.sceneObject->getMeshRef().fillSurfaceInteraction(ray, hitInfo);

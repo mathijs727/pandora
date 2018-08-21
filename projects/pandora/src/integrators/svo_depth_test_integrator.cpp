@@ -36,13 +36,15 @@ void SVODepthTestIntegrator::rayHit(const Ray& ray, SurfaceInteraction si, const
         pixel = rayState.pixel;
     }
 
-    Ray svoRay = ray;
+    m_sensor.addPixelContribution(pixel, glm::abs(si.normal));
+
+    /*Ray svoRay = ray;
 	svoRay.origin = m_worldToSVO * glm::vec4(ray.origin, 1.0f);
 	if (m_svo.intersectScalar(svoRay)) {
 		m_sensor.addPixelContribution(pixel, glm::vec3(0, 1, 0));
 	} else {
 		m_sensor.addPixelContribution(pixel, glm::vec3(1, 0, 0));
-	}
+	}*/
 }
 
 void SVODepthTestIntegrator::rayMiss(const Ray& ray, const RayState& s)

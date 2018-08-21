@@ -26,5 +26,12 @@ Result: ~5700ms
 Fill batches in thread-local memory (using smaller batches of 64 rays) and split flush function in leaf traversal + top level traversal (inserting rays into new batches).
 Result: ~5000ms
 
-Let children nodes in PauseableBVH4 be contiguous in memory (+ sampler own their own )RNG
+Let children nodes in PauseableBVH4 be contiguous in memory (+ sampler own their own RNG) => requires some bitwise operations to access children
 Result: ~5100ms
+
+Fix the PauseableBVH4 and triangle intersection bugs (results are now deterministic)
+Result: ~5100ms
+
+Remove the shared list of nodes with batched rays and simply loop over all BVH nodes
+Result: ~5050ms
+

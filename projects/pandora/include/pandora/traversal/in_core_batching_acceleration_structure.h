@@ -24,7 +24,7 @@ namespace pandora {
 
 static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 2048;
 
-template <typename UserState, size_t BatchSize = 128>
+template <typename UserState, size_t BatchSize = 64>
 class InCoreBatchingAccelerationStructure {
 public:
     using InsertHandle = void*;
@@ -125,7 +125,7 @@ private:
     static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(gsl::span<const std::unique_ptr<SceneObject>>, InCoreBatchingAccelerationStructure& accelerationStructure);
 
 private:
-    tbb::concurrent_vector<TopLevelLeafNode*> m_leafsWithBatchedRays;
+    //tbb::concurrent_vector<TopLevelLeafNode*> m_leafsWithBatchedRays;
     GrowingFreeListTS<RayBatch> m_batchAllocator;
     PauseableBVH4<TopLevelLeafNode, UserState> m_bvh;
     tbb::enumerable_thread_specific<RayBatch*> m_threadLocalPreallocatedRaybatch;
@@ -190,10 +190,10 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
         for (auto* topLevelLeafNode : m_bvh.leafs())
             topLevelLeafNode->prepareForFlushUnsafe();
 
-        tbb::concurrent_vector<TopLevelLeafNode*> leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
+        //tbb::concurrent_vector<TopLevelLeafNode*> leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
 
         size_t raysProcessed = 0;
-        for (auto* topLevelLeafNode : leafsWithBatchedRays) {
+        for (auto* topLevelLeafNode : m_bvh.leafs()) {
             raysProcessed += topLevelLeafNode->flush();
         }
 
@@ -208,15 +208,15 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
             topLevelLeafNode->prepareForFlushUnsafe();
         });
 
-        tbb::concurrent_vector<TopLevelLeafNode*> leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
+        /*tbb::concurrent_vector<TopLevelLeafNode*> leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
         if (leafsWithBatchedRays.empty())
-            break;
+            break;*/
 
         // Sort nodes so the ones with the most batches get processed first
         //tbb::parallel_sort(leafsWithBatchedRays, [](const TopLevelLeafNode* a, const TopLevelLeafNode* b) -> bool { return a->approximateBatchCount() < b->approximateBatchCount(); });
 
         tbb::enumerable_thread_specific<size_t> raysProcessedTL([]() -> size_t { return 0; });
-        tbb::parallel_for_each(leafsWithBatchedRays, [&](auto* topLevelLeafNode) {
+        tbb::parallel_for_each(m_bvh.leafs(), [&](auto* topLevelLeafNode) {
             raysProcessedTL.local() += topLevelLeafNode->flush();
         });
         size_t raysProcessed = std::accumulate(std::begin(raysProcessedTL), std::end(raysProcessedTL), (size_t)0, std::plus<size_t>());
@@ -270,6 +270,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
     RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
+    bool shouldFlush = false;
     if (!batch || batch->full()) {
         if (batch) {
             // Batch was full, move it to the list of immutable batches
@@ -278,8 +279,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
                 batch->setNext(oldHead);
             } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
 
-            if (!oldHead)
-                mutThisPtr->m_accelerationStructurePtr->m_leafsWithBatchedRays.push_back(mutThisPtr);
+            shouldFlush = true;
         }
 
         // Allocate a new batch and set it as the new active batch
@@ -290,6 +290,9 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
     bool success = batch->tryPush(ray, rayInfo, userState, insertHandle);
     assert(success);
 
+    //if (shouldFlush)
+    //    mutThisPtr->flush();
+
     return false;
 }
 
@@ -298,9 +301,6 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
 {
     for (auto& batch : m_threadLocalActiveBatch) {
         if (batch) {
-            if (!m_immutableRayBatchList)
-                m_accelerationStructurePtr->m_leafsWithBatchedRays.push_back(this);
-
             batch->setNext(m_immutableRayBatchList);
             m_immutableRayBatchList = batch;
         }
