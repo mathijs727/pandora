@@ -93,3 +93,5 @@ Implementation tested in Crytek Sponza + path tracing because it is aimed at div
 See results/in_core_batching_performance.txt for details
 
 Use a thread-local batch while filling and a shared list of (immutable) batches. Also use references in the batch iterator so we can first intersect all rays and then reinsert them into the top-level tree.
+
+Random writing to pixels should use atomics to splat to pixels. Ray intersection/surface interaction computation are split and RayHits store the UV (barycentric) coordinates. This ensures that we never generate a ray hit at the edge of a triangle (as result of a rounding error) for which we cannot generate a surface interaction.

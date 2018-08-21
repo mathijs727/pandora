@@ -17,7 +17,6 @@ SamplerIntegrator::SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& s
     : Integrator(scene, sensor, spp)
     , m_maxDepth(maxDepth)
     , m_cameraThisFrame(nullptr)
-    , m_previousHitPrimitiveID(sensor.getResolution().x * sensor.getResolution().y)
 {
 }
 
@@ -29,31 +28,15 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
 
     // Generate camera rays
     glm::ivec2 resolution = m_sensor.getResolution();
-//#ifndef NDEBUG
-#if 1
-    static int i = 0;
-    m_firstFrame = (i == 0);
-    if (i++ % 2 == 0) {
-        for (int y = 0; y < resolution.y; y++) {
-            for (int x = 0; x < resolution.x; x++) {
-                // Initialize camera sample for current sample
-                auto pixel = glm::ivec2(x, y);
-                spawnNextSample(pixel, true);
-            }
-        }
-    } else {
+#ifndef NDEBUG
+//#if 1
+    for (int y = 0; y < resolution.y; y++) {
         for (int x = 0; x < resolution.x; x++) {
-            for (int y = 0; y < resolution.y; y++) {
-                // Initialize camera sample for current sample
-                auto pixel = glm::ivec2(x, y);
-                spawnNextSample(pixel, true);
-            }
+            // Initialize camera sample for current sample
+            auto pixel = glm::ivec2(x, y);
+            spawnNextSample(pixel, true);
         }
     }
-    //std::fill(m_previousHitPrimitiveID.begin(), m_previousHitPrimitiveID.end(), 0);
-    /*for (int spp : m_samplesPerPixel) {
-        ALWAYS_ASSERT(spp == 1);
-    }*/
 #else
     tbb::blocked_range2d<int, int> sensorRange(0, resolution.y, 0, resolution.x);
     tbb::parallel_for(sensorRange, [&](tbb::blocked_range2d<int, int> localRange) {

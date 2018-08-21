@@ -36,21 +36,13 @@ void SVODepthTestIntegrator::rayHit(const Ray& ray, SurfaceInteraction si, const
         pixel = rayState.pixel;
     }
 
-    auto& prevHitPrimID = m_previousHitPrimitiveID[pixel.y * m_sensor.getResolution().x + pixel.x];
-    if (!m_firstFrame)
-        ALWAYS_ASSERT(prevHitPrimID == si.primitiveID);
-    prevHitPrimID = si.primitiveID;
-
-    //m_sensor.addPixelContribution(pixel, glm::vec3(std::min(1.0f, std::max(0.0f, si.primitiveID/ 10000.0f))));
-    m_sensor.addPixelContribution(pixel, glm::vec3(glm::abs(si.normal)));
-
-    /*Ray svoRay = ray;
+    Ray svoRay = ray;
 	svoRay.origin = m_worldToSVO * glm::vec4(ray.origin, 1.0f);
 	if (m_svo.intersectScalar(svoRay)) {
 		m_sensor.addPixelContribution(pixel, glm::vec3(0, 1, 0));
 	} else {
 		m_sensor.addPixelContribution(pixel, glm::vec3(1, 0, 0));
-	}*/
+	}
 }
 
 void SVODepthTestIntegrator::rayMiss(const Ray& ray, const RayState& s)
@@ -63,11 +55,6 @@ void SVODepthTestIntegrator::rayMiss(const Ray& ray, const RayState& s)
         const auto& rayState = std::get<ShadowRayState>(s);
         pixel = rayState.pixel;
     }
-
-    auto& prevHitPrimID = m_previousHitPrimitiveID[pixel.y * m_sensor.getResolution().x + pixel.x];
-    if (!m_firstFrame)
-        ALWAYS_ASSERT(prevHitPrimID == 0);
-    prevHitPrimID = 0;
 
     Ray svoRay = ray;
     svoRay.origin = m_worldToSVO * glm::vec4(ray.origin, 1.0f);

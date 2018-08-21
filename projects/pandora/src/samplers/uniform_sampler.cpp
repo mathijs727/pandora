@@ -17,9 +17,9 @@ UniformSampler::UniformSampler(unsigned samplesPerPixel, unsigned rngSeed)
 
 float UniformSampler::get1D()
 {
-    //return m_rng.uniformFloat();
+    return m_rng.uniformFloat();
     //return uniformDistribution(randomEngine);
-    return 0.5f;
+    //return 0.5f;
 }
 
 glm::vec2 UniformSampler::get2D()

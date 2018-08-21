@@ -24,7 +24,7 @@ namespace pandora {
 
 static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 2048;
 
-template <typename UserState, size_t BatchSize = 50000>
+template <typename UserState, size_t BatchSize = 128>
 class InCoreBatchingAccelerationStructure {
 public:
     using InsertHandle = void*;
@@ -46,18 +46,18 @@ private:
     public:
         RayBatch(RayBatch* nextPtr = nullptr)
             : m_nextPtr(nextPtr)
-            , m_sharedIndex(0)
+            , m_index(0)
         {
         }
         void setNext(RayBatch* nextPtr) { m_nextPtr = nextPtr; }
         RayBatch* next() { return m_nextPtr; }
-        bool full() const { return m_sharedIndex.load() == BatchSize; }
+        bool full() const { return m_index == BatchSize; }
 
         bool tryPush(const Ray& ray, const RayHit& hitInfo, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
 
         size_t size() const
         {
-            return std::min(BatchSize, m_sharedIndex.load());
+            return m_index;
         }
         std::tuple<Ray&, RayHit&, UserState&, PauseableBVHInsertHandle&> getUnsafe(int i);
 
@@ -65,12 +65,12 @@ private:
         struct iterator {
         public:
             using iterator_category = std::random_access_iterator_tag;
-            using value_type = std::tuple<Ray, RayHit, UserState, PauseableBVHInsertHandle>;
+            using value_type = std::tuple<Ray&, RayHit&, UserState&, PauseableBVHInsertHandle&>;
             using difference_type = std::ptrdiff_t;
             using pointer = value_type*;
             using reference = value_type&;
 
-            explicit iterator(RayBatch* batch, int index);
+            explicit iterator(RayBatch* batch, size_t index);
             iterator& operator++(); // pre-increment
             iterator operator++(int); // post-increment
             bool operator==(iterator other) const;
@@ -79,7 +79,7 @@ private:
 
         private:
             RayBatch* m_rayBatch;
-            int m_index;
+            size_t m_index;
         };
 
         const iterator begin();
@@ -92,8 +92,7 @@ private:
         std::array<PauseableBVHInsertHandle, BatchSize> m_insertHandles;
 
         RayBatch* m_nextPtr;
-        //size_t m_index;
-        std::atomic_size_t m_sharedIndex;
+        size_t m_index;
     };
 
     class BotLevelLeafNode {
@@ -110,18 +109,16 @@ private:
 
         bool intersect(Ray& ray, RayHit& rayInfo, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
 
-        void prepareForFlushUnsafe(); // Adds the current batch to the list of immutable batches (even if it is not full)
-        int flush(); // Flushes the list of immutable batches (but not the active batches)
+        void prepareForFlushUnsafe(); // Adds the active batches to the list of immutable batches (even if they are not full)
+        size_t flush(); // Flushes the list of immutable batches (but not the active batches)
 
     private:
         static WiVeBVH8Build8<BotLevelLeafNode> buildBVH(gsl::span<const SceneObject*> sceneObject);
 
     private:
         WiVeBVH8Build8<BotLevelLeafNode> m_leafBVH;
-        //tbb::enumerable_thread_specific<RayBatch*> m_threadLocalActiveBatch;
-        //std::atomic<RayBatch*> m_immutableRayBatchList;
-        std::atomic<RayBatch*> m_currentRayBatch;
-        std::atomic_int m_numBatchesRays;
+        tbb::enumerable_thread_specific<RayBatch*> m_threadLocalActiveBatch;
+        std::atomic<RayBatch*> m_immutableRayBatchList;
         InCoreBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
     };
 
@@ -169,8 +166,7 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
             if (hitInfo.sceneObject) {
                 ALWAYS_ASSERT(false);
                 // Compute the full surface interaction
-                SurfaceInteraction si;
-                hitInfo.sceneObject->getMeshRef().intersectPrimitive(ray, si, hitInfo.primitiveID);
+                SurfaceInteraction si = hitInfo.sceneObject->getMeshRef().fillSurfaceInteraction(ray, hitInfo);
                 si.sceneObject = hitInfo.sceneObject;
                 si.primitiveID = hitInfo.primitiveID;
 
@@ -189,17 +185,15 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
 {
     std::cout << "RAYS IN BEFORE FLUSH SYSTEM: " << m_raysInSystem << std::endl;
 
-    //while (!leafsWithBatchedRays.empty()) {
     while (true) {
-//#ifndef NDEBUG
-#if 1
+#ifndef NDEBUG
         for (auto* topLevelLeafNode : m_bvh.leafs())
             topLevelLeafNode->prepareForFlushUnsafe();
 
         tbb::concurrent_vector<TopLevelLeafNode*> leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
 
-        int raysProcessed = 0;
-        for (auto* topLevelLeafNode : m_bvh.leafs()) {
+        size_t raysProcessed = 0;
+        for (auto* topLevelLeafNode : leafsWithBatchedRays) {
             raysProcessed += topLevelLeafNode->flush();
         }
 
@@ -214,20 +208,21 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
             topLevelLeafNode->prepareForFlushUnsafe();
         });
 
-        //tbb::concurrent_vector<TopLevelLeafNode*> leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
-        //if (leafsWithBatchedRays.empty())
-        //    break;
+        tbb::concurrent_vector<TopLevelLeafNode*> leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
+        if (leafsWithBatchedRays.empty())
+            break;
 
         // Sort nodes so the ones with the most batches get processed first
         //tbb::parallel_sort(leafsWithBatchedRays, [](const TopLevelLeafNode* a, const TopLevelLeafNode* b) -> bool { return a->approximateBatchCount() < b->approximateBatchCount(); });
 
-        tbb::enumerable_thread_specific<bool> anyRayLeftTL([]() { return false; });
-        tbb::parallel_for_each(m_bvh.leafs(), [&](auto* topLevelLeafNode) {
-            anyRayLeftTL.local() = anyRayLeftTL.local() || topLevelLeafNode->flush();
+        tbb::enumerable_thread_specific<size_t> raysProcessedTL([]() -> size_t { return 0; });
+        tbb::parallel_for_each(leafsWithBatchedRays, [&](auto* topLevelLeafNode) {
+            raysProcessedTL.local() += topLevelLeafNode->flush();
         });
-        bool anyRayLeft = std::reduce(std::begin(anyRayLeftTL), std::end(anyRayLeftTL), false, [](bool a, bool b) { return a || b; });
-        if (!anyRayLeft)
+        size_t raysProcessed = std::accumulate(std::begin(raysProcessedTL), std::end(raysProcessedTL), (size_t)0, std::plus<size_t>());
+        if (raysProcessed == 0)
             break;
+        //std::cout << "Rays processed: " << raysProcessed << std::endl;
 #endif
     }
 
@@ -256,9 +251,7 @@ inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNo
     const SceneObject* sceneObject,
     InCoreBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure)
     : m_leafBVH(std::move(buildBVH(gsl::make_span(&sceneObject, 1))))
-    //, m_threadLocalActiveBatch([]() { return nullptr; })
-    , m_currentRayBatch(nullptr)
-    , m_numBatchesRays(0)
+    , m_threadLocalActiveBatch([]() { return nullptr; })
     , m_accelerationStructurePtr(&accelerationStructure)
 {
 }
@@ -266,9 +259,7 @@ inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNo
 template <typename UserState, size_t BatchSize>
 inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(TopLevelLeafNode&& other)
     : m_leafBVH(std::move(other.m_leafBVH))
-    //, m_threadLocalActiveBatch(std::move(other.m_threadLocalActiveBatch))
-    , m_currentRayBatch(other.m_currentRayBatch.load())
-    , m_numBatchesRays(other.m_numBatchesRays.load())
+    , m_threadLocalActiveBatch(std::move(other.m_threadLocalActiveBatch))
     , m_accelerationStructurePtr(other.m_accelerationStructurePtr)
 {
 }
@@ -278,25 +269,9 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
 {
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
-    RayBatch* batch = mutThisPtr->m_currentRayBatch.load();
-    while (true) {
-        if (batch && batch->tryPush(ray, rayInfo, userState, insertHandle)) {
-            mutThisPtr->m_numBatchesRays.fetch_add(1);
-            break;
-        }
-
-        auto& preallocatedBatch = mutThisPtr->m_accelerationStructurePtr->m_threadLocalPreallocatedRaybatch.local();
-        preallocatedBatch->setNext(batch);
-        if (mutThisPtr->m_currentRayBatch.compare_exchange_strong(batch, preallocatedBatch)) {
-            batch = preallocatedBatch;// Value only gets set automatically on failure
-            mutThisPtr->m_accelerationStructurePtr->m_threadLocalPreallocatedRaybatch.local() = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
-        }
-    }
-
-    /*RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
+    RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
     if (!batch || batch->full()) {
         if (batch) {
-
             // Batch was full, move it to the list of immutable batches
             auto* oldHead = mutThisPtr->m_immutableRayBatchList.load();
             do {
@@ -313,8 +288,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
     }
 
     bool success = batch->tryPush(ray, rayInfo, userState, insertHandle);
-    ALWAYS_ASSERT(success);
-    mutThisPtr->m_numBatchesRays.fetch_add(1);*/
+    assert(success);
 
     return false;
 }
@@ -322,7 +296,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
 template <typename UserState, size_t BatchSize>
 inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::prepareForFlushUnsafe()
 {
-    /*for (auto& batch : m_threadLocalActiveBatch) {
+    for (auto& batch : m_threadLocalActiveBatch) {
         if (batch) {
             if (!m_immutableRayBatchList)
                 m_accelerationStructurePtr->m_leafsWithBatchedRays.push_back(this);
@@ -331,64 +305,51 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
             m_immutableRayBatchList = batch;
         }
         batch = nullptr;
-    }*/
+    }
 }
 
 template <typename UserState, size_t BatchSize>
-inline int InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::flush()
+inline size_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::flush()
 {
-    //std::lock_guard<std::mutex> lock(m_rayBatchListMutex);
-    RayBatch* batch = m_currentRayBatch.exchange(nullptr);
+    RayBatch* batch = m_immutableRayBatchList.exchange(nullptr);
     if (!batch)
         return false;
 
-    int numRaysBeforeFlush = m_numBatchesRays.exchange(0);
-
-    int numRays = 0;
-    //tbb::task_group taskGroup;
+    size_t numRays = 0;
+    tbb::task_group taskGroup;
     while (batch) {
-        //taskGroup.run([=]() {
-        //for (auto [ray, hitInfo, userState, insertHandle] : *batch) {
-        for (int i = (int)batch->size() - 1; i >= 0; i--) {
-            auto [ray, hitInfo, userState, insertHandle] = batch->getUnsafe(i);
+        numRays += batch->size();
 
-            // Intersect with the bottom-level BVH
-            static_assert(std::is_same_v<RayHit, std::decay_t<decltype(hitInfo)>>);
-            m_leafBVH.intersect(ray, hitInfo);
-            numRays++;
-        //}
-
-        //for (auto [ray, hitInfo, userState, insertHandle] : *batch) {
-        //for (int i = 0; i < batch->size(); i++) {
-        //for (int i = (int)batch->size() - 1; i >= 0; i--) {
-            //auto [ray, hitInfo, userState, insertHandle] = batch->getUnsafe(i);
-
-            // Insert the ray back into the top-level  BVH
-            if (m_accelerationStructurePtr->m_bvh.intersect(ray, hitInfo, userState, insertHandle)) {
-                // Ray exited the system => call callbacks
-                if (hitInfo.sceneObject) {
-                    // Compute the full surface interaction
-                    SurfaceInteraction si;
-                    hitInfo.sceneObject->getMeshRef().intersectPrimitive(ray, si, hitInfo.primitiveID);
-                    si.sceneObject = hitInfo.sceneObject;
-                    si.primitiveID = hitInfo.primitiveID;
-                    m_accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
-                } else {
-                    m_accelerationStructurePtr->m_missCallback(ray, userState);
-                }
-
-                m_accelerationStructurePtr->m_raysInSystem.fetch_sub(1);
-            }
-        }
         auto next = batch->next();
-        m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
-        batch = next;
-        //});
-    }
-    //taskGroup.wait();
+        taskGroup.run([=]() {
+            for (auto [ray, hitInfo, userState, insertHandle] : *batch) {
+                // Intersect with the bottom-level BVH
+                static_assert(std::is_same_v<RayHit, std::decay_t<decltype(hitInfo)>>);
+                m_leafBVH.intersect(ray, hitInfo);
+            }
 
-    //ALWAYS_ASSERT(numRaysBeforeFlush == m_numBatchesRays.load());
-    ALWAYS_ASSERT(numRays == numRaysBeforeFlush);
+            for (auto [ray, hitInfo, userState, insertHandle] : *batch) {
+                // Insert the ray back into the top-level  BVH
+                if (m_accelerationStructurePtr->m_bvh.intersect(ray, hitInfo, userState, insertHandle)) {
+                    // Ray exited the system => call callbacks
+                    if (hitInfo.sceneObject) {
+                        // Compute the full surface interaction
+                        SurfaceInteraction si = hitInfo.sceneObject->getMeshRef().fillSurfaceInteraction(ray, hitInfo);
+                        si.sceneObject = hitInfo.sceneObject;
+                        si.primitiveID = hitInfo.primitiveID;
+                        m_accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
+                    } else {
+                        m_accelerationStructurePtr->m_missCallback(ray, userState);
+                    }
+
+                    m_accelerationStructurePtr->m_raysInSystem.fetch_sub(1);
+                }
+            }
+            m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
+        });
+        batch = next;
+    }
+    taskGroup.wait();
 
     return numRays;
 }
@@ -439,9 +400,10 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelL
 template <typename UserState, size_t BatchSize>
 inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const RayHit& hitInfo, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
-    auto index = m_sharedIndex.fetch_add(1);
-    if (index >= BatchSize)
-        return false;
+    auto index = m_index++;
+    ALWAYS_ASSERT(index < BatchSize);
+    //if (index >= BatchSize)
+    //    return false;
 
     m_rays[index] = ray;
     m_userStates[index] = state;
@@ -460,19 +422,17 @@ inline std::tuple<Ray&, RayHit&, UserState&, PauseableBVHInsertHandle&> InCoreBa
 template <typename UserState, size_t BatchSize>
 inline const typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::begin()
 {
-    //return iterator(this, 0);
-    return iterator(this, (int)std::min(BatchSize - 1, m_sharedIndex.load() - 1));
+    return iterator(this, 0);
 }
 
 template <typename UserState, size_t BatchSize>
 inline const typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::end()
 {
-    //return iterator(this, (int)std::min(BatchSize, m_sharedIndex.load()));
-    return iterator(this, -1);
+    return iterator(this, m_index);
 }
 
 template <typename UserState, size_t BatchSize>
-inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::iterator(InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch* batch, int index)
+inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::iterator(InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch* batch, size_t index)
     : m_rayBatch(batch)
     , m_index(index)
 {
@@ -481,7 +441,7 @@ inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iter
 template <typename UserState, size_t BatchSize>
 inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator& InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator++()
 {
-    m_index--;
+    m_index++;
     return *this;
 }
 
@@ -489,7 +449,7 @@ template <typename UserState, size_t BatchSize>
 inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator++(int)
 {
     auto r = *this;
-    m_index--;
+    m_index++;
     return r;
 }
 

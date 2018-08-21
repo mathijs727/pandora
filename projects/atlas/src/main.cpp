@@ -54,11 +54,11 @@ int main()
     PerspectiveCamera camera = PerspectiveCamera(resolution, 65.0f);
     FpsCameraControls cameraControls(myWindow, camera);
     //camera.setPosition(glm::vec3(1.5f, 1.5f, 0.0f)); // Voxel grid
-    camera.setPosition(glm::vec3(0.25f, 0.8f, -1.5f)); // Bunny / Dragon
+    //camera.setPosition(glm::vec3(0.25f, 0.8f, -1.5f)); // Bunny / Dragon
 
     // Sponza
-    //camera.setPosition(glm::vec3(0.796053410f, 0.283110082f, -0.0945308730f));
-    //camera.setOrientation(glm::quat(-0.702995539f, 0.130927190f, 0.687222004f, 0.127989486f));
+    camera.setPosition(glm::vec3(0.796053410f, 0.283110082f, -0.0945308730f));
+    camera.setOrientation(glm::quat(-0.702995539f, 0.130927190f, 0.687222004f, 0.127989486f));
 
     Scene scene;
 
@@ -68,17 +68,17 @@ int main()
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
     //addCornellBox(scene);
-    addStanfordBunny(scene);
+    //addStanfordBunny(scene);
     //addStanfordDragon(scene, false);
-    //addCrytekSponza(scene);
+    addCrytekSponza(scene);
 
     scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
 
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    //PathIntegrator integrator(10, scene, camera.getSensor(), 1);
+    PathIntegrator integrator(10, scene, camera.getSensor(), 1);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
-    SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
+    //SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
