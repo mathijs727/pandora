@@ -10,26 +10,7 @@
 namespace pandora {
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
-{
-    if constexpr (is_bvh_Leaf_obj<LeafObj>::has_intersect_si)
-        return intersectT(ray, si);
-    else
-        return false;
-}
-
-template <typename LeafObj>
 inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
-{
-    if constexpr (is_bvh_Leaf_obj<LeafObj>::has_intersect_ray_hit)
-        return intersectT(ray, hitInfo);
-    else
-        return false;
-}
-
-template <typename LeafObj>
-template <typename HitType>
-inline bool WiVeBVH8<LeafObj>::intersectT(Ray& ray, HitType& hitData) const
 {
     bool hit = false;
 
@@ -84,7 +65,7 @@ inline bool WiVeBVH8<LeafObj>::intersectT(Ray& ray, HitType& hitData) const
             assert(isLeafNode(compressedNodeHandle));
 #endif
             // Leaf node
-            if (intersectLeaf(&m_leafNodeAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, hitData)) {
+            if (intersectLeaf(&m_leafNodeAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, hitInfo)) {
                 hit = true;
                 simdRay.tfar.broadcast(ray.tfar);
 
@@ -134,8 +115,8 @@ inline uint32_t WiVeBVH8<LeafObj>::intersectInnerNode(const BVHNode* n, const SI
     simd::vec8_f32 tmin = simd::max(ray.tnear, simd::max(txMin, simd::max(tyMin, tzMin)));
     simd::vec8_f32 tmax = simd::min(ray.tfar, simd::min(txMax, simd::min(tyMax, tzMax)));
 
-    const static simd::vec8_u32 indexMask(0b111);
-    const static simd::vec8_u32 simd24(24);
+    const simd::vec8_u32 indexMask(0b111);
+    const simd::vec8_u32 simd24(24);
     simd::vec8_u32 index = (n->permutationOffsets >> ray.raySignShiftAmount) & indexMask;
 
     tmin = tmin.permute(index);
@@ -148,14 +129,13 @@ inline uint32_t WiVeBVH8<LeafObj>::intersectInnerNode(const BVHNode* n, const SI
 }
 
 template <typename LeafObj>
-template <typename HitType>
-inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, HitType& hitData) const
+inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, RayHit& hitInfo) const
 {
     bool hit = false;
     const auto* leafObjectIDs = n->leafObjectIDs;
     const auto* primitiveIDs = n->primitiveIDs;
     for (uint32_t i = 0; i < primitiveCount; i++) {
-        hit |= m_leafObjects[leafObjectIDs[i]]->intersectPrimitive(ray, hitData, primitiveIDs[i]);
+        hit |= m_leafObjects[leafObjectIDs[i]]->intersectPrimitive(ray, hitInfo, primitiveIDs[i]);
     }
     return hit;
 }

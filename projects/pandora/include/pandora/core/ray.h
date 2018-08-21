@@ -35,6 +35,8 @@ public:
 struct RayHit {
     const SceneObject* sceneObject = nullptr;
     unsigned primitiveID;
+
+    glm::vec2 geometricUV;
 };
 
 template <int N>

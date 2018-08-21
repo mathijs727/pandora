@@ -29,6 +29,8 @@ public:
 
     void render(const PerspectiveCamera& camera) final;
 
+    bool m_firstFrame;
+    std::vector<uint32_t> m_previousHitPrimitiveID;
 protected:
 	using RayState = sampler_integrator::RayState;
 	using ContinuationRayState = sampler_integrator::ContinuationRayState;

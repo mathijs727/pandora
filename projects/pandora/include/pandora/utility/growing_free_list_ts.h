@@ -6,6 +6,7 @@
 #include <tbb/enumerable_thread_specific.h>
 #include <type_traits>
 #include <vector>
+#include <mutex>
 
 namespace pandora {
 
@@ -49,8 +50,9 @@ public:
 private:
     using FreeListNode = growing_free_list_ts_impl::_FreeListNode<T>;
     static_assert(sizeof(FreeListNode) == sizeof(T));
-
-    std::atomic<FreeListNode*> m_freeListHead;
+    std::mutex m_mutex;
+    //std::atomic<FreeListNode*> m_freeListHead;
+    FreeListNode* m_freeListHead;
 
     tbb::enumerable_thread_specific<std::vector<std::unique_ptr<FreeListNode>>> m_allocatedNodes;
 };
@@ -64,32 +66,40 @@ inline GrowingFreeListTS<T>::GrowingFreeListTS()
 template <typename T>
 inline void GrowingFreeListTS<T>::deallocate(T* p)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     p->~T();
 
     // https://en.cppreference.com/w/cpp/atomic/atomic_compare_exchange
     auto* newNode = reinterpret_cast<FreeListNode*>(p);
+    //memset(newNode, 0, sizeof(FreeListNode));
 
-    // Put the current value of m_freeListHead into newNode->next
+    /*// Put the current value of m_freeListHead into newNode->next
     newNode->next = m_freeListHead.load();
 
     // Now make newNode the new head, but if the head is no longer what's stored in newNode->next
     // (some other thread must have inserted a node just now) then put that new head into
     // newNode->next and try again.
-    while (!std::atomic_compare_exchange_weak(
-        &m_freeListHead,
-        &newNode->next,
-        newNode)) {
-        // Empty loop body
-    }
+    while (!m_freeListHead.compare_exchange_weak(newNode->next, newNode)) {
+    }*/
+    newNode->next = m_freeListHead;
+    m_freeListHead = newNode;
 }
 
 template <typename T>
 template <typename... Args>
 inline T* GrowingFreeListTS<T>::allocate(Args... args)
 {
-    // Pop
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    /*// Pop
     auto* node = m_freeListHead.load();
-    while (node && !std::atomic_compare_exchange_weak(&m_freeListHead, &node, node->next)) {
+    while (node && !m_freeListHead.compare_exchange_weak(node, node->next)) {
+    }*/
+
+    auto* node = m_freeListHead;
+    if (m_freeListHead) {
+        m_freeListHead = m_freeListHead->next;
     }
 
     if (!node) {
@@ -99,6 +109,7 @@ inline T* GrowingFreeListTS<T>::allocate(Args... args)
         m_allocatedNodes.local().push_back(std::move(newNode));
     }
 
+    //memset(node, 0, sizeof(FreeListNode));
     return new (reinterpret_cast<void*>(node)) T(args...);
 }
 

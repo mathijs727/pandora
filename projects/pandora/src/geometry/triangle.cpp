@@ -405,9 +405,11 @@ float TriangleMesh::pdfPrimitive(unsigned primitiveID, const Interaction& ref, c
 
     // Intersect sample ray with area light geometry
     Ray ray = ref.spawnRay(wi);
-    SurfaceInteraction isectLight;
-    if (!intersectPrimitive(ray, isectLight, primitiveID, false))
+    RayHit hitInfo;
+    if (!intersectPrimitive(ray, hitInfo, primitiveID, false))
         return 0.0f;
+
+    SurfaceInteraction isectLight = fillSurfaceInteraction(ray, hitInfo, false);
 
     // Convert light sample weight to solid angle measure
     return distanceSquared(ref.position, isectLight.position) / (absDot(isectLight.normal, -wi) * primitiveArea(primitiveID));

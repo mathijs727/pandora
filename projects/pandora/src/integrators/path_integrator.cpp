@@ -29,6 +29,13 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
 
         // TODO
         auto& sampler = getSampler(rayState.pixel);
+        if (rayState.pixel.x == 0 && rayState.pixel.y == 0)
+        {
+            std::cout << "Ray dir: (" << r.direction.x << ", " << r.direction.y << ", " << r.direction.z << ")" << std::endl;
+            std::cout << "Ray tfar: " << r.tfar << std::endl;
+            std::cout << "Ray tnear: " << r.tnear << std::endl;
+            std::cout << "Prim hit: " << si.primitiveID << std::endl;
+        }
 
         // Possibly add emitted light at intersection
         if (rayState.bounces == 0 || rayState.specularBounce) {
@@ -89,6 +96,12 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
         if (rayState.light != nullptr && si.sceneObject->getAreaLight(si.primitiveID) == rayState.light) {
             // Ray created by BSDF sampling (PBRTv3 page 861) - contains weight
             Spectrum li = si.Le(-r.direction);
+            {
+                glm::vec3 oldValue = m_sensor.pixelValue(rayState.pixel);
+                ALWAYS_ASSERT(oldValue.x == 0.0f);
+                ALWAYS_ASSERT(oldValue.y == 0.0f);
+                ALWAYS_ASSERT(oldValue.z == 0.0f);
+            }
             m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * li);
         }
     }

@@ -13,9 +13,9 @@ struct is_bvh_Leaf_obj {
     BOOST_TTI_HAS_MEMBER_FUNCTION(intersectPrimitive)
     static constexpr bool has_num_primitives = has_member_function_numPrimitives<T, unsigned, boost::mpl::vector<>, boost::function_types::const_qualified>::value;
     static constexpr bool has_primitive_bounds = has_member_function_getPrimitiveBounds<T, Bounds, boost::mpl::vector<unsigned>, boost::function_types::const_qualified>::value;
-    static constexpr bool has_intersect_si = has_member_function_intersectPrimitive<T, bool, boost::mpl::vector<Ray&, SurfaceInteraction&, unsigned>, boost::function_types::const_qualified>::value;
+    //static constexpr bool has_intersect_si = has_member_function_intersectPrimitive<T, bool, boost::mpl::vector<Ray&, SurfaceInteraction&, unsigned>, boost::function_types::const_qualified>::value;
     static constexpr bool has_intersect_ray_hit = has_member_function_intersectPrimitive<T, bool, boost::mpl::vector<Ray&, RayHit&, unsigned>, boost::function_types::const_qualified>::value;
-    static constexpr bool value = has_num_primitives && has_primitive_bounds && (has_intersect_si || has_intersect_ray_hit);
+    static constexpr bool value = has_num_primitives && has_primitive_bounds && has_intersect_ray_hit;
 };
 
 template <typename LeafObj>
@@ -25,7 +25,6 @@ public:
 
     virtual void build(gsl::span<const LeafObj*> objects) = 0;
 
-    virtual bool intersect(Ray& ray, SurfaceInteraction& si) const = 0;
     virtual bool intersect(Ray& ray, RayHit& hitInfo) const = 0;
 };
 

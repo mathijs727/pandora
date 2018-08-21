@@ -1,11 +1,7 @@
 namespace pandora {
 
 template <typename LeafObj>
-tbb::enumerable_thread_specific<std::pair<gsl::span<Ray>, gsl::span<SurfaceInteraction>>> EmbreeBVH<LeafObj>::s_intersectionDataSI;
-template <typename LeafObj>
 tbb::enumerable_thread_specific<std::pair<gsl::span<Ray>, gsl::span<RayHit>>> EmbreeBVH<LeafObj>::s_intersectionDataRayHit;
-template <typename LeafObj>
-tbb::enumerable_thread_specific<bool> EmbreeBVH<LeafObj>::s_computeSurfaceInteraction;
 
 template <typename LeafObj>
 inline EmbreeBVH<LeafObj>::EmbreeBVH(EmbreeBVH&& other)
@@ -103,25 +99,6 @@ inline void EmbreeBVH<LeafObj>::build(gsl::span<const LeafObj*> objects)
 }
 
 template <typename LeafObj>
-inline bool EmbreeBVH<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
-{
-    auto rays = gsl::make_span(&ray, 1);
-    auto surfaceInteractions = gsl::make_span(&si, 1);
-
-    RTCIntersectContext context;
-    rtcInitIntersectContext(&context);
-
-    RTCRayHit embreeRayHit;
-    convertRays<1>(rays, reinterpret_cast<RTCRayHitN*>(&embreeRayHit));
-
-    s_computeSurfaceInteraction.local() = true;
-    s_intersectionDataSI.local() = { rays, surfaceInteractions };
-    rtcIntersect1(m_scene, &context, &embreeRayHit);
-
-    return embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID;
-}
-
-template <typename LeafObj>
 inline bool EmbreeBVH<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
 {
     auto rays = gsl::make_span(&ray, 1);
@@ -133,7 +110,6 @@ inline bool EmbreeBVH<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
     RTCRayHit embreeRayHit;
     convertRays<1>(rays, reinterpret_cast<RTCRayHitN*>(&embreeRayHit));
 
-    s_computeSurfaceInteraction.local() = false;
     s_intersectionDataRayHit.local() = { rays, hitInfos };
     rtcIntersect1(m_scene, &context, &embreeRayHit);
 
@@ -173,40 +149,19 @@ void EmbreeBVH<LeafObj>::geometryIntersectFunc(const RTCIntersectFunctionNArgume
     if (!valid[0])
         return;
 
-    if (s_computeSurfaceInteraction.local()) {
-        if constexpr (is_bvh_Leaf_obj<LeafObj>::has_intersect_si) {
-            const auto [rays, surfaceInteractions] = s_intersectionDataSI.local();
-            Ray& ray = rays[embreeRay.id];
-            ray.tnear = embreeRay.tnear;
-            ray.tfar = embreeRay.tfar;
+    const auto [rays, hitInfos] = s_intersectionDataRayHit.local();
+    Ray& ray = rays[embreeRay.id];
+    ray.tnear = embreeRay.tnear;
+    ray.tfar = embreeRay.tfar;
 
-            SurfaceInteraction& si = surfaceInteractions[embreeRay.id];
-            if (leafNode.intersectPrimitive(ray, si, args->primID)) {
-                RTCHit potentialHit = {};
-                potentialHit.instID[0] = args->context->instID[0]; // Don't care for now (may need this in the future to support instancing?)
-                potentialHit.geomID = 1; // Indicate that we hit something
-                embreeRay.tfar = ray.tfar;
-                embreeRay.tnear = ray.tnear;
-                embreeHit = potentialHit;
-            }
-        }
-    } else {
-        if constexpr (is_bvh_Leaf_obj<LeafObj>::has_intersect_ray_hit) {
-            const auto[rays, hitInfos] = s_intersectionDataRayHit.local();
-            Ray& ray = rays[embreeRay.id];
-            ray.tnear = embreeRay.tnear;
-            ray.tfar = embreeRay.tfar;
-
-            RayHit& hitInfo = hitInfos[embreeRay.id];
-            if (leafNode.intersectPrimitive(ray, hitInfo, args->primID)) {
-                RTCHit potentialHit = {};
-                potentialHit.instID[0] = args->context->instID[0]; // Don't care for now (may need this in the future to support instancing?)
-                potentialHit.geomID = 1; // Indicate that we hit something
-                embreeRay.tfar = ray.tfar;
-                embreeRay.tnear = ray.tnear;
-                embreeHit = potentialHit;
-            }
-        }
+    RayHit& hitInfo = hitInfos[embreeRay.id];
+    if (leafNode.intersectPrimitive(ray, hitInfo, args->primID)) {
+        RTCHit potentialHit = {};
+        potentialHit.instID[0] = args->context->instID[0]; // Don't care for now (may need this in the future to support instancing?)
+        potentialHit.geomID = 1; // Indicate that we hit something
+        embreeRay.tfar = ray.tfar;
+        embreeRay.tnear = ray.tnear;
+        embreeHit = potentialHit;
     }
 }
 

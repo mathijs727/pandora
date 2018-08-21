@@ -31,7 +31,7 @@ private:
     public:
         unsigned numPrimitives() const;
         Bounds getPrimitiveBounds(unsigned primitiveID) const;
-        inline bool intersectPrimitive(Ray& ray, SurfaceInteraction& si, unsigned primitiveID) const;
+        //inline bool intersectPrimitive(Ray& ray, SurfaceInteraction& si, unsigned primitiveID) const;
         inline bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const;
     };
 
@@ -56,10 +56,10 @@ private:
     static PauseableBVH4<PauseableLeafNode, UserState> buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>);
 
 private:
-    EmbreeBVH<LeafNode> m_bvh;
+    //EmbreeBVH<LeafNode> m_bvh;
     //NaiveSingleRayBVH2<LeafNode> m_bvh;
     //WiVeBVH8Build8<LeafNode> m_bvh;
-    //PauseableBVH4<PauseableLeafNode, UserState> m_bvh;
+    PauseableBVH4<PauseableLeafNode, UserState> m_bvh;
 
     HitCallback m_hitCallback;
     MissCallback m_missCallback;
@@ -91,13 +91,13 @@ inline bool InCoreAccelerationStructure<UserState>::PauseableLeafNode::intersect
         hitInfo.sceneObject = sceneObject;
         hitInfo.primitiveID = primitiveID;
     }
-    return true; // Continue traveresal (don't pause)
+    return true; // Continue traversal (don't pause)
 }
 
 template <typename UserState>
 inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
-    : m_bvh(std::move(buildBVH<decltype(m_bvh)>(sceneObjects)))
-    //: m_bvh(std::move(buildPauseableBVH(sceneObjects)))
+    //: m_bvh(std::move(buildBVH<decltype(m_bvh)>(sceneObjects)))
+    : m_bvh(std::move(buildPauseableBVH(sceneObjects)))
     , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
 {
@@ -129,16 +129,31 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
     (void)insertHandle;
     assert(perRayUserData.size() == rays.size());
 
-    if constexpr (std::is_same_v<decltype(m_bvh), PauseableBVH4<PauseableLeafNode, UserState>>) {
+    for (int i = 0; i < rays.size(); i++) {
+        RayHit hitInfo = RayHit();
+        Ray ray = rays[i]; // Copy so we can mutate it
+        UserState userState = perRayUserData[i];
+
+        bool paused = !m_bvh.intersect(ray, hitInfo, userState);
+        assert(!paused);
+        if (hitInfo.sceneObject) {
+            SurfaceInteraction si = hitInfo.sceneObject->getMeshRef().fillSurfaceInteraction(ray, hitInfo);
+            m_hitCallback(ray, si, perRayUserData[i], nullptr);
+        } else {
+            m_missCallback(ray, perRayUserData[i]);
+        }
+    }
+
+    /*if constexpr (std::is_same_v<decltype(m_bvh), PauseableBVH4<PauseableLeafNode, UserState>>) {
         for (int i = 0; i < rays.size(); i++) {
-            RayHit hitInfo;
+            RayHit hitInfo = RayHit();
             Ray ray = rays[i]; // Copy so we can mutate it
             UserState userState = perRayUserData[i];
 
             bool paused = !m_bvh.intersect(ray, hitInfo, userState);
             assert(!paused);
             if (hitInfo.sceneObject) {
-                SurfaceInteraction si;
+                SurfaceInteraction si = SurfaceInteraction();
                 bool hit = hitInfo.sceneObject->getMeshRef().intersectPrimitive(ray, si, hitInfo.primitiveID);
                 assert(hit);
                 si.sceneObject = hitInfo.sceneObject;
@@ -162,7 +177,7 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
                 m_missCallback(ray, perRayUserData[i]);
             }
         }
-    }
+    }*/
 }
 
 template <typename UserState>
@@ -182,20 +197,6 @@ inline Bounds InCoreAccelerationStructure<UserState>::LeafNode::getPrimitiveBoun
 }
 
 template <typename UserState>
-inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersectPrimitive(Ray& ray, SurfaceInteraction& si, unsigned primitiveID) const
-{
-    // this pointer is actually a pointer to the sceneObject (see constructor)
-    auto sceneObject = reinterpret_cast<const SceneObject*>(this);
-
-    bool hit = sceneObject->getMeshRef().intersectPrimitive(ray, si, primitiveID);
-    if (hit) {
-        si.sceneObject = sceneObject;
-        si.primitiveID = primitiveID;
-    }
-    return hit;
-}
-
-template <typename UserState>
 inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const
 {
     // this pointer is actually a pointer to the sceneObject (see constructor)
@@ -203,6 +204,8 @@ inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersectPrimitive
 
     bool hit = sceneObject->getMeshRef().intersectPrimitive(ray, hitInfo, primitiveID);
     if (hit) {
+        SurfaceInteraction si;
+        assert(sceneObject->getMeshRef().intersectPrimitive(ray, si, primitiveID));
         hitInfo.sceneObject = sceneObject;
         hitInfo.primitiveID = primitiveID;
     }

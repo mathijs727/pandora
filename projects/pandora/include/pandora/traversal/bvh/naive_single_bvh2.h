@@ -18,7 +18,6 @@ public:
 
     void build(gsl::span<const LeafObj*> objects) override final;
 
-    bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
 
 private:
@@ -30,24 +29,17 @@ private:
 
 private:
     struct BVHNode {
-        virtual bool intersect(Ray& ray, SurfaceInteraction& si) const = 0;
         virtual bool intersect(Ray& ray, RayHit& hitInfo) const = 0;
     };
     struct InnerNode : public BVHNode {
         Bounds childBounds[2];
         const BVHNode* children[2];
 
-        bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
         bool intersect(Ray& ray, RayHit& hitInfo) const override final;
-
-    private:
-        template <typename HitType>
-        bool intersectT(Ray& ray, HitType& hitData) const;
     };
     struct LeafNode : public BVHNode {
         eastl::fixed_vector<std::pair<const LeafObj*, unsigned>, 4> leafs;
 
-        bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
         bool intersect(Ray& ray, RayHit& hitInfo) const override final;
     };
 
@@ -131,12 +123,6 @@ inline void NaiveSingleRayBVH2<LeafObj>::build(gsl::span<const LeafObj*> objects
 }
 
 template <typename LeafObj>
-inline bool NaiveSingleRayBVH2<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
-{
-    return m_root->intersect(ray, si);
-}
-
-template <typename LeafObj>
 inline bool NaiveSingleRayBVH2<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
 {
     return m_root->intersect(ray, hitInfo);
@@ -198,20 +184,7 @@ inline void* NaiveSingleRayBVH2<LeafObj>::leafCreate(RTCThreadLocalAllocator all
 }
 
 template <typename LeafObj>
-inline bool NaiveSingleRayBVH2<LeafObj>::InnerNode::intersect(Ray& ray, SurfaceInteraction& si) const
-{
-    return intersectT<SurfaceInteraction>(ray, si);
-}
-
-template <typename LeafObj>
 inline bool NaiveSingleRayBVH2<LeafObj>::InnerNode::intersect(Ray& ray, RayHit& hitInfo) const
-{
-    return intersectT<RayHit>(ray, hitInfo);
-}
-
-template <typename LeafObj>
-template <typename HitType>
-inline bool NaiveSingleRayBVH2<LeafObj>::InnerNode::intersectT(Ray& ray, HitType& hitData) const
 {
     float tmin0, tmax0;
     float tmin1, tmax1;
@@ -236,16 +209,6 @@ inline bool NaiveSingleRayBVH2<LeafObj>::InnerNode::intersectT(Ray& ray, HitType
         return children[1]->intersect(ray, hitData);
     }
     return false;
-}
-
-template <typename LeafObj>
-inline bool NaiveSingleRayBVH2<LeafObj>::LeafNode::intersect(Ray& ray, SurfaceInteraction& si) const
-{
-    bool hit = false;
-    for (auto& [leafObject, primitiveID] : leafs) {
-        hit |= leafObject->intersectPrimitive(ray, si, primitiveID);
-    }
-    return hit;
 }
 
 template <typename LeafObj>

@@ -30,7 +30,7 @@ void linearToOutput(const glm::vec3& linearColor, glm::vec3& output)
     output = gammaCorrected;
 }
 
-void writeOutputToFile(const pandora::Sensor& sensor, std::string_view fileName)
+void writeOutputToFile(pandora::Sensor& sensor, std::string_view fileName)
 {
     OIIO::ImageOutput* out = OIIO::ImageOutput::create(fileName.data());
     if (!out) {

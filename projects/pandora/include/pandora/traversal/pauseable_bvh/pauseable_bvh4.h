@@ -231,11 +231,16 @@ inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitIn
             const simd::vec4_f32 tmin = simd::max(simdRay.tnear, simd::max(txMin, simd::max(tyMin, tzMin)));
             const simd::vec4_f32 tmax = simd::min(simdRay.tfar, simd::min(txMax, simd::min(tyMax, tzMax)));
             const simd::mask4 hitMask = tmin <= tmax;
+            /*const simd::mask4 hitMask = simd::mask4(
+                node->validMask & 0b0001,
+                node->validMask & 0b0010,
+                node->validMask & 0b0100,
+                node->validMask & 0b1000);*/
 
             const simd::mask4 toVisitMask = hitMask && interestMask;
             if (toVisitMask.any()) {
                 // Find nearest active child for this ray
-                const static simd::vec4_f32 inf4(std::numeric_limits<float>::max());
+                const simd::vec4_f32 inf4(std::numeric_limits<float>::max());
                 const simd::vec4_f32 maskedDistances = simd::blend(inf4, tmin, toVisitMask);
                 unsigned childIndex = maskedDistances.horizontalMinIndex();
                 assert(childIndex <= 4);
@@ -256,6 +261,7 @@ inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitIn
                     const auto& leaf = m_leafAllocator.get(handle);
                     if (!leaf.intersect(ray, hitInfo, userState, { nodeHandle, stack }))
                         return false; // Ray was paused
+                    simdRay.tfar = simd::vec4_f32(ray.tfar);
                 }
 
                 continue;
@@ -382,7 +388,7 @@ inline void PauseableBVH4<LeafObj, UserState>::generateFinalBVHRecurse(Construct
 
     // Copy the inner nodes to their final location
     if (constructionLeafChildPointers.size() > 0) {
-        auto[handle, ptr] = m_leafAllocator.allocateN((unsigned)constructionLeafChildPointers.size(), [&](int i) {
+        auto[handle, ptr] = m_leafAllocator.allocateNInitF((unsigned)constructionLeafChildPointers.size(), [&](int i) {
             return std::move(*constructionLeafChildPointers[i]->leafPtr);
         });
         outNode.firstLeafHandle = handle;

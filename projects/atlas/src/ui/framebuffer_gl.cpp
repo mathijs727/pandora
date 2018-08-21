@@ -97,7 +97,7 @@ FramebufferGL::~FramebufferGL()
 
 #define BUFFER_OFFSET(i) ((char*)NULL + (i))
 
-void FramebufferGL::update(const Sensor& sensor, float multiplier)
+void FramebufferGL::update(Sensor& sensor, float multiplier)
 {
     glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

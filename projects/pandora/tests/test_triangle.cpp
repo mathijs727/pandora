@@ -28,29 +28,29 @@ TEST(Triangle, Intersect1)
     TriangleMesh mesh((unsigned)triangles.size(), (unsigned)positions.size(), std::move(trianglesPtr), std::move(positionsPtr), nullptr, nullptr, nullptr);
     {
         Ray ray = Ray(glm::vec3(0, 0, -1), glm::vec3(0, 0, 1));
-        SurfaceInteraction isect;
-        ASSERT_TRUE(mesh.intersectPrimitive(ray, isect, 0));
+        RayHit rayHit;
+        ASSERT_TRUE(mesh.intersectPrimitive(ray, rayHit, 0));
     }
     {
         Ray ray = Ray(glm::vec3(0, 0, 1), glm::vec3(0, 0, -1));
-        SurfaceInteraction isect;
-        ASSERT_TRUE(mesh.intersectPrimitive(ray, isect, 0));
+        RayHit rayHit;
+        ASSERT_TRUE(mesh.intersectPrimitive(ray, rayHit, 0));
     }
     {
         Ray ray = Ray(glm::vec3(0, 3, -1), glm::vec3(0, 0, 1));
-        SurfaceInteraction isect;
-        ASSERT_FALSE(mesh.intersectPrimitive(ray, isect, 0));
+        RayHit rayHit;
+        ASSERT_FALSE(mesh.intersectPrimitive(ray, rayHit, 0));
     }
     {
         Ray ray = Ray(glm::vec3(-1.0f, -0.5f, -1), glm::normalize(glm::vec3(1, 1, 1)));
-        SurfaceInteraction isect;
-        ASSERT_TRUE(mesh.intersectPrimitive(ray, isect, 0));
+        RayHit rayHit;
+        ASSERT_TRUE(mesh.intersectPrimitive(ray, rayHit, 0));
     }
 
     {
         Ray ray = Ray(glm::vec3(0.99f, 0.99f, -1), glm::vec3(0, 0, 1));
-        SurfaceInteraction isect;
-        ASSERT_TRUE(mesh.intersectPrimitive(ray, isect, 0));
+        RayHit rayHit;
+        ASSERT_TRUE(mesh.intersectPrimitive(ray, rayHit, 0));
     }
 }
 
@@ -77,8 +77,8 @@ TEST(Triangle, AreaCorrect)
     int samplesHit = 0;
     for (float x = -2.0f; x < 2.0f; x += 0.01f) {
         Ray ray = Ray(glm::vec3(x, -1, scanLine), glm::vec3(0, 1, 0));
-        SurfaceInteraction isect;
-        if (mesh.intersectPrimitive(ray, isect, 0))
+        RayHit rayHit;
+        if (mesh.intersectPrimitive(ray, rayHit, 0))
             samplesHit++;
         totalSampleCount++;
     }
@@ -114,8 +114,8 @@ TEST(Triangle, Sample)
 			ASSERT_FLOAT_EQ(glm::length(interaction.normal), 1.0f);
 
 			Ray ray = Ray(interaction.position - interaction.normal, interaction.normal);
-			SurfaceInteraction isect;
-			ASSERT_TRUE(mesh.intersectPrimitive(ray, isect, p));
+            RayHit rayHit;
+			ASSERT_TRUE(mesh.intersectPrimitive(ray, rayHit, p));
 		}
 	}
 }
@@ -154,8 +154,8 @@ TEST(Triangle, SampleFromReference)
 			ASSERT_FLOAT_EQ(glm::length(interaction.normal), 1.0f);
 
 			Ray ray = ref.spawnRay(glm::normalize(interaction.position - ref.position));
-			SurfaceInteraction isect;
-			ASSERT_TRUE(mesh.intersectPrimitive(ray, isect, p));
+            RayHit rayHit;
+			ASSERT_TRUE(mesh.intersectPrimitive(ray, rayHit, p));
 
 			ASSERT_NE(mesh.pdfPrimitive(p, ref, glm::normalize(interaction.position - ref.position)), 0.0f);
 		}

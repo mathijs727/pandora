@@ -17,7 +17,6 @@ public:
 
     void build(gsl::span<const LeafObj*> objects) override final;
 
-    bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
 
 private:
@@ -28,9 +27,7 @@ private:
     RTCDevice m_device;
     RTCScene m_scene;
 
-    static tbb::enumerable_thread_specific<std::pair<gsl::span<Ray>, gsl::span<SurfaceInteraction>>> s_intersectionDataSI;
     static tbb::enumerable_thread_specific<std::pair<gsl::span<Ray>, gsl::span<RayHit>>> s_intersectionDataRayHit;
-    static tbb::enumerable_thread_specific<bool> s_computeSurfaceInteraction;
 };
 
 }

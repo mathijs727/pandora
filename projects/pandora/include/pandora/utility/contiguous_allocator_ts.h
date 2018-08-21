@@ -29,7 +29,7 @@ public:
     std::pair<Handle, T*> allocateN(unsigned N, Args&&... args);
 
     template <typename InitF>
-    std::pair<Handle, T*> allocateN(unsigned N, InitF&& f);
+    std::pair<Handle, T*> allocateNInitF(unsigned N, InitF&& f);
 
     inline T& get(Handle handle) const { return reinterpret_cast<T&>(m_start[handle]); };
 
@@ -123,7 +123,7 @@ inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAlloca
 
 template <typename T>
 template <typename InitF>
-inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAllocatorTS<T>::allocateN(unsigned N, InitF&& initFunc)
+inline std::pair<typename ContiguousAllocatorTS<T>::Handle, T*> ContiguousAllocatorTS<T>::allocateNInitF(unsigned N, InitF&& initFunc)
 {
     assert(N <= m_blockSize);
 
