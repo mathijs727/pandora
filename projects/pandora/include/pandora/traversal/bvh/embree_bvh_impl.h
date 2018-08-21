@@ -113,11 +113,7 @@ inline bool EmbreeBVH<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
     s_intersectionDataRayHit.local() = { rays, hitInfos };
     rtcIntersect1(m_scene, &context, &embreeRayHit);
 
-    if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
-        return true;
-    } else {
-        return false;
-    }
+    return hitInfo.sceneObject != nullptr;
 }
 
 template <typename LeafObj>
