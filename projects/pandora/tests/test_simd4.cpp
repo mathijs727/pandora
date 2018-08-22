@@ -146,10 +146,10 @@ void simd4Tests()
             ASSERT_EQ_T(values[i], 7 - i);
     }
 
-	{
-		simd::_mask4<S> mask(false, false, true, false);
-		ASSERT_EQ(mask.bitMask(), 0b0100);
-	}
+    {
+        simd::_mask4<S> mask(false, false, true, false);
+        ASSERT_EQ(mask.bitMask(), 0b0100);
+    }
 
     {
         simd::_mask4<S> mask(false, false, true, false);
@@ -245,9 +245,9 @@ void simd4Tests()
     }
 
     {
-        simd::_vec4<T, S> values(5, 3, 7, 6);
-        ASSERT_EQ(values.horizontalMin(), (T)3);
-        ASSERT_EQ(values.horizontalMinIndex(), 1);
+        simd::_vec4<T, S> values(5, 3, 7, 1);
+        ASSERT_EQ(values.horizontalMin(), (T)1);
+        ASSERT_EQ(values.horizontalMinIndex(), 3);
 
         ASSERT_EQ(values.horizontalMax(), (T)7);
         ASSERT_EQ(values.horizontalMaxIndex(), 2);

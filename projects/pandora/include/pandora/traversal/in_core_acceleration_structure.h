@@ -211,8 +211,6 @@ inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersectPrimitive
 
     bool hit = sceneObject->getMeshRef().intersectPrimitive(ray, hitInfo, primitiveID);
     if (hit) {
-        SurfaceInteraction si;
-        assert(sceneObject->getMeshRef().intersectPrimitive(ray, si, primitiveID));
         hitInfo.sceneObject = sceneObject;
         hitInfo.primitiveID = primitiveID;
     }

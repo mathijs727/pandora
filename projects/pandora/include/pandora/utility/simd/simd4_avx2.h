@@ -383,9 +383,22 @@ public:
 
     inline unsigned horizontalMinIndex() const
     {
-        std::array<float, 4> values;
-        store(values);
-        return static_cast<unsigned>(std::distance(std::begin(values), std::min_element(std::begin(values), std::end(values))));
+        // Based on:
+        // https://stackoverflow.com/questions/9877700/getting-max-value-in-a-m128i-vector-with-sse
+
+        __m128 min1 = _mm_shuffle_ps(m_value, m_value, _MM_SHUFFLE(1, 0, 3, 2));
+        // channels [0, 1] = min(0, 1), channels [2,3] = min(2,3)
+        __m128 min2 = _mm_min_ps(m_value, min1);
+
+        // channels [0, 3] = min(min(0, 1), min(2, 3))
+        __m128 min3 = _mm_shuffle_ps(min2, min2, _MM_SHUFFLE(2, 3, 0, 1));// channel 3 = min(0, 1)
+        __m128 min4 = _mm_min_ps(min2, min3);
+
+        // TODO: try casting to ints and using integer comparison (way lower latency)
+        __m128 mask = _mm_cmpeq_ps(m_value, min4);
+        
+        int bitMask = _mm_movemask_ps(mask);
+        return pandora::bitScan32(static_cast<uint32_t>(bitMask));// Divide by 32
     }
 
     inline float horizontalMin() const

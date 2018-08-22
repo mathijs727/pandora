@@ -1,4 +1,5 @@
 #pragma once
+#include "pandora/utility/intrinsics.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -8,8 +9,8 @@
 #include <immintrin.h> // AVX / AVX2
 #include <iostream>
 #include <nmmintrin.h> // Popcount
-#include <xmmintrin.h> // SSE
 #include <smmintrin.h> // SSE4.1
+#include <xmmintrin.h> // SSE
 
 #ifdef NDEBUG
 constexpr static int SIMD4_WIDTH = 4;

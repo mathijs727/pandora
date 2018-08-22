@@ -4,7 +4,7 @@ find_package(Threads REQUIRED)
 add_executable(pandoraTest
     #${CMAKE_CURRENT_LIST_DIR}/main.cpp
     ${CMAKE_CURRENT_LIST_DIR}/test_contiguous_allocator_ts.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/test_free_list_backed_memory-arena.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/test_free_list_backed_memory_arena.cpp
     ${CMAKE_CURRENT_LIST_DIR}/test_growing_free_list_ts.cpp
     ${CMAKE_CURRENT_LIST_DIR}/test_memory_arena.cpp
     ${CMAKE_CURRENT_LIST_DIR}/test_memory_arena_ts.cpp
