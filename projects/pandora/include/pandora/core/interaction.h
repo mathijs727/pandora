@@ -52,7 +52,7 @@ public:
 
     void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, const glm::vec3& dndvs, bool orientationIsAuthoritative);
 
-    void computeScatteringFunctions(const Ray& ray, MemoryArena& arena, TransportMode mode = TransportMode::Radiance, bool allowMultipleLobes = false);
+    void computeScatteringFunctions(const Ray& ray, ShadingMemoryArena& arena, TransportMode mode = TransportMode::Radiance, bool allowMultipleLobes = false);
 
     glm::vec3 Le(const glm::vec3& w) const;
 };

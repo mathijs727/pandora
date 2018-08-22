@@ -11,7 +11,7 @@ MirrorMaterial::MirrorMaterial()
 {
 }
 
-void MirrorMaterial::computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const
+void MirrorMaterial::computeScatteringFunctions(SurfaceInteraction& si, ShadingMemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const
 {
     // TODO: perform bump mapping (normal mapping)
 

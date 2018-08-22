@@ -35,3 +35,5 @@ Result: ~5100ms
 Remove the shared list of nodes with batched rays and simply loop over all BVH nodes
 Result: ~5050ms
 
+Fix the freelist (switch to TBB queue) & use free list backed memory arena for shading
+Result: ~5500ms

@@ -77,7 +77,7 @@ void SamplerIntegrator::spawnNextSample(const glm::ivec2& pixel, bool initialSam
     }
 }
 
-void SamplerIntegrator::specularReflect(const SurfaceInteraction& si, Sampler& sampler, MemoryArena& memoryArena, const ContinuationRayState& prevRayState)
+void SamplerIntegrator::specularReflect(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const ContinuationRayState& prevRayState)
 {
     // Compute specular reflection wi and BSDF value
     glm::vec3 wo = si.wo;
@@ -102,7 +102,7 @@ void SamplerIntegrator::specularReflect(const SurfaceInteraction& si, Sampler& s
     }
 }
 
-void SamplerIntegrator::specularTransmit(const SurfaceInteraction& si, Sampler& sampler, MemoryArena& memoryArena, const ContinuationRayState& prevRayState)
+void SamplerIntegrator::specularTransmit(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const ContinuationRayState& prevRayState)
 {
     // Compute specular reflection wi and BSDF value
     glm::vec3 wo = si.wo;

@@ -11,7 +11,7 @@ TranslucentMaterial::TranslucentMaterial(const std::shared_ptr<Texture<Spectrum>
 {
 }
 
-void TranslucentMaterial::computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const
+void TranslucentMaterial::computeScatteringFunctions(SurfaceInteraction& si, ShadingMemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const
 {
 	// TODO: perform bump mapping (normal mapping)
 

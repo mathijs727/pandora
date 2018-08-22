@@ -22,7 +22,7 @@
 
 namespace pandora {
 
-static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 1024;
+static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 2048;
 
 template <typename UserState, size_t BatchSize = 64>
 class InCoreBatchingAccelerationStructure {
@@ -261,7 +261,6 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
     RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
-    bool shouldFlush = false;
     if (!batch || batch->full()) {
         if (batch) {
             // Batch was full, move it to the list of immutable batches
@@ -269,8 +268,6 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
             do {
                 batch->setNext(oldHead);
             } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
-
-            shouldFlush = true;
         }
 
         // Allocate a new batch and set it as the new active batch
@@ -280,9 +277,6 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelL
 
     bool success = batch->tryPush(ray, rayInfo, userState, insertHandle);
     assert(success);
-
-    //if (shouldFlush)
-    //    mutThisPtr->flush();
 
     return false;
 }

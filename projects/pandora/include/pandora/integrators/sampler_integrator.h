@@ -37,8 +37,8 @@ protected:
 
     void spawnNextSample(const glm::ivec2& pixel, bool initialSample = false);
 
-    void specularReflect(const SurfaceInteraction& si, Sampler& sampler, MemoryArena& memoryArena, const sampler_integrator::ContinuationRayState& rayState);
-    void specularTransmit(const SurfaceInteraction& si, Sampler& sampler, MemoryArena& memoryArena, const sampler_integrator::ContinuationRayState& rayState);
+    void specularReflect(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const sampler_integrator::ContinuationRayState& rayState);
+    void specularTransmit(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const sampler_integrator::ContinuationRayState& rayState);
 
 	void spawnShadowRay(const Ray& ray, const sampler_integrator::ContinuationRayState& s, const Spectrum& weight);
 	void spawnShadowRay(const Ray& ray, const sampler_integrator::ContinuationRayState& s, const Spectrum& weight, const Light& light);

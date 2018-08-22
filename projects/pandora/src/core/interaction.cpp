@@ -57,7 +57,7 @@ void SurfaceInteraction::setShadingGeometry(
     shading.dndv = dndvs;
 }
 
-void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes)
+void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, ShadingMemoryArena& arena, TransportMode mode, bool allowMultipleLobes)
 {
     // TODO: compute ray differentials
 
