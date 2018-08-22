@@ -12,7 +12,7 @@
 
 namespace pandora {
 
-static thread_local MemoryArena s_memoryArena(4096);
+//static thread_local MemoryArena s_memoryArena(4096);
 
 PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp)
     : SamplerIntegrator(maxDepth, scene, sensor, spp)
@@ -22,7 +22,8 @@ PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor,
 // PBRTv3 page 877
 void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h)
 {
-    s_memoryArena.reset();
+    //s_memoryArena.reset();
+    MemoryArena s_memoryArena(4096);
 
     if (std::holds_alternative<ContinuationRayState>(s)) {
         const auto& rayState = std::get<ContinuationRayState>(s);

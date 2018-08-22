@@ -7,6 +7,7 @@
 #include <tbb/enumerable_thread_specific.h>
 #include <type_traits>
 #include <vector>
+#include <tbb/concurrent_queue.h>
 
 namespace pandora {
 
@@ -50,14 +51,15 @@ public:
 private:
     using FreeListNode = growing_free_list_ts_impl::_FreeListNode<T>;
     static_assert(sizeof(FreeListNode) == sizeof(T));
-    std::atomic<FreeListNode*> m_freeListHead;
+    //std::atomic<FreeListNode*> m_freeListHead;
+    tbb::concurrent_queue<FreeListNode*> m_freeList;
 
     tbb::enumerable_thread_specific<std::vector<std::unique_ptr<FreeListNode>>> m_allocatedNodes;
 };
 
 template <typename T>
 inline GrowingFreeListTS<T>::GrowingFreeListTS()
-    : m_freeListHead(nullptr)
+    //: m_freeListHead(nullptr)
 {
 }
 
@@ -69,26 +71,28 @@ inline void GrowingFreeListTS<T>::deallocate(T* p)
     // https://en.cppreference.com/w/cpp/atomic/atomic_compare_exchange
     auto* newNode = reinterpret_cast<FreeListNode*>(p);
 
-    // Put the current value of m_freeListHead into newNode->next
+    /*// Put the current value of m_freeListHead into newNode->next
     newNode->next = m_freeListHead.load();
 
     // Now make newNode the new head, but if the head is no longer what's stored in newNode->next
     // (some other thread must have inserted a node just now) then put that new head into
     // newNode->next and try again.
     while (!m_freeListHead.compare_exchange_weak(newNode->next, newNode)) {
-    }
+    }*/
+
+    m_freeList.push(newNode);
 }
 
 template <typename T>
 template <typename... Args>
 inline T* GrowingFreeListTS<T>::allocate(Args... args)
 {
-    // Pop
+    /*// Pop
     auto* node = m_freeListHead.load();
     while (node && !m_freeListHead.compare_exchange_weak(node, node->next)) {
-    }
-
-    if (!node) {
+    }*/
+    FreeListNode* node;
+    if (!m_freeList.try_pop(node)) {
         // We could not reuse an old unused node so we have to allocate a new one
         auto newNode = std::make_unique<FreeListNode>();
         node = newNode.get();

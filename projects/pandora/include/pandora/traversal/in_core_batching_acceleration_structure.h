@@ -22,7 +22,7 @@
 
 namespace pandora {
 
-static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 2048;
+static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 1024;
 
 template <typename UserState, size_t BatchSize = 64>
 class InCoreBatchingAccelerationStructure {
@@ -130,8 +130,6 @@ private:
     PauseableBVH4<TopLevelLeafNode, UserState> m_bvh;
     tbb::enumerable_thread_specific<RayBatch*> m_threadLocalPreallocatedRaybatch;
 
-    std::atomic_size_t m_raysInSystem;
-
     HitCallback m_hitCallback;
     MissCallback m_missCallback;
 };
@@ -141,7 +139,6 @@ inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::InCoreBatching
     : m_batchAllocator()
     , m_bvh(std::move(buildBVH(sceneObjects, *this)))
     , m_threadLocalPreallocatedRaybatch([&]() { return m_batchAllocator.allocate(); })
-    , m_raysInSystem(0)
     , m_hitCallback(hitCallback)
     , m_missCallback(missCallback)
 {
@@ -174,8 +171,6 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
             } else {
                 m_missCallback(ray, userState);
             }
-        } else {
-            m_raysInSystem.fetch_add(1);
         }
     }
 }
@@ -183,8 +178,6 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
 template <typename UserState, size_t BatchSize>
 inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
 {
-    std::cout << "RAYS IN BEFORE FLUSH SYSTEM: " << m_raysInSystem << std::endl;
-
     while (true) {
 #ifndef NDEBUG
         for (auto* topLevelLeafNode : m_bvh.leafs())
@@ -222,11 +215,9 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
         size_t raysProcessed = std::accumulate(std::begin(raysProcessedTL), std::end(raysProcessedTL), (size_t)0, std::plus<size_t>());
         if (raysProcessed == 0)
             break;
-        //std::cout << "Rays processed: " << raysProcessed << std::endl;
+            //std::cout << "Rays processed: " << raysProcessed << std::endl;
 #endif
     }
-
-    ALWAYS_ASSERT(m_raysInSystem.load() == 0);
 
     std::cout << "FLUSH COMPLETE" << std::endl;
 }
@@ -341,8 +332,6 @@ inline size_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLeve
                     } else {
                         m_accelerationStructurePtr->m_missCallback(ray, userState);
                     }
-
-                    m_accelerationStructurePtr->m_raysInSystem.fetch_sub(1);
                 }
             }
             m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
@@ -401,9 +390,7 @@ template <typename UserState, size_t BatchSize>
 inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const RayHit& hitInfo, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
     auto index = m_index++;
-    ALWAYS_ASSERT(index < BatchSize);
-    //if (index >= BatchSize)
-    //    return false;
+    assert(index < BatchSize);
 
     m_rays[index] = ray;
     m_userStates[index] = state;

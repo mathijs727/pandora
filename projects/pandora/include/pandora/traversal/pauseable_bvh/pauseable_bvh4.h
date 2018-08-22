@@ -41,11 +41,6 @@ private:
     std::vector<LeafObj*> collectLeafs() const;
     void collectLeafsRecurse(const BVHNode& node, std::vector<LeafObj*>& outLeafObjects) const;
 
-    /*static void* encodeBVHConstructionLeafHandle(uint32_t handle);
-    static void* encodeBVHConstructionInnerNodeHandle(uint32_t handle);
-    static std::tuple<bool, uint32_t> decodeBVHConstructionHandle(void* handle);
-
-    void setNodeDepth(BVHNode& node, uint32_t depth);*/
     static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
     static void innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr);
     static void innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr);
@@ -231,11 +226,6 @@ inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitIn
             const simd::vec4_f32 tmin = simd::max(simdRay.tnear, simd::max(txMin, simd::max(tyMin, tzMin)));
             const simd::vec4_f32 tmax = simd::min(simdRay.tfar, simd::min(txMax, simd::min(tyMax, tzMax)));
             const simd::mask4 hitMask = tmin <= tmax;
-            /*const simd::mask4 hitMask = simd::mask4(
-                node->validMask & 0b0001,
-                node->validMask & 0b0010,
-                node->validMask & 0b0100,
-                node->validMask & 0b1000);*/
 
             const simd::mask4 toVisitMask = hitMask && interestMask;
             if (toVisitMask.any()) {
@@ -428,49 +418,9 @@ inline void PauseableBVH4<LeafObj, UserState>::collectLeafsRecurse(const BVHNode
     }
 }
 
-/*template <typename LeafObj, typename UserState>
-inline void* PauseableBVH4<LeafObj, UserState>::encodeBVHConstructionLeafHandle(uint32_t handle)
-{
-    assert((handle & 0x7FFFFFFF) == handle);
-    return reinterpret_cast<void*>(static_cast<uintptr_t>(handle | 0x80000000)); // Highest bit set to 1, indicating a leaf
-}
-
-template <typename LeafObj, typename UserState>
-inline void* PauseableBVH4<LeafObj, UserState>::encodeBVHConstructionInnerNodeHandle(uint32_t handle)
-{
-    assert((handle & 0x7FFFFFFF) == handle);
-    return reinterpret_cast<void*>(static_cast<uintptr_t>(handle & 0x7FFFFFFF)); // Highest bit set to 0, indicating an inner node
-}
-
-template <typename LeafObj, typename UserState>
-inline std::tuple<bool, uint32_t> PauseableBVH4<LeafObj, UserState>::decodeBVHConstructionHandle(void* encodedHandlePtr)
-{
-    uint32_t encodedHandle = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(encodedHandlePtr));
-    bool isLeaf = encodedHandle & 0x80000000;
-    uint32_t handle = encodedHandle & 0x7FFFFFFF;
-    return { isLeaf, handle };
-}
-
-template <typename LeafObj, typename UserState>
-inline void PauseableBVH4<LeafObj, UserState>::setNodeDepth(BVHNode& node, uint32_t depth)
-{
-    node.depth = depth;
-
-    for (unsigned childIdx = 0; childIdx < 4; childIdx++) {
-        if (node.isInnerNode(childIdx)) {
-            setNodeDepth(m_innerNodeAllocator.get(node.childrenHandles[childIdx]), depth + 1);
-        }
-    }
-}*/
-
 template <typename LeafObj, typename UserState>
 inline void* PauseableBVH4<LeafObj, UserState>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
 {
-    /*auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
-    auto [nodeHandle, nodePtr] = self->m_innerNodeAllocator.allocate();
-    (void)nodePtr;
-
-    return encodeBVHConstructionInnerNodeHandle(nodeHandle);*/
     auto ptr = rtcThreadLocalAlloc(alloc, sizeof(ConstructionInnerNode), 8);
     new (ptr)ConstructionInnerNode();
     return ptr;
@@ -480,29 +430,6 @@ template <typename LeafObj, typename UserState>
 inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr)
 {
     assert(numChildren <= 4);
-
-    /*auto [isLeaf, nodeHandle] = decodeBVHConstructionHandle(nodePtr);
-    assert(!isLeaf);
-    auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
-    BVHNode& node = self->m_innerNodeAllocator.get(nodeHandle);
-
-    uint32_t validMask = 0x0;
-    uint32_t leafMask = 0x0;
-    for (unsigned i = 0; i < numChildren; i++) {
-        auto [isLeaf, childNodeHandle] = decodeBVHConstructionHandle(childPtr[i]);
-
-        validMask |= 1 << i;
-        if (isLeaf) {
-            leafMask |= 1 << i;
-        } else {
-            BVHNode& childNode = self->m_innerNodeAllocator.get(childNodeHandle);
-            childNode.parentHandle = nodeHandle;
-        }
-
-        node.childrenHandles[i] = childNodeHandle;
-    }
-    node.validMask = validMask;
-    node.leafMask = leafMask;*/
 
     ConstructionInnerNode& node = *reinterpret_cast<ConstructionInnerNode*>(nodePtr);
     node.children.resize(numChildren);
@@ -515,32 +442,6 @@ template <typename LeafObj, typename UserState>
 inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetBounds(void* nodePtr, const RTCBounds** embreeBounds, unsigned numChildren, void* userPtr)
 {
     assert(numChildren <= 4);
-
-    /*auto [isLeaf, nodeHandle] = decodeBVHConstructionHandle(nodePtr);
-    assert(!isLeaf);
-    auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
-    BVHNode& node = self->m_innerNodeAllocator.get(nodeHandle);
-
-    std::array<float, 4> minX, minY, minZ, maxX, maxY, maxZ;
-    for (unsigned i = 0; i < numChildren; i++) {
-        const RTCBounds* childBounds = bounds[i];
-        minX[i] = childBounds->lower_x;
-        minY[i] = childBounds->lower_y;
-        minZ[i] = childBounds->lower_z;
-        maxX[i] = childBounds->upper_x;
-        maxY[i] = childBounds->upper_y;
-        maxZ[i] = childBounds->upper_z;
-    }
-    for (unsigned i = numChildren; i < 4; i++) {
-        minX[i] = minY[i] = minZ[i] = maxX[i] = maxY[i] = maxZ[i] = 0.0f;
-    }
-
-    node.minX.load(minX);
-    node.minY.load(minY);
-    node.minZ.load(minZ);
-    node.maxX.load(maxX);
-    node.maxY.load(maxY);
-    node.maxZ.load(maxZ);*/
 
     auto& node = *reinterpret_cast<ConstructionInnerNode*>(nodePtr);
     node.childrenBounds.resize(numChildren);
@@ -560,11 +461,6 @@ template <typename LeafObj, typename UserState>
 inline void* PauseableBVH4<LeafObj, UserState>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
 {
     assert(numPrims == 1);
-
-    /*// Allocate node
-    auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
-    auto [nodeHandle, nodePtr] = self->m_leafAllocator.allocate(std::move(self->m_tmpConstructionLeafs[prims[0].primID]));
-    return encodeBVHConstructionLeafHandle(nodeHandle);*/
 
     auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
 
