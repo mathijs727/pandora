@@ -18,12 +18,18 @@ public:
     PauseableBVH4(PauseableBVH4&&) = default;
     ~PauseableBVH4() = default;
 
-    bool intersect(Ray& ray, RayHit& hitInfo, const UserState& userState) const override final;
-    bool intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
+    std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState) const override final;
+    std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
+
+    std::optional<bool> intersectAny(Ray& ray, const UserState& userState) const override final;
+    std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
 
     gsl::span<LeafObj*> leafs() { return m_leafs; }
 
 private:
+    template <bool AnyHit>
+    std::optional<bool> intersectT(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const;
+
     struct TestBVHData {
         int numPrimitives = 0;
         int maxDepth = 0;
@@ -164,13 +170,34 @@ inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> objec
 }
 
 template <typename LeafObj, typename UserState>
-inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitInfo, const UserState& userState) const
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitInfo, const UserState& userState) const
 {
     return intersect(ray, hitInfo, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
 }
 
 template <typename LeafObj, typename UserState>
-inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+{
+    return intersectT<false>(ray, hitInfo, userState, insertInfo);
+}
+
+template <typename LeafObj, typename UserState>
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectAny(Ray& ray, const UserState& userState) const
+{
+    RayHit dummyHitInfo = {};
+    return intersectT<true>(ray, dummyHitInfo, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
+}
+
+template <typename LeafObj, typename UserState>
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+{
+    RayHit dummyHitInfo = {};
+    return intersectT<true>(ray, dummyHitInfo, userState, insertInfo);
+}
+
+template <typename LeafObj, typename UserState>
+template <bool AnyHit>
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectT(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
 {
     struct SIMDRay {
         simd::vec4_f32 originX;
@@ -195,6 +222,7 @@ inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitIn
     simdRay.tfar = simd::vec4_f32(ray.tfar);
 
     // Stack
+    bool hit = false;
     auto [nodeHandle, stack] = insertInfo;
     const BVHNode* node = &m_innerNodeAllocator.get(nodeHandle);
     while (true) {
@@ -203,11 +231,11 @@ inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitIn
         uint64_t interestBitMask = (stack >> bitPos) & 0b1111;
         if (interestBitMask != 0) {
             // clang-format off
-			const simd::mask4 interestMask(
-				interestBitMask & 0x1,
-				interestBitMask & 0x2,
-				interestBitMask & 0x4,
-				interestBitMask & 0x8);
+            const simd::mask4 interestMask(
+                interestBitMask & 0x1,
+                interestBitMask & 0x2,
+                interestBitMask & 0x4,
+                interestBitMask & 0x8);
             // clang-format on
 
             // Find the nearest intersection of hte ray and the child boxes
@@ -230,9 +258,14 @@ inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitIn
             const simd::mask4 toVisitMask = hitMask && interestMask;
             if (toVisitMask.any()) {
                 // Find nearest active child for this ray
-                const simd::vec4_f32 inf4(std::numeric_limits<float>::max());
-                const simd::vec4_f32 maskedDistances = simd::blend(inf4, tmin, toVisitMask);
-                unsigned childIndex = maskedDistances.horizontalMinIndex();
+                unsigned childIndex;
+                if constexpr (AnyHit) {
+                    childIndex = bitScan32(static_cast<uint32_t>(toVisitMask.bitMask()));
+                } else {
+                    const simd::vec4_f32 inf4(std::numeric_limits<float>::max());
+                    const simd::vec4_f32 maskedDistances = simd::blend(inf4, tmin, toVisitMask);
+                    childIndex = maskedDistances.horizontalMinIndex();
+                }
                 assert(childIndex <= 4);
 
                 uint64_t toVisitBitMask = toVisitMask.bitMask();
@@ -249,9 +282,23 @@ inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitIn
                     //auto handle = node->childrenHandles[childIndex];
                     auto handle = node->getLeafChildHandle(childIndex);
                     const auto& leaf = m_leafAllocator.get(handle);
-                    if (!leaf.intersect(ray, hitInfo, userState, { nodeHandle, stack }))
-                        return false; // Ray was paused
-                    simdRay.tfar = simd::vec4_f32(ray.tfar);
+                    if constexpr (AnyHit) {
+                        auto optResult = leaf.intersectAny(ray, userState, { nodeHandle, stack });
+                        if (!optResult)
+                            return {};
+
+                        if (*optResult)
+                            return true;
+                    } else {
+                        auto optResult = leaf.intersect(ray, hitInfo, userState, { nodeHandle, stack });
+                        if (!optResult)
+                            return {}; // Ray was paused
+
+                        if (*optResult) {
+                            hit = true;
+                            simdRay.tfar = simd::vec4_f32(ray.tfar);
+                        }
+                    }
                 }
 
                 continue;
@@ -270,12 +317,9 @@ inline bool PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitIn
         nodeHandle = node->parentHandle;
         node = &m_innerNodeAllocator.get(nodeHandle);
         assert(node->depth == prevDepth - 1);
-
-        //int index = bitScanReverse64(stack);
-        //node = m_innerNodeAllocator.get(node.ancestors[index >> 2]); // (index >> 2) == (index / 4)
     }
 
-    return true;
+    return hit;
 }
 
 template <typename LeafObj, typename UserState>
@@ -378,7 +422,7 @@ inline void PauseableBVH4<LeafObj, UserState>::generateFinalBVHRecurse(Construct
 
     // Copy the inner nodes to their final location
     if (constructionLeafChildPointers.size() > 0) {
-        auto[handle, ptr] = m_leafAllocator.allocateNInitF((unsigned)constructionLeafChildPointers.size(), [&](int i) {
+        auto [handle, ptr] = m_leafAllocator.allocateNInitF((unsigned)constructionLeafChildPointers.size(), [&](int i) {
             return std::move(*constructionLeafChildPointers[i]->leafPtr);
         });
         outNode.firstLeafHandle = handle;
@@ -422,7 +466,7 @@ template <typename LeafObj, typename UserState>
 inline void* PauseableBVH4<LeafObj, UserState>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
 {
     auto ptr = rtcThreadLocalAlloc(alloc, sizeof(ConstructionInnerNode), 8);
-    new (ptr)ConstructionInnerNode();
+    new (ptr) ConstructionInnerNode();
     return ptr;
 }
 
@@ -465,7 +509,7 @@ inline void* PauseableBVH4<LeafObj, UserState>::leafCreate(RTCThreadLocalAllocat
     auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
 
     auto ptr = rtcThreadLocalAlloc(alloc, sizeof(ConstructionLeafNode), 8);
-    auto leafNodePtr = new (ptr)ConstructionLeafNode();
+    auto leafNodePtr = new (ptr) ConstructionLeafNode();
     leafNodePtr->leafPtr = &self->m_tmpConstructionLeafs[prims[0].primID];
     return leafNodePtr;
 }

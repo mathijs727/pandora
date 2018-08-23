@@ -16,6 +16,7 @@ public:
 
 private:
 	void rayHit(const Ray& r, SurfaceInteraction si, const int& s, const InsertHandle& h) override final {};
+    void rayAnyHit(const Ray& r, const int& s) override final {};
 	void rayMiss(const Ray& r, const int& s) override final {};
 private:
 	using OctreeType = SparseVoxelDAG;

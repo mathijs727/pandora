@@ -40,3 +40,8 @@ Result: ~5400ms
 
 More efficient horizontal min (4-wide) vector operation in PauseableBVH4
 Result: ~5200ms
+
+Any hit intersections
+In-core batching: 4850~4900ms
+WiVe8Build8: ~2950ms
+Embree: ~3100ms    (bigger performance jump than WiVe8, although WiVe8 has no optimized traversal order for any-hit)

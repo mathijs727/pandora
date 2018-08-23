@@ -86,12 +86,24 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
     } else if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);
 
-        if (rayState.light != nullptr && si.sceneObject->getAreaLight(si.primitiveID) == rayState.light) {
+        assert(rayState.light);
+        if (si.sceneObject->getAreaLight(si.primitiveID) == rayState.light) {
             // Ray created by BSDF sampling (PBRTv3 page 861) - contains weight
             Spectrum li = si.Le(-r.direction);
             m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * li);
         }
     }
+}
+
+void PathIntegrator::rayAnyHit(const Ray& r, const RayState& s)
+{
+    // Shadow ray spawned by light sampling => occluded so no contribution
+#ifndef NDEBUG
+    if (std::holds_alternative<ShadowRayState>(s)) {
+        const auto& rayState = std::get<ShadowRayState>(s);
+        assert(rayState.light == nullptr);
+    }
+#endif
 }
 
 void PathIntegrator::rayMiss(const Ray& r, const RayState& s)

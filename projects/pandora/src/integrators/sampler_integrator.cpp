@@ -135,7 +135,7 @@ void SamplerIntegrator::spawnShadowRay(const Ray& ray, const ContinuationRayStat
     rayState.light = nullptr;
 
     RayState rayStateVariant = rayState;
-    m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayStateVariant, 1));
+    m_accelerationStructure.placeIntersectAnyRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayStateVariant, 1));
 }
 
 void SamplerIntegrator::spawnShadowRay(const Ray& ray, const ContinuationRayState& prevRayState, const Spectrum& weight, const Light& light)

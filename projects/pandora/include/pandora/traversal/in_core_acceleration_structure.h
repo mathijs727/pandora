@@ -17,13 +17,15 @@ class InCoreAccelerationStructure {
 public:
     using InsertHandle = void*;
     using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&, const InsertHandle&)>;
+    using AnyHitCallback = std::function<void(const Ray&, const UserState&)>;
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
 public:
-    InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback);
+    InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
     ~InCoreAccelerationStructure() = default;
 
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
+    void placeIntersectAnyRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
 
     void flush() {}; // Dummy
 private:
@@ -56,12 +58,13 @@ private:
     static PauseableBVH4<PauseableLeafNode, UserState> buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>);
 
 private:
-    //EmbreeBVH<LeafNode> m_bvh;
+    EmbreeBVH<LeafNode> m_bvh;
     //NaiveSingleRayBVH2<LeafNode> m_bvh;
-    WiVeBVH8Build8<LeafNode> m_bvh;
+    //WiVeBVH8Build8<LeafNode> m_bvh;
     //PauseableBVH4<PauseableLeafNode, UserState> m_bvh;
 
     HitCallback m_hitCallback;
+    AnyHitCallback m_anyHitCallback;
     MissCallback m_missCallback;
 };
 
@@ -96,10 +99,11 @@ inline bool InCoreAccelerationStructure<UserState>::PauseableLeafNode::intersect
 }
 
 template <typename UserState>
-inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, MissCallback missCallback)
+inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
     : m_bvh(std::move(buildBVH<decltype(m_bvh)>(sceneObjects)))
     //: m_bvh(std::move(buildPauseableBVH(sceneObjects)))
     , m_hitCallback(hitCallback)
+    , m_anyHitCallback(anyHitCallback)
     , m_missCallback(missCallback)
 {
     //m_bvh.saveToFile("scene.bvh");
@@ -150,41 +154,39 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
             m_missCallback(ray, perRayUserData[i]);
         }
     }
+}
 
-    /*if constexpr (std::is_same_v<decltype(m_bvh), PauseableBVH4<PauseableLeafNode, UserState>>) {
-        for (int i = 0; i < rays.size(); i++) {
+template <typename UserState>
+inline void InCoreAccelerationStructure<UserState>::placeIntersectAnyRequests(
+    gsl::span<const Ray> rays,
+    gsl::span<const UserState> perRayUserData,
+    const InsertHandle& insertHandle)
+{
+    (void)insertHandle;
+    assert(perRayUserData.size() == rays.size());
+
+    for (int i = 0; i < rays.size(); i++) {
+        Ray ray = rays[i]; // Copy so we can mutate it
+        UserState userState = perRayUserData[i];
+
+        bool hit;
+        if constexpr (std::is_same_v<decltype(m_bvh), PauseableBVH4<PauseableLeafNode, UserState>>) {
+            // NOTE: use regular intersection code for now. I just want this code path to keep working as-is (performance is not important).
             RayHit hitInfo = RayHit();
-            Ray ray = rays[i]; // Copy so we can mutate it
-            UserState userState = perRayUserData[i];
-
-            bool paused = !m_bvh.intersect(ray, hitInfo, userState);
+            paused = !m_bvh.intersect(ray, hitInfo, userState);
             assert(!paused);
-            if (hitInfo.sceneObject) {
-                SurfaceInteraction si = SurfaceInteraction();
-                bool hit = hitInfo.sceneObject->getMeshRef().intersectPrimitive(ray, si, hitInfo.primitiveID);
-                assert(hit);
-                si.sceneObject = hitInfo.sceneObject;
-                si.primitiveID = hitInfo.primitiveID;
-                si.wo = -ray.direction;
-                m_hitCallback(ray, si, perRayUserData[i], nullptr);
-            } else {
-                m_missCallback(ray, perRayUserData[i]);
-            }
-        }
-    } else {
-        for (int i = 0; i < rays.size(); i++) {
-            SurfaceInteraction si;
-            Ray ray = rays[i]; // Copy so we can mutate it
-            UserState userState = perRayUserData[i];
 
-            if (m_bvh.intersect(ray, si)) {
-                si.wo = -ray.direction;
-                m_hitCallback(ray, si, perRayUserData[i], nullptr);
-            } else {
-                m_missCallback(ray, perRayUserData[i]);
-            }
+            hit = hitInfo.sceneObject != nullptr;
+        } else {
+            hit = m_bvh.intersectAny(ray);
         }
-    }*/
+
+        if (hit) {
+            m_anyHitCallback(ray, perRayUserData[i]);
+        } else {
+            m_missCallback(ray, perRayUserData[i]);
+        }
+    }
 }
 
 template <typename UserState>

@@ -19,6 +19,7 @@ public:
     void build(gsl::span<const LeafObj*> objects) override final;
 
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
+    bool intersectAny(Ray& ray) const override final;
 
 private:
     static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
@@ -30,17 +31,20 @@ private:
 private:
     struct BVHNode {
         virtual bool intersect(Ray& ray, RayHit& hitInfo) const = 0;
+        virtual bool intersectAny(Ray& ray) const = 0;
     };
     struct InnerNode : public BVHNode {
         Bounds childBounds[2];
         const BVHNode* children[2];
 
         bool intersect(Ray& ray, RayHit& hitInfo) const override final;
+        bool intersectAny(Ray& ray) const override final;
     };
     struct LeafNode : public BVHNode {
         eastl::fixed_vector<std::pair<const LeafObj*, unsigned>, 4> leafs;
 
         bool intersect(Ray& ray, RayHit& hitInfo) const override final;
+        bool intersectAny(Ray& ray) const override final;
     };
 
     std::vector<const LeafObj*> m_leafObjects;
@@ -129,6 +133,18 @@ inline bool NaiveSingleRayBVH2<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) co
 }
 
 template <typename LeafObj>
+inline bool NaiveSingleRayBVH2<LeafObj>::intersectAny(Ray& ray) const
+{
+    if (m_root->intersectAny(ray))
+    {
+        ray.tfar = -std::numeric_limits<float>::infinity();
+        return true;
+    } else {
+        return false;
+    }
+}
+
+template <typename LeafObj>
 inline void* NaiveSingleRayBVH2<LeafObj>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
 {
     assert(numChildren == 2);
@@ -194,19 +210,47 @@ inline bool NaiveSingleRayBVH2<LeafObj>::InnerNode::intersect(Ray& ray, RayHit& 
     if (hitBounds0 && hitBounds1) {
         bool hit = false;
         if (tmin0 < tmin1) {
-            hit |= children[0]->intersect(ray, hitData);
+            hit |= children[0]->intersect(ray, hitInfo);
             if (ray.tfar > tmin1)
-                hit |= children[1]->intersect(ray, hitData);
+                hit |= children[1]->intersect(ray, hitInfo);
         } else {
-            hit |= children[1]->intersect(ray, hitData);
+            hit |= children[1]->intersect(ray, hitInfo);
             if (ray.tfar > tmin0)
-                hit |= children[0]->intersect(ray, hitData);
+                hit |= children[0]->intersect(ray, hitInfo);
         }
         return hit;
     } else if (hitBounds0) {
-        return children[0]->intersect(ray, hitData);
+        return children[0]->intersect(ray, hitInfo);
     } else if (hitBounds1) {
-        return children[1]->intersect(ray, hitData);
+        return children[1]->intersect(ray, hitInfo);
+    }
+    return false;
+}
+
+template <typename LeafObj>
+inline bool NaiveSingleRayBVH2<LeafObj>::InnerNode::intersectAny(Ray& ray) const
+{
+    float tmin0, tmax0;
+    float tmin1, tmax1;
+    bool hitBounds0 = childBounds[0].intersect(ray, tmin0, tmax0);
+    bool hitBounds1 = childBounds[1].intersect(ray, tmin1, tmax1);
+
+    if (hitBounds0 && hitBounds1) {
+        if (tmin0 < tmin1) {
+            if (children[0]->intersectAny(ray))
+                return true;
+            if (children[1]->intersectAny(ray))
+                return true;
+        } else {
+            if (children[1]->intersectAny(ray))
+                return true;
+            if (children[0]->intersectAny(ray))
+                return true;
+        }
+    } else if (hitBounds0) {
+        return children[0]->intersectAny(ray);
+    } else if (hitBounds1) {
+        return children[1]->intersectAny(ray);
     }
     return false;
 }
@@ -219,6 +263,17 @@ inline bool NaiveSingleRayBVH2<LeafObj>::LeafNode::intersect(Ray& ray, RayHit& h
         hit |= leafObject->intersectPrimitive(ray, hitInfo, primitiveID);
     }
     return hit;
+}
+
+template <typename LeafObj>
+inline bool NaiveSingleRayBVH2<LeafObj>::LeafNode::intersectAny(Ray& ray) const
+{
+    for (auto& [leafObject, primitiveID] : leafs) {
+        RayHit hitInfo = {};
+        if (leafObject->intersectPrimitive(ray, hitInfo, primitiveID))
+            return true;
+    }
+    return false;
 }
 
 }

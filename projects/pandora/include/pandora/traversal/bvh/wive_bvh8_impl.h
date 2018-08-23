@@ -41,9 +41,6 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
         uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
         float distance = stackDistances[stackPtr];
 
-        //if (ray.tfar < distance)
-        //    continue;
-
         uint32_t handle = decompressNodeHandle(compressedNodeHandle);
         const auto* node = &m_innerNodeAllocator->get(handle);
         if (isInnerNode(compressedNodeHandle)) {
@@ -98,6 +95,67 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
 }
 
 template <typename LeafObj>
+inline bool WiVeBVH8<LeafObj>::intersectAny(Ray& ray) const
+{
+    SIMDRay simdRay;
+    simdRay.originX = simd::vec8_f32(ray.origin.x);
+    simdRay.originY = simd::vec8_f32(ray.origin.y);
+    simdRay.originZ = simd::vec8_f32(ray.origin.z);
+    simdRay.invDirectionX = simd::vec8_f32(1.0f / ray.direction.x);
+    simdRay.invDirectionY = simd::vec8_f32(1.0f / ray.direction.y);
+    simdRay.invDirectionZ = simd::vec8_f32(1.0f / ray.direction.z);
+    simdRay.tnear = simd::vec8_f32(ray.tnear);
+    simdRay.tfar = simd::vec8_f32(ray.tfar);
+    simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
+
+    // Stack
+    alignas(32) std::array<uint32_t, 48> stackCompressedNodeHandles;
+    alignas(32) std::array<float, 48> stackDistances;
+    std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
+    size_t stackPtr = 0;
+
+    // Push root node onto the stack
+    stackCompressedNodeHandles[stackPtr] = m_compressedRootHandle;
+    stackDistances[stackPtr] = 0.0f;
+    stackPtr++;
+
+    while (stackPtr > 0) {
+        stackPtr--;
+        uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
+        float distance = stackDistances[stackPtr];
+
+        uint32_t handle = decompressNodeHandle(compressedNodeHandle);
+        const auto* node = &m_innerNodeAllocator->get(handle);
+        if (isInnerNode(compressedNodeHandle)) {
+            // Inner node
+            simd::vec8_u32 childrenSIMD;
+            simd::vec8_f32 distancesSIMD;
+            uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
+
+            if (numChildren > 0) {
+                childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
+                distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
+
+                stackPtr += numChildren;
+            }
+        } else {
+#ifndef NDEBUG
+            if (isEmptyNode(compressedNodeHandle))
+                THROW_ERROR("Empty node in traversal");
+            assert(isLeafNode(compressedNodeHandle));
+#endif
+            // Leaf node
+            if (intersectAnyLeaf(&m_leafNodeAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray)) {
+                ray.tfar = -std::numeric_limits<float>::infinity();
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+template <typename LeafObj>
 inline uint32_t WiVeBVH8<LeafObj>::intersectInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const
 {
     simd::vec8_f32 tx1 = (n->minX - ray.originX) * ray.invDirectionX;
@@ -129,6 +187,38 @@ inline uint32_t WiVeBVH8<LeafObj>::intersectInnerNode(const BVHNode* n, const SI
 }
 
 template <typename LeafObj>
+inline uint32_t WiVeBVH8<LeafObj>::intersectAnyInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const
+{
+    simd::vec8_f32 tx1 = (n->minX - ray.originX) * ray.invDirectionX;
+    simd::vec8_f32 tx2 = (n->maxX - ray.originX) * ray.invDirectionX;
+    simd::vec8_f32 ty1 = (n->minY - ray.originY) * ray.invDirectionY;
+    simd::vec8_f32 ty2 = (n->maxY - ray.originY) * ray.invDirectionY;
+    simd::vec8_f32 tz1 = (n->minZ - ray.originZ) * ray.invDirectionZ;
+    simd::vec8_f32 tz2 = (n->maxZ - ray.originZ) * ray.invDirectionZ;
+    simd::vec8_f32 txMin = simd::min(tx1, tx2);
+    simd::vec8_f32 tyMin = simd::min(ty1, ty2);
+    simd::vec8_f32 tzMin = simd::min(tz1, tz2);
+    simd::vec8_f32 txMax = simd::max(tx1, tx2);
+    simd::vec8_f32 tyMax = simd::max(ty1, ty2);
+    simd::vec8_f32 tzMax = simd::max(tz1, tz2);
+    simd::vec8_f32 tmin = simd::max(ray.tnear, simd::max(txMin, simd::max(tyMin, tzMin)));
+    simd::vec8_f32 tmax = simd::min(ray.tfar, simd::min(txMax, simd::min(tyMax, tzMax)));
+
+    //const simd::vec8_u32 indexMask(0b111);
+    //const simd::vec8_u32 simd24(24);
+    //simd::vec8_u32 index = (n->permutationOffsets >> ray.raySignShiftAmount) & indexMask;
+
+    //tmin = tmin.permute(index);
+    //tmax = tmax.permute(index);
+    simd::mask8 mask = tmin <= tmax;
+    simd::vec8_u32 compressPermuteIndices(mask.computeCompressPermutation());
+    outChildren = n->children.permute(compressPermuteIndices);
+    outDistances = tmin.permute(compressPermuteIndices);
+    return mask.count();
+}
+
+
+template <typename LeafObj>
 inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, RayHit& hitInfo) const
 {
     bool hit = false;
@@ -141,22 +231,35 @@ inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, uint32_t primitiv
 }
 
 template <typename LeafObj>
+inline bool WiVeBVH8<LeafObj>::intersectAnyLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray) const
+{
+    const auto* leafObjectIDs = n->leafObjectIDs;
+    const auto* primitiveIDs = n->primitiveIDs;
+    for (uint32_t i = 0; i < primitiveCount; i++) {
+        RayHit hitInfo = {};
+        if (m_leafObjects[leafObjectIDs[i]]->intersectPrimitive(ray, hitInfo, primitiveIDs[i]))
+            return true;
+    }
+    return false;
+}
+
+template <typename LeafObj>
 inline void WiVeBVH8<LeafObj>::loadFromFile(std::string_view filename, gsl::span<const LeafObj*> objects)
 {
-	auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
-	auto bvh = serialization::GetWiVeBVH8(mmapFile.data());
+    auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
+    auto bvh = serialization::GetWiVeBVH8(mmapFile.data());
 
-	m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(bvh->innerNodeAllocator());
-	m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>(bvh->leafNodeAllocator());
-	m_compressedRootHandle = bvh->compressedRootHandle();
+    m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(bvh->innerNodeAllocator());
+    m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>(bvh->leafNodeAllocator());
+    m_compressedRootHandle = bvh->compressedRootHandle();
 
-	if ((uint32_t)objects.size() != bvh->numLeafObjects())
-		THROW_ERROR("Number of leaf objects does not match that of the serialized BVH");
+    if ((uint32_t)objects.size() != bvh->numLeafObjects())
+        THROW_ERROR("Number of leaf objects does not match that of the serialized BVH");
 
-	m_leafObjects.resize(objects.size());
-	std::copy(std::begin(objects), std::end(objects), std::begin(m_leafObjects));
+    m_leafObjects.resize(objects.size());
+    std::copy(std::begin(objects), std::end(objects), std::begin(m_leafObjects));
 
-	mmapFile.unmap();
+    mmapFile.unmap();
 }
 
 template <typename LeafObj>
@@ -176,7 +279,7 @@ inline void WiVeBVH8<LeafObj>::saveToFile(std::string_view filename)
     std::ofstream file;
     file.open(filename.data(), std::ios::out | std::ios::binary | std::ios::trunc);
     file.write(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
-	file.close();
+    file.close();
 }
 
 template <typename LeafObj>

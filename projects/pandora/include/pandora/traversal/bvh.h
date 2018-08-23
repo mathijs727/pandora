@@ -26,6 +26,7 @@ public:
     virtual void build(gsl::span<const LeafObj*> objects) = 0;
 
     virtual bool intersect(Ray& ray, RayHit& hitInfo) const = 0;
+    virtual bool intersectAny(Ray& ray) const = 0;
 };
 
 }

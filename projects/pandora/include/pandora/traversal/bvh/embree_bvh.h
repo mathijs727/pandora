@@ -18,16 +18,18 @@ public:
     void build(gsl::span<const LeafObj*> objects) override final;
 
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
+    bool intersectAny(Ray& ray) const override final;
 
 private:
     static void geometryBoundsFunc(const RTCBoundsFunctionArguments* args);
     static void geometryIntersectFunc(const RTCIntersectFunctionNArguments* args);
+    static void geometryOccludedFunc(const RTCOccludedFunctionNArguments* args);
 
 private:
     RTCDevice m_device;
     RTCScene m_scene;
 
-    static tbb::enumerable_thread_specific<std::pair<gsl::span<Ray>, gsl::span<RayHit>>> s_intersectionDataRayHit;
+    static tbb::enumerable_thread_specific<gsl::span<RayHit>> s_intersectionDataRayHit;
 };
 
 }

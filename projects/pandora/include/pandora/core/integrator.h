@@ -22,6 +22,7 @@ public:
 protected:
     using InsertHandle = typename InCoreAccelerationStructure<IntegratorState>::InsertHandle;
     virtual void rayHit(const Ray& r, SurfaceInteraction si, const IntegratorState& s, const InsertHandle& h) = 0;
+    virtual void rayAnyHit(const Ray& r, const IntegratorState& s) = 0;
     virtual void rayMiss(const Ray& r, const IntegratorState& s) = 0;
 
     void resetSamplers();
@@ -47,6 +48,9 @@ inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& senso
           scene.getSceneObjects(),
           [this](const Ray& r, const SurfaceInteraction& si, const IntegratorState& s, const InsertHandle& h) {
               rayHit(r, si, s, h);
+          },
+          [this](const Ray& r, const IntegratorState& s) {
+              rayAnyHit(r, s);
           },
           [this](const Ray& r, const IntegratorState& s) {
               rayMiss(r, s);
