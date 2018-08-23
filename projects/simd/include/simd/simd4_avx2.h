@@ -75,12 +75,12 @@ public:
     inline int count(unsigned validMask) const
     {
         uint32_t mask = m_bitMask & validMask;
-        return _mm_popcnt_u32(mask);
+        return popcount32(mask);
     }
 
     inline int count() const
     {
-        return _mm_popcnt_u32(m_bitMask);
+        return popcount32(m_bitMask);
     }
 
     inline bool none() const
@@ -398,7 +398,7 @@ public:
         __m128 mask = _mm_cmpeq_ps(m_value, min4);
         
         int bitMask = _mm_movemask_ps(mask);
-        return pandora::bitScan32(static_cast<uint32_t>(bitMask));
+        return bitScan32(static_cast<uint32_t>(bitMask));
     }
 
     inline float horizontalMin() const

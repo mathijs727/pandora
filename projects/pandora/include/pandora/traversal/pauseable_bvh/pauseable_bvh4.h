@@ -1,8 +1,8 @@
 #pragma once
 #include "pandora/traversal/pauseable_bvh.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
-#include "pandora/utility/intrinsics.h"
-#include "pandora/utility/simd/simd4.h"
+#include "simd/intrinsics.h"
+#include "simd/simd4.h"
 #include <embree3/rtcore.h>
 #include <limits>
 #include <nmmintrin.h> // popcnt
@@ -260,7 +260,7 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectT(Ray& ra
                 // Find nearest active child for this ray
                 unsigned childIndex;
                 if constexpr (AnyHit) {
-                    childIndex = bitScan32(static_cast<uint32_t>(toVisitMask.bitMask()));
+                    childIndex = simd::bitScan32(static_cast<uint32_t>(toVisitMask.bitMask()));
                 } else {
                     const simd::vec4_f32 inf4(std::numeric_limits<float>::max());
                     const simd::vec4_f32 maskedDistances = simd::blend(inf4, tmin, toVisitMask);

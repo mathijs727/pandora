@@ -2,7 +2,7 @@
 #include "pandora/geometry/bounds.h"
 #include "pandora/traversal/bvh.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
-#include "pandora/utility/simd/simd8.h"
+#include "simd/simd8.h"
 #include <EASTL/fixed_vector.h>
 #include <embree3/rtcore.h>
 #include <iostream>

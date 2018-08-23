@@ -4,7 +4,17 @@
 #endif
 #include <cstdint>
 
-namespace pandora {
+namespace simd {
+
+inline int32_t popcount32(uint32_t mask)
+{
+    return _mm_popcnt_u32(mask);
+}
+
+inline int64_t popcount64(uint64_t mask)
+{
+    return _mm_popcnt_u64(mask);
+}
 
 #ifdef _MSC_VER
 

@@ -1,5 +1,5 @@
 #pragma once
-#include "pandora/utility/intrinsics.h"
+#include "intrinsics.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -7,7 +7,6 @@
 #include <functional>
 #include <gsl/span>
 #include <immintrin.h> // AVX / AVX2
-#include <iostream>
 #include <nmmintrin.h> // Popcount
 #include <smmintrin.h> // SSE4.1
 #include <xmmintrin.h> // SSE
@@ -18,7 +17,7 @@ constexpr static int SIMD4_WIDTH = 4;
 constexpr static int SIMD4_WIDTH = 1;
 #endif
 
-namespace pandora::simd {
+namespace simd {
 template <int S>
 class _mask4;
 
@@ -28,8 +27,8 @@ class _vec4_base;
 template <typename T, int S>
 class _vec4;
 
-#include "pandora/utility/simd/simd4_avx2.h"
-#include "pandora/utility/simd/simd4_scalar.h"
+#include "simd/simd4_avx2.h"
+#include "simd/simd4_scalar.h"
 
 using mask4 = _mask4<SIMD4_WIDTH>;
 using vec4_f32 = _vec4<float, SIMD4_WIDTH>;
