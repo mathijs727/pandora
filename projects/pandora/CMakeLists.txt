@@ -18,6 +18,7 @@ if (PANDORA_ISPC_SUPPORT)
 endif()
 
 target_link_libraries(libPandora PUBLIC
+	simd
     assimp_target # Loading 3D models
     OpenImageIO # Loading textures
 	glm # Vector math

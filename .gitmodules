@@ -1,9 +1,13 @@
-[submodule "external/gl3w"]
-	path = external/gl3w
-	url = https://github.com/skaslev/gl3w
-[submodule "external/glbinding"]
-	path = external/glbinding
-	url = git@github.com:cginternals/glbinding.git
-[submodule "external/--force"]
-	path = external/--force
-	url = https://github.com/Microsoft/GSL.git
+[submodule "third_party/eastl"]
+	path = third_party/eastl
+	url = git@github.com:electronicarts/EASTL.git
+	branch = 3.12.01
+[submodule "third_party/libmorton"]
+	path = third_party/libmorton
+	url = git@github.com:Forceflow/libmorton.git
+[submodule "third_party/mio"]
+	path = third_party/mio
+	url = git@github.com:mandreyel/mio.git
+[submodule "third_party/tinyply"]
+	path = third_party/tinyply
+	url = git@github.com:ddiakopoulos/tinyply.git

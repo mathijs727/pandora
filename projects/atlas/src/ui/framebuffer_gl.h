@@ -11,7 +11,7 @@ public:
     FramebufferGL(int width, int height);
     ~FramebufferGL();
 
-    void update(const Sensor& sensor, float multiplier);
+    void update(Sensor& sensor, float multiplier);
 
 private:
     GLuint loadShader(std::string_view source, GLenum type);

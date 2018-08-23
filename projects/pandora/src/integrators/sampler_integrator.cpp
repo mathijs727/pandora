@@ -28,28 +28,36 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
 
     // Generate camera rays
     glm::ivec2 resolution = m_sensor.getResolution();
-#ifdef _DEBUG
+#ifndef NDEBUG
+//#if 1
     for (int y = 0; y < resolution.y; y++) {
         for (int x = 0; x < resolution.x; x++) {
+
+            if (y == 660 && x == 380)
+                continue;
+
             // Initialize camera sample for current sample
             auto pixel = glm::ivec2(x, y);
             spawnNextSample(pixel, true);
         }
     }
 #else
-	tbb::blocked_range2d<int, int> sensorRange(0, resolution.y, 0, resolution.x);
-	tbb::parallel_for(sensorRange, [&](tbb::blocked_range2d<int, int> localRange) {
-		auto rows = localRange.rows();
-		auto cols = localRange.cols();
-		for (int y = rows.begin(); y < rows.end(); y++) {
-			for (int x = cols.begin(); x < cols.end(); x++) {
-				// Initialize camera sample for current sample
-				auto pixel = glm::ivec2(x, y);
-				spawnNextSample(pixel, true);
-			}
-		}
-	});
+    tbb::blocked_range2d<int, int> sensorRange(0, resolution.y, 0, resolution.x);
+    tbb::parallel_for(sensorRange, [&](tbb::blocked_range2d<int, int> localRange) {
+        auto rows = localRange.rows();
+        auto cols = localRange.cols();
+        for (int y = rows.begin(); y < rows.end(); y++) {
+            for (int x = cols.begin(); x < cols.end(); x++) {
+                // Initialize camera sample for current sample
+                auto pixel = glm::ivec2(x, y);
+                spawnNextSample(pixel, true);
+            }
+        }
+    });
 #endif
+
+    m_accelerationStructure.flush();
+
     m_sppThisFrame += m_sppPerCall;
 }
 
@@ -61,7 +69,7 @@ void SamplerIntegrator::spawnNextSample(const glm::ivec2& pixel, bool initialSam
     if (initialSample || sampler.startNextSample()) {
         CameraSample sample = sampler.getCameraSample(pixel);
 
-        ContinuationRayState rayState{ pixel, glm::vec3(1.0f), 0, false };
+        ContinuationRayState rayState { pixel, glm::vec3(1.0f), 0, false };
         RayState rayStateVariant = rayState;
 
         Ray ray = m_cameraThisFrame->generateRay(sample);
@@ -69,7 +77,7 @@ void SamplerIntegrator::spawnNextSample(const glm::ivec2& pixel, bool initialSam
     }
 }
 
-void SamplerIntegrator::specularReflect(const SurfaceInteraction& si, Sampler& sampler, MemoryArena& memoryArena, const ContinuationRayState& prevRayState)
+void SamplerIntegrator::specularReflect(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const ContinuationRayState& prevRayState)
 {
     // Compute specular reflection wi and BSDF value
     glm::vec3 wo = si.wo;
@@ -94,7 +102,7 @@ void SamplerIntegrator::specularReflect(const SurfaceInteraction& si, Sampler& s
     }
 }
 
-void SamplerIntegrator::specularTransmit(const SurfaceInteraction& si, Sampler& sampler, MemoryArena& memoryArena, const ContinuationRayState& prevRayState)
+void SamplerIntegrator::specularTransmit(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const ContinuationRayState& prevRayState)
 {
     // Compute specular reflection wi and BSDF value
     glm::vec3 wo = si.wo;
@@ -127,7 +135,7 @@ void SamplerIntegrator::spawnShadowRay(const Ray& ray, const ContinuationRayStat
     rayState.light = nullptr;
 
     RayState rayStateVariant = rayState;
-    m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayStateVariant, 1));
+    m_accelerationStructure.placeIntersectAnyRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayStateVariant, 1));
 }
 
 void SamplerIntegrator::spawnShadowRay(const Ray& ray, const ContinuationRayState& prevRayState, const Spectrum& weight, const Light& light)

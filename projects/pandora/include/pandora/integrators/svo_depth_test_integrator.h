@@ -10,14 +10,16 @@ public:
 
 private:
     void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h) override final;
+    void rayAnyHit(const Ray& r, const RayState& s) override final {};
     void rayMiss(const Ray& r, const RayState& s) override final;
 
-	static SparseVoxelOctree buildSVO(const Scene& scene);
+    static SparseVoxelOctree buildSVO(const Scene& scene);
+
 private:
     SparseVoxelOctree m_svo;
 
-	glm::mat4 m_worldToSVO;
-	float m_svoToWorldScale;
+    glm::mat4 m_worldToSVO;
+    float m_svoToWorldScale;
 };
 
 }

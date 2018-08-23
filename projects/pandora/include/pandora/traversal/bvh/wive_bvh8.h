@@ -2,7 +2,7 @@
 #include "pandora/geometry/bounds.h"
 #include "pandora/traversal/bvh.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
-#include "pandora/utility/simd/simd8.h"
+#include "simd/simd8.h"
 #include <EASTL/fixed_vector.h>
 #include <embree3/rtcore.h>
 #include <iostream>
@@ -16,12 +16,14 @@ namespace pandora {
 template <typename LeafObj>
 class WiVeBVH8 : public BVH<LeafObj> {
 public:
-    WiVeBVH8() = default;
+	WiVeBVH8() = default;
+	WiVeBVH8(WiVeBVH8&&) = default;
     ~WiVeBVH8() = default;
 
     void build(gsl::span<const LeafObj*> objects) override final;
 
-    bool intersect(Ray& ray, SurfaceInteraction& si) const override final;
+    bool intersect(Ray& ray, RayHit& hitInfo) const override final;
+    bool intersectAny(Ray& ray) const override final;
 
 	void loadFromFile(std::string_view filename, gsl::span<const LeafObj*> objects);
 	void saveToFile(std::string_view filename);
@@ -50,10 +52,11 @@ protected:
     struct BVHLeaf;
 
 private:
-
     struct SIMDRay;
-    uint32_t traverseCluster(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
-    bool intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, SurfaceInteraction& si) const;
+    uint32_t intersectInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
+    uint32_t intersectAnyInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
+    bool intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, RayHit& hitInfo) const;
+    bool intersectAnyLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray) const;
 
     struct TestBVHData {
         int numPrimitives = 0;
@@ -72,7 +75,7 @@ protected:
         simd::vec8_f32 maxZ; // 32 bytes
         simd::vec8_u32 children; // Child indices
         //simd::vec8_u32 permOffsetsAndFlags; // Per child: [child flags (1 byte) - permutation offsets (3 bytes)]
-        simd::vec8_u32 permutationOffsets; // 3 bytes. Can use the other byte for flags but storing it on the stack during traversal is expensive
+        simd::vec8_u32 permutationOffsets; // 3 bytes. Can use the other byte for flags but storing it on the stack during traversal is expensive.
     };
 
     struct alignas(32) BVHLeaf {

@@ -1,10 +1,11 @@
 #pragma once
 #include "pandora/core/pandora.h"
 #include "pandora/core/scene.h"
-#include "pandora/samplers/uniform_sampler.h"
 #include "pandora/core/sensor.h"
-//#include "pandora/traversal/embree_accel.h"
+#include "pandora/samplers/uniform_sampler.h"
 #include "pandora/traversal/in_core_acceleration_structure.h"
+#include "pandora/traversal/in_core_batching_acceleration_structure.h"
+#include <random>
 
 namespace pandora {
 
@@ -19,8 +20,9 @@ public:
     int getCurrentFrameSpp() const;
 
 protected:
-	using InsertHandle = typename InCoreAccelerationStructure<IntegratorState>::InsertHandle;
+    using InsertHandle = typename InCoreAccelerationStructure<IntegratorState>::InsertHandle;
     virtual void rayHit(const Ray& r, SurfaceInteraction si, const IntegratorState& s, const InsertHandle& h) = 0;
+    virtual void rayAnyHit(const Ray& r, const IntegratorState& s) = 0;
     virtual void rayMiss(const Ray& r, const IntegratorState& s) = 0;
 
     void resetSamplers();
@@ -28,12 +30,13 @@ protected:
 
 protected:
     const Scene& m_scene;
-    //EmbreeAccel<IntegratorState> m_accelerationStructure;
-	InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
+    //InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
+    InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
 
     Sensor& m_sensor;
     const int m_sppPerCall;
     int m_sppThisFrame;
+
 private:
     std::vector<UniformSampler> m_samplers;
 };
@@ -47,10 +50,12 @@ inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& senso
               rayHit(r, si, s, h);
           },
           [this](const Ray& r, const IntegratorState& s) {
+              rayAnyHit(r, s);
+          },
+          [this](const Ray& r, const IntegratorState& s) {
               rayMiss(r, s);
           })
     , m_sensor(sensor)
-    //, m_samplers(sensor.getResolution().x * sensor.getResolution().y, spp)
     , m_sppPerCall(sppPerCall)
     , m_sppThisFrame(0)
 {
@@ -59,8 +64,10 @@ inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& senso
 
     int pixelCount = sensor.getResolution().x * sensor.getResolution().y;
     m_samplers.reserve(pixelCount);
+    std::mt19937 randomEngine;
+    std::uniform_int_distribution<unsigned> samplerSeedDistribution;
     for (int i = 0; i < pixelCount; i++)
-        m_samplers.push_back(UniformSampler(sppPerCall));
+        m_samplers.push_back(UniformSampler(sppPerCall, samplerSeedDistribution(randomEngine)));
 }
 
 template <typename IntegratorState>

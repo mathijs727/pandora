@@ -4,9 +4,11 @@ CMakeSettings.json
 .vs
 projects/.vs/
 
-
 # Clion
 .idea
+
+# Assets
+assets/
 
 # Manual build folder
 build
@@ -21,6 +23,6 @@ third_party/install/
 *.sublime-project
 *.sublime-workspace
 CMakeSettings.json
-CMakeSettings.json
-*.ply
-CMakeSettings.json
+# Temporary python cache files
+*.pyc
+

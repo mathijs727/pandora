@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.8)
 project(pandora)
 
 option(PANDORA_ISPC_SUPPORT "Use ISPC to accelerate voxelization" OFF)
-option(BUILD_TESTS "Build tests for Pandora" OFF)
-option(BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
-option(BUILD_VOXEL_EXPORT "Build voxel exporter" OFF)
+option(PANDORA_BUILD_TESTS "Build tests for Pandora" OFF)
+option(PANDORA_BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
+option(PANDORA_BUILD_VOXEL_EXPORTER "Build voxel exporter" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
 if (PANDORA_ISPC_SUPPORT)
@@ -41,33 +41,32 @@ target_include_directories(mio INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/
 
 # https://github.com/Forceflow/libmorton
 add_library(libmorton INTERFACE)
-target_include_directories(libmorton INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/libmorton/include/")
+target_include_directories(libmorton INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/libmorton/libmorton/include/")
 
 find_package(Boost REQUIRED)
 
-if (BUILD_TESTS)
+if (PANDORA_BUILD_TESTS)
     find_package(GTest REQUIRED)
 endif ()
 
-if (BUILD_ATLAS)
+if (PANDORA_BUILD_ATLAS)
     find_package(glfw3 REQUIRED)
     find_package(GLEW REQUIRED)
     find_package(OpenGL REQUIRED)
 endif()
 
-if (BUILD_VOXEL_EXPORT)
+if (BUILD_VOXEL_EXPORTER)
 	add_library(tinyply "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/tinyply.cpp")
 	target_include_directories(tinyply PUBLIC "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/")
 endif()
 
+
+include("projects/simd/CMakeLists.txt")
 include("projects/pandora/CMakeLists.txt")
-if (PANDORA_ISPC_SUPPORT)
-	include("projects/ispctest/CMakeLists.txt")
+if (PANDORA_BUILD_ATLAS)
+    include("projects/atlas/CMakeLists.txt")
 endif()
+include("projects/torque/CMakeLists.txt")
 if (BUILD_VOXEL_EXPORT)
 	include("projects/voxel/CMakeLists.txt")
 endif()
-if (BUILD_ATLAS)
-    include("projects/atlas/CMakeLists.txt")
-endif()
-#include("torque/CMakeLists.txt")

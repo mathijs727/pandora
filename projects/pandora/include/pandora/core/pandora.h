@@ -1,8 +1,11 @@
 #pragma once
 #include <glm/glm.hpp>
 #include "pandora/core/spectrum.h"
+#include "pandora/utility/free_list_backed_memory_arena.h"
 
 namespace pandora {
+
+using ShadingMemoryArena = FreeListBackedMemoryArena<1024>;
 
 // Forward declares
 struct Interaction;
@@ -33,6 +36,7 @@ class Scene;
 class TriangleMesh;
 struct Bounds;
 struct Ray;
+struct RayHit;
 
 class MemoryArena;
 class MemoryArenaTS;
@@ -43,4 +47,5 @@ class Sensor;
 
 class VoxelGrid;
 class SparseVoxelOctree;
+
 }

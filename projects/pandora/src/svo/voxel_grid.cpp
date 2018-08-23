@@ -1,6 +1,6 @@
 #include "pandora/svo/voxel_grid.h"
 #include "pandora/utility/math.h"
-#include <libmorton/morton.h>
+#include <morton.h>
 #include <array>
 #include <iostream>
 

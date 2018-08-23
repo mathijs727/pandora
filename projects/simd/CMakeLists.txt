@@ -1,0 +1,6 @@
+add_library(simd INTERFACE)
+target_include_directories(simd INTERFACE "${CMAKE_CURRENT_LIST_DIR}/include")
+target_compile_features(simd INTERFACE cxx_std_17)
+
+# We require the Guideline Support Library but Microsofts implementation does not export a target (with vcpkg)
+#target_link_libraries(simd INTERFACE GSL)

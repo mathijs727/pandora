@@ -6,6 +6,27 @@ namespace pandora {
 
 template <typename LeafObj>
 class WiVeBVH8Build8 : public WiVeBVH8<LeafObj> {
+public:
+    //using WiVeBVH8<LeafObj>::WiVeBVH8;
+    WiVeBVH8Build8() = default;
+    WiVeBVH8Build8(WiVeBVH8Build8<LeafObj>&& other) : WiVeBVH8<LeafObj>(std::move(other))
+    {}
+
+    WiVeBVH8Build8<LeafObj>& operator=(WiVeBVH8Build8<LeafObj>&& other)
+    {
+        this->m_leafObjects = std::move(other.m_leafObjects);
+        this->m_primitives = std::move(other.m_primitives);
+        this->m_innerNodeAllocator = std::move(other.m_innerNodeAllocator);
+        this->m_leafNodeAllocator = std::move(other.m_leafNodeAllocator);
+        this->m_compressedRootHandle = other.m_compressedRootHandle;
+        other.m_leafObjects.clear();
+        other.m_primitives.clear();
+        other.m_innerNodeAllocator = nullptr;
+        other.m_leafNodeAllocator = nullptr;
+        other.m_compressedRootHandle = 0;
+        return *this;
+    }
+
 protected:
     void commit() override final;
 

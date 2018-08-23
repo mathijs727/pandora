@@ -17,8 +17,11 @@ public:
     SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
 
     // TODO: intersect function (with custom geometry in Embree)?
-    inline const TriangleMesh& getMesh() const { return *m_mesh; };
-    inline const Material& getMaterial() const { return *m_material; };
+    inline const TriangleMesh& getMeshRef() const { return *m_mesh; };
+    inline const Material& getMaterialRef() const { return *m_material; };
+
+    inline std::shared_ptr<const TriangleMesh> getMesh() const { return m_mesh; };
+    inline std::shared_ptr<const Material> getMaterial() const { return m_material; };
 
     const AreaLight* getAreaLight(unsigned primID) const;
     std::optional<gsl::span<const AreaLight>> getAreaLights() const;
@@ -35,15 +38,16 @@ public:
     ~Scene() = default;
 
     void addSceneObject(std::unique_ptr<SceneObject>&& sceneNode);
-
     void addInfiniteLight(const std::shared_ptr<Light>& light);
+
+    void splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject);
 
     gsl::span<const std::unique_ptr<SceneObject>> getSceneObjects() const;
     gsl::span<const Light* const> getLights() const;
     gsl::span<const Light* const> getInfiniteLights() const;
 
 private:
-    std::vector<std::unique_ptr<SceneObject>> m_sceneObject;
+    std::vector<std::unique_ptr<SceneObject>> m_sceneObjects;
     std::vector<const Light*> m_lights;
     std::vector<const Light*> m_infiniteLights;
 

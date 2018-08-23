@@ -46,7 +46,7 @@ MetalMaterial::MetalMaterial(
 
 
 // PBRTv3 page 581
-void MetalMaterial::computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const
+void MetalMaterial::computeScatteringFunctions(SurfaceInteraction& si, ShadingMemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const
 {
     // TODO: perform bump mapping (normal mapping)
 

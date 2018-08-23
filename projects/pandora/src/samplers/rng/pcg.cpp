@@ -1,4 +1,4 @@
-#include "pcg.h"
+#include "pandora/samplers/rng/pcg.h"
 #include <algorithm>
 #include <limits>
 

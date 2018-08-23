@@ -13,6 +13,7 @@
 #include <stack>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 
 using namespace std::string_literals;
 
@@ -68,11 +69,64 @@ TriangleMesh::TriangleMesh(
     , m_tangents(std::move(tangents))
     , m_uvCoords(std::move(uvCoords))
 {
-	for (unsigned v = 0; v < numVertices; v++)
-		m_bounds.grow(m_positions[v]);
+    for (unsigned v = 0; v < numVertices; v++)
+        m_bounds.grow(m_positions[v]);
 }
 
-std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals)
+TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
+{
+    std::vector<bool> usedVertices(numVertices());
+    std::fill(std::begin(usedVertices), std::end(usedVertices), false);
+    for (const unsigned primitiveID : primitives) {
+        const auto& triangle = m_triangles[primitiveID];
+        usedVertices[triangle[0]] = true;
+        usedVertices[triangle[1]] = true;
+        usedVertices[triangle[2]] = true;
+    }
+
+    std::unordered_map<int, int> vertexIndexMapping;
+    int numUsedVertices = 0;
+    for (int i = 0; i < static_cast<int>(usedVertices.size()); i++) {
+        if (usedVertices[i]) {
+            vertexIndexMapping[i] = numUsedVertices++;
+        }
+    }
+
+    std::unique_ptr<glm::ivec3[]> triangles = std::make_unique<glm::ivec3[]>(primitives.size());
+    unsigned currentTriangle = 0;
+    for (unsigned triangleIndex : primitives) {
+        glm::ivec3 originalTriangle = m_triangles[triangleIndex];
+        glm::ivec3 triangle = {
+            vertexIndexMapping[originalTriangle[0]],
+            vertexIndexMapping[originalTriangle[1]],
+            vertexIndexMapping[originalTriangle[2]]
+        };
+        triangles[currentTriangle++] = triangle;
+    }
+
+    std::unique_ptr<glm::vec3[]> positions = std::make_unique<glm::vec3[]>(numUsedVertices);
+    std::unique_ptr<glm::vec3[]> normals = m_normals ? std::make_unique<glm::vec3[]>(numUsedVertices) : nullptr;
+    std::unique_ptr<glm::vec3[]> tangents = m_tangents ? std::make_unique<glm::vec3[]>(numUsedVertices) : nullptr;
+    std::unique_ptr<glm::vec2[]> uvCoords = m_uvCoords ? std::make_unique<glm::vec2[]>(numUsedVertices) : nullptr;
+    unsigned currentVertex = 0;
+    for (unsigned vertexIndex = 0; vertexIndex < numVertices(); vertexIndex++) {
+        if (usedVertices[vertexIndex]) {
+            positions[currentVertex] = m_positions[vertexIndex];
+            if (normals)
+                normals[currentVertex] = m_normals[vertexIndex];
+            if (tangents)
+                tangents[currentVertex] = m_tangents[vertexIndex];
+            if (uvCoords)
+                uvCoords[currentVertex] = m_uvCoords[vertexIndex];
+            currentVertex++;
+        }
+    }
+    assert(currentVertex <= currentTriangle * 3);
+
+    return TriangleMesh(currentTriangle, currentVertex, std::move(triangles), std::move(positions), std::move(normals), std::move(tangents), std::move(uvCoords));
+}
+
+TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals)
 {
     const aiMesh* mesh = scene->mMeshes[meshIndex];
 
@@ -118,18 +172,17 @@ std::shared_ptr<TriangleMesh> TriangleMesh::createMeshAssimp(const aiScene* scen
         }
     }*/
 
-    return std::shared_ptr<TriangleMesh>(
-        new TriangleMesh(
-            mesh->mNumFaces,
-            mesh->mNumVertices,
-            std::move(indices),
-            std::move(positions),
-            std::move(normals),
-            std::move(tangents),
-            std::move(uvCoords)));
+    return TriangleMesh(
+        mesh->mNumFaces,
+        mesh->mNumVertices,
+        std::move(indices),
+        std::move(positions),
+        std::move(normals),
+        std::move(tangents),
+        std::move(uvCoords));
 }
 
-std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform, bool ignoreVertexNormals)
+std::vector<TriangleMesh> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform, bool ignoreVertexNormals)
 {
     if (!fileExists(filename)) {
         LOG_WARNING("Could not find mesh file: "s + std::string(filename));
@@ -145,7 +198,7 @@ std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std:
         return {};
     }
 
-    std::vector<std::shared_ptr<TriangleMesh>> result;
+    std::vector<TriangleMesh> result;
 
     std::stack<std::tuple<aiNode*, glm::mat4>> stack;
     stack.push({ scene->mRootNode, modelTransform * assimpMatrix(scene->mRootNode->mTransformation) });
@@ -168,7 +221,7 @@ std::vector<std::shared_ptr<TriangleMesh>> TriangleMesh::loadFromFile(const std:
     return result;
 }
 
-std::shared_ptr<TriangleMesh> TriangleMesh::loadFromCacheFile(const std::string_view filename)
+TriangleMesh TriangleMesh::loadFromCacheFile(const std::string_view filename)
 {
     auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
     auto triangleMesh = serialization::GetTriangleMesh(mmapFile.data());
@@ -201,18 +254,17 @@ std::shared_ptr<TriangleMesh> TriangleMesh::loadFromCacheFile(const std::string_
 
     mmapFile.unmap();
 
-    return std::shared_ptr<TriangleMesh>(
-        new TriangleMesh(
-            numTriangles,
-            numVertices,
-            std::move(triangles),
-            std::move(positions),
-            std::move(normals),
-            std::move(tangents),
-            std::move(uvCoords)));
+    return TriangleMesh(
+        numTriangles,
+        numVertices,
+        std::move(triangles),
+        std::move(positions),
+        std::move(normals),
+        std::move(tangents),
+        std::move(uvCoords));
 }
 
-void TriangleMesh::saveToFile(const std::string_view filename)
+void TriangleMesh::saveToCacheFile(const std::string_view filename)
 {
     size_t estimatedSize = 1024 + m_numTriangles * sizeof(glm::ivec3) + m_numVertices * sizeof(glm::vec3);
     if (m_normals)
@@ -272,9 +324,24 @@ gsl::span<const glm::vec3> TriangleMesh::getPositions() const
     return gsl::make_span(m_positions.get(), m_numVertices);
 }
 
+gsl::span<const glm::vec3> TriangleMesh::getNormals() const
+{
+    return gsl::make_span(m_normals.get(), m_numVertices);
+}
+
+gsl::span<const glm::vec3> TriangleMesh::getTangents() const
+{
+    return gsl::make_span(m_tangents.get(), m_numVertices);
+}
+
+gsl::span<const glm::vec2> TriangleMesh::getUVCoords() const
+{
+    return gsl::make_span(m_uvCoords.get(), m_numVertices);
+}
+
 Bounds TriangleMesh::getBounds() const
 {
-	return m_bounds;
+    return m_bounds;
 }
 
 Bounds TriangleMesh::getPrimitiveBounds(unsigned primitiveID) const
@@ -338,10 +405,11 @@ float TriangleMesh::pdfPrimitive(unsigned primitiveID, const Interaction& ref, c
 
     // Intersect sample ray with area light geometry
     Ray ray = ref.spawnRay(wi);
-    float tHit;
-    SurfaceInteraction isectLight;
-    if (!intersectPrimitive(primitiveID, ray, tHit, isectLight, false))
+    RayHit hitInfo;
+    if (!intersectPrimitive(ray, hitInfo, primitiveID, false))
         return 0.0f;
+
+    SurfaceInteraction isectLight = fillSurfaceInteraction(ray, hitInfo, false);
 
     // Convert light sample weight to solid angle measure
     return distanceSquared(ref.position, isectLight.position) / (absDot(isectLight.normal, -wi) * primitiveArea(primitiveID));
@@ -368,7 +436,6 @@ void TriangleMesh::getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const
     p[1] = m_positions[indices[1]];
     p[2] = m_positions[indices[2]];
 }
-
 }
 
 /*

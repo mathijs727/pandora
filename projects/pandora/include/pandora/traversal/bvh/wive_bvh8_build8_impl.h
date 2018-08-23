@@ -32,12 +32,13 @@ inline void WiVeBVH8Build8<LeafObj>::commit()
 
     this->m_compressedRootHandle = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rtcBuildBVH(&arguments)));
 
+	ALWAYS_ASSERT(this->isInnerNode(this->m_compressedRootHandle));
+
     // Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);
     rtcReleaseDevice(device);
 
     // Release temporary (Embree) primitive memory
-    std::cout << "Actual prim count: " << this->m_primitives.size() << std::endl;
     this->m_primitives.clear();
     this->m_primitives.shrink_to_fit();
 

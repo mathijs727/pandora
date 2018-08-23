@@ -7,7 +7,7 @@
 
 namespace pandora {
 
-static thread_local MemoryArena s_memoryArena(4096);
+static GrowingFreeListTS<ShadingMemoryArena::MemoryBlock> s_freeList;
 
 DirectLightingIntegrator::DirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, LightStrategy strategy)
     : SamplerIntegrator(maxDepth, scene, sensor, spp)
@@ -17,7 +17,7 @@ DirectLightingIntegrator::DirectLightingIntegrator(int maxDepth, const Scene& sc
 
 void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h)
 {
-    s_memoryArena.reset();
+    ShadingMemoryArena memoryArena(s_freeList);
 
     if (std::holds_alternative<ContinuationRayState>(s)) {
         const auto& rayState = std::get<ContinuationRayState>(s);
@@ -29,7 +29,7 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
         glm::vec3 wo = si.wo;
 
         // Compute scattering functions for surface interaction
-        si.computeScatteringFunctions(r, s_memoryArena);
+        si.computeScatteringFunctions(r, memoryArena);
 
         // Compute emitted light if ray hit an area light source
         Spectrum emitted = si.Le(wo);
@@ -50,13 +50,14 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
 
         if (rayState.bounces + 1 < m_maxDepth) {
             // Trace rays for specular reflection and refraction
-            specularReflect(si, sampler, s_memoryArena, rayState);
-            specularTransmit(si, sampler, s_memoryArena, rayState);
+            specularReflect(si, sampler, memoryArena, rayState);
+            specularTransmit(si, sampler, memoryArena, rayState);
         }
     } else if (std::holds_alternative<ShadowRayState>(s)) {
         const auto& rayState = std::get<ShadowRayState>(s);
 
-        if (rayState.light != nullptr && si.sceneObject->getAreaLight(si.primitiveID) == rayState.light) {
+        assert(rayState.light);
+        if (si.sceneObject->getAreaLight(si.primitiveID) == rayState.light) {
             // Ray created by BSDF sampling (PBRTv3 page 861) - contains weight
             Spectrum li = si.Le(-r.direction);
             m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * li);
@@ -64,6 +65,17 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
 		
         spawnNextSample(rayState.pixel);
     }
+}
+
+void DirectLightingIntegrator::rayAnyHit(const Ray& r, const RayState& s)
+{
+    // Shadow ray spawned by light sampling => occluded so no contribution
+#ifndef NDEBUG
+    if (std::holds_alternative<ShadowRayState>(s)) {
+        const auto& rayState = std::get<ShadowRayState>(s);
+        assert(rayState.light == nullptr);
+    }
+#endif
 }
 
 void DirectLightingIntegrator::rayMiss(const Ray& r, const RayState& s)

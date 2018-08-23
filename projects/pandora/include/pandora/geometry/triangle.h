@@ -2,6 +2,7 @@
 #include "glm/glm.hpp"
 #include "pandora/core/interaction.h"
 #include "pandora/core/material.h"
+#include "pandora/core/ray.h"
 #include "pandora/geometry/bounds.h"
 #include "pandora/utility/math.h"
 #include <gsl/span>
@@ -28,12 +29,15 @@ public:
         std::unique_ptr<glm::vec3[]>&& normals,
         std::unique_ptr<glm::vec3[]>&& tangents,
         std::unique_ptr<glm::vec2[]>&& uvCoords);
-	~TriangleMesh() = default;
+    TriangleMesh(TriangleMesh&&) = default;
+    ~TriangleMesh() = default;
 
-    static std::vector<std::shared_ptr<TriangleMesh>> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1), bool ignoreVertexNormals = false);
-	
-	static std::shared_ptr<TriangleMesh> loadFromCacheFile(const std::string_view filename);
-	void saveToFile(const std::string_view filename);
+    TriangleMesh subMesh(gsl::span<const unsigned> primitives) const;
+
+    static std::vector<TriangleMesh> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1), bool ignoreVertexNormals = false);
+
+    static TriangleMesh loadFromCacheFile(const std::string_view filename);
+    void saveToCacheFile(const std::string_view filename);
 
     unsigned numTriangles() const;
     unsigned numVertices() const;
@@ -41,15 +45,11 @@ public:
     gsl::span<const glm::ivec3> getTriangles() const;
     gsl::span<const glm::vec3> getPositions() const;
 
-    // Temporary, to work with native Embree intersection kernels.
-    // TODO: Replace this (and the getters above) with a primitive abstraction (bounds + split + intersect) so the Embree back-end uses the same intersection code as my own (TODO) kernels.
-    // This abstraction should be higher performance than the shared_ptr for each triangle approach that PBRTv3 takes.
-    //SurfaceInteraction partialFillSurfaceInteraction(unsigned primID, const glm::vec2& hitUV) const;// Caller should initialize sceneObject & wo
-
-	Bounds getBounds() const;
+    Bounds getBounds() const;
     Bounds getPrimitiveBounds(unsigned primitiveID) const;
 
-    inline bool intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture = true) const;
+    bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID, bool testAlphaTexture = true) const;
+    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& hitInfo, bool testAlphaTexture = true) const;
 
     float primitiveArea(unsigned primitiveID) const;
     Interaction samplePrimitive(unsigned primitiveID, const glm::vec2& randomSample) const;
@@ -59,24 +59,28 @@ public:
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const;
 
 private:
-    static std::shared_ptr<TriangleMesh> createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
+    static TriangleMesh createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
+
+    gsl::span<const glm::vec3> getNormals() const;
+    gsl::span<const glm::vec3> getTangents() const;
+    gsl::span<const glm::vec2> getUVCoords() const;
 
     void getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const;
     void getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
 
 private:
-    const unsigned m_numTriangles, m_numVertices;
+    unsigned m_numTriangles, m_numVertices;
 
     std::unique_ptr<glm::ivec3[]> m_triangles;
-    const std::unique_ptr<glm::vec3[]> m_positions;
-    const std::unique_ptr<glm::vec3[]> m_normals;
-    const std::unique_ptr<glm::vec3[]> m_tangents;
-    const std::unique_ptr<glm::vec2[]> m_uvCoords;
+    std::unique_ptr<glm::vec3[]> m_positions;
+    std::unique_ptr<glm::vec3[]> m_normals;
+    std::unique_ptr<glm::vec3[]> m_tangents;
+    std::unique_ptr<glm::vec2[]> m_uvCoords;
 
-	Bounds m_bounds;
+    Bounds m_bounds;
 };
 
-inline bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ray, float& tHit, SurfaceInteraction& isect, bool testAlphaTexture) const
+inline bool TriangleMesh::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID, bool testAlphaTexture) const
 {
 #if PBRT_INTERSECTION > 0
     // Based on PBRT v3 triangle intersection test (page 158):
@@ -162,13 +166,11 @@ inline bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ra
     else if (det > 0.0f && (tScaled <= ray.tnear * det || tScaled > ray.tfar * det))
         return false;
 
-    // Compute barycentric coordinates and t value for triangle intersection
+    // Compute the first two barycentric coordinates and t value for triangle intersection
     float invDet = 1.0f / det;
-    float b0 = e0 * invDet;
-    float b1 = e1 * invDet;
-    float b2 = e2 * invDet;
-    float t = tScaled * invDet;
-    assert(b0 + b1 <= 1.0f);
+    hitInfo.geometricUV = glm::vec2(e0 * invDet, e1 * invDet);
+    ray.tfar = tScaled * invDet;
+    return true;
 #else
     // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
     constexpr float EPSILON = 0.000001f;
@@ -200,15 +202,36 @@ inline bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ra
     if (t < ray.tnear || t > ray.tfar)
         return false;
 
-    float b0 = 1 - u - v;
-    float b1 = u;
-    float b2 = v;
+    ray.tfar = t;
+    hitInfo.geometricUV = glm::vec2(u, v);
+    return true;
+#endif
+}
+
+//inline bool TriangleMesh::intersectPrimitive(Ray& ray, SurfaceInteraction& isect, unsigned primitiveID, bool testAlphaTexture) const
+inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, const RayHit& hitInfo, bool testAlphaTexture) const
+{
+    glm::ivec3 triangle = m_triangles[hitInfo.primitiveID];
+    glm::vec3 p0 = m_positions[triangle[0]];
+    glm::vec3 p1 = m_positions[triangle[1]];
+    glm::vec3 p2 = m_positions[triangle[2]];
+
+#if PBRT_INTERSECTION > 0
+    // Compute barycentric coordinates and t value for triangle intersection
+    float b0 = hitInfo.geometricUV.x;
+    float b1 = hitInfo.geometricUV.y;
+    float b2 = 1.0f - hitInfo.geometricUV.x - hitInfo.geometricUV.y;
+    assert(b2 >= 0.0f && b2 <= 1.0f);
+#else
+    float b0 = 1 - hitInfo.geometricUV.u - hitInfo.geometricUV.v;
+    float b1 = hitInfo.geometricUV.u;
+    float b2 = hitInfo.geometricUV.v;
 #endif
 
     // Compute triangle partial derivatives
     glm::vec3 dpdu, dpdv;
     glm::vec2 uv[3];
-    getUVs(primitiveID, uv);
+    getUVs(hitInfo.primitiveID, uv);
     // Compute deltas for triangle partial derivatives
     glm::vec2 duv02 = uv[0] - uv[2], duv12 = uv[1] - uv[2];
     glm::vec3 dp02 = p0 - p2, dp12 = p1 - p2;
@@ -232,14 +255,14 @@ inline bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ra
     // TODO: test intersection against alpha texture, if present
 
     // Fill in  surface interaction from triangle hit
-    isect = SurfaceInteraction(pHit, uvHit, -ray.direction, dpdu, dpdv, glm::vec3(0.0f), glm::vec3(0.0f), this, primitiveID);
+    auto isect = SurfaceInteraction(pHit, uvHit, -ray.direction, dpdu, dpdv, glm::vec3(0.0f), glm::vec3(0.0f), this, hitInfo.primitiveID);
 
     // Override surface normal in isect for triangle
     isect.normal = isect.shading.normal = glm::normalize(glm::cross(dp02, dp12));
 
     // Shading normals / tangents
     if (m_normals || m_tangents) {
-        glm::ivec3 v = m_triangles[primitiveID];
+        glm::ivec3 v = m_triangles[hitInfo.primitiveID];
 
         // Compute shading normal ns for triangle
         glm::vec3 ns;
@@ -292,7 +315,9 @@ inline bool TriangleMesh::intersectPrimitive(unsigned primitiveID, const Ray& ra
     //else if (reverseOrientation ^ transformSwapsHandedness)
     //	isect.normal = isect.shading.normal = -isect.normal;
 
-    tHit = t;
-    return true;
+    isect.wo = -ray.direction;
+    isect.sceneObject = hitInfo.sceneObject;
+    isect.primitiveID = hitInfo.primitiveID;
+    return isect;
 }
 }

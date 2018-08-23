@@ -1,0 +1,47 @@
+Sponza Crytek / path tracing (max depth = 10)
+
+Everything was run in Release mode
+
+Reference performance:
+WiVe8B8: ~3500ms
+Embree:  ~3950ms
+
+Initial implementation (2048 prims per leaf, 1024 rays per batch)
+Flush after all primary rays are inserted; keep flushing while there are non-empty batches. Before each flush iteration sort (in parallel) the leaf nodes based on the number of batches. For each node (in parallel) flush each batch (in parallel, so a single node with a lot of batches does not become a bottleneck). Batch read/writes are protected with a read/write lock so that we can safely change the current batch pointer. Writing in a batch happens using an atomic index (and some thread local indexing to prevent accessing the shared index on each access).
+Result: ~10500ms
+
+According to VTune waiting for the read/write lock that protects the current batch (from getting swapped when it gets full) takes more time than any of the traversal functions.
+
+
+
+Replacing locks by atomics
+Result: ~6300ms
+
+Disabling sorting rays before processing them
+Result: ~6000ms
+
+Remove the valid checking for each item in a batch (not necessary when batches are filled from left to right)
+Result: ~5700ms
+
+Fill batches in thread-local memory (using smaller batches of 64 rays) and split flush function in leaf traversal + top level traversal (inserting rays into new batches).
+Result: ~5000ms
+
+Let children nodes in PauseableBVH4 be contiguous in memory (+ sampler own their own RNG) => requires some bitwise operations to access children
+Result: ~5100ms
+
+Fix the PauseableBVH4 and triangle intersection bugs (results are now deterministic)
+Result: ~5100ms
+
+Remove the shared list of nodes with batched rays and simply loop over all BVH nodes
+Result: ~5050ms
+
+Fix the freelist (switch to TBB queue) & use free list backed memory arena for shading
+Result: ~5400ms
+
+More efficient horizontal min (4-wide) vector operation in PauseableBVH4
+Result: ~5200ms
+
+Any hit intersections
+In-core batching: 4850~4900ms
+WiVe8Build8: ~2950ms
+Embree: ~3100ms    (bigger performance jump than WiVe8, although WiVe8 has no optimized traversal order for any-hit)
