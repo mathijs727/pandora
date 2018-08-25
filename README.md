@@ -24,6 +24,11 @@ Pandora uses the following third-party libraries:
  - [Boost TTI](https://www.boost.org/) (until concepts make it into the language)
  - [Google Test](https://github.com/google/googletest) (only when tests are enabled)
 
+Runtime metrics:
+ - [Prometheus](https://prometheus.io/)
+ - [prometheus-cpp](git@github.com:jupp0r/prometheus-cpp.git)
+ - [curl](git@github.com:curl/curl.git)
+
 In addition Atlas, the real-time viewer, requires:
  - [GLFW3](http://www.glfw.org/)
  - [GLEW](http://glew.sourceforge.net/)

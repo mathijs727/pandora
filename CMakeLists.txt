@@ -13,7 +13,7 @@ endif()
 
 #find_package(GSL REQUIRED)# Guideline Support Library (like the Microsoft implementation)
 find_package(glm REQUIRED)
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/eastl")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/eastl" EXCLUDE_FROM_ALL)
 
 find_package(OpenImageIO REQUIRED)
 add_library(OpenImageIO INTERFACE)
@@ -47,7 +47,7 @@ find_package(Boost REQUIRED)
 
 if (PANDORA_BUILD_TESTS)
     find_package(GTest REQUIRED)
-endif ()
+endif()
 
 if (PANDORA_BUILD_ATLAS)
     find_package(glfw3 REQUIRED)
@@ -60,7 +60,9 @@ if (BUILD_VOXEL_EXPORTER)
 	target_include_directories(tinyply PUBLIC "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/")
 endif()
 
-
+if (PANDORA_BUILD_TESTS)
+	#set(SIMD_BUILD_TESTS ON)
+endif()
 include("projects/simd/CMakeLists.txt")
 include("projects/pandora/CMakeLists.txt")
 if (PANDORA_BUILD_ATLAS)
@@ -70,3 +72,10 @@ include("projects/torque/CMakeLists.txt")
 if (BUILD_VOXEL_EXPORT)
 	include("projects/voxel/CMakeLists.txt")
 endif()
+
+
+#find_package(prometheus-cpp)
+#include("projects/prometheus_test/CMakeLists.txt")
+
+include("projects/metrics/CMakeLists.txt")
+
