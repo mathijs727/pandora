@@ -1,7 +1,7 @@
 #include "metrics/metric.h"
 #include "metrics/group.h"
 #include "metrics/counter.h"
-#include "metrics/json_exporter.h"
+#include "metrics/offline_exporter.h"
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -20,7 +20,7 @@ int main()
 
     auto stats = statsBuilder.build();
 
-    auto exporter = JSONExporter(stats);
+    auto exporter = OfflineExporter(stats, "stats.json");
 
     auto& meshCounter = stats["memory"]["geometry"].get<Counter>("mesh");
     std::cout << "Mesh memory used: " << meshCounter << std::endl;

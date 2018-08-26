@@ -7,7 +7,7 @@ namespace metrics
 
 class Counter : public Metric {
 public:
-    Counter(Identifier&& identifier);
+    Counter(Identifier&& identifier, high_res_clock::time_point measurementStartTime);
 
     Counter& operator+=(int v);
     Counter& operator-=(int v);

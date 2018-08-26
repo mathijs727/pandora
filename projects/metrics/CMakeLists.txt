@@ -5,6 +5,7 @@ target_include_directories(metrics
 	PUBLIC
 		"${CMAKE_CURRENT_LIST_DIR}/include")
 target_compile_features(metrics PUBLIC cxx_std_17)
+
 target_link_libraries(metrics
 	PUBLIC
 		tbb

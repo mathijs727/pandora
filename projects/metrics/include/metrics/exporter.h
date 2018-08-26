@@ -14,7 +14,7 @@ public:
     ~Exporter();
 
 protected:
-    virtual void processMessage(const ChangeMessage& message) = 0;
+    virtual void processMessage(const Message& message) = 0;
 
 private:
     MessageQueue m_messageQueue;

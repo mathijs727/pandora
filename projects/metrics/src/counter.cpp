@@ -2,8 +2,8 @@
 
 namespace metrics {
 
-Counter::Counter(Identifier&& identifier)
-    : Metric(std::move(identifier))
+Counter::Counter(Identifier&& identifier, high_res_clock::time_point measurementStartTime)
+    : Metric(std::move(identifier), measurementStartTime)
     , m_value(0)
 {
 }

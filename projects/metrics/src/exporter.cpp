@@ -11,7 +11,7 @@ Exporter::Exporter(Group& group) :
 
     m_processingThread = std::thread([this]() {
         while (!m_shouldStop) {
-            ChangeMessage message;
+            Message message;
             if (m_messageQueue.try_pop(message)) {
                 processMessage(message);
             } else {

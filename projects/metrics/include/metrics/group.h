@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <variant>
+#include <chrono>
 
 namespace metrics {
 
@@ -43,7 +44,11 @@ public:
     GroupBuilder& addGroup(std::string_view name);
     void addCounter(std::string_view name);
 
-    Group build(std::vector<std::string> nameHierarchy = {}) const;
+    Group build() const;
+
+private:
+    using high_res_clock = std::chrono::high_resolution_clock;
+    Group build(std::vector<std::string> nameHierarchy, high_res_clock::time_point constructionStartTime) const;
 
 private:
     std::unordered_set<std::string> m_reservedNames;
