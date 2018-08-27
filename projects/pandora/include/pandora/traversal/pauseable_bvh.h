@@ -24,6 +24,8 @@ class PauseableBVH {
     static_assert(is_pauseable_leaf_obj<LeafObj, UserState>::value, "PauseableBVH leaf does not implement the is_pausable_leaf_obj trait");
 
 public:
+    virtual size_t size() const = 0;
+
     // Returns true if the ray exited the BVH; false if the ray was paused
     virtual std::optional<bool> intersect(Ray& ray, RayHit& hit, const UserState& userState) const = 0;
     virtual std::optional<bool> intersect(Ray& ray, RayHit& hit, const UserState& userState, PauseableBVHInsertHandle handle) const = 0;

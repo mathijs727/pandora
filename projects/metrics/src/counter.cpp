@@ -2,29 +2,34 @@
 
 namespace metrics {
 
-Counter::Counter(std::string_view unit)
+template <typename T>
+Counter<T>::Counter(std::string_view unit)
     : m_value(0), m_unit(unit)
 {
 }
 
-Counter& Counter::operator+=(int v)
+template <typename T>
+Counter<T>& Counter<T>::operator+=(T v)
 {
     m_value.fetch_add(v);
     return *this;
 }
 
-Counter& Counter::operator-=(int v)
+template <typename T>
+Counter<T>& Counter<T>::operator-=(T v)
 {
     m_value.fetch_sub(v);
     return *this;
 }
 
-Counter::operator int() const
+template <typename T>
+Counter<T>::operator T() const
 {
     return m_value.load();
 }
 
-Counter::operator nlohmann::json() const
+template <typename T>
+Counter<T>::operator nlohmann::json() const
 {
     nlohmann::json json;
     json["type"] = "counter";
@@ -32,5 +37,9 @@ Counter::operator nlohmann::json() const
     json["unit"] = m_unit;
     return json;
 }
+
+template Counter<int>;
+template Counter<unsigned>;
+template Counter<size_t>;
 
 }

@@ -2,6 +2,7 @@
 #include "pandora/traversal/bvh.h"
 #include "pandora/utility/memory_arena_ts.h"
 #include <EASTL/fixed_vector.h>
+#include <atomic>
 #include <embree3/rtcore.h>
 #include <gsl/span>
 #include <tuple>
@@ -16,6 +17,8 @@ public:
     NaiveSingleRayBVH2(NaiveSingleRayBVH2<LeafObj>&& other);
     ~NaiveSingleRayBVH2();
 
+    size_t size() const override final;
+
     void build(gsl::span<const LeafObj*> objects) override final;
 
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
@@ -27,6 +30,8 @@ private:
     static void innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr);
 
     static void* leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr);
+
+    static bool deviceMemoryMonitorFunction(void* userPtr, int64_t bytes, bool post);
 
 private:
     struct BVHNode {
@@ -51,14 +56,20 @@ private:
     RTCDevice m_embreeDevice;
     RTCBVH m_embreeBVH;
     const BVHNode* m_root;
+
+    std::atomic_size_t m_memoryUsed;
 };
 
 template <typename LeafObj>
 inline NaiveSingleRayBVH2<LeafObj>::NaiveSingleRayBVH2()
+    : m_root(nullptr)
+    , m_memoryUsed(0)
 {
     // Need to life for the entire lifetime of this class because we use the Embree provided allocator to store the BVH nodes
     m_embreeDevice = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(m_embreeDevice, embreeErrorFunc, nullptr);
+    rtcSetDeviceMemoryMonitorFunction(m_embreeDevice, deviceMemoryMonitorFunction, this);
+
     m_embreeBVH = rtcNewBVH(m_embreeDevice);
 }
 
@@ -80,6 +91,12 @@ inline NaiveSingleRayBVH2<LeafObj>::~NaiveSingleRayBVH2()
         rtcReleaseBVH(m_embreeBVH);
     if (m_embreeDevice)
         rtcReleaseDevice(m_embreeDevice);
+}
+
+template <typename LeafObj>
+inline size_t NaiveSingleRayBVH2<LeafObj>::size() const
+{
+    return sizeof(decltype(*this)) + m_memoryUsed.load() + m_leafObjects.size() * sizeof(LeafObj*);
 }
 
 template <typename LeafObj>
@@ -135,8 +152,7 @@ inline bool NaiveSingleRayBVH2<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) co
 template <typename LeafObj>
 inline bool NaiveSingleRayBVH2<LeafObj>::intersectAny(Ray& ray) const
 {
-    if (m_root->intersectAny(ray))
-    {
+    if (m_root->intersectAny(ray)) {
         ray.tfar = -std::numeric_limits<float>::infinity();
         return true;
     } else {
@@ -274,6 +290,13 @@ inline bool NaiveSingleRayBVH2<LeafObj>::LeafNode::intersectAny(Ray& ray) const
             return true;
     }
     return false;
+}
+
+template <typename LeafObj>
+inline bool NaiveSingleRayBVH2<LeafObj>::deviceMemoryMonitorFunction(void* userPtr, int64_t bytes, bool post)
+{
+    auto thisPtr = reinterpret_cast<NaiveSingleRayBVH2<LeafObj>*>(userPtr);
+    thisPtr->m_memoryUsed.fetch_add(bytes);
 }
 
 }

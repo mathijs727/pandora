@@ -17,8 +17,8 @@ struct MyStats : public metrics::Stats {
 
     struct
     {
-        Counter counter1 { "MB" };
-        Counter counter2 { "MB" };
+        Counter<> counter1 { "MB" };
+        Counter<> counter2 { "MB" };
     } memory;
 
     Stopwatch<std::chrono::microseconds> stopwatch1;

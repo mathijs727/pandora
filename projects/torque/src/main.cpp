@@ -67,9 +67,9 @@ int main()
 
     //scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
 
-    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
+    DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    PathIntegrator integrator(10, scene, camera.getSensor(), 1);
+    //PathIntegrator integrator(10, scene, camera.getSensor(), 1);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
     //SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
 

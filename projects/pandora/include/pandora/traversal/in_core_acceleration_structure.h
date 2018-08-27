@@ -7,6 +7,7 @@
 #include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/memory_arena_ts.h"
+#include "pandora/core/stats.h"
 #include <gsl/gsl>
 #include <memory>
 
@@ -108,6 +109,8 @@ inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::
 {
     //m_bvh.saveToFile("scene.bvh");
     //m_bvh.loadFromFile("scene.bvh", leafs);
+
+    g_stats.memory.botBVH += m_bvh.size();
 }
 
 template <typename UserState>

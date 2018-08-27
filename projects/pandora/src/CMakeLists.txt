@@ -9,6 +9,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/core/spectrum.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/scene.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/sensor.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/core/stats.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/geometry/bounds.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/geometry/triangle.cpp"

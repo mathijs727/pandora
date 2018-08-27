@@ -20,6 +20,8 @@ public:
 	WiVeBVH8(WiVeBVH8&&) = default;
     ~WiVeBVH8() = default;
 
+    size_t size() const override final;
+
     void build(gsl::span<const LeafObj*> objects) override final;
 
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;

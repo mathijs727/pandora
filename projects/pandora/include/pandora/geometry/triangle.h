@@ -67,7 +67,8 @@ private:
 
     void getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const;
     void getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
-
+    
+    size_t size() const;
 private:
     unsigned m_numTriangles, m_numVertices;
 

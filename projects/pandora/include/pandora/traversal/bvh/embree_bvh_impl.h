@@ -7,7 +7,7 @@ template <typename LeafObj>
 inline EmbreeBVH<LeafObj>::EmbreeBVH(EmbreeBVH&& other)
     : m_device(std::move(other.m_device))
     , m_scene(std::move(other.m_scene))
-//m_intersectRayData(other.m_intersectRayData)
+    , m_memoryUsed(other.m_memoryUsed.load())
 {
     other.m_device = nullptr;
     other.m_scene = nullptr;
@@ -20,6 +20,15 @@ EmbreeBVH<LeafObj>::~EmbreeBVH()
         rtcReleaseScene(m_scene);
     if (m_device)
         rtcReleaseDevice(m_device);
+}
+
+template <typename LeafObj>
+size_t EmbreeBVH<LeafObj>::size() const
+{
+    size_t sizeBytes = sizeof(decltype(*this));
+    sizeBytes += s_intersectionDataRayHit.size() * sizeof(gsl::span<RayHit>);
+    sizeBytes += m_memoryUsed.load();
+    return sizeBytes;
 }
 
 template <unsigned N>
@@ -89,9 +98,11 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
 
 template <typename LeafObj>
 EmbreeBVH<LeafObj>::EmbreeBVH()
+    : m_memoryUsed(0)
 {
     m_device = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(m_device, embreeErrorFunc, nullptr);
+    rtcSetDeviceMemoryMonitorFunction(m_device, deviceMemoryMonitorFunction, this);
 
     m_scene = rtcNewScene(m_device);
     rtcSetSceneBuildQuality(m_scene, RTC_BUILD_QUALITY_HIGH);
@@ -142,7 +153,6 @@ inline bool EmbreeBVH<LeafObj>::intersectAny(Ray& ray) const
     ray.tfar = embreeRay.tfar;
     return embreeRay.tfar == -std::numeric_limits<float>::infinity();
 }
-
 
 template <typename LeafObj>
 void EmbreeBVH<LeafObj>::geometryBoundsFunc(const RTCBoundsFunctionArguments* args)
@@ -213,6 +223,14 @@ void EmbreeBVH<LeafObj>::geometryOccludedFunc(const RTCOccludedFunctionNArgument
         // On a hit the ray tfar should be set to negative infinity
         RTCRayN_tfar(embreeRay, 1, 0) = -std::numeric_limits<float>::infinity();
     }
+}
+
+template <typename LeafObj>
+inline bool EmbreeBVH<LeafObj>::deviceMemoryMonitorFunction(void* userPtr, int64_t bytes, bool post)
+{
+    auto thisPtr = reinterpret_cast<EmbreeBVH<LeafObj>*>(userPtr);
+    thisPtr->m_memoryUsed.fetch_add(bytes);
+    return true;
 }
 
 }

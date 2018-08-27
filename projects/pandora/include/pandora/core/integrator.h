@@ -13,6 +13,7 @@ template <typename IntegratorState>
 class Integrator {
 public:
     Integrator(const Scene& scene, Sensor& sensor, int sppPerCall);
+    virtual ~Integrator();
 
     void startNewFrame();
     virtual void render(const PerspectiveCamera& camera) = 0;
@@ -30,8 +31,8 @@ protected:
 
 protected:
     const Scene& m_scene;
-    //InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
-    InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
+    InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
+    //InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
 
     Sensor& m_sensor;
     const int m_sppPerCall;
@@ -68,6 +69,12 @@ inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& senso
     std::uniform_int_distribution<unsigned> samplerSeedDistribution;
     for (int i = 0; i < pixelCount; i++)
         m_samplers.push_back(UniformSampler(sppPerCall, samplerSeedDistribution(randomEngine)));
+}
+
+template <typename IntegratorState>
+inline Integrator<IntegratorState>::~Integrator()
+{
+    g_stats.asyncTriggerSnapshot();
 }
 
 template <typename IntegratorState>

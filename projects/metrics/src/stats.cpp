@@ -25,6 +25,9 @@ Stats::Stats(gsl::span<Exporter*> exporters)
 
 Stats::~Stats()
 {
+    while (!m_workQueue.empty())
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
     m_shouldStop = true;
     m_processingThread.join();
 }

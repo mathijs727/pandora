@@ -3,6 +3,7 @@
 #include "assimp/postprocess.h"
 #include "assimp/scene.h"
 #include "glm/mat4x4.hpp"
+#include "pandora/core/stats.h"
 #include "pandora/flatbuffers/triangle_mesh_generated.h"
 #include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
@@ -71,6 +72,8 @@ TriangleMesh::TriangleMesh(
 {
     for (unsigned v = 0; v < numVertices; v++)
         m_bounds.grow(m_positions[v]);
+
+    g_stats.memory.geometry += size();
 }
 
 TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
@@ -436,6 +439,22 @@ void TriangleMesh::getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const
     p[1] = m_positions[indices[1]];
     p[2] = m_positions[indices[2]];
 }
+
+size_t TriangleMesh::size() const
+{
+    size_t sizeBytes = sizeof(decltype(*this));
+    sizeBytes += sizeof(glm::ivec3) * m_numTriangles;
+    sizeBytes += sizeof(glm::vec3) * m_numVertices;
+    if (m_normals)
+        sizeBytes += sizeof(glm::vec3) * m_numVertices;
+    if (m_tangents)
+        sizeBytes += sizeof(glm::vec3) * m_numVertices;
+    if (m_uvCoords)
+        sizeBytes += sizeof(glm::vec2) * m_numVertices;
+
+    return sizeBytes;
+}
+
 }
 
 /*

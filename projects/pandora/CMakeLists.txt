@@ -19,6 +19,7 @@ endif()
 
 target_link_libraries(libPandora PUBLIC
 	simd
+	metrics
     assimp_target # Loading 3D models
     OpenImageIO # Loading textures
 	glm # Vector math

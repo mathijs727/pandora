@@ -9,6 +9,13 @@
 
 namespace pandora {
 
+
+template <typename LeafObj>
+inline size_t WiVeBVH8<LeafObj>::size() const
+{
+    return sizeof(decltype(*this)) + m_innerNodeAllocator->sizeBytes() + m_leafNodeAllocator->sizeBytes();
+}
+
 template <typename LeafObj>
 inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
 {

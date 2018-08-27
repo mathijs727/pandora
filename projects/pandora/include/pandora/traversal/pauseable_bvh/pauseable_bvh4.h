@@ -18,6 +18,8 @@ public:
     PauseableBVH4(PauseableBVH4&&) = default;
     ~PauseableBVH4() = default;
 
+    size_t size() const override final;
+
     std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState) const override final;
     std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
 
@@ -167,6 +169,15 @@ inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> objec
     m_leafs = collectLeafs();
 
     testBVH();
+}
+
+template <typename LeafObj, typename UserState>
+inline size_t PauseableBVH4<LeafObj, UserState>::size() const
+{
+    size_t size = sizeof(decltype(*this));
+    size += m_innerNodeAllocator.sizeBytes();
+    size += m_leafAllocator.sizeBytes() + m_leafs.size() * sizeof(LeafObj*);
+    return size;
 }
 
 template <typename LeafObj, typename UserState>

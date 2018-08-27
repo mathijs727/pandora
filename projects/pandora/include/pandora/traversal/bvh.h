@@ -27,6 +27,8 @@ public:
 
     virtual bool intersect(Ray& ray, RayHit& hitInfo) const = 0;
     virtual bool intersectAny(Ray& ray) const = 0;
+
+    virtual size_t size() const = 0;
 };
 
 }

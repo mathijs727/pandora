@@ -5,6 +5,7 @@
 #include <tbb/enumerable_thread_specific.h>
 #include <tuple>
 #include <variant>
+#include <atomic>
 
 namespace pandora {
 
@@ -14,6 +15,8 @@ public:
     EmbreeBVH();
     EmbreeBVH(EmbreeBVH&&);
     ~EmbreeBVH();
+
+    size_t size() const override final;
 
     void build(gsl::span<const LeafObj*> objects) override final;
 
@@ -25,9 +28,12 @@ private:
     static void geometryIntersectFunc(const RTCIntersectFunctionNArguments* args);
     static void geometryOccludedFunc(const RTCOccludedFunctionNArguments* args);
 
+    static bool deviceMemoryMonitorFunction(void* userPtr, int64_t bytes, bool post);
+
 private:
     RTCDevice m_device;
     RTCScene m_scene;
+    std::atomic_size_t m_memoryUsed;
 
     static tbb::enumerable_thread_specific<gsl::span<RayHit>> s_intersectionDataRayHit;
 };

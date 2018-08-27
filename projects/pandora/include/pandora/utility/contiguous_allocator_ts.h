@@ -33,7 +33,8 @@ public:
 
     inline T& get(Handle handle) const { return reinterpret_cast<T&>(m_start[handle]); };
 
-    size_t size() const { return m_currentSize; };
+    size_t size() const { return m_currentSize.load(); };
+    size_t sizeBytes() const { return m_currentSize.load() * sizeof(T); };
 
     void compact();
 
