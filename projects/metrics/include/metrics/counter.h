@@ -7,12 +7,14 @@ namespace metrics
 
 class Counter : public Metric {
 public:
-    Counter(Identifier&& identifier, high_res_clock::time_point measurementStartTime);
+    Counter();
+    ~Counter() = default;
 
     Counter& operator+=(int v);
     Counter& operator-=(int v);
     operator int() const;
 
+    operator nlohmann::json() const override final;
 private:
     std::atomic_int m_value;
 };

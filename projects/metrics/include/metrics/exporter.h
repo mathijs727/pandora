@@ -1,26 +1,14 @@
 #pragma once
-#include <tbb/concurrent_queue.h>
-#include <thread>
-#include <atomic>
-#include "metrics/message_queue.h"
+#include <nlohmann/json.hpp>
 
 namespace metrics
 {
 
-class Group;
+class Stats;
 class Exporter {
-public:
-    Exporter(Group& group);
-    ~Exporter();
-
 protected:
-    virtual void processMessage(const Message& message) = 0;
-
-private:
-    MessageQueue m_messageQueue;
-
-    std::thread m_processingThread;
-    std::atomic_bool m_shouldStop;
+    friend class Stats;
+    virtual void notifyNewSnapshot(const nlohmann::json& snapshot) = 0;
 };
 
 }

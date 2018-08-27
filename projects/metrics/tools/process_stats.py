@@ -1,28 +1,55 @@
 import json
-from itertools import accumulate
-from deepmerge import always_merger, merge_or_raise
+import matplotlib.pyplot as plt
+from collections import namedtuple
+from deepmerge import always_merger
+
+Snapshot = namedtuple("Snapshot", ["timestamp", "data"])
+
 
 def build_dictionary(file_name):
-	message_list = []
-	with open(file_name, "r") as file:
-		message_list = json.load(file)
+    message_list = []
+    with open(file_name, "r") as file:
+        def make_leafs_lists(dictionary):
+            result = {}
+            for key, value in dictionary.items():
+                if isinstance(value, dict):
+                    result[key] = make_leafs_lists(value)
+                else:
+                    if isinstance(value, int) or isinstance(value, float):
+                        result[key] = [value]
+                    else:
+                        result[key] = value
+            return result
 
-	metric_dict = {}
-	for message in message_list:
-		# https://stackoverflow.com/questions/40401886/how-to-create-a-nested-dictionary-from-a-list-in-python
-		metric = message["identifier"][-1]
-		groups = message["identifier"][:-1]
-		
-		message_content = message["content"]
-		if message_content["type"] == "value_changed":
-			partial_dict = {metric: [message_content["new_value"]]}
-			for group in reversed(groups):
-				partial_dict = {group: partial_dict}
+        list_of_dicts = json.load(file)
 
-		always_merger.merge(metric_dict, partial_dict)
+        dict_of_lists = {}
+        timestamps = []
+        for snapshot in list_of_dicts:
+            timestamp = snapshot["timestamp"]
+            data = snapshot["data"]
 
-	return metric_dict
+            snapshot_dict_of_lists = make_leafs_lists(data)
+            always_merger.merge(dict_of_lists, snapshot_dict_of_lists)
+
+            timestamps.append(timestamp)
+
+        return (timestamps, dict_of_lists)
+
+
+def plot_group(timestamps, group, plot_title, unit):
+    handles = []
+    plt.title(plot_title)
+    for name, metric in group.items():
+        handle = plt.plot(timestamps, metric["value"], label=name)
+        handles.append(handle)
+
+    # plt.xlim(xmin=0)
+    plt.ylabel(unit)
+    plt.legend()
+    plt.show()
+
 
 if __name__ == "__main__":
-	stats_dict = build_dictionary("stats.json")
-	print(stats_dict)
+    timestmaps, stats_dict = build_dictionary("stats.json")
+    plot_group(timestmaps, stats_dict["memory"], "Memory usage", "MB")

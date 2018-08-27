@@ -1,50 +1,47 @@
 [
     {
-        "content": {
-            "new_value": 3,
-            "type": "value_changed"
+        "data": {
+            "memory": {
+                "counter1": {
+                    "type": "counter",
+                    "value": 0
+                },
+                "counter2": {
+                    "type": "counter",
+                    "value": 0
+                }
+            }
         },
-        "identifier": [
-            "memory",
-            "geometry",
-            "mesh"
-        ],
-        "timestamp": 4561
+        "timestamp": 3642
     },
     {
-        "content": {
-            "new_value": 4,
-            "type": "value_changed"
+        "data": {
+            "memory": {
+                "counter1": {
+                    "type": "counter",
+                    "value": 5
+                },
+                "counter2": {
+                    "type": "counter",
+                    "value": 6
+                }
+            }
         },
-        "identifier": [
-            "memory",
-            "geometry",
-            "mesh"
-        ],
-        "timestamp": 4592
+        "timestamp": 3747
     },
     {
-        "content": {
-            "new_value": 4,
-            "type": "value_changed"
+        "data": {
+            "memory": {
+                "counter1": {
+                    "type": "counter",
+                    "value": 5
+                },
+                "counter2": {
+                    "type": "counter",
+                    "value": 4
+                }
+            }
         },
-        "identifier": [
-            "memory",
-            "geometry",
-            "bvh"
-        ],
-        "timestamp": 4592
-    },
-    {
-        "content": {
-            "new_value": 2,
-            "type": "value_changed"
-        },
-        "identifier": [
-            "memory",
-            "geometry",
-            "bvh"
-        ],
-        "timestamp": 4603
+        "timestamp": 3810
     }
 ]
