@@ -1,47 +1,125 @@
 [
     {
         "data": {
+            "gauge1": {
+                "type": "gauge",
+                "unit": "MB",
+                "value": 0
+            },
+            "histogram": {
+                "max": 200,
+                "min": 100,
+                "numBins": 5,
+                "type": "histogram",
+                "unit": "MB",
+                "value": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
             "memory": {
                 "counter1": {
                     "type": "counter",
+                    "unit": "MB",
                     "value": 0
                 },
                 "counter2": {
                     "type": "counter",
+                    "unit": "MB",
                     "value": 0
                 }
+            },
+            "stopwatch1": {
+                "type": "stopwatch",
+                "unit": "microseconds",
+                "value": 0
             }
         },
-        "timestamp": 3642
+        "timestamp": 3871
     },
     {
         "data": {
+            "gauge1": {
+                "type": "gauge",
+                "unit": "MB",
+                "value": 0
+            },
+            "histogram": {
+                "max": 200,
+                "min": 100,
+                "numBins": 5,
+                "type": "histogram",
+                "unit": "MB",
+                "value": [
+                    1,
+                    1,
+                    1,
+                    0,
+                    1
+                ]
+            },
             "memory": {
                 "counter1": {
                     "type": "counter",
+                    "unit": "MB",
                     "value": 5
                 },
                 "counter2": {
                     "type": "counter",
+                    "unit": "MB",
                     "value": 6
                 }
+            },
+            "stopwatch1": {
+                "type": "stopwatch",
+                "unit": "microseconds",
+                "value": 0
             }
         },
-        "timestamp": 3747
+        "timestamp": 25748625
     },
     {
         "data": {
+            "gauge1": {
+                "type": "gauge",
+                "unit": "MB",
+                "value": 42
+            },
+            "histogram": {
+                "max": 200,
+                "min": 100,
+                "numBins": 5,
+                "type": "histogram",
+                "unit": "MB",
+                "value": [
+                    1,
+                    1,
+                    1,
+                    0,
+                    1
+                ]
+            },
             "memory": {
                 "counter1": {
                     "type": "counter",
+                    "unit": "MB",
                     "value": 5
                 },
                 "counter2": {
                     "type": "counter",
+                    "unit": "MB",
                     "value": 4
                 }
+            },
+            "stopwatch1": {
+                "type": "stopwatch",
+                "unit": "microseconds",
+                "value": 264
             }
         },
-        "timestamp": 3810
+        "timestamp": 25748854
     }
 ]

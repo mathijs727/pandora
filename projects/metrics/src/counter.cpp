@@ -2,8 +2,8 @@
 
 namespace metrics {
 
-Counter::Counter()
-    : m_value(0)
+Counter::Counter(std::string_view unit)
+    : m_value(0), m_unit(unit)
 {
 }
 
@@ -29,6 +29,7 @@ Counter::operator nlohmann::json() const
     nlohmann::json json;
     json["type"] = "counter";
     json["value"] = m_value.load();
+    json["unit"] = m_unit;
     return json;
 }
 

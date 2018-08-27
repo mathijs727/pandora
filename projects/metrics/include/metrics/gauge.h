@@ -7,13 +7,12 @@
 namespace metrics
 {
 
-class Counter : public Metric {
+class Gauge : public Metric {
 public:
-    Counter(std::string_view unit);
-    ~Counter() = default;
+    Gauge(std::string_view unit);
+    ~Gauge() = default;
 
-    Counter& operator+=(int v);
-    Counter& operator-=(int v);
+    Gauge& operator=(int v);
     operator int() const;
 
     operator nlohmann::json() const override final;
