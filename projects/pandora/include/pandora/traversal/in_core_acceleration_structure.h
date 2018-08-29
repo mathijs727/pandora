@@ -176,7 +176,7 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectAnyRequests(
         if constexpr (std::is_same_v<decltype(m_bvh), PauseableBVH4<PauseableLeafNode, UserState>>) {
             // NOTE: use regular intersection code for now. I just want this code path to keep working as-is (performance is not important).
             RayHit hitInfo = RayHit();
-            paused = !m_bvh.intersect(ray, hitInfo, userState);
+            bool paused = !m_bvh.intersect(ray, hitInfo, userState);
             assert(!paused);
 
             hit = hitInfo.sceneObject != nullptr;

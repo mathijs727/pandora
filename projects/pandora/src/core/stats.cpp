@@ -5,7 +5,8 @@
 namespace pandora {
 
 metrics::OfflineExporter g_statsOfflineExporter { "stats.json" };
-RenderStats g_stats(std::vector<metrics::Exporter*> { &g_statsOfflineExporter });
+static auto exporters = std::vector<metrics::Exporter*>{ &g_statsOfflineExporter };
+RenderStats g_stats(exporters);
 
 
 nlohmann::json RenderStats::getMetricsSnapshot() const

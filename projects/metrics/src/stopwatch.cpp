@@ -40,17 +40,17 @@ Stopwatch<Unit>::operator nlohmann::json() const
     else if constexpr (std::is_same_v<Unit, std::chrono::nanoseconds>)
         json["unit"] = "nanoseconds";
     else
-        static_assert(false, "Unknown time unit");
+        assert(false);// static_assert always fails on clang-cl (6.0.1)
     return json;
 }
 
-template Stopwatch<std::chrono::seconds>;
-template ScopedStopwatch<std::chrono::seconds>;
-template Stopwatch<std::chrono::milliseconds>;
-template ScopedStopwatch<std::chrono::milliseconds>;
-template Stopwatch<std::chrono::microseconds>;
-template ScopedStopwatch<std::chrono::microseconds>;
-template Stopwatch<std::chrono::nanoseconds>;
-template ScopedStopwatch<std::chrono::nanoseconds>;
+template class Stopwatch<std::chrono::seconds>;
+template class ScopedStopwatch<std::chrono::seconds>;
+template class Stopwatch<std::chrono::milliseconds>;
+template class ScopedStopwatch<std::chrono::milliseconds>;
+template class Stopwatch<std::chrono::microseconds>;
+template class ScopedStopwatch<std::chrono::microseconds>;
+template class Stopwatch<std::chrono::nanoseconds>;
+template class ScopedStopwatch<std::chrono::nanoseconds>;
 
 }

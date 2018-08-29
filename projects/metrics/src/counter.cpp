@@ -38,8 +38,8 @@ Counter<T>::operator nlohmann::json() const
     return json;
 }
 
-template Counter<int>;
-template Counter<unsigned>;
-template Counter<size_t>;
+template class Counter<int>;
+template class Counter<unsigned>;
+template class Counter<size_t>;
 
 }
