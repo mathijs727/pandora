@@ -1,4 +1,5 @@
 add_library(simd INTERFACE)
+#include("${CMAKE_CURRENT_LIST_DIR}/include/CMakeLists.txt")
 target_include_directories(simd INTERFACE "${CMAKE_CURRENT_LIST_DIR}/include")
 target_compile_features(simd INTERFACE cxx_std_17)
 
