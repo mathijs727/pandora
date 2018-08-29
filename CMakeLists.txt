@@ -31,10 +31,10 @@ target_include_directories(embree INTERFACE "${EMBREE_INCLUDE_DIRS}")
 target_link_libraries(embree INTERFACE "${EMBREE_LIBRARY}")
 
 find_package(Threads REQUIRED)
-find_package(TBB REQUIRED COMPONENTS tbbmalloc Threads::Threads)
+find_package(TBB REQUIRED COMPONENTS tbbmalloc)
 add_library(tbb INTERFACE)
 target_include_directories(tbb INTERFACE "${TBB_INCLUDE_DIRS}")
-target_link_libraries(tbb INTERFACE "${TBB_LIBRARIES}")
+target_link_libraries(tbb INTERFACE "${TBB_LIBRARIES}" Threads::Threads)
 
 # https://github.com/mandreyel/mio
 add_library(mio INTERFACE)
