@@ -10,3 +10,6 @@
 [submodule "third_party/mio"]
 	path = third_party/mio
 	url = git@github.com:mandreyel/mio.git
+[submodule "third_party/ms-gsl"]
+	path = third_party/ms-gsl
+	url = git@github.com:Microsoft/GSL.git

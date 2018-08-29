@@ -6,7 +6,7 @@ This project aims at improving the rendering performance of existing worked base
 A lot of parts of the code are directly based on, or inspired by [PBRTv3](https://github.com/mmp/pbrt-v3) and the corresponding book ([Physically Based Rendering from Theory to Implementation, Third Edition](http://www.pbrt.org/)). The bottom level BVH traversal code is based on [Accelerated single ray tracing for wide vector units](https://dl.acm.org/citation.cfm?id=3105785) (Embree's traversal kernels cannot be used because they do not support storing the BVH to disk). The top level BVH traversal will be based on the following work: [Fast Divergent Ray Traversal by Batching Rays in a BVH](https://dspace.library.uu.nl/handle/1874/343844). The early-out testing geometry will be represented using a [Sparse Voxel DAG](https://dl.acm.org/citation.cfm?id=2462024).
 
 ## Dependencies
-To build Pandora, CMake and a C++17 compiler are required. The user is responsible for installing all the required libraries except for EASTL, mio, libmorton and tinylpy (which are included as git submodules because they are not commonly found in package managers).
+To build Pandora, CMake and a C++17 compiler are required. The user is responsible for installing all the required libraries except for GSL, EASTL, mio, libmorton and tinylpy (which are included as git submodules because they are not commonly found in package managers).
 
 Pandora uses the following third-party libraries:
  - [Guideline Support Library](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md) ([implemented by Microsoft](https://github.com/Microsoft/GSL))

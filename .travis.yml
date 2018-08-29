@@ -29,7 +29,7 @@ arch:
   - freetype2
 
   # aur packages
-  - microsoft-gsl-git
+  #- microsoft-gsl-git
   - nlohmann-json
 
   # packages from papyros repo
