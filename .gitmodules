@@ -1,7 +1,6 @@
 [submodule "third_party/eastl"]
 	path = third_party/eastl
 	url = git@github.com:electronicarts/EASTL.git
-	branch = 3.12.01
 [submodule "third_party/libmorton"]
 	path = third_party/libmorton
 	url = git@github.com:Forceflow/libmorton.git
