@@ -1,5 +1,4 @@
 #include "metrics/stopwatch.h"
-#include "..\include\metrics\stopwatch.h"
 
 namespace metrics {
 
