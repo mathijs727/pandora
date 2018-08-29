@@ -30,6 +30,7 @@ arch:
 
   # aur packages
   - microsoft-gsl-git
+  - nlohmann-json
 
   # packages from papyros repo
   #- papyros-shell
