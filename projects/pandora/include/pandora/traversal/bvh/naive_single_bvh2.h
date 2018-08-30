@@ -297,6 +297,7 @@ inline bool NaiveSingleRayBVH2<LeafObj>::deviceMemoryMonitorFunction(void* userP
 {
     auto thisPtr = reinterpret_cast<NaiveSingleRayBVH2<LeafObj>*>(userPtr);
     thisPtr->m_memoryUsed.fetch_add(bytes);
+    return true;
 }
 
 }
