@@ -34,6 +34,11 @@ target_link_libraries(libPandora PRIVATE
 	Boost::boost # Header-only Boost libraries
 	libmorton) # Morton code for voxelization & SVO
 
+if (UNIX)
+	# Using atomic<vec3> in sensor.cpp requires atomic library on Unix
+	target_link_libraries(atomic)
+endif()
+
 target_include_directories(libPandora PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/")
 target_include_directories(libPandora PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src/")
 include(${CMAKE_CURRENT_LIST_DIR}/src/CMakeLists.txt)
