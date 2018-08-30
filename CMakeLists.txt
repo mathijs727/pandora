@@ -29,6 +29,7 @@ add_library(embree INTERFACE)
 target_include_directories(embree INTERFACE "${EMBREE_INCLUDE_DIRS}")
 target_link_libraries(embree INTERFACE "${EMBREE_LIBRARY}")
 
+find_package(Threads REQUIRED)
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/TBBGet.cmake")
 tbb_get(TBB_ROOT tbb_root CONFIG TBB_DIR)
 set(CMAKE_PREFIX_PATH "${TBB_ROOT};${tbb_root}")
