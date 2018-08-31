@@ -48,12 +48,10 @@ if __name__ == "__main__":
 
         print(result + "\n\n")
 
-        if "ninja: build stopped: subcommand failed." in result:
-            print("Failed!")
-            exit(-1)
-
-        match = re.search("([0-9]+)% tests passed", result)
-        if match and match.group(1) == "100":
+        # nlohmann-json build from AUR also runs CMake tests, make sure to check only Pandoras tests
+        matches = re.findall("([0-9]+)% tests passed", result)
+        if len(matches) == 2 and matches[1] == "100":
+            print("Success!")
             exit(0)
 
         print("Failed!")
