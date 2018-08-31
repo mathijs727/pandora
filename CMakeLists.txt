@@ -78,6 +78,7 @@ if (BUILD_VOXEL_EXPORT)
 	include("projects/voxel/CMakeLists.txt")
 endif()
 
+add_subdirectory("projects/pbrt_importer/")
 
 #find_package(prometheus-cpp)
 #include("projects/prometheus_test/CMakeLists.txt")

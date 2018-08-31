@@ -185,7 +185,11 @@ def p_statement_material(p):
 def p_statement_named_material(p):
     "statement_scene : NAMED_MATERIAL STRING"
     global graphics_state, named_materials
-    graphics_state["material"] = named_materials[p[2]]
+    material_name = p[2]
+    if material_name in named_materials:
+        graphics_state["material"] = named_materials[material_name]
+    else:
+        print(f"WARNING: named material f{material_name} was not declared! Ignoring...")
 
 
 def p_statement_make_named_material(p):
@@ -243,7 +247,7 @@ def p_statement_object_end(p):
 def p_statement_object_instance(p):
     "statement_scene : OBJECT_INSTANCE STRING"
     global instances
-    instances.append(Instance(name=p[2], transform=cur_transform.tolist()))
+    instances.append(Instance(template_name=p[2], transform=cur_transform.tolist()))
 
 
 def p_statement_shape(p):

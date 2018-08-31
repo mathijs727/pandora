@@ -11,8 +11,8 @@ import simplejson
 
 if __name__ == "__main__":
     #path = os.path.dirname(__file__)
-    path = "E:/Pandora Scenes/PBRT/pbrt-v3-scenes/crown"
-    file_path = os.path.join(path, "crown.pbrt")
+    path = "E:/Pandora Scenes/PBRT/pbrt-v3-scenes/sanmiguel"
+    file_path = os.path.join(path, "sanmiguel.pbrt")
     pbrt_file = parsing.parse_file(file_path)
     
     #print(pbrt_file)

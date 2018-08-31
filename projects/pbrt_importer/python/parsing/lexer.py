@@ -20,7 +20,7 @@ t_CAMERA = r'Camera'
 t_SAMPLER = r'Sampler'
 t_INTEGRATOR = r'Integrator'
 t_FILM = r'Film'
-t_FILTER = r'Filter'
+t_FILTER = r'PixelFilter'
 t_ACCELERATOR = r'Accelerator'
 
 t_ATTRIBUTE_BEGIN = r'AttributeBegin'
@@ -62,7 +62,7 @@ def t_STRING(t):
 def t_NUMBER(t):
     # https://www.regular-expressions.info/floatingpoint.html
     r'[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?'
-    if "." in t.value:
+    if "." in t.value or "e+" in t.value:
         t.value = float(t.value)
     else:
         t.value = int(t.value)

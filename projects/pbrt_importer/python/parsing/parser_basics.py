@@ -1,4 +1,4 @@
-from deepmerge import merge_or_raise
+from deepmerge import merge_or_raise, exception
 from collections import namedtuple
 import os
 
@@ -43,16 +43,18 @@ def p_argument(p):
     """argument : STRING basic_data_type
                 | STRING data_list"""
     global base_path
+    arg_type, arg_name = p[1].split()
     data = p[2]
 
-    if (isinstance(p[2], list)):
-        arg_type, arg_name = p[1].split()
+    # Unfold lists of single length
+    if isinstance(data, list) and len(data) == 1:
+        data = data[0]
+
+    if isinstance(data, list):
         if arg_type == "integer":
             p[0] = {arg_name: [int(x) for x in data]}
         elif arg_type == "float":
             p[0] = {arg_name: [float(x) for x in data]}
-        elif arg_type == "string":
-            p[0] = {arg_name: [str(x) for x in data]}
         elif arg_type == "rgb" or arg_type == "color":
             p[0] = {arg_name: RGB(data[0], data[1], data[2])}
         elif arg_type == "xyz":
@@ -61,9 +63,6 @@ def p_argument(p):
             assert(len(data) % 2 == 0)
             p[0] = {arg_name: SampledSpectrum(
                 values=data[0::2], wavelengths_nm=data[1::2])}
-        elif arg_type == "texture":
-            print("PATH: ", base_path)
-            p[0] = {arg_name: [TextureRef(os.path.join(base_path, file)) for file in data]}
         elif arg_type == "point":
             length = len(data)
             if length == 3:
@@ -93,19 +92,19 @@ def p_argument(p):
         else:
             raise RuntimeError(f"Unknown argument type {arg_type}")
     else:
-        arg_type, arg_name = p[1].split()
         if arg_type == "integer":
             p[0] = {arg_name: int(data)}
         elif arg_type == "float":
             p[0] = {arg_name: float(data)}
+        elif arg_type == "bool":
+            p[0] = {arg_name: True if data == "true" else False}
         elif arg_type == "string":
             p[0] = {arg_name: str(data)}
         elif arg_type == "texture":
-            print("PATH: ", base_path)
-            p[0] = {arg_name: TextureRef(os.path.join(base_path, data))}
+            p[0] = {arg_name: TextureRef(data)}
         elif arg_type == "spectrum":
-            print("PATH: ", base_path)
-            p[0] = {arg_name: SampledSpectrumFile(os.path.join(base_path, data))}
+            p[0] = {arg_name: SampledSpectrumFile(
+                os.path.join(base_path, data))}
         else:
             raise RuntimeError(f"Unknown argument type {arg_type}")
 
@@ -115,6 +114,7 @@ def p_arguments(p):
                  | """
     if len(p) == 3:
         # Merge dictionaries
-        p[0] = merge_or_raise.merge(p[1], p[2])
+        p[1].update(p[2])
+        p[0] = p[1]
     else:
         p[0] = {}
