@@ -36,7 +36,7 @@ target_link_libraries(libPandora PRIVATE
 
 if (UNIX)
 	# Using atomic<vec3> in sensor.cpp requires atomic library on Unix
-	target_link_libraries(atomic)
+	target_link_libraries(libPandora PRIVATE atomic)
 endif()
 
 target_include_directories(libPandora PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/")
