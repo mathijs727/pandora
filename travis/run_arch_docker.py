@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
         # nlohmann-json build from AUR also runs CMake tests, make sure to check only Pandoras tests
         matches = re.findall("([0-9]+)% tests passed", result)
-        if len(matches) == 2 and matches[1] == " 100% tests passed":
+        if len(matches) == 2 and matches[1] == "100":
             print("Success!")
             exit(0)
 
