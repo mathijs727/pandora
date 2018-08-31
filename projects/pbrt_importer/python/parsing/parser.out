@@ -1,0 +1,2585 @@
+Created by PLY version 3.11 (http://www.dabeaz.com/ply)
+
+Unused terminals:
+
+    COMMENT
+    INCLUDE
+
+Grammar
+
+Rule 0     S' -> statement_main
+Rule 1     statement_main -> statements_config world_begin statements_scene WORLD_END
+Rule 2     statements_config -> statements_config statement_config
+Rule 3     statements_config -> <empty>
+Rule 4     basic_data_type -> STRING
+Rule 5     basic_data_type -> NUMBER
+Rule 6     data_list_items -> data_list_items basic_data_type
+Rule 7     data_list_items -> <empty>
+Rule 8     statements_scene -> statements_scene statement_scene
+Rule 9     statements_scene -> <empty>
+Rule 10    data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET
+Rule 11    argument -> STRING basic_data_type
+Rule 12    argument -> STRING data_list
+Rule 13    world_begin -> WORLD_BEGIN
+Rule 14    statement_scene -> ATTRIBUTE_BEGIN
+Rule 15    statement_scene -> ATTRIBUTE_END
+Rule 16    statement_scene -> TRANSFORM_BEGIN
+Rule 17    statement_scene -> TRANSFORM_END
+Rule 18    statement_scene -> statement_transform
+Rule 19    statement_transform -> IDENTITY
+Rule 20    arguments -> arguments argument
+Rule 21    arguments -> <empty>
+Rule 22    statement_transform -> TRANSLATE NUMBER NUMBER NUMBER
+Rule 23    statement_transform -> SCALE NUMBER NUMBER NUMBER
+Rule 24    statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER
+Rule 25    statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+Rule 26    statement_transform -> COORDINATE_SYSTEM STRING
+Rule 27    statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING
+Rule 28    statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+Rule 29    statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+Rule 30    statement_scene -> MATERIAL STRING arguments
+Rule 31    statement_scene -> NAMED_MATERIAL STRING
+Rule 32    statement_scene -> MAKE_NAMED_MATERIAL STRING arguments
+Rule 33    statement_scene -> TEXTURE STRING STRING STRING arguments
+Rule 34    statement_scene -> LIGHT_SOURCE STRING arguments
+Rule 35    statement_scene -> AREA_LIGHT_SOURCE STRING arguments
+Rule 36    statement_scene -> OBJECT_BEGIN STRING
+Rule 37    statement_scene -> OBJECT_END
+Rule 38    statement_scene -> OBJECT_INSTANCE STRING
+Rule 39    statement_scene -> SHAPE STRING arguments
+Rule 40    statement_scene -> REVERSE_ORIENTATION
+Rule 41    statement_config -> statement_transform
+Rule 42    statement_config -> CAMERA STRING arguments
+Rule 43    statement_config -> SAMPLER STRING arguments
+Rule 44    statement_config -> FILM STRING arguments
+Rule 45    statement_config -> FILTER STRING arguments
+Rule 46    statement_config -> INTEGRATOR STRING arguments
+Rule 47    statement_config -> ACCELERATOR STRING arguments
+
+Terminals, with rules where they appear
+
+ACCELERATOR          : 47
+AREA_LIGHT_SOURCE    : 35
+ATTRIBUTE_BEGIN      : 14
+ATTRIBUTE_END        : 15
+CAMERA               : 42
+COMMENT              : 
+CONCAT_TRANSFORM     : 29
+COORDINATE_SYSTEM    : 26
+COORDINATE_SYSTEM_TRANSFORM : 27
+FILM                 : 44
+FILTER               : 45
+IDENTITY             : 19
+INCLUDE              : 
+INTEGRATOR           : 46
+LIGHT_SOURCE         : 34
+LOOKAT               : 25
+L_SQUARE_BRACKET     : 10 28
+MAKE_NAMED_MATERIAL  : 32
+MATERIAL             : 30
+NAMED_MATERIAL       : 31
+NUMBER               : 5 22 22 22 23 23 23 24 24 24 24 25 25 25 25 25 25 25 25 25 28 28 28 28 28 28 28 28 28 28 28 28 28 28 28 28 29 29 29 29 29 29 29 29 29 29 29 29 29 29 29 29
+OBJECT_BEGIN         : 36
+OBJECT_END           : 37
+OBJECT_INSTANCE      : 38
+REVERSE_ORIENTATION  : 40
+ROTATE               : 24
+R_SQUARE_BRACKET     : 10 28
+SAMPLER              : 43
+SCALE                : 23
+SHAPE                : 39
+STRING               : 4 11 12 26 27 30 31 32 33 33 33 34 35 36 38 39 42 43 44 45 46 47
+TEXTURE              : 33
+TRANSFORM            : 28
+TRANSFORM_BEGIN      : 16
+TRANSFORM_END        : 17
+TRANSLATE            : 22
+WORLD_BEGIN          : 13
+WORLD_END            : 1
+error                : 
+
+Nonterminals, with rules where they appear
+
+argument             : 20
+arguments            : 20 30 32 33 34 35 39 42 43 44 45 46 47
+basic_data_type      : 6 11
+data_list            : 12
+data_list_items      : 6 10
+statement_config     : 2
+statement_main       : 0
+statement_scene      : 8
+statement_transform  : 18 41
+statements_config    : 1 2
+statements_scene     : 1 8
+world_begin          : 1
+
+Parsing method: LALR
+
+state 0
+
+    (0) S' -> . statement_main
+    (1) statement_main -> . statements_config world_begin statements_scene WORLD_END
+    (2) statements_config -> . statements_config statement_config
+    (3) statements_config -> .
+
+    WORLD_BEGIN     reduce using rule 3 (statements_config -> .)
+    CAMERA          reduce using rule 3 (statements_config -> .)
+    SAMPLER         reduce using rule 3 (statements_config -> .)
+    FILM            reduce using rule 3 (statements_config -> .)
+    FILTER          reduce using rule 3 (statements_config -> .)
+    INTEGRATOR      reduce using rule 3 (statements_config -> .)
+    ACCELERATOR     reduce using rule 3 (statements_config -> .)
+    IDENTITY        reduce using rule 3 (statements_config -> .)
+    TRANSLATE       reduce using rule 3 (statements_config -> .)
+    SCALE           reduce using rule 3 (statements_config -> .)
+    ROTATE          reduce using rule 3 (statements_config -> .)
+    LOOKAT          reduce using rule 3 (statements_config -> .)
+    COORDINATE_SYSTEM reduce using rule 3 (statements_config -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 3 (statements_config -> .)
+    TRANSFORM       reduce using rule 3 (statements_config -> .)
+    CONCAT_TRANSFORM reduce using rule 3 (statements_config -> .)
+
+    statement_main                 shift and go to state 1
+    statements_config              shift and go to state 2
+
+state 1
+
+    (0) S' -> statement_main .
+
+
+
+state 2
+
+    (1) statement_main -> statements_config . world_begin statements_scene WORLD_END
+    (2) statements_config -> statements_config . statement_config
+    (13) world_begin -> . WORLD_BEGIN
+    (41) statement_config -> . statement_transform
+    (42) statement_config -> . CAMERA STRING arguments
+    (43) statement_config -> . SAMPLER STRING arguments
+    (44) statement_config -> . FILM STRING arguments
+    (45) statement_config -> . FILTER STRING arguments
+    (46) statement_config -> . INTEGRATOR STRING arguments
+    (47) statement_config -> . ACCELERATOR STRING arguments
+    (19) statement_transform -> . IDENTITY
+    (22) statement_transform -> . TRANSLATE NUMBER NUMBER NUMBER
+    (23) statement_transform -> . SCALE NUMBER NUMBER NUMBER
+    (24) statement_transform -> . ROTATE NUMBER NUMBER NUMBER NUMBER
+    (25) statement_transform -> . LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+    (26) statement_transform -> . COORDINATE_SYSTEM STRING
+    (27) statement_transform -> . COORDINATE_SYSTEM_TRANSFORM STRING
+    (28) statement_transform -> . TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+    (29) statement_transform -> . CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    WORLD_BEGIN     shift and go to state 5
+    CAMERA          shift and go to state 7
+    SAMPLER         shift and go to state 8
+    FILM            shift and go to state 9
+    FILTER          shift and go to state 10
+    INTEGRATOR      shift and go to state 11
+    ACCELERATOR     shift and go to state 12
+    IDENTITY        shift and go to state 13
+    TRANSLATE       shift and go to state 14
+    SCALE           shift and go to state 15
+    ROTATE          shift and go to state 16
+    LOOKAT          shift and go to state 17
+    COORDINATE_SYSTEM shift and go to state 18
+    COORDINATE_SYSTEM_TRANSFORM shift and go to state 19
+    TRANSFORM       shift and go to state 20
+    CONCAT_TRANSFORM shift and go to state 21
+
+    world_begin                    shift and go to state 3
+    statement_config               shift and go to state 4
+    statement_transform            shift and go to state 6
+
+state 3
+
+    (1) statement_main -> statements_config world_begin . statements_scene WORLD_END
+    (8) statements_scene -> . statements_scene statement_scene
+    (9) statements_scene -> .
+
+    WORLD_END       reduce using rule 9 (statements_scene -> .)
+    ATTRIBUTE_BEGIN reduce using rule 9 (statements_scene -> .)
+    ATTRIBUTE_END   reduce using rule 9 (statements_scene -> .)
+    TRANSFORM_BEGIN reduce using rule 9 (statements_scene -> .)
+    TRANSFORM_END   reduce using rule 9 (statements_scene -> .)
+    MATERIAL        reduce using rule 9 (statements_scene -> .)
+    NAMED_MATERIAL  reduce using rule 9 (statements_scene -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 9 (statements_scene -> .)
+    TEXTURE         reduce using rule 9 (statements_scene -> .)
+    LIGHT_SOURCE    reduce using rule 9 (statements_scene -> .)
+    AREA_LIGHT_SOURCE reduce using rule 9 (statements_scene -> .)
+    OBJECT_BEGIN    reduce using rule 9 (statements_scene -> .)
+    OBJECT_END      reduce using rule 9 (statements_scene -> .)
+    OBJECT_INSTANCE reduce using rule 9 (statements_scene -> .)
+    SHAPE           reduce using rule 9 (statements_scene -> .)
+    REVERSE_ORIENTATION reduce using rule 9 (statements_scene -> .)
+    IDENTITY        reduce using rule 9 (statements_scene -> .)
+    TRANSLATE       reduce using rule 9 (statements_scene -> .)
+    SCALE           reduce using rule 9 (statements_scene -> .)
+    ROTATE          reduce using rule 9 (statements_scene -> .)
+    LOOKAT          reduce using rule 9 (statements_scene -> .)
+    COORDINATE_SYSTEM reduce using rule 9 (statements_scene -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 9 (statements_scene -> .)
+    TRANSFORM       reduce using rule 9 (statements_scene -> .)
+    CONCAT_TRANSFORM reduce using rule 9 (statements_scene -> .)
+
+    statements_scene               shift and go to state 22
+
+state 4
+
+    (2) statements_config -> statements_config statement_config .
+
+    WORLD_BEGIN     reduce using rule 2 (statements_config -> statements_config statement_config .)
+    CAMERA          reduce using rule 2 (statements_config -> statements_config statement_config .)
+    SAMPLER         reduce using rule 2 (statements_config -> statements_config statement_config .)
+    FILM            reduce using rule 2 (statements_config -> statements_config statement_config .)
+    FILTER          reduce using rule 2 (statements_config -> statements_config statement_config .)
+    INTEGRATOR      reduce using rule 2 (statements_config -> statements_config statement_config .)
+    ACCELERATOR     reduce using rule 2 (statements_config -> statements_config statement_config .)
+    IDENTITY        reduce using rule 2 (statements_config -> statements_config statement_config .)
+    TRANSLATE       reduce using rule 2 (statements_config -> statements_config statement_config .)
+    SCALE           reduce using rule 2 (statements_config -> statements_config statement_config .)
+    ROTATE          reduce using rule 2 (statements_config -> statements_config statement_config .)
+    LOOKAT          reduce using rule 2 (statements_config -> statements_config statement_config .)
+    COORDINATE_SYSTEM reduce using rule 2 (statements_config -> statements_config statement_config .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 2 (statements_config -> statements_config statement_config .)
+    TRANSFORM       reduce using rule 2 (statements_config -> statements_config statement_config .)
+    CONCAT_TRANSFORM reduce using rule 2 (statements_config -> statements_config statement_config .)
+
+
+state 5
+
+    (13) world_begin -> WORLD_BEGIN .
+
+    WORLD_END       reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    ATTRIBUTE_BEGIN reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    ATTRIBUTE_END   reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    TRANSFORM_BEGIN reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    TRANSFORM_END   reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    MATERIAL        reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    NAMED_MATERIAL  reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    MAKE_NAMED_MATERIAL reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    TEXTURE         reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    LIGHT_SOURCE    reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    AREA_LIGHT_SOURCE reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    OBJECT_BEGIN    reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    OBJECT_END      reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    OBJECT_INSTANCE reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    SHAPE           reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    REVERSE_ORIENTATION reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    IDENTITY        reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    TRANSLATE       reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    SCALE           reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    ROTATE          reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    LOOKAT          reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    COORDINATE_SYSTEM reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    TRANSFORM       reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+    CONCAT_TRANSFORM reduce using rule 13 (world_begin -> WORLD_BEGIN .)
+
+
+state 6
+
+    (41) statement_config -> statement_transform .
+
+    WORLD_BEGIN     reduce using rule 41 (statement_config -> statement_transform .)
+    CAMERA          reduce using rule 41 (statement_config -> statement_transform .)
+    SAMPLER         reduce using rule 41 (statement_config -> statement_transform .)
+    FILM            reduce using rule 41 (statement_config -> statement_transform .)
+    FILTER          reduce using rule 41 (statement_config -> statement_transform .)
+    INTEGRATOR      reduce using rule 41 (statement_config -> statement_transform .)
+    ACCELERATOR     reduce using rule 41 (statement_config -> statement_transform .)
+    IDENTITY        reduce using rule 41 (statement_config -> statement_transform .)
+    TRANSLATE       reduce using rule 41 (statement_config -> statement_transform .)
+    SCALE           reduce using rule 41 (statement_config -> statement_transform .)
+    ROTATE          reduce using rule 41 (statement_config -> statement_transform .)
+    LOOKAT          reduce using rule 41 (statement_config -> statement_transform .)
+    COORDINATE_SYSTEM reduce using rule 41 (statement_config -> statement_transform .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 41 (statement_config -> statement_transform .)
+    TRANSFORM       reduce using rule 41 (statement_config -> statement_transform .)
+    CONCAT_TRANSFORM reduce using rule 41 (statement_config -> statement_transform .)
+
+
+state 7
+
+    (42) statement_config -> CAMERA . STRING arguments
+
+    STRING          shift and go to state 23
+
+
+state 8
+
+    (43) statement_config -> SAMPLER . STRING arguments
+
+    STRING          shift and go to state 24
+
+
+state 9
+
+    (44) statement_config -> FILM . STRING arguments
+
+    STRING          shift and go to state 25
+
+
+state 10
+
+    (45) statement_config -> FILTER . STRING arguments
+
+    STRING          shift and go to state 26
+
+
+state 11
+
+    (46) statement_config -> INTEGRATOR . STRING arguments
+
+    STRING          shift and go to state 27
+
+
+state 12
+
+    (47) statement_config -> ACCELERATOR . STRING arguments
+
+    STRING          shift and go to state 28
+
+
+state 13
+
+    (19) statement_transform -> IDENTITY .
+
+    WORLD_BEGIN     reduce using rule 19 (statement_transform -> IDENTITY .)
+    CAMERA          reduce using rule 19 (statement_transform -> IDENTITY .)
+    SAMPLER         reduce using rule 19 (statement_transform -> IDENTITY .)
+    FILM            reduce using rule 19 (statement_transform -> IDENTITY .)
+    FILTER          reduce using rule 19 (statement_transform -> IDENTITY .)
+    INTEGRATOR      reduce using rule 19 (statement_transform -> IDENTITY .)
+    ACCELERATOR     reduce using rule 19 (statement_transform -> IDENTITY .)
+    IDENTITY        reduce using rule 19 (statement_transform -> IDENTITY .)
+    TRANSLATE       reduce using rule 19 (statement_transform -> IDENTITY .)
+    SCALE           reduce using rule 19 (statement_transform -> IDENTITY .)
+    ROTATE          reduce using rule 19 (statement_transform -> IDENTITY .)
+    LOOKAT          reduce using rule 19 (statement_transform -> IDENTITY .)
+    COORDINATE_SYSTEM reduce using rule 19 (statement_transform -> IDENTITY .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 19 (statement_transform -> IDENTITY .)
+    TRANSFORM       reduce using rule 19 (statement_transform -> IDENTITY .)
+    CONCAT_TRANSFORM reduce using rule 19 (statement_transform -> IDENTITY .)
+    WORLD_END       reduce using rule 19 (statement_transform -> IDENTITY .)
+    ATTRIBUTE_BEGIN reduce using rule 19 (statement_transform -> IDENTITY .)
+    ATTRIBUTE_END   reduce using rule 19 (statement_transform -> IDENTITY .)
+    TRANSFORM_BEGIN reduce using rule 19 (statement_transform -> IDENTITY .)
+    TRANSFORM_END   reduce using rule 19 (statement_transform -> IDENTITY .)
+    MATERIAL        reduce using rule 19 (statement_transform -> IDENTITY .)
+    NAMED_MATERIAL  reduce using rule 19 (statement_transform -> IDENTITY .)
+    MAKE_NAMED_MATERIAL reduce using rule 19 (statement_transform -> IDENTITY .)
+    TEXTURE         reduce using rule 19 (statement_transform -> IDENTITY .)
+    LIGHT_SOURCE    reduce using rule 19 (statement_transform -> IDENTITY .)
+    AREA_LIGHT_SOURCE reduce using rule 19 (statement_transform -> IDENTITY .)
+    OBJECT_BEGIN    reduce using rule 19 (statement_transform -> IDENTITY .)
+    OBJECT_END      reduce using rule 19 (statement_transform -> IDENTITY .)
+    OBJECT_INSTANCE reduce using rule 19 (statement_transform -> IDENTITY .)
+    SHAPE           reduce using rule 19 (statement_transform -> IDENTITY .)
+    REVERSE_ORIENTATION reduce using rule 19 (statement_transform -> IDENTITY .)
+
+
+state 14
+
+    (22) statement_transform -> TRANSLATE . NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 29
+
+
+state 15
+
+    (23) statement_transform -> SCALE . NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 30
+
+
+state 16
+
+    (24) statement_transform -> ROTATE . NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 31
+
+
+state 17
+
+    (25) statement_transform -> LOOKAT . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 32
+
+
+state 18
+
+    (26) statement_transform -> COORDINATE_SYSTEM . STRING
+
+    STRING          shift and go to state 33
+
+
+state 19
+
+    (27) statement_transform -> COORDINATE_SYSTEM_TRANSFORM . STRING
+
+    STRING          shift and go to state 34
+
+
+state 20
+
+    (28) statement_transform -> TRANSFORM . L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    L_SQUARE_BRACKET shift and go to state 35
+
+
+state 21
+
+    (29) statement_transform -> CONCAT_TRANSFORM . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 36
+
+
+state 22
+
+    (1) statement_main -> statements_config world_begin statements_scene . WORLD_END
+    (8) statements_scene -> statements_scene . statement_scene
+    (14) statement_scene -> . ATTRIBUTE_BEGIN
+    (15) statement_scene -> . ATTRIBUTE_END
+    (16) statement_scene -> . TRANSFORM_BEGIN
+    (17) statement_scene -> . TRANSFORM_END
+    (18) statement_scene -> . statement_transform
+    (30) statement_scene -> . MATERIAL STRING arguments
+    (31) statement_scene -> . NAMED_MATERIAL STRING
+    (32) statement_scene -> . MAKE_NAMED_MATERIAL STRING arguments
+    (33) statement_scene -> . TEXTURE STRING STRING STRING arguments
+    (34) statement_scene -> . LIGHT_SOURCE STRING arguments
+    (35) statement_scene -> . AREA_LIGHT_SOURCE STRING arguments
+    (36) statement_scene -> . OBJECT_BEGIN STRING
+    (37) statement_scene -> . OBJECT_END
+    (38) statement_scene -> . OBJECT_INSTANCE STRING
+    (39) statement_scene -> . SHAPE STRING arguments
+    (40) statement_scene -> . REVERSE_ORIENTATION
+    (19) statement_transform -> . IDENTITY
+    (22) statement_transform -> . TRANSLATE NUMBER NUMBER NUMBER
+    (23) statement_transform -> . SCALE NUMBER NUMBER NUMBER
+    (24) statement_transform -> . ROTATE NUMBER NUMBER NUMBER NUMBER
+    (25) statement_transform -> . LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+    (26) statement_transform -> . COORDINATE_SYSTEM STRING
+    (27) statement_transform -> . COORDINATE_SYSTEM_TRANSFORM STRING
+    (28) statement_transform -> . TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+    (29) statement_transform -> . CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    WORLD_END       shift and go to state 37
+    ATTRIBUTE_BEGIN shift and go to state 39
+    ATTRIBUTE_END   shift and go to state 40
+    TRANSFORM_BEGIN shift and go to state 41
+    TRANSFORM_END   shift and go to state 42
+    MATERIAL        shift and go to state 44
+    NAMED_MATERIAL  shift and go to state 45
+    MAKE_NAMED_MATERIAL shift and go to state 46
+    TEXTURE         shift and go to state 47
+    LIGHT_SOURCE    shift and go to state 48
+    AREA_LIGHT_SOURCE shift and go to state 49
+    OBJECT_BEGIN    shift and go to state 50
+    OBJECT_END      shift and go to state 51
+    OBJECT_INSTANCE shift and go to state 52
+    SHAPE           shift and go to state 53
+    REVERSE_ORIENTATION shift and go to state 54
+    IDENTITY        shift and go to state 13
+    TRANSLATE       shift and go to state 14
+    SCALE           shift and go to state 15
+    ROTATE          shift and go to state 16
+    LOOKAT          shift and go to state 17
+    COORDINATE_SYSTEM shift and go to state 18
+    COORDINATE_SYSTEM_TRANSFORM shift and go to state 19
+    TRANSFORM       shift and go to state 20
+    CONCAT_TRANSFORM shift and go to state 21
+
+    statement_scene                shift and go to state 38
+    statement_transform            shift and go to state 43
+
+state 23
+
+    (42) statement_config -> CAMERA STRING . arguments
+    (20) arguments -> . arguments argument
+    (21) arguments -> .
+
+    STRING          reduce using rule 21 (arguments -> .)
+    WORLD_BEGIN     reduce using rule 21 (arguments -> .)
+    CAMERA          reduce using rule 21 (arguments -> .)
+    SAMPLER         reduce using rule 21 (arguments -> .)
+    FILM            reduce using rule 21 (arguments -> .)
+    FILTER          reduce using rule 21 (arguments -> .)
+    INTEGRATOR      reduce using rule 21 (arguments -> .)
+    ACCELERATOR     reduce using rule 21 (arguments -> .)
+    IDENTITY        reduce using rule 21 (arguments -> .)
+    TRANSLATE       reduce using rule 21 (arguments -> .)
+    SCALE           reduce using rule 21 (arguments -> .)
+    ROTATE          reduce using rule 21 (arguments -> .)
+    LOOKAT          reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> .)
+    TRANSFORM       reduce using rule 21 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> .)
+
+    arguments                      shift and go to state 55
+
+state 24
+
+    (43) statement_config -> SAMPLER STRING . arguments
+    (20) arguments -> . arguments argument
+    (21) arguments -> .
+
+    STRING          reduce using rule 21 (arguments -> .)
+    WORLD_BEGIN     reduce using rule 21 (arguments -> .)
+    CAMERA          reduce using rule 21 (arguments -> .)
+    SAMPLER         reduce using rule 21 (arguments -> .)
+    FILM            reduce using rule 21 (arguments -> .)
+    FILTER          reduce using rule 21 (arguments -> .)
+    INTEGRATOR      reduce using rule 21 (arguments -> .)
+    ACCELERATOR     reduce using rule 21 (arguments -> .)
+    IDENTITY        reduce using rule 21 (arguments -> .)
+    TRANSLATE       reduce using rule 21 (arguments -> .)
+    SCALE           reduce using rule 21 (arguments -> .)
+    ROTATE          reduce using rule 21 (arguments -> .)
+    LOOKAT          reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> .)
+    TRANSFORM       reduce using rule 21 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> .)
+
+    arguments                      shift and go to state 56
+
+state 25
+
+    (44) statement_config -> FILM STRING . arguments
+    (20) arguments -> . arguments argument
+    (21) arguments -> .
+
+    STRING          reduce using rule 21 (arguments -> .)
+    WORLD_BEGIN     reduce using rule 21 (arguments -> .)
+    CAMERA          reduce using rule 21 (arguments -> .)
+    SAMPLER         reduce using rule 21 (arguments -> .)
+    FILM            reduce using rule 21 (arguments -> .)
+    FILTER          reduce using rule 21 (arguments -> .)
+    INTEGRATOR      reduce using rule 21 (arguments -> .)
+    ACCELERATOR     reduce using rule 21 (arguments -> .)
+    IDENTITY        reduce using rule 21 (arguments -> .)
+    TRANSLATE       reduce using rule 21 (arguments -> .)
+    SCALE           reduce using rule 21 (arguments -> .)
+    ROTATE          reduce using rule 21 (arguments -> .)
+    LOOKAT          reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> .)
+    TRANSFORM       reduce using rule 21 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> .)
+
+    arguments                      shift and go to state 57
+
+state 26
+
+    (45) statement_config -> FILTER STRING . arguments
+    (20) arguments -> . arguments argument
+    (21) arguments -> .
+
+    STRING          reduce using rule 21 (arguments -> .)
+    WORLD_BEGIN     reduce using rule 21 (arguments -> .)
+    CAMERA          reduce using rule 21 (arguments -> .)
+    SAMPLER         reduce using rule 21 (arguments -> .)
+    FILM            reduce using rule 21 (arguments -> .)
+    FILTER          reduce using rule 21 (arguments -> .)
+    INTEGRATOR      reduce using rule 21 (arguments -> .)
+    ACCELERATOR     reduce using rule 21 (arguments -> .)
+    IDENTITY        reduce using rule 21 (arguments -> .)
+    TRANSLATE       reduce using rule 21 (arguments -> .)
+    SCALE           reduce using rule 21 (arguments -> .)
+    ROTATE          reduce using rule 21 (arguments -> .)
+    LOOKAT          reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> .)
+    TRANSFORM       reduce using rule 21 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> .)
+
+    arguments                      shift and go to state 58
+
+state 27
+
+    (46) statement_config -> INTEGRATOR STRING . arguments
+    (20) arguments -> . arguments argument
+    (21) arguments -> .
+
+    STRING          reduce using rule 21 (arguments -> .)
+    WORLD_BEGIN     reduce using rule 21 (arguments -> .)
+    CAMERA          reduce using rule 21 (arguments -> .)
+    SAMPLER         reduce using rule 21 (arguments -> .)
+    FILM            reduce using rule 21 (arguments -> .)
+    FILTER          reduce using rule 21 (arguments -> .)
+    INTEGRATOR      reduce using rule 21 (arguments -> .)
+    ACCELERATOR     reduce using rule 21 (arguments -> .)
+    IDENTITY        reduce using rule 21 (arguments -> .)
+    TRANSLATE       reduce using rule 21 (arguments -> .)
+    SCALE           reduce using rule 21 (arguments -> .)
+    ROTATE          reduce using rule 21 (arguments -> .)
+    LOOKAT          reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> .)
+    TRANSFORM       reduce using rule 21 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> .)
+
+    arguments                      shift and go to state 59
+
+state 28
+
+    (47) statement_config -> ACCELERATOR STRING . arguments
+    (20) arguments -> . arguments argument
+    (21) arguments -> .
+
+    STRING          reduce using rule 21 (arguments -> .)
+    WORLD_BEGIN     reduce using rule 21 (arguments -> .)
+    CAMERA          reduce using rule 21 (arguments -> .)
+    SAMPLER         reduce using rule 21 (arguments -> .)
+    FILM            reduce using rule 21 (arguments -> .)
+    FILTER          reduce using rule 21 (arguments -> .)
+    INTEGRATOR      reduce using rule 21 (arguments -> .)
+    ACCELERATOR     reduce using rule 21 (arguments -> .)
+    IDENTITY        reduce using rule 21 (arguments -> .)
+    TRANSLATE       reduce using rule 21 (arguments -> .)
+    SCALE           reduce using rule 21 (arguments -> .)
+    ROTATE          reduce using rule 21 (arguments -> .)
+    LOOKAT          reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> .)
+    TRANSFORM       reduce using rule 21 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> .)
+
+    arguments                      shift and go to state 60
+
+state 29
+
+    (22) statement_transform -> TRANSLATE NUMBER . NUMBER NUMBER
+
+    NUMBER          shift and go to state 61
+
+
+state 30
+
+    (23) statement_transform -> SCALE NUMBER . NUMBER NUMBER
+
+    NUMBER          shift and go to state 62
+
+
+state 31
+
+    (24) statement_transform -> ROTATE NUMBER . NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 63
+
+
+state 32
+
+    (25) statement_transform -> LOOKAT NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 64
+
+
+state 33
+
+    (26) statement_transform -> COORDINATE_SYSTEM STRING .
+
+    WORLD_BEGIN     reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    CAMERA          reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    SAMPLER         reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    FILM            reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    FILTER          reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    INTEGRATOR      reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    ACCELERATOR     reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    IDENTITY        reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    TRANSLATE       reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    SCALE           reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    ROTATE          reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    LOOKAT          reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    COORDINATE_SYSTEM reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    TRANSFORM       reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    CONCAT_TRANSFORM reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    WORLD_END       reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    ATTRIBUTE_BEGIN reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    ATTRIBUTE_END   reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    TRANSFORM_BEGIN reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    TRANSFORM_END   reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    MATERIAL        reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    NAMED_MATERIAL  reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    MAKE_NAMED_MATERIAL reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    TEXTURE         reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    LIGHT_SOURCE    reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    AREA_LIGHT_SOURCE reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    OBJECT_BEGIN    reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    OBJECT_END      reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    OBJECT_INSTANCE reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    SHAPE           reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+    REVERSE_ORIENTATION reduce using rule 26 (statement_transform -> COORDINATE_SYSTEM STRING .)
+
+
+state 34
+
+    (27) statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .
+
+    WORLD_BEGIN     reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    CAMERA          reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    SAMPLER         reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    FILM            reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    FILTER          reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    INTEGRATOR      reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    ACCELERATOR     reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    IDENTITY        reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    TRANSLATE       reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    SCALE           reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    ROTATE          reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    LOOKAT          reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    COORDINATE_SYSTEM reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    TRANSFORM       reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    CONCAT_TRANSFORM reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    WORLD_END       reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    ATTRIBUTE_BEGIN reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    ATTRIBUTE_END   reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    TRANSFORM_BEGIN reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    TRANSFORM_END   reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    MATERIAL        reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    NAMED_MATERIAL  reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    MAKE_NAMED_MATERIAL reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    TEXTURE         reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    LIGHT_SOURCE    reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    AREA_LIGHT_SOURCE reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    OBJECT_BEGIN    reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    OBJECT_END      reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    OBJECT_INSTANCE reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    SHAPE           reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+    REVERSE_ORIENTATION reduce using rule 27 (statement_transform -> COORDINATE_SYSTEM_TRANSFORM STRING .)
+
+
+state 35
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 65
+
+
+state 36
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 66
+
+
+state 37
+
+    (1) statement_main -> statements_config world_begin statements_scene WORLD_END .
+
+    $end            reduce using rule 1 (statement_main -> statements_config world_begin statements_scene WORLD_END .)
+
+
+state 38
+
+    (8) statements_scene -> statements_scene statement_scene .
+
+    WORLD_END       reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    ATTRIBUTE_BEGIN reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    ATTRIBUTE_END   reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    TRANSFORM_BEGIN reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    TRANSFORM_END   reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    MATERIAL        reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    NAMED_MATERIAL  reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    MAKE_NAMED_MATERIAL reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    TEXTURE         reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    LIGHT_SOURCE    reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    AREA_LIGHT_SOURCE reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    OBJECT_BEGIN    reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    OBJECT_END      reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    OBJECT_INSTANCE reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    SHAPE           reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    REVERSE_ORIENTATION reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    IDENTITY        reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    TRANSLATE       reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    SCALE           reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    ROTATE          reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    LOOKAT          reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    COORDINATE_SYSTEM reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    TRANSFORM       reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+    CONCAT_TRANSFORM reduce using rule 8 (statements_scene -> statements_scene statement_scene .)
+
+
+state 39
+
+    (14) statement_scene -> ATTRIBUTE_BEGIN .
+
+    WORLD_END       reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    ATTRIBUTE_BEGIN reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    ATTRIBUTE_END   reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    TRANSFORM_BEGIN reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    TRANSFORM_END   reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    MATERIAL        reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    NAMED_MATERIAL  reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    MAKE_NAMED_MATERIAL reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    TEXTURE         reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    LIGHT_SOURCE    reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    AREA_LIGHT_SOURCE reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    OBJECT_BEGIN    reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    OBJECT_END      reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    OBJECT_INSTANCE reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    SHAPE           reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    REVERSE_ORIENTATION reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    IDENTITY        reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    TRANSLATE       reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    SCALE           reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    ROTATE          reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    LOOKAT          reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    COORDINATE_SYSTEM reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    TRANSFORM       reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+    CONCAT_TRANSFORM reduce using rule 14 (statement_scene -> ATTRIBUTE_BEGIN .)
+
+
+state 40
+
+    (15) statement_scene -> ATTRIBUTE_END .
+
+    WORLD_END       reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    ATTRIBUTE_BEGIN reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    ATTRIBUTE_END   reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    TRANSFORM_BEGIN reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    TRANSFORM_END   reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    MATERIAL        reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    NAMED_MATERIAL  reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    MAKE_NAMED_MATERIAL reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    TEXTURE         reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    LIGHT_SOURCE    reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    AREA_LIGHT_SOURCE reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    OBJECT_BEGIN    reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    OBJECT_END      reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    OBJECT_INSTANCE reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    SHAPE           reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    REVERSE_ORIENTATION reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    IDENTITY        reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    TRANSLATE       reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    SCALE           reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    ROTATE          reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    LOOKAT          reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    COORDINATE_SYSTEM reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    TRANSFORM       reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+    CONCAT_TRANSFORM reduce using rule 15 (statement_scene -> ATTRIBUTE_END .)
+
+
+state 41
+
+    (16) statement_scene -> TRANSFORM_BEGIN .
+
+    WORLD_END       reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    ATTRIBUTE_BEGIN reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    ATTRIBUTE_END   reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    TRANSFORM_BEGIN reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    TRANSFORM_END   reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    MATERIAL        reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    NAMED_MATERIAL  reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    MAKE_NAMED_MATERIAL reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    TEXTURE         reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    LIGHT_SOURCE    reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    AREA_LIGHT_SOURCE reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    OBJECT_BEGIN    reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    OBJECT_END      reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    OBJECT_INSTANCE reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    SHAPE           reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    REVERSE_ORIENTATION reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    IDENTITY        reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    TRANSLATE       reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    SCALE           reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    ROTATE          reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    LOOKAT          reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    COORDINATE_SYSTEM reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    TRANSFORM       reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+    CONCAT_TRANSFORM reduce using rule 16 (statement_scene -> TRANSFORM_BEGIN .)
+
+
+state 42
+
+    (17) statement_scene -> TRANSFORM_END .
+
+    WORLD_END       reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    ATTRIBUTE_BEGIN reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    ATTRIBUTE_END   reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    TRANSFORM_BEGIN reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    TRANSFORM_END   reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    MATERIAL        reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    NAMED_MATERIAL  reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    MAKE_NAMED_MATERIAL reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    TEXTURE         reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    LIGHT_SOURCE    reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    AREA_LIGHT_SOURCE reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    OBJECT_BEGIN    reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    OBJECT_END      reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    OBJECT_INSTANCE reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    SHAPE           reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    REVERSE_ORIENTATION reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    IDENTITY        reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    TRANSLATE       reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    SCALE           reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    ROTATE          reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    LOOKAT          reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    COORDINATE_SYSTEM reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    TRANSFORM       reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+    CONCAT_TRANSFORM reduce using rule 17 (statement_scene -> TRANSFORM_END .)
+
+
+state 43
+
+    (18) statement_scene -> statement_transform .
+
+    WORLD_END       reduce using rule 18 (statement_scene -> statement_transform .)
+    ATTRIBUTE_BEGIN reduce using rule 18 (statement_scene -> statement_transform .)
+    ATTRIBUTE_END   reduce using rule 18 (statement_scene -> statement_transform .)
+    TRANSFORM_BEGIN reduce using rule 18 (statement_scene -> statement_transform .)
+    TRANSFORM_END   reduce using rule 18 (statement_scene -> statement_transform .)
+    MATERIAL        reduce using rule 18 (statement_scene -> statement_transform .)
+    NAMED_MATERIAL  reduce using rule 18 (statement_scene -> statement_transform .)
+    MAKE_NAMED_MATERIAL reduce using rule 18 (statement_scene -> statement_transform .)
+    TEXTURE         reduce using rule 18 (statement_scene -> statement_transform .)
+    LIGHT_SOURCE    reduce using rule 18 (statement_scene -> statement_transform .)
+    AREA_LIGHT_SOURCE reduce using rule 18 (statement_scene -> statement_transform .)
+    OBJECT_BEGIN    reduce using rule 18 (statement_scene -> statement_transform .)
+    OBJECT_END      reduce using rule 18 (statement_scene -> statement_transform .)
+    OBJECT_INSTANCE reduce using rule 18 (statement_scene -> statement_transform .)
+    SHAPE           reduce using rule 18 (statement_scene -> statement_transform .)
+    REVERSE_ORIENTATION reduce using rule 18 (statement_scene -> statement_transform .)
+    IDENTITY        reduce using rule 18 (statement_scene -> statement_transform .)
+    TRANSLATE       reduce using rule 18 (statement_scene -> statement_transform .)
+    SCALE           reduce using rule 18 (statement_scene -> statement_transform .)
+    ROTATE          reduce using rule 18 (statement_scene -> statement_transform .)
+    LOOKAT          reduce using rule 18 (statement_scene -> statement_transform .)
+    COORDINATE_SYSTEM reduce using rule 18 (statement_scene -> statement_transform .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 18 (statement_scene -> statement_transform .)
+    TRANSFORM       reduce using rule 18 (statement_scene -> statement_transform .)
+    CONCAT_TRANSFORM reduce using rule 18 (statement_scene -> statement_transform .)
+
+
+state 44
+
+    (30) statement_scene -> MATERIAL . STRING arguments
+
+    STRING          shift and go to state 67
+
+
+state 45
+
+    (31) statement_scene -> NAMED_MATERIAL . STRING
+
+    STRING          shift and go to state 68
+
+
+state 46
+
+    (32) statement_scene -> MAKE_NAMED_MATERIAL . STRING arguments
+
+    STRING          shift and go to state 69
+
+
+state 47
+
+    (33) statement_scene -> TEXTURE . STRING STRING STRING arguments
+
+    STRING          shift and go to state 70
+
+
+state 48
+
+    (34) statement_scene -> LIGHT_SOURCE . STRING arguments
+
+    STRING          shift and go to state 71
+
+
+state 49
+
+    (35) statement_scene -> AREA_LIGHT_SOURCE . STRING arguments
+
+    STRING          shift and go to state 72
+
+
+state 50
+
+    (36) statement_scene -> OBJECT_BEGIN . STRING
+
+    STRING          shift and go to state 73
+
+
+state 51
+
+    (37) statement_scene -> OBJECT_END .
+
+    WORLD_END       reduce using rule 37 (statement_scene -> OBJECT_END .)
+    ATTRIBUTE_BEGIN reduce using rule 37 (statement_scene -> OBJECT_END .)
+    ATTRIBUTE_END   reduce using rule 37 (statement_scene -> OBJECT_END .)
+    TRANSFORM_BEGIN reduce using rule 37 (statement_scene -> OBJECT_END .)
+    TRANSFORM_END   reduce using rule 37 (statement_scene -> OBJECT_END .)
+    MATERIAL        reduce using rule 37 (statement_scene -> OBJECT_END .)
+    NAMED_MATERIAL  reduce using rule 37 (statement_scene -> OBJECT_END .)
+    MAKE_NAMED_MATERIAL reduce using rule 37 (statement_scene -> OBJECT_END .)
+    TEXTURE         reduce using rule 37 (statement_scene -> OBJECT_END .)
+    LIGHT_SOURCE    reduce using rule 37 (statement_scene -> OBJECT_END .)
+    AREA_LIGHT_SOURCE reduce using rule 37 (statement_scene -> OBJECT_END .)
+    OBJECT_BEGIN    reduce using rule 37 (statement_scene -> OBJECT_END .)
+    OBJECT_END      reduce using rule 37 (statement_scene -> OBJECT_END .)
+    OBJECT_INSTANCE reduce using rule 37 (statement_scene -> OBJECT_END .)
+    SHAPE           reduce using rule 37 (statement_scene -> OBJECT_END .)
+    REVERSE_ORIENTATION reduce using rule 37 (statement_scene -> OBJECT_END .)
+    IDENTITY        reduce using rule 37 (statement_scene -> OBJECT_END .)
+    TRANSLATE       reduce using rule 37 (statement_scene -> OBJECT_END .)
+    SCALE           reduce using rule 37 (statement_scene -> OBJECT_END .)
+    ROTATE          reduce using rule 37 (statement_scene -> OBJECT_END .)
+    LOOKAT          reduce using rule 37 (statement_scene -> OBJECT_END .)
+    COORDINATE_SYSTEM reduce using rule 37 (statement_scene -> OBJECT_END .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 37 (statement_scene -> OBJECT_END .)
+    TRANSFORM       reduce using rule 37 (statement_scene -> OBJECT_END .)
+    CONCAT_TRANSFORM reduce using rule 37 (statement_scene -> OBJECT_END .)
+
+
+state 52
+
+    (38) statement_scene -> OBJECT_INSTANCE . STRING
+
+    STRING          shift and go to state 74
+
+
+state 53
+
+    (39) statement_scene -> SHAPE . STRING arguments
+
+    STRING          shift and go to state 75
+
+
+state 54
+
+    (40) statement_scene -> REVERSE_ORIENTATION .
+
+    WORLD_END       reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    ATTRIBUTE_BEGIN reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    ATTRIBUTE_END   reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    TRANSFORM_BEGIN reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    TRANSFORM_END   reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    MATERIAL        reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    NAMED_MATERIAL  reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    MAKE_NAMED_MATERIAL reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    TEXTURE         reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    LIGHT_SOURCE    reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    AREA_LIGHT_SOURCE reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    OBJECT_BEGIN    reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    OBJECT_END      reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    OBJECT_INSTANCE reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    SHAPE           reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    REVERSE_ORIENTATION reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    IDENTITY        reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    TRANSLATE       reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    SCALE           reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    ROTATE          reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    LOOKAT          reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    COORDINATE_SYSTEM reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    TRANSFORM       reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+    CONCAT_TRANSFORM reduce using rule 40 (statement_scene -> REVERSE_ORIENTATION .)
+
+
+state 55
+
+    (42) statement_config -> CAMERA STRING arguments .
+    (20) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
+
+    WORLD_BEGIN     reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    CAMERA          reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    SAMPLER         reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    FILM            reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    FILTER          reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    INTEGRATOR      reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    ACCELERATOR     reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    IDENTITY        reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    TRANSLATE       reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    SCALE           reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    ROTATE          reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    LOOKAT          reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    COORDINATE_SYSTEM reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    TRANSFORM       reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    CONCAT_TRANSFORM reduce using rule 42 (statement_config -> CAMERA STRING arguments .)
+    STRING          shift and go to state 76
+
+    argument                       shift and go to state 77
+
+state 56
+
+    (43) statement_config -> SAMPLER STRING arguments .
+    (20) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
+
+    WORLD_BEGIN     reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    CAMERA          reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    SAMPLER         reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    FILM            reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    FILTER          reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    INTEGRATOR      reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    ACCELERATOR     reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    IDENTITY        reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    TRANSLATE       reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    SCALE           reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    ROTATE          reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    LOOKAT          reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    COORDINATE_SYSTEM reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    TRANSFORM       reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    CONCAT_TRANSFORM reduce using rule 43 (statement_config -> SAMPLER STRING arguments .)
+    STRING          shift and go to state 76
+
+    argument                       shift and go to state 77
+
+state 57
+
+    (44) statement_config -> FILM STRING arguments .
+    (20) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
+
+    WORLD_BEGIN     reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    CAMERA          reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    SAMPLER         reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    FILM            reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    FILTER          reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    INTEGRATOR      reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    ACCELERATOR     reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    IDENTITY        reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    TRANSLATE       reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    SCALE           reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    ROTATE          reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    LOOKAT          reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    COORDINATE_SYSTEM reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    TRANSFORM       reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    CONCAT_TRANSFORM reduce using rule 44 (statement_config -> FILM STRING arguments .)
+    STRING          shift and go to state 76
+
+    argument                       shift and go to state 77
+
+state 58
+
+    (45) statement_config -> FILTER STRING arguments .
+    (20) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
+
+    WORLD_BEGIN     reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    CAMERA          reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    SAMPLER         reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    FILM            reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    FILTER          reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    INTEGRATOR      reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    ACCELERATOR     reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    IDENTITY        reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    TRANSLATE       reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    SCALE           reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    ROTATE          reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    LOOKAT          reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    COORDINATE_SYSTEM reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    TRANSFORM       reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    CONCAT_TRANSFORM reduce using rule 45 (statement_config -> FILTER STRING arguments .)
+    STRING          shift and go to state 76
+
+    argument                       shift and go to state 77
+
+state 59
+
+    (46) statement_config -> INTEGRATOR STRING arguments .
+    (20) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
+
+    WORLD_BEGIN     reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    CAMERA          reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    SAMPLER         reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    FILM            reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    FILTER          reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    INTEGRATOR      reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    ACCELERATOR     reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    IDENTITY        reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    TRANSLATE       reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    SCALE           reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    ROTATE          reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    LOOKAT          reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    COORDINATE_SYSTEM reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    TRANSFORM       reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    CONCAT_TRANSFORM reduce using rule 46 (statement_config -> INTEGRATOR STRING arguments .)
+    STRING          shift and go to state 76
+
+    argument                       shift and go to state 77
+
+state 60
+
+    (47) statement_config -> ACCELERATOR STRING arguments .
+    (20) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
+
+    WORLD_BEGIN     reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    CAMERA          reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    SAMPLER         reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    FILM            reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    FILTER          reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    INTEGRATOR      reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    ACCELERATOR     reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    IDENTITY        reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    TRANSLATE       reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    SCALE           reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    ROTATE          reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    LOOKAT          reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    COORDINATE_SYSTEM reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    TRANSFORM       reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    CONCAT_TRANSFORM reduce using rule 47 (statement_config -> ACCELERATOR STRING arguments .)
+    STRING          shift and go to state 76
+
+    argument                       shift and go to state 77
+
+state 61
+
+    (22) statement_transform -> TRANSLATE NUMBER NUMBER . NUMBER
+
+    NUMBER          shift and go to state 78
+
+
+state 62
+
+    (23) statement_transform -> SCALE NUMBER NUMBER . NUMBER
+
+    NUMBER          shift and go to state 79
+
+
+state 63
+
+    (24) statement_transform -> ROTATE NUMBER NUMBER . NUMBER NUMBER
+
+    NUMBER          shift and go to state 80
+
+
+state 64
+
+    (25) statement_transform -> LOOKAT NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 81
+
+
+state 65
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 82
+
+
+state 66
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 83
+
+
+state 67
+
+    (30) statement_scene -> MATERIAL STRING . arguments
+    (20) arguments -> . arguments argument
+    (21) arguments -> .
+
+    STRING          reduce using rule 21 (arguments -> .)
+    WORLD_END       reduce using rule 21 (arguments -> .)
+    ATTRIBUTE_BEGIN reduce using rule 21 (arguments -> .)
+    ATTRIBUTE_END   reduce using rule 21 (arguments -> .)
+    TRANSFORM_BEGIN reduce using rule 21 (arguments -> .)
+    TRANSFORM_END   reduce using rule 21 (arguments -> .)
+    MATERIAL        reduce using rule 21 (arguments -> .)
+    NAMED_MATERIAL  reduce using rule 21 (arguments -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 21 (arguments -> .)
+    TEXTURE         reduce using rule 21 (arguments -> .)
+    LIGHT_SOURCE    reduce using rule 21 (arguments -> .)
+    AREA_LIGHT_SOURCE reduce using rule 21 (arguments -> .)
+    OBJECT_BEGIN    reduce using rule 21 (arguments -> .)
+    OBJECT_END      reduce using rule 21 (arguments -> .)
+    OBJECT_INSTANCE reduce using rule 21 (arguments -> .)
+    SHAPE           reduce using rule 21 (arguments -> .)
+    REVERSE_ORIENTATION reduce using rule 21 (arguments -> .)
+    IDENTITY        reduce using rule 21 (arguments -> .)
+    TRANSLATE       reduce using rule 21 (arguments -> .)
+    SCALE           reduce using rule 21 (arguments -> .)
+    ROTATE          reduce using rule 21 (arguments -> .)
+    LOOKAT          reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> .)
+    TRANSFORM       reduce using rule 21 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> .)
+
+    arguments                      shift and go to state 84
+
+state 68
+
+    (31) statement_scene -> NAMED_MATERIAL STRING .
+
+    WORLD_END       reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    ATTRIBUTE_BEGIN reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    ATTRIBUTE_END   reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    TRANSFORM_BEGIN reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    TRANSFORM_END   reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    MATERIAL        reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    NAMED_MATERIAL  reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    MAKE_NAMED_MATERIAL reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    TEXTURE         reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    LIGHT_SOURCE    reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    AREA_LIGHT_SOURCE reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    OBJECT_BEGIN    reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    OBJECT_END      reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    OBJECT_INSTANCE reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    SHAPE           reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    REVERSE_ORIENTATION reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    IDENTITY        reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    TRANSLATE       reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    SCALE           reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    ROTATE          reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    LOOKAT          reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    COORDINATE_SYSTEM reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    TRANSFORM       reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+    CONCAT_TRANSFORM reduce using rule 31 (statement_scene -> NAMED_MATERIAL STRING .)
+
+
+state 69
+
+    (32) statement_scene -> MAKE_NAMED_MATERIAL STRING . arguments
+    (20) arguments -> . arguments argument
+    (21) arguments -> .
+
+    STRING          reduce using rule 21 (arguments -> .)
+    WORLD_END       reduce using rule 21 (arguments -> .)
+    ATTRIBUTE_BEGIN reduce using rule 21 (arguments -> .)
+    ATTRIBUTE_END   reduce using rule 21 (arguments -> .)
+    TRANSFORM_BEGIN reduce using rule 21 (arguments -> .)
+    TRANSFORM_END   reduce using rule 21 (arguments -> .)
+    MATERIAL        reduce using rule 21 (arguments -> .)
+    NAMED_MATERIAL  reduce using rule 21 (arguments -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 21 (arguments -> .)
+    TEXTURE         reduce using rule 21 (arguments -> .)
+    LIGHT_SOURCE    reduce using rule 21 (arguments -> .)
+    AREA_LIGHT_SOURCE reduce using rule 21 (arguments -> .)
+    OBJECT_BEGIN    reduce using rule 21 (arguments -> .)
+    OBJECT_END      reduce using rule 21 (arguments -> .)
+    OBJECT_INSTANCE reduce using rule 21 (arguments -> .)
+    SHAPE           reduce using rule 21 (arguments -> .)
+    REVERSE_ORIENTATION reduce using rule 21 (arguments -> .)
+    IDENTITY        reduce using rule 21 (arguments -> .)
+    TRANSLATE       reduce using rule 21 (arguments -> .)
+    SCALE           reduce using rule 21 (arguments -> .)
+    ROTATE          reduce using rule 21 (arguments -> .)
+    LOOKAT          reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> .)
+    TRANSFORM       reduce using rule 21 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> .)
+
+    arguments                      shift and go to state 85
+
+state 70
+
+    (33) statement_scene -> TEXTURE STRING . STRING STRING arguments
+
+    STRING          shift and go to state 86
+
+
+state 71
+
+    (34) statement_scene -> LIGHT_SOURCE STRING . arguments
+    (20) arguments -> . arguments argument
+    (21) arguments -> .
+
+    STRING          reduce using rule 21 (arguments -> .)
+    WORLD_END       reduce using rule 21 (arguments -> .)
+    ATTRIBUTE_BEGIN reduce using rule 21 (arguments -> .)
+    ATTRIBUTE_END   reduce using rule 21 (arguments -> .)
+    TRANSFORM_BEGIN reduce using rule 21 (arguments -> .)
+    TRANSFORM_END   reduce using rule 21 (arguments -> .)
+    MATERIAL        reduce using rule 21 (arguments -> .)
+    NAMED_MATERIAL  reduce using rule 21 (arguments -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 21 (arguments -> .)
+    TEXTURE         reduce using rule 21 (arguments -> .)
+    LIGHT_SOURCE    reduce using rule 21 (arguments -> .)
+    AREA_LIGHT_SOURCE reduce using rule 21 (arguments -> .)
+    OBJECT_BEGIN    reduce using rule 21 (arguments -> .)
+    OBJECT_END      reduce using rule 21 (arguments -> .)
+    OBJECT_INSTANCE reduce using rule 21 (arguments -> .)
+    SHAPE           reduce using rule 21 (arguments -> .)
+    REVERSE_ORIENTATION reduce using rule 21 (arguments -> .)
+    IDENTITY        reduce using rule 21 (arguments -> .)
+    TRANSLATE       reduce using rule 21 (arguments -> .)
+    SCALE           reduce using rule 21 (arguments -> .)
+    ROTATE          reduce using rule 21 (arguments -> .)
+    LOOKAT          reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> .)
+    TRANSFORM       reduce using rule 21 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> .)
+
+    arguments                      shift and go to state 87
+
+state 72
+
+    (35) statement_scene -> AREA_LIGHT_SOURCE STRING . arguments
+    (20) arguments -> . arguments argument
+    (21) arguments -> .
+
+    STRING          reduce using rule 21 (arguments -> .)
+    WORLD_END       reduce using rule 21 (arguments -> .)
+    ATTRIBUTE_BEGIN reduce using rule 21 (arguments -> .)
+    ATTRIBUTE_END   reduce using rule 21 (arguments -> .)
+    TRANSFORM_BEGIN reduce using rule 21 (arguments -> .)
+    TRANSFORM_END   reduce using rule 21 (arguments -> .)
+    MATERIAL        reduce using rule 21 (arguments -> .)
+    NAMED_MATERIAL  reduce using rule 21 (arguments -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 21 (arguments -> .)
+    TEXTURE         reduce using rule 21 (arguments -> .)
+    LIGHT_SOURCE    reduce using rule 21 (arguments -> .)
+    AREA_LIGHT_SOURCE reduce using rule 21 (arguments -> .)
+    OBJECT_BEGIN    reduce using rule 21 (arguments -> .)
+    OBJECT_END      reduce using rule 21 (arguments -> .)
+    OBJECT_INSTANCE reduce using rule 21 (arguments -> .)
+    SHAPE           reduce using rule 21 (arguments -> .)
+    REVERSE_ORIENTATION reduce using rule 21 (arguments -> .)
+    IDENTITY        reduce using rule 21 (arguments -> .)
+    TRANSLATE       reduce using rule 21 (arguments -> .)
+    SCALE           reduce using rule 21 (arguments -> .)
+    ROTATE          reduce using rule 21 (arguments -> .)
+    LOOKAT          reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> .)
+    TRANSFORM       reduce using rule 21 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> .)
+
+    arguments                      shift and go to state 88
+
+state 73
+
+    (36) statement_scene -> OBJECT_BEGIN STRING .
+
+    WORLD_END       reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    ATTRIBUTE_BEGIN reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    ATTRIBUTE_END   reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    TRANSFORM_BEGIN reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    TRANSFORM_END   reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    MATERIAL        reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    NAMED_MATERIAL  reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    MAKE_NAMED_MATERIAL reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    TEXTURE         reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    LIGHT_SOURCE    reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    AREA_LIGHT_SOURCE reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    OBJECT_BEGIN    reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    OBJECT_END      reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    OBJECT_INSTANCE reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    SHAPE           reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    REVERSE_ORIENTATION reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    IDENTITY        reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    TRANSLATE       reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    SCALE           reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    ROTATE          reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    LOOKAT          reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    COORDINATE_SYSTEM reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    TRANSFORM       reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+    CONCAT_TRANSFORM reduce using rule 36 (statement_scene -> OBJECT_BEGIN STRING .)
+
+
+state 74
+
+    (38) statement_scene -> OBJECT_INSTANCE STRING .
+
+    WORLD_END       reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    ATTRIBUTE_BEGIN reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    ATTRIBUTE_END   reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    TRANSFORM_BEGIN reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    TRANSFORM_END   reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    MATERIAL        reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    NAMED_MATERIAL  reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    MAKE_NAMED_MATERIAL reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    TEXTURE         reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    LIGHT_SOURCE    reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    AREA_LIGHT_SOURCE reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    OBJECT_BEGIN    reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    OBJECT_END      reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    OBJECT_INSTANCE reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    SHAPE           reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    REVERSE_ORIENTATION reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    IDENTITY        reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    TRANSLATE       reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    SCALE           reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    ROTATE          reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    LOOKAT          reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    COORDINATE_SYSTEM reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    TRANSFORM       reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+    CONCAT_TRANSFORM reduce using rule 38 (statement_scene -> OBJECT_INSTANCE STRING .)
+
+
+state 75
+
+    (39) statement_scene -> SHAPE STRING . arguments
+    (20) arguments -> . arguments argument
+    (21) arguments -> .
+
+    STRING          reduce using rule 21 (arguments -> .)
+    WORLD_END       reduce using rule 21 (arguments -> .)
+    ATTRIBUTE_BEGIN reduce using rule 21 (arguments -> .)
+    ATTRIBUTE_END   reduce using rule 21 (arguments -> .)
+    TRANSFORM_BEGIN reduce using rule 21 (arguments -> .)
+    TRANSFORM_END   reduce using rule 21 (arguments -> .)
+    MATERIAL        reduce using rule 21 (arguments -> .)
+    NAMED_MATERIAL  reduce using rule 21 (arguments -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 21 (arguments -> .)
+    TEXTURE         reduce using rule 21 (arguments -> .)
+    LIGHT_SOURCE    reduce using rule 21 (arguments -> .)
+    AREA_LIGHT_SOURCE reduce using rule 21 (arguments -> .)
+    OBJECT_BEGIN    reduce using rule 21 (arguments -> .)
+    OBJECT_END      reduce using rule 21 (arguments -> .)
+    OBJECT_INSTANCE reduce using rule 21 (arguments -> .)
+    SHAPE           reduce using rule 21 (arguments -> .)
+    REVERSE_ORIENTATION reduce using rule 21 (arguments -> .)
+    IDENTITY        reduce using rule 21 (arguments -> .)
+    TRANSLATE       reduce using rule 21 (arguments -> .)
+    SCALE           reduce using rule 21 (arguments -> .)
+    ROTATE          reduce using rule 21 (arguments -> .)
+    LOOKAT          reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> .)
+    TRANSFORM       reduce using rule 21 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> .)
+
+    arguments                      shift and go to state 89
+
+state 76
+
+    (11) argument -> STRING . basic_data_type
+    (12) argument -> STRING . data_list
+    (4) basic_data_type -> . STRING
+    (5) basic_data_type -> . NUMBER
+    (10) data_list -> . L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET
+
+    STRING          shift and go to state 90
+    NUMBER          shift and go to state 93
+    L_SQUARE_BRACKET shift and go to state 94
+
+    basic_data_type                shift and go to state 91
+    data_list                      shift and go to state 92
+
+state 77
+
+    (20) arguments -> arguments argument .
+
+    STRING          reduce using rule 20 (arguments -> arguments argument .)
+    WORLD_BEGIN     reduce using rule 20 (arguments -> arguments argument .)
+    CAMERA          reduce using rule 20 (arguments -> arguments argument .)
+    SAMPLER         reduce using rule 20 (arguments -> arguments argument .)
+    FILM            reduce using rule 20 (arguments -> arguments argument .)
+    FILTER          reduce using rule 20 (arguments -> arguments argument .)
+    INTEGRATOR      reduce using rule 20 (arguments -> arguments argument .)
+    ACCELERATOR     reduce using rule 20 (arguments -> arguments argument .)
+    IDENTITY        reduce using rule 20 (arguments -> arguments argument .)
+    TRANSLATE       reduce using rule 20 (arguments -> arguments argument .)
+    SCALE           reduce using rule 20 (arguments -> arguments argument .)
+    ROTATE          reduce using rule 20 (arguments -> arguments argument .)
+    LOOKAT          reduce using rule 20 (arguments -> arguments argument .)
+    COORDINATE_SYSTEM reduce using rule 20 (arguments -> arguments argument .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 20 (arguments -> arguments argument .)
+    TRANSFORM       reduce using rule 20 (arguments -> arguments argument .)
+    CONCAT_TRANSFORM reduce using rule 20 (arguments -> arguments argument .)
+    WORLD_END       reduce using rule 20 (arguments -> arguments argument .)
+    ATTRIBUTE_BEGIN reduce using rule 20 (arguments -> arguments argument .)
+    ATTRIBUTE_END   reduce using rule 20 (arguments -> arguments argument .)
+    TRANSFORM_BEGIN reduce using rule 20 (arguments -> arguments argument .)
+    TRANSFORM_END   reduce using rule 20 (arguments -> arguments argument .)
+    MATERIAL        reduce using rule 20 (arguments -> arguments argument .)
+    NAMED_MATERIAL  reduce using rule 20 (arguments -> arguments argument .)
+    MAKE_NAMED_MATERIAL reduce using rule 20 (arguments -> arguments argument .)
+    TEXTURE         reduce using rule 20 (arguments -> arguments argument .)
+    LIGHT_SOURCE    reduce using rule 20 (arguments -> arguments argument .)
+    AREA_LIGHT_SOURCE reduce using rule 20 (arguments -> arguments argument .)
+    OBJECT_BEGIN    reduce using rule 20 (arguments -> arguments argument .)
+    OBJECT_END      reduce using rule 20 (arguments -> arguments argument .)
+    OBJECT_INSTANCE reduce using rule 20 (arguments -> arguments argument .)
+    SHAPE           reduce using rule 20 (arguments -> arguments argument .)
+    REVERSE_ORIENTATION reduce using rule 20 (arguments -> arguments argument .)
+
+
+state 78
+
+    (22) statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .
+
+    WORLD_BEGIN     reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    CAMERA          reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    SAMPLER         reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    FILM            reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    FILTER          reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    INTEGRATOR      reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    ACCELERATOR     reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    IDENTITY        reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    TRANSLATE       reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    SCALE           reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    ROTATE          reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    LOOKAT          reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    COORDINATE_SYSTEM reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    TRANSFORM       reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    CONCAT_TRANSFORM reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    WORLD_END       reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    ATTRIBUTE_BEGIN reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    ATTRIBUTE_END   reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    TRANSFORM_BEGIN reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    TRANSFORM_END   reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    MATERIAL        reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    NAMED_MATERIAL  reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    MAKE_NAMED_MATERIAL reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    TEXTURE         reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    LIGHT_SOURCE    reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    AREA_LIGHT_SOURCE reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    OBJECT_BEGIN    reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    OBJECT_END      reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    OBJECT_INSTANCE reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    SHAPE           reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+    REVERSE_ORIENTATION reduce using rule 22 (statement_transform -> TRANSLATE NUMBER NUMBER NUMBER .)
+
+
+state 79
+
+    (23) statement_transform -> SCALE NUMBER NUMBER NUMBER .
+
+    WORLD_BEGIN     reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    CAMERA          reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    SAMPLER         reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    FILM            reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    FILTER          reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    INTEGRATOR      reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    ACCELERATOR     reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    IDENTITY        reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    TRANSLATE       reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    SCALE           reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    ROTATE          reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    LOOKAT          reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    COORDINATE_SYSTEM reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    TRANSFORM       reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    CONCAT_TRANSFORM reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    WORLD_END       reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    ATTRIBUTE_BEGIN reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    ATTRIBUTE_END   reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    TRANSFORM_BEGIN reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    TRANSFORM_END   reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    MATERIAL        reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    NAMED_MATERIAL  reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    MAKE_NAMED_MATERIAL reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    TEXTURE         reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    LIGHT_SOURCE    reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    AREA_LIGHT_SOURCE reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    OBJECT_BEGIN    reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    OBJECT_END      reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    OBJECT_INSTANCE reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    SHAPE           reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+    REVERSE_ORIENTATION reduce using rule 23 (statement_transform -> SCALE NUMBER NUMBER NUMBER .)
+
+
+state 80
+
+    (24) statement_transform -> ROTATE NUMBER NUMBER NUMBER . NUMBER
+
+    NUMBER          shift and go to state 95
+
+
+state 81
+
+    (25) statement_transform -> LOOKAT NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 96
+
+
+state 82
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 97
+
+
+state 83
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 98
+
+
+state 84
+
+    (30) statement_scene -> MATERIAL STRING arguments .
+    (20) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
+
+    WORLD_END       reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    ATTRIBUTE_BEGIN reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    ATTRIBUTE_END   reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    TRANSFORM_BEGIN reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    TRANSFORM_END   reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    MATERIAL        reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    NAMED_MATERIAL  reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    MAKE_NAMED_MATERIAL reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    TEXTURE         reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    LIGHT_SOURCE    reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    AREA_LIGHT_SOURCE reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    OBJECT_BEGIN    reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    OBJECT_END      reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    OBJECT_INSTANCE reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    SHAPE           reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    REVERSE_ORIENTATION reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    IDENTITY        reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    TRANSLATE       reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    SCALE           reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    ROTATE          reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    LOOKAT          reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    COORDINATE_SYSTEM reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    TRANSFORM       reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    CONCAT_TRANSFORM reduce using rule 30 (statement_scene -> MATERIAL STRING arguments .)
+    STRING          shift and go to state 76
+
+    argument                       shift and go to state 77
+
+state 85
+
+    (32) statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .
+    (20) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
+
+    WORLD_END       reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    ATTRIBUTE_BEGIN reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    ATTRIBUTE_END   reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    TRANSFORM_BEGIN reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    TRANSFORM_END   reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    MATERIAL        reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    NAMED_MATERIAL  reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    MAKE_NAMED_MATERIAL reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    TEXTURE         reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    LIGHT_SOURCE    reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    AREA_LIGHT_SOURCE reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    OBJECT_BEGIN    reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    OBJECT_END      reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    OBJECT_INSTANCE reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    SHAPE           reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    REVERSE_ORIENTATION reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    IDENTITY        reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    TRANSLATE       reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    SCALE           reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    ROTATE          reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    LOOKAT          reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    COORDINATE_SYSTEM reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    TRANSFORM       reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    CONCAT_TRANSFORM reduce using rule 32 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
+    STRING          shift and go to state 76
+
+    argument                       shift and go to state 77
+
+state 86
+
+    (33) statement_scene -> TEXTURE STRING STRING . STRING arguments
+
+    STRING          shift and go to state 99
+
+
+state 87
+
+    (34) statement_scene -> LIGHT_SOURCE STRING arguments .
+    (20) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
+
+    WORLD_END       reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    ATTRIBUTE_BEGIN reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    ATTRIBUTE_END   reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    TRANSFORM_BEGIN reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    TRANSFORM_END   reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    MATERIAL        reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    NAMED_MATERIAL  reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    MAKE_NAMED_MATERIAL reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    TEXTURE         reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    LIGHT_SOURCE    reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    AREA_LIGHT_SOURCE reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    OBJECT_BEGIN    reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    OBJECT_END      reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    OBJECT_INSTANCE reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    SHAPE           reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    REVERSE_ORIENTATION reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    IDENTITY        reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    TRANSLATE       reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    SCALE           reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    ROTATE          reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    LOOKAT          reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    COORDINATE_SYSTEM reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    TRANSFORM       reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    CONCAT_TRANSFORM reduce using rule 34 (statement_scene -> LIGHT_SOURCE STRING arguments .)
+    STRING          shift and go to state 76
+
+    argument                       shift and go to state 77
+
+state 88
+
+    (35) statement_scene -> AREA_LIGHT_SOURCE STRING arguments .
+    (20) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
+
+    WORLD_END       reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    ATTRIBUTE_BEGIN reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    ATTRIBUTE_END   reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    TRANSFORM_BEGIN reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    TRANSFORM_END   reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    MATERIAL        reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    NAMED_MATERIAL  reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    MAKE_NAMED_MATERIAL reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    TEXTURE         reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    LIGHT_SOURCE    reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    AREA_LIGHT_SOURCE reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    OBJECT_BEGIN    reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    OBJECT_END      reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    OBJECT_INSTANCE reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    SHAPE           reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    REVERSE_ORIENTATION reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    IDENTITY        reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    TRANSLATE       reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    SCALE           reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    ROTATE          reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    LOOKAT          reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    COORDINATE_SYSTEM reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    TRANSFORM       reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    CONCAT_TRANSFORM reduce using rule 35 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
+    STRING          shift and go to state 76
+
+    argument                       shift and go to state 77
+
+state 89
+
+    (39) statement_scene -> SHAPE STRING arguments .
+    (20) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
+
+    WORLD_END       reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    ATTRIBUTE_BEGIN reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    ATTRIBUTE_END   reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    TRANSFORM_BEGIN reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    TRANSFORM_END   reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    MATERIAL        reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    NAMED_MATERIAL  reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    MAKE_NAMED_MATERIAL reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    TEXTURE         reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    LIGHT_SOURCE    reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    AREA_LIGHT_SOURCE reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    OBJECT_BEGIN    reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    OBJECT_END      reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    OBJECT_INSTANCE reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    SHAPE           reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    REVERSE_ORIENTATION reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    IDENTITY        reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    TRANSLATE       reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    SCALE           reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    ROTATE          reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    LOOKAT          reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    COORDINATE_SYSTEM reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    TRANSFORM       reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    CONCAT_TRANSFORM reduce using rule 39 (statement_scene -> SHAPE STRING arguments .)
+    STRING          shift and go to state 76
+
+    argument                       shift and go to state 77
+
+state 90
+
+    (4) basic_data_type -> STRING .
+
+    STRING          reduce using rule 4 (basic_data_type -> STRING .)
+    WORLD_BEGIN     reduce using rule 4 (basic_data_type -> STRING .)
+    CAMERA          reduce using rule 4 (basic_data_type -> STRING .)
+    SAMPLER         reduce using rule 4 (basic_data_type -> STRING .)
+    FILM            reduce using rule 4 (basic_data_type -> STRING .)
+    FILTER          reduce using rule 4 (basic_data_type -> STRING .)
+    INTEGRATOR      reduce using rule 4 (basic_data_type -> STRING .)
+    ACCELERATOR     reduce using rule 4 (basic_data_type -> STRING .)
+    IDENTITY        reduce using rule 4 (basic_data_type -> STRING .)
+    TRANSLATE       reduce using rule 4 (basic_data_type -> STRING .)
+    SCALE           reduce using rule 4 (basic_data_type -> STRING .)
+    ROTATE          reduce using rule 4 (basic_data_type -> STRING .)
+    LOOKAT          reduce using rule 4 (basic_data_type -> STRING .)
+    COORDINATE_SYSTEM reduce using rule 4 (basic_data_type -> STRING .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 4 (basic_data_type -> STRING .)
+    TRANSFORM       reduce using rule 4 (basic_data_type -> STRING .)
+    CONCAT_TRANSFORM reduce using rule 4 (basic_data_type -> STRING .)
+    WORLD_END       reduce using rule 4 (basic_data_type -> STRING .)
+    ATTRIBUTE_BEGIN reduce using rule 4 (basic_data_type -> STRING .)
+    ATTRIBUTE_END   reduce using rule 4 (basic_data_type -> STRING .)
+    TRANSFORM_BEGIN reduce using rule 4 (basic_data_type -> STRING .)
+    TRANSFORM_END   reduce using rule 4 (basic_data_type -> STRING .)
+    MATERIAL        reduce using rule 4 (basic_data_type -> STRING .)
+    NAMED_MATERIAL  reduce using rule 4 (basic_data_type -> STRING .)
+    MAKE_NAMED_MATERIAL reduce using rule 4 (basic_data_type -> STRING .)
+    TEXTURE         reduce using rule 4 (basic_data_type -> STRING .)
+    LIGHT_SOURCE    reduce using rule 4 (basic_data_type -> STRING .)
+    AREA_LIGHT_SOURCE reduce using rule 4 (basic_data_type -> STRING .)
+    OBJECT_BEGIN    reduce using rule 4 (basic_data_type -> STRING .)
+    OBJECT_END      reduce using rule 4 (basic_data_type -> STRING .)
+    OBJECT_INSTANCE reduce using rule 4 (basic_data_type -> STRING .)
+    SHAPE           reduce using rule 4 (basic_data_type -> STRING .)
+    REVERSE_ORIENTATION reduce using rule 4 (basic_data_type -> STRING .)
+    R_SQUARE_BRACKET reduce using rule 4 (basic_data_type -> STRING .)
+    NUMBER          reduce using rule 4 (basic_data_type -> STRING .)
+
+
+state 91
+
+    (11) argument -> STRING basic_data_type .
+
+    STRING          reduce using rule 11 (argument -> STRING basic_data_type .)
+    WORLD_BEGIN     reduce using rule 11 (argument -> STRING basic_data_type .)
+    CAMERA          reduce using rule 11 (argument -> STRING basic_data_type .)
+    SAMPLER         reduce using rule 11 (argument -> STRING basic_data_type .)
+    FILM            reduce using rule 11 (argument -> STRING basic_data_type .)
+    FILTER          reduce using rule 11 (argument -> STRING basic_data_type .)
+    INTEGRATOR      reduce using rule 11 (argument -> STRING basic_data_type .)
+    ACCELERATOR     reduce using rule 11 (argument -> STRING basic_data_type .)
+    IDENTITY        reduce using rule 11 (argument -> STRING basic_data_type .)
+    TRANSLATE       reduce using rule 11 (argument -> STRING basic_data_type .)
+    SCALE           reduce using rule 11 (argument -> STRING basic_data_type .)
+    ROTATE          reduce using rule 11 (argument -> STRING basic_data_type .)
+    LOOKAT          reduce using rule 11 (argument -> STRING basic_data_type .)
+    COORDINATE_SYSTEM reduce using rule 11 (argument -> STRING basic_data_type .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 11 (argument -> STRING basic_data_type .)
+    TRANSFORM       reduce using rule 11 (argument -> STRING basic_data_type .)
+    CONCAT_TRANSFORM reduce using rule 11 (argument -> STRING basic_data_type .)
+    WORLD_END       reduce using rule 11 (argument -> STRING basic_data_type .)
+    ATTRIBUTE_BEGIN reduce using rule 11 (argument -> STRING basic_data_type .)
+    ATTRIBUTE_END   reduce using rule 11 (argument -> STRING basic_data_type .)
+    TRANSFORM_BEGIN reduce using rule 11 (argument -> STRING basic_data_type .)
+    TRANSFORM_END   reduce using rule 11 (argument -> STRING basic_data_type .)
+    MATERIAL        reduce using rule 11 (argument -> STRING basic_data_type .)
+    NAMED_MATERIAL  reduce using rule 11 (argument -> STRING basic_data_type .)
+    MAKE_NAMED_MATERIAL reduce using rule 11 (argument -> STRING basic_data_type .)
+    TEXTURE         reduce using rule 11 (argument -> STRING basic_data_type .)
+    LIGHT_SOURCE    reduce using rule 11 (argument -> STRING basic_data_type .)
+    AREA_LIGHT_SOURCE reduce using rule 11 (argument -> STRING basic_data_type .)
+    OBJECT_BEGIN    reduce using rule 11 (argument -> STRING basic_data_type .)
+    OBJECT_END      reduce using rule 11 (argument -> STRING basic_data_type .)
+    OBJECT_INSTANCE reduce using rule 11 (argument -> STRING basic_data_type .)
+    SHAPE           reduce using rule 11 (argument -> STRING basic_data_type .)
+    REVERSE_ORIENTATION reduce using rule 11 (argument -> STRING basic_data_type .)
+
+
+state 92
+
+    (12) argument -> STRING data_list .
+
+    STRING          reduce using rule 12 (argument -> STRING data_list .)
+    WORLD_BEGIN     reduce using rule 12 (argument -> STRING data_list .)
+    CAMERA          reduce using rule 12 (argument -> STRING data_list .)
+    SAMPLER         reduce using rule 12 (argument -> STRING data_list .)
+    FILM            reduce using rule 12 (argument -> STRING data_list .)
+    FILTER          reduce using rule 12 (argument -> STRING data_list .)
+    INTEGRATOR      reduce using rule 12 (argument -> STRING data_list .)
+    ACCELERATOR     reduce using rule 12 (argument -> STRING data_list .)
+    IDENTITY        reduce using rule 12 (argument -> STRING data_list .)
+    TRANSLATE       reduce using rule 12 (argument -> STRING data_list .)
+    SCALE           reduce using rule 12 (argument -> STRING data_list .)
+    ROTATE          reduce using rule 12 (argument -> STRING data_list .)
+    LOOKAT          reduce using rule 12 (argument -> STRING data_list .)
+    COORDINATE_SYSTEM reduce using rule 12 (argument -> STRING data_list .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 12 (argument -> STRING data_list .)
+    TRANSFORM       reduce using rule 12 (argument -> STRING data_list .)
+    CONCAT_TRANSFORM reduce using rule 12 (argument -> STRING data_list .)
+    WORLD_END       reduce using rule 12 (argument -> STRING data_list .)
+    ATTRIBUTE_BEGIN reduce using rule 12 (argument -> STRING data_list .)
+    ATTRIBUTE_END   reduce using rule 12 (argument -> STRING data_list .)
+    TRANSFORM_BEGIN reduce using rule 12 (argument -> STRING data_list .)
+    TRANSFORM_END   reduce using rule 12 (argument -> STRING data_list .)
+    MATERIAL        reduce using rule 12 (argument -> STRING data_list .)
+    NAMED_MATERIAL  reduce using rule 12 (argument -> STRING data_list .)
+    MAKE_NAMED_MATERIAL reduce using rule 12 (argument -> STRING data_list .)
+    TEXTURE         reduce using rule 12 (argument -> STRING data_list .)
+    LIGHT_SOURCE    reduce using rule 12 (argument -> STRING data_list .)
+    AREA_LIGHT_SOURCE reduce using rule 12 (argument -> STRING data_list .)
+    OBJECT_BEGIN    reduce using rule 12 (argument -> STRING data_list .)
+    OBJECT_END      reduce using rule 12 (argument -> STRING data_list .)
+    OBJECT_INSTANCE reduce using rule 12 (argument -> STRING data_list .)
+    SHAPE           reduce using rule 12 (argument -> STRING data_list .)
+    REVERSE_ORIENTATION reduce using rule 12 (argument -> STRING data_list .)
+
+
+state 93
+
+    (5) basic_data_type -> NUMBER .
+
+    STRING          reduce using rule 5 (basic_data_type -> NUMBER .)
+    WORLD_BEGIN     reduce using rule 5 (basic_data_type -> NUMBER .)
+    CAMERA          reduce using rule 5 (basic_data_type -> NUMBER .)
+    SAMPLER         reduce using rule 5 (basic_data_type -> NUMBER .)
+    FILM            reduce using rule 5 (basic_data_type -> NUMBER .)
+    FILTER          reduce using rule 5 (basic_data_type -> NUMBER .)
+    INTEGRATOR      reduce using rule 5 (basic_data_type -> NUMBER .)
+    ACCELERATOR     reduce using rule 5 (basic_data_type -> NUMBER .)
+    IDENTITY        reduce using rule 5 (basic_data_type -> NUMBER .)
+    TRANSLATE       reduce using rule 5 (basic_data_type -> NUMBER .)
+    SCALE           reduce using rule 5 (basic_data_type -> NUMBER .)
+    ROTATE          reduce using rule 5 (basic_data_type -> NUMBER .)
+    LOOKAT          reduce using rule 5 (basic_data_type -> NUMBER .)
+    COORDINATE_SYSTEM reduce using rule 5 (basic_data_type -> NUMBER .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 5 (basic_data_type -> NUMBER .)
+    TRANSFORM       reduce using rule 5 (basic_data_type -> NUMBER .)
+    CONCAT_TRANSFORM reduce using rule 5 (basic_data_type -> NUMBER .)
+    WORLD_END       reduce using rule 5 (basic_data_type -> NUMBER .)
+    ATTRIBUTE_BEGIN reduce using rule 5 (basic_data_type -> NUMBER .)
+    ATTRIBUTE_END   reduce using rule 5 (basic_data_type -> NUMBER .)
+    TRANSFORM_BEGIN reduce using rule 5 (basic_data_type -> NUMBER .)
+    TRANSFORM_END   reduce using rule 5 (basic_data_type -> NUMBER .)
+    MATERIAL        reduce using rule 5 (basic_data_type -> NUMBER .)
+    NAMED_MATERIAL  reduce using rule 5 (basic_data_type -> NUMBER .)
+    MAKE_NAMED_MATERIAL reduce using rule 5 (basic_data_type -> NUMBER .)
+    TEXTURE         reduce using rule 5 (basic_data_type -> NUMBER .)
+    LIGHT_SOURCE    reduce using rule 5 (basic_data_type -> NUMBER .)
+    AREA_LIGHT_SOURCE reduce using rule 5 (basic_data_type -> NUMBER .)
+    OBJECT_BEGIN    reduce using rule 5 (basic_data_type -> NUMBER .)
+    OBJECT_END      reduce using rule 5 (basic_data_type -> NUMBER .)
+    OBJECT_INSTANCE reduce using rule 5 (basic_data_type -> NUMBER .)
+    SHAPE           reduce using rule 5 (basic_data_type -> NUMBER .)
+    REVERSE_ORIENTATION reduce using rule 5 (basic_data_type -> NUMBER .)
+    R_SQUARE_BRACKET reduce using rule 5 (basic_data_type -> NUMBER .)
+    NUMBER          reduce using rule 5 (basic_data_type -> NUMBER .)
+
+
+state 94
+
+    (10) data_list -> L_SQUARE_BRACKET . data_list_items R_SQUARE_BRACKET
+    (6) data_list_items -> . data_list_items basic_data_type
+    (7) data_list_items -> .
+
+    R_SQUARE_BRACKET reduce using rule 7 (data_list_items -> .)
+    STRING          reduce using rule 7 (data_list_items -> .)
+    NUMBER          reduce using rule 7 (data_list_items -> .)
+
+    data_list_items                shift and go to state 100
+
+state 95
+
+    (24) statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .
+
+    WORLD_BEGIN     reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    CAMERA          reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    SAMPLER         reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    FILM            reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    FILTER          reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    INTEGRATOR      reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    ACCELERATOR     reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    IDENTITY        reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    TRANSLATE       reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    SCALE           reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    ROTATE          reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    LOOKAT          reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    COORDINATE_SYSTEM reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    TRANSFORM       reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    CONCAT_TRANSFORM reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    WORLD_END       reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    ATTRIBUTE_BEGIN reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    ATTRIBUTE_END   reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    TRANSFORM_BEGIN reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    TRANSFORM_END   reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    MATERIAL        reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    NAMED_MATERIAL  reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    MAKE_NAMED_MATERIAL reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    TEXTURE         reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    LIGHT_SOURCE    reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    AREA_LIGHT_SOURCE reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    OBJECT_BEGIN    reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    OBJECT_END      reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    OBJECT_INSTANCE reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    SHAPE           reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+    REVERSE_ORIENTATION reduce using rule 24 (statement_transform -> ROTATE NUMBER NUMBER NUMBER NUMBER .)
+
+
+state 96
+
+    (25) statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 101
+
+
+state 97
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 102
+
+
+state 98
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 103
+
+
+state 99
+
+    (33) statement_scene -> TEXTURE STRING STRING STRING . arguments
+    (20) arguments -> . arguments argument
+    (21) arguments -> .
+
+    STRING          reduce using rule 21 (arguments -> .)
+    WORLD_END       reduce using rule 21 (arguments -> .)
+    ATTRIBUTE_BEGIN reduce using rule 21 (arguments -> .)
+    ATTRIBUTE_END   reduce using rule 21 (arguments -> .)
+    TRANSFORM_BEGIN reduce using rule 21 (arguments -> .)
+    TRANSFORM_END   reduce using rule 21 (arguments -> .)
+    MATERIAL        reduce using rule 21 (arguments -> .)
+    NAMED_MATERIAL  reduce using rule 21 (arguments -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 21 (arguments -> .)
+    TEXTURE         reduce using rule 21 (arguments -> .)
+    LIGHT_SOURCE    reduce using rule 21 (arguments -> .)
+    AREA_LIGHT_SOURCE reduce using rule 21 (arguments -> .)
+    OBJECT_BEGIN    reduce using rule 21 (arguments -> .)
+    OBJECT_END      reduce using rule 21 (arguments -> .)
+    OBJECT_INSTANCE reduce using rule 21 (arguments -> .)
+    SHAPE           reduce using rule 21 (arguments -> .)
+    REVERSE_ORIENTATION reduce using rule 21 (arguments -> .)
+    IDENTITY        reduce using rule 21 (arguments -> .)
+    TRANSLATE       reduce using rule 21 (arguments -> .)
+    SCALE           reduce using rule 21 (arguments -> .)
+    ROTATE          reduce using rule 21 (arguments -> .)
+    LOOKAT          reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> .)
+    TRANSFORM       reduce using rule 21 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> .)
+
+    arguments                      shift and go to state 104
+
+state 100
+
+    (10) data_list -> L_SQUARE_BRACKET data_list_items . R_SQUARE_BRACKET
+    (6) data_list_items -> data_list_items . basic_data_type
+    (4) basic_data_type -> . STRING
+    (5) basic_data_type -> . NUMBER
+
+    R_SQUARE_BRACKET shift and go to state 105
+    STRING          shift and go to state 90
+    NUMBER          shift and go to state 93
+
+    basic_data_type                shift and go to state 106
+
+state 101
+
+    (25) statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 107
+
+
+state 102
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 108
+
+
+state 103
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 109
+
+
+state 104
+
+    (33) statement_scene -> TEXTURE STRING STRING STRING arguments .
+    (20) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
+
+    WORLD_END       reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    ATTRIBUTE_BEGIN reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    ATTRIBUTE_END   reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    TRANSFORM_BEGIN reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    TRANSFORM_END   reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    MATERIAL        reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    NAMED_MATERIAL  reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    MAKE_NAMED_MATERIAL reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    TEXTURE         reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    LIGHT_SOURCE    reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    AREA_LIGHT_SOURCE reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    OBJECT_BEGIN    reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    OBJECT_END      reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    OBJECT_INSTANCE reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    SHAPE           reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    REVERSE_ORIENTATION reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    IDENTITY        reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    TRANSLATE       reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    SCALE           reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    ROTATE          reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    LOOKAT          reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    COORDINATE_SYSTEM reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    TRANSFORM       reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    CONCAT_TRANSFORM reduce using rule 33 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
+    STRING          shift and go to state 76
+
+    argument                       shift and go to state 77
+
+state 105
+
+    (10) data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .
+
+    STRING          reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    WORLD_BEGIN     reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    CAMERA          reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    SAMPLER         reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    FILM            reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    FILTER          reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    INTEGRATOR      reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    ACCELERATOR     reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    IDENTITY        reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    TRANSLATE       reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    SCALE           reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    ROTATE          reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    LOOKAT          reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    COORDINATE_SYSTEM reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    TRANSFORM       reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    CONCAT_TRANSFORM reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    WORLD_END       reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    ATTRIBUTE_BEGIN reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    ATTRIBUTE_END   reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    TRANSFORM_BEGIN reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    TRANSFORM_END   reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    MATERIAL        reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    NAMED_MATERIAL  reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    MAKE_NAMED_MATERIAL reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    TEXTURE         reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    LIGHT_SOURCE    reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    AREA_LIGHT_SOURCE reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    OBJECT_BEGIN    reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    OBJECT_END      reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    OBJECT_INSTANCE reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    SHAPE           reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+    REVERSE_ORIENTATION reduce using rule 10 (data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET .)
+
+
+state 106
+
+    (6) data_list_items -> data_list_items basic_data_type .
+
+    R_SQUARE_BRACKET reduce using rule 6 (data_list_items -> data_list_items basic_data_type .)
+    STRING          reduce using rule 6 (data_list_items -> data_list_items basic_data_type .)
+    NUMBER          reduce using rule 6 (data_list_items -> data_list_items basic_data_type .)
+
+
+state 107
+
+    (25) statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 110
+
+
+state 108
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 111
+
+
+state 109
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 112
+
+
+state 110
+
+    (25) statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER
+
+    NUMBER          shift and go to state 113
+
+
+state 111
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 114
+
+
+state 112
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 115
+
+
+state 113
+
+    (25) statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER
+
+    NUMBER          shift and go to state 116
+
+
+state 114
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 117
+
+
+state 115
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 118
+
+
+state 116
+
+    (25) statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .
+
+    WORLD_BEGIN     reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    CAMERA          reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    SAMPLER         reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    FILM            reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    FILTER          reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    INTEGRATOR      reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    ACCELERATOR     reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    IDENTITY        reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    TRANSLATE       reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    SCALE           reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    ROTATE          reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    LOOKAT          reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    COORDINATE_SYSTEM reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    TRANSFORM       reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    CONCAT_TRANSFORM reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    WORLD_END       reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    ATTRIBUTE_BEGIN reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    ATTRIBUTE_END   reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    TRANSFORM_BEGIN reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    TRANSFORM_END   reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    MATERIAL        reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    NAMED_MATERIAL  reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    MAKE_NAMED_MATERIAL reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    TEXTURE         reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    LIGHT_SOURCE    reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    AREA_LIGHT_SOURCE reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    OBJECT_BEGIN    reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    OBJECT_END      reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    OBJECT_INSTANCE reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    SHAPE           reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    REVERSE_ORIENTATION reduce using rule 25 (statement_transform -> LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+
+
+state 117
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 119
+
+
+state 118
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 120
+
+
+state 119
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 121
+
+
+state 120
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 122
+
+
+state 121
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 123
+
+
+state 122
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 124
+
+
+state 123
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 125
+
+
+state 124
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 126
+
+
+state 125
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 127
+
+
+state 126
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER
+
+    NUMBER          shift and go to state 128
+
+
+state 127
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 129
+
+
+state 128
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER
+
+    NUMBER          shift and go to state 130
+
+
+state 129
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 131
+
+
+state 130
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER
+
+    NUMBER          shift and go to state 132
+
+
+state 131
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . NUMBER R_SQUARE_BRACKET
+
+    NUMBER          shift and go to state 133
+
+
+state 132
+
+    (29) statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .
+
+    WORLD_BEGIN     reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    CAMERA          reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    SAMPLER         reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    FILM            reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    FILTER          reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    INTEGRATOR      reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    ACCELERATOR     reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    IDENTITY        reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    TRANSLATE       reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    SCALE           reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    ROTATE          reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    LOOKAT          reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    COORDINATE_SYSTEM reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    TRANSFORM       reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    CONCAT_TRANSFORM reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    WORLD_END       reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    ATTRIBUTE_BEGIN reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    ATTRIBUTE_END   reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    TRANSFORM_BEGIN reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    TRANSFORM_END   reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    MATERIAL        reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    NAMED_MATERIAL  reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    MAKE_NAMED_MATERIAL reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    TEXTURE         reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    LIGHT_SOURCE    reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    AREA_LIGHT_SOURCE reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    OBJECT_BEGIN    reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    OBJECT_END      reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    OBJECT_INSTANCE reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    SHAPE           reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+    REVERSE_ORIENTATION reduce using rule 29 (statement_transform -> CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER .)
+
+
+state 133
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER . R_SQUARE_BRACKET
+
+    R_SQUARE_BRACKET shift and go to state 134
+
+
+state 134
+
+    (28) statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .
+
+    WORLD_BEGIN     reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    CAMERA          reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    SAMPLER         reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    FILM            reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    FILTER          reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    INTEGRATOR      reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    ACCELERATOR     reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    IDENTITY        reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    TRANSLATE       reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    SCALE           reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    ROTATE          reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    LOOKAT          reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    COORDINATE_SYSTEM reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    TRANSFORM       reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    CONCAT_TRANSFORM reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    WORLD_END       reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    ATTRIBUTE_BEGIN reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    ATTRIBUTE_END   reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    TRANSFORM_BEGIN reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    TRANSFORM_END   reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    MATERIAL        reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    NAMED_MATERIAL  reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    MAKE_NAMED_MATERIAL reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    TEXTURE         reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    LIGHT_SOURCE    reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    AREA_LIGHT_SOURCE reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    OBJECT_BEGIN    reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    OBJECT_END      reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    OBJECT_INSTANCE reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    SHAPE           reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+    REVERSE_ORIENTATION reduce using rule 28 (statement_transform -> TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET .)
+

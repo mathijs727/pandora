@@ -26,3 +26,4 @@ CMakeSettings.json
 # Temporary python cache files
 *.pyc
 
+*.pyd
