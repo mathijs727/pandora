@@ -165,14 +165,9 @@ def p_statement_transform(p):
 
 
 def p_statement_transform_concat(p):
-    "statement_transform : CONCAT_TRANSFORM NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER"
+    "statement_transform : CONCAT_TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET"
     global cur_transform
-    matrix = np.array([
-        [p[2], p[3], p[4], p[5]],
-        [p[6], p[7], p[8], p[9]],
-        [p[10], p[11], p[12], p[13]],
-        [p[14], p[15], p[16], p[17]]
-    ])
+    matrix = np.array(p[3:19]).reshape((4, 4))
     cur_transform = matrix
 
 
@@ -300,7 +295,7 @@ def p_statement_film(p):
     "statement_config : FILM STRING arguments"
     film_type = p[2]
     arguments = p[3]
-    p[0] = {"film": merge_or_raise.merge({"type": film_type}, arguments)}
+    p[0] = {"films": [merge_or_raise.merge({"type": film_type}, arguments)]}
 
 
 def p_statement_filter(p):
