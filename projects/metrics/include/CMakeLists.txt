@@ -1,0 +1,10 @@
+target_sources(metrics
+PUBLIC
+    "${CMAKE_CURRENT_LIST_DIR}/metrics/counter.h"
+    "${CMAKE_CURRENT_LIST_DIR}/metrics/exporter.h"
+    "${CMAKE_CURRENT_LIST_DIR}/metrics/gauge.h"
+    "${CMAKE_CURRENT_LIST_DIR}/metrics/histogram.h"
+    "${CMAKE_CURRENT_LIST_DIR}/metrics/metric.h"
+    "${CMAKE_CURRENT_LIST_DIR}/metrics/offline_exporter.h"
+    "${CMAKE_CURRENT_LIST_DIR}/metrics/stats.h"
+    "${CMAKE_CURRENT_LIST_DIR}/metrics/stopwatch.h")

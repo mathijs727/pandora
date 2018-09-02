@@ -29,7 +29,7 @@ public:
 
     operator nlohmann::json() const override final;
 private:
-    friend ScopedStopwatch;
+    friend class ScopedStopwatch<Unit>;
     size_t m_value = 0;
 };
 

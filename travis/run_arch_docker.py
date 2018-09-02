@@ -43,19 +43,15 @@ if __name__ == "__main__":
             mikkeloscar/arch-travis".format(project_dir, config_repos, config_packages, config_build_scripts, env_vars_args)
         result = os.popen(docker_cmd).read()
 
-        """project_dir = os.environ["TRAVIS_BUILD_DIR"]
-        result = subprocess.check_output([
-            "sudo", "docker", "run", "--rm", "-v", "%s:/build" % project_dir,
-            "-e CONFIG_REPOS=\"%s\"" % config_repos,
-            "-e", "CONFIG_PACKAGES=\"%s\"" % config_packages,
-            "-e", "CONFIG_BUILD_SCRIPTS=\"%s\"" % config_build_scripts] + env_vars_args + ["mikkeloscar/arch-travis"])"""
         result = str(result)# Bytes to string
         result = result.replace("\\n", "\n").replace("\\t", "\t")
 
         print(result + "\n\n")
 
-        match = re.search("([0-9]+)% tests passed", result)
-        if match and match.group(1) == "100":
+        # nlohmann-json build from AUR also runs CMake tests, make sure to check only Pandoras tests
+        matches = re.findall("([0-9]+)% tests passed", result)
+        if len(matches) == 2 and matches[1] == "100":
+            print("Success!")
             exit(0)
 
         print("Failed!")

@@ -20,11 +20,13 @@ endif()
 target_link_libraries(libPandora PUBLIC
 	simd
 	metrics
+	GSL
     assimp_target # Loading 3D models
     OpenImageIO # Loading textures
 	glm # Vector math
     embree # BVH builder and reference BVH traversal
-	tbb # Multithreading
+	TBB::tbb # Multithreading
+	Threads::Threads
 	EASTL # Stack based STL containers <3 
 	mio) # Memory-mapped file IO for serialization
 
@@ -32,9 +34,15 @@ target_link_libraries(libPandora PRIVATE
 	Boost::boost # Header-only Boost libraries
 	libmorton) # Morton code for voxelization & SVO
 
+if (UNIX)
+	# Using atomic<vec3> in sensor.cpp requires atomic library on Unix
+	target_link_libraries(libPandora PRIVATE atomic)
+endif()
+
 target_include_directories(libPandora PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/")
 target_include_directories(libPandora PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src/")
 include(${CMAKE_CURRENT_LIST_DIR}/src/CMakeLists.txt)
+include(${CMAKE_CURRENT_LIST_DIR}/include/CMakeLists.txt)
 
 if (PANDORA_BUILD_TESTS)
     include(${CMAKE_CURRENT_LIST_DIR}/tests/CMakeLists.txt)

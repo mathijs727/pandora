@@ -11,7 +11,6 @@ if (PANDORA_ISPC_SUPPORT)
 	include("${CMAKE_CURRENT_LIST_DIR}/cmake/ispc.cmake")
 endif()
 
-#find_package(GSL REQUIRED)# Guideline Support Library (like the Microsoft implementation)
 find_package(glm REQUIRED)
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/eastl" EXCLUDE_FROM_ALL)
 
@@ -30,10 +29,13 @@ add_library(embree INTERFACE)
 target_include_directories(embree INTERFACE "${EMBREE_INCLUDE_DIRS}")
 target_link_libraries(embree INTERFACE "${EMBREE_LIBRARY}")
 
-find_package(TBB REQUIRED COMPONENTS tbbmalloc)
-add_library(tbb INTERFACE)
-target_include_directories(tbb INTERFACE "${TBB_INCLUDE_DIRS}")
-target_link_libraries(tbb INTERFACE "${TBB_LIBRARIES}")
+find_package(Threads REQUIRED)
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/TBBGet.cmake")
+tbb_get(TBB_ROOT tbb_root CONFIG TBB_DIR)
+set(CMAKE_PREFIX_PATH "${TBB_ROOT};${tbb_root}")
+find_package(TBB COMPONENTS tbb REQUIRED)
+
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/ms-gsl/")
 
 # https://github.com/mandreyel/mio
 add_library(mio INTERFACE)
