@@ -7,6 +7,7 @@ current_file = ""
 
 Point = namedtuple("Point", ["x", "y", "z"])
 Normal = namedtuple("Normal", ["x", "y", "z"])
+Vector = namedtuple("Vector", ["x", "y", "z"])
 
 RGB = namedtuple("RGB", ["r", "g", "b"])
 XYZ = namedtuple("XYZ", ["X", "Y", "Z"])
@@ -84,6 +85,16 @@ def p_argument(p):
                 result = []
                 for i in range(0, length, 3):
                     result.append(Normal(data[i], data[i+1], data[i+2]))
+                p[0] = {arg_name: result}
+        elif arg_type == "vector":
+            length = len(data)
+            if length == 3:
+                p[0] = {arg_name: Vector(data[0], data[1], data[2])}
+            else:
+                assert(length % 3 == 0)
+                result = []
+                for i in range(0, length, 3):
+                    result.append(Vector(data[i], data[i+1], data[i+2]))
                 p[0] = {arg_name: result}
         elif arg_type == "blackbody":
             assert(len(data) == 2)
