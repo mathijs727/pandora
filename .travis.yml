@@ -28,6 +28,7 @@ arch:
   - openimageio
   - flatbuffers
   - boost
+  - python
   # Required by openimageio but for some reason not marked as dependency
   - freetype2
 

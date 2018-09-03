@@ -27,3 +27,4 @@ CMakeSettings.json
 *.pyc
 
 *.pyd
+*.so
