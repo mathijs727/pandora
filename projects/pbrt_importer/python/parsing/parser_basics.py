@@ -21,8 +21,7 @@ BlackBody = namedtuple("BlackBody", ["temperature_kelvin", "scale_factor"])
 
 
 def p_error(p):
-    print("Syntax error: unexpected token \"{}\" in file \"{}\" at line {}".format(
-        p.value, current_file, p.lineno))
+    print("Syntax error: unexpected token \"{p.value}\" in file \"{current_file}\" at line {p.lineno}")
 
 
 def p_basic_data_type(p):

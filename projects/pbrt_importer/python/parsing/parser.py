@@ -240,10 +240,7 @@ def p_statement_named_material(p):
     if material_name in named_materials:
         graphics_state["material"] = named_materials[material_name]
     else:
-        # Use old (pre Python 3.6) format syntax so we can run the program with PyPy
-        #print(f"WARNING: named material {material_name} was not declared! Ignoring...")
-        print("WARNING: named material {}  was not declared! Ignoring...".format(
-            material_name))
+        print(f"WARNING: named material {material_name} was not declared! Ignoring...")
 
 
 def p_statement_make_named_material(p):
@@ -317,8 +314,7 @@ def p_statement_shape(p):
         arguments["filename"] = os.path.join(base_path, arguments["filename"])
     else:
         global out_mesh_path, new_mesh_id
-        new_mesh_path = os.path.join(
-            out_mesh_path, "pbrt_mesh_{}.bin".format(new_mesh_id))
+        new_mesh_path = os.path.join(out_mesh_path, f"pbrt_mesh_{new_mesh_id}.bin")
         new_mesh_id += 1
 
         with open(new_mesh_path, "wb") as f:
@@ -408,8 +404,7 @@ def parse_file(file_path):
         string = f.read()
 
     global base_path, out_mesh_path
-    # Path to the Python file that executed this script
-    out_mesh_path = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "pbrt_meshes")
+    out_mesh_path = os.path.join(os.path.abspath(os.getcwd()), "pbrt_meshes")
     if not os.path.exists(out_mesh_path):
         os.makedirs(out_mesh_path)
 
