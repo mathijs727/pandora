@@ -28,11 +28,14 @@ def p_basic_data_type(p):
     """basic_data_type : STRING
                        | NUMBER"""
     p[0] = p[1]
-
+    lineno = p.lineno(n=1)
+    if lineno % 1000 == 0:
+        print(f"Parsed data at line {lineno}")
 
 def p_data_list_items(p):
     """data_list_items : data_list_items basic_data_type
                       | """
+
     if len(p) == 3:
         p[0] = p[1] + [p[2]]
     else:

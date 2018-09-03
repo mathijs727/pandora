@@ -26,7 +26,7 @@ def p_statement_main(p):
         "light_sources": light_sources,
         "instance_templates": instance_templates,
         "instances": instances,
-        "non_instances_shapes": non_instanced_shapes
+        "non_instanced_shapes": non_instanced_shapes
     }
 
     p[0] = {"config": p[1], "scene": scene_data}
@@ -48,7 +48,6 @@ def p_statements_config(p):
 def p_statements_scene(p):
     """statements_scene : statements_scene statement_scene
                          | """
-    p[0] = None
 
 # Putting this at the top of the file confuses PLY for some weird reason
 base_path = ""
@@ -59,6 +58,7 @@ def p_statement_include(p):
     "statement_include : INCLUDE STRING"
     global parsing_state, base_path
 
+
     # Store state
     current_file_bak = parsing.lexer.current_file
 
@@ -67,6 +67,7 @@ def p_statement_include(p):
     parsing.lexer.current_file = include_file
     parsing.parser_basics.current_file = include_file
 
+    print(f"Processing include file {include_file}")
     with open(include_file, "r") as f:
         lexer = lex.lex()
         if parsing_state == ParsingState.CONFIG:

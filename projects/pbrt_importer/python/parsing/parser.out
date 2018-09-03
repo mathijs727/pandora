@@ -10,25 +10,25 @@ Rule 0     S' -> statements_scene
 Rule 1     statement_main -> statements_config world_begin statements_scene WORLD_END
 Rule 2     basic_data_type -> STRING
 Rule 3     basic_data_type -> NUMBER
-Rule 4     data_list_items -> data_list_items basic_data_type
-Rule 5     data_list_items -> <empty>
-Rule 6     statements_config -> statements_config statement_config
-Rule 7     statements_config -> <empty>
+Rule 4     statements_config -> statements_config statement_config
+Rule 5     statements_config -> <empty>
+Rule 6     data_list_items -> data_list_items basic_data_type
+Rule 7     data_list_items -> <empty>
 Rule 8     data_list -> L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET
-Rule 9     argument -> STRING basic_data_type
-Rule 10    argument -> STRING data_list
-Rule 11    statements_scene -> statements_scene statement_scene
-Rule 12    statements_scene -> <empty>
+Rule 9     statements_scene -> statements_scene statement_scene
+Rule 10    statements_scene -> <empty>
+Rule 11    argument -> STRING basic_data_type
+Rule 12    argument -> STRING data_list
 Rule 13    statement_include -> INCLUDE STRING
 Rule 14    statement_scene -> statement_include
 Rule 15    statement_config -> statement_include
-Rule 16    arguments -> arguments argument
-Rule 17    arguments -> <empty>
-Rule 18    world_begin -> WORLD_BEGIN
-Rule 19    statement_scene -> ATTRIBUTE_BEGIN
-Rule 20    statement_scene -> ATTRIBUTE_END
-Rule 21    statement_scene -> TRANSFORM_BEGIN
-Rule 22    statement_scene -> TRANSFORM_END
+Rule 16    world_begin -> WORLD_BEGIN
+Rule 17    statement_scene -> ATTRIBUTE_BEGIN
+Rule 18    statement_scene -> ATTRIBUTE_END
+Rule 19    statement_scene -> TRANSFORM_BEGIN
+Rule 20    statement_scene -> TRANSFORM_END
+Rule 21    arguments -> arguments argument
+Rule 22    arguments -> <empty>
 Rule 23    statement_scene -> statement_transform
 Rule 24    statement_transform -> IDENTITY
 Rule 25    statement_transform -> TRANSLATE NUMBER NUMBER NUMBER
@@ -62,8 +62,8 @@ Terminals, with rules where they appear
 
 ACCELERATOR          : 50
 AREA_LIGHT_SOURCE    : 38
-ATTRIBUTE_BEGIN      : 19
-ATTRIBUTE_END        : 20
+ATTRIBUTE_BEGIN      : 17
+ATTRIBUTE_END        : 18
 CAMERA               : 45
 COMMENT              : 
 CONCAT_TRANSFORM     : 32
@@ -90,30 +90,30 @@ R_SQUARE_BRACKET     : 8 31 32
 SAMPLER              : 46
 SCALE                : 26
 SHAPE                : 42
-STRING               : 2 9 10 13 29 30 33 34 35 36 36 36 37 38 39 41 42 45 46 47 48 49 50
+STRING               : 2 11 12 13 29 30 33 34 35 36 36 36 37 38 39 41 42 45 46 47 48 49 50
 TEXTURE              : 36
 TRANSFORM            : 31
-TRANSFORM_BEGIN      : 21
-TRANSFORM_END        : 22
+TRANSFORM_BEGIN      : 19
+TRANSFORM_END        : 20
 TRANSLATE            : 25
-WORLD_BEGIN          : 18
+WORLD_BEGIN          : 16
 WORLD_END            : 1
 error                : 
 
 Nonterminals, with rules where they appear
 
-argument             : 16
-arguments            : 16 33 35 36 37 38 42 45 46 47 48 49 50
-basic_data_type      : 4 9
-data_list            : 10
-data_list_items      : 4 8
-statement_config     : 6
+argument             : 21
+arguments            : 21 33 35 36 37 38 42 45 46 47 48 49 50
+basic_data_type      : 6 11
+data_list            : 12
+data_list_items      : 6 8
+statement_config     : 4
 statement_include    : 14 15
 statement_main       : 
-statement_scene      : 11
+statement_scene      : 9
 statement_transform  : 23 44
-statements_config    : 1 6
-statements_scene     : 1 11 0
+statements_config    : 1 4
+statements_scene     : 1 9 0
 world_begin          : 1
 
 Parsing method: LALR
@@ -121,47 +121,47 @@ Parsing method: LALR
 state 0
 
     (0) S' -> . statements_scene
-    (11) statements_scene -> . statements_scene statement_scene
-    (12) statements_scene -> .
+    (9) statements_scene -> . statements_scene statement_scene
+    (10) statements_scene -> .
 
-    ATTRIBUTE_BEGIN reduce using rule 12 (statements_scene -> .)
-    ATTRIBUTE_END   reduce using rule 12 (statements_scene -> .)
-    TRANSFORM_BEGIN reduce using rule 12 (statements_scene -> .)
-    TRANSFORM_END   reduce using rule 12 (statements_scene -> .)
-    MATERIAL        reduce using rule 12 (statements_scene -> .)
-    NAMED_MATERIAL  reduce using rule 12 (statements_scene -> .)
-    MAKE_NAMED_MATERIAL reduce using rule 12 (statements_scene -> .)
-    TEXTURE         reduce using rule 12 (statements_scene -> .)
-    LIGHT_SOURCE    reduce using rule 12 (statements_scene -> .)
-    AREA_LIGHT_SOURCE reduce using rule 12 (statements_scene -> .)
-    OBJECT_BEGIN    reduce using rule 12 (statements_scene -> .)
-    OBJECT_END      reduce using rule 12 (statements_scene -> .)
-    OBJECT_INSTANCE reduce using rule 12 (statements_scene -> .)
-    SHAPE           reduce using rule 12 (statements_scene -> .)
-    REVERSE_ORIENTATION reduce using rule 12 (statements_scene -> .)
-    INCLUDE         reduce using rule 12 (statements_scene -> .)
-    IDENTITY        reduce using rule 12 (statements_scene -> .)
-    TRANSLATE       reduce using rule 12 (statements_scene -> .)
-    SCALE           reduce using rule 12 (statements_scene -> .)
-    ROTATE          reduce using rule 12 (statements_scene -> .)
-    LOOKAT          reduce using rule 12 (statements_scene -> .)
-    COORDINATE_SYSTEM reduce using rule 12 (statements_scene -> .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 12 (statements_scene -> .)
-    TRANSFORM       reduce using rule 12 (statements_scene -> .)
-    CONCAT_TRANSFORM reduce using rule 12 (statements_scene -> .)
-    $end            reduce using rule 12 (statements_scene -> .)
+    ATTRIBUTE_BEGIN reduce using rule 10 (statements_scene -> .)
+    ATTRIBUTE_END   reduce using rule 10 (statements_scene -> .)
+    TRANSFORM_BEGIN reduce using rule 10 (statements_scene -> .)
+    TRANSFORM_END   reduce using rule 10 (statements_scene -> .)
+    MATERIAL        reduce using rule 10 (statements_scene -> .)
+    NAMED_MATERIAL  reduce using rule 10 (statements_scene -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 10 (statements_scene -> .)
+    TEXTURE         reduce using rule 10 (statements_scene -> .)
+    LIGHT_SOURCE    reduce using rule 10 (statements_scene -> .)
+    AREA_LIGHT_SOURCE reduce using rule 10 (statements_scene -> .)
+    OBJECT_BEGIN    reduce using rule 10 (statements_scene -> .)
+    OBJECT_END      reduce using rule 10 (statements_scene -> .)
+    OBJECT_INSTANCE reduce using rule 10 (statements_scene -> .)
+    SHAPE           reduce using rule 10 (statements_scene -> .)
+    REVERSE_ORIENTATION reduce using rule 10 (statements_scene -> .)
+    INCLUDE         reduce using rule 10 (statements_scene -> .)
+    IDENTITY        reduce using rule 10 (statements_scene -> .)
+    TRANSLATE       reduce using rule 10 (statements_scene -> .)
+    SCALE           reduce using rule 10 (statements_scene -> .)
+    ROTATE          reduce using rule 10 (statements_scene -> .)
+    LOOKAT          reduce using rule 10 (statements_scene -> .)
+    COORDINATE_SYSTEM reduce using rule 10 (statements_scene -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 10 (statements_scene -> .)
+    TRANSFORM       reduce using rule 10 (statements_scene -> .)
+    CONCAT_TRANSFORM reduce using rule 10 (statements_scene -> .)
+    $end            reduce using rule 10 (statements_scene -> .)
 
     statements_scene               shift and go to state 1
 
 state 1
 
     (0) S' -> statements_scene .
-    (11) statements_scene -> statements_scene . statement_scene
+    (9) statements_scene -> statements_scene . statement_scene
     (14) statement_scene -> . statement_include
-    (19) statement_scene -> . ATTRIBUTE_BEGIN
-    (20) statement_scene -> . ATTRIBUTE_END
-    (21) statement_scene -> . TRANSFORM_BEGIN
-    (22) statement_scene -> . TRANSFORM_END
+    (17) statement_scene -> . ATTRIBUTE_BEGIN
+    (18) statement_scene -> . ATTRIBUTE_END
+    (19) statement_scene -> . TRANSFORM_BEGIN
+    (20) statement_scene -> . TRANSFORM_END
     (23) statement_scene -> . statement_transform
     (33) statement_scene -> . MATERIAL STRING arguments
     (34) statement_scene -> . NAMED_MATERIAL STRING
@@ -217,34 +217,34 @@ state 1
 
 state 2
 
-    (11) statements_scene -> statements_scene statement_scene .
+    (9) statements_scene -> statements_scene statement_scene .
 
-    ATTRIBUTE_BEGIN reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    ATTRIBUTE_END   reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    TRANSFORM_BEGIN reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    TRANSFORM_END   reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    MATERIAL        reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    NAMED_MATERIAL  reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    MAKE_NAMED_MATERIAL reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    TEXTURE         reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    LIGHT_SOURCE    reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    AREA_LIGHT_SOURCE reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    OBJECT_BEGIN    reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    OBJECT_END      reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    OBJECT_INSTANCE reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    SHAPE           reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    REVERSE_ORIENTATION reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    INCLUDE         reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    IDENTITY        reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    TRANSLATE       reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    SCALE           reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    ROTATE          reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    LOOKAT          reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    COORDINATE_SYSTEM reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    TRANSFORM       reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    CONCAT_TRANSFORM reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
-    $end            reduce using rule 11 (statements_scene -> statements_scene statement_scene .)
+    ATTRIBUTE_BEGIN reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    ATTRIBUTE_END   reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    TRANSFORM_BEGIN reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    TRANSFORM_END   reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    MATERIAL        reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    NAMED_MATERIAL  reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    MAKE_NAMED_MATERIAL reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    TEXTURE         reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    LIGHT_SOURCE    reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    AREA_LIGHT_SOURCE reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    OBJECT_BEGIN    reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    OBJECT_END      reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    OBJECT_INSTANCE reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    SHAPE           reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    REVERSE_ORIENTATION reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    INCLUDE         reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    IDENTITY        reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    TRANSLATE       reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    SCALE           reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    ROTATE          reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    LOOKAT          reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    COORDINATE_SYSTEM reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    TRANSFORM       reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    CONCAT_TRANSFORM reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
+    $end            reduce using rule 9 (statements_scene -> statements_scene statement_scene .)
 
 
 state 3
@@ -281,130 +281,130 @@ state 3
 
 state 4
 
-    (19) statement_scene -> ATTRIBUTE_BEGIN .
+    (17) statement_scene -> ATTRIBUTE_BEGIN .
 
-    ATTRIBUTE_BEGIN reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    ATTRIBUTE_END   reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    TRANSFORM_BEGIN reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    TRANSFORM_END   reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    MATERIAL        reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    NAMED_MATERIAL  reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    MAKE_NAMED_MATERIAL reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    TEXTURE         reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    LIGHT_SOURCE    reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    AREA_LIGHT_SOURCE reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    OBJECT_BEGIN    reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    OBJECT_END      reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    OBJECT_INSTANCE reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    SHAPE           reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    REVERSE_ORIENTATION reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    INCLUDE         reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    IDENTITY        reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    TRANSLATE       reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    SCALE           reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    ROTATE          reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    LOOKAT          reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    COORDINATE_SYSTEM reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    TRANSFORM       reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    CONCAT_TRANSFORM reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
-    $end            reduce using rule 19 (statement_scene -> ATTRIBUTE_BEGIN .)
+    ATTRIBUTE_BEGIN reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    ATTRIBUTE_END   reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    TRANSFORM_BEGIN reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    TRANSFORM_END   reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    MATERIAL        reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    NAMED_MATERIAL  reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    MAKE_NAMED_MATERIAL reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    TEXTURE         reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    LIGHT_SOURCE    reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    AREA_LIGHT_SOURCE reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    OBJECT_BEGIN    reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    OBJECT_END      reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    OBJECT_INSTANCE reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    SHAPE           reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    REVERSE_ORIENTATION reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    INCLUDE         reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    IDENTITY        reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    TRANSLATE       reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    SCALE           reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    ROTATE          reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    LOOKAT          reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    COORDINATE_SYSTEM reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    TRANSFORM       reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    CONCAT_TRANSFORM reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
+    $end            reduce using rule 17 (statement_scene -> ATTRIBUTE_BEGIN .)
 
 
 state 5
 
-    (20) statement_scene -> ATTRIBUTE_END .
+    (18) statement_scene -> ATTRIBUTE_END .
 
-    ATTRIBUTE_BEGIN reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    ATTRIBUTE_END   reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    TRANSFORM_BEGIN reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    TRANSFORM_END   reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    MATERIAL        reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    NAMED_MATERIAL  reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    MAKE_NAMED_MATERIAL reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    TEXTURE         reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    LIGHT_SOURCE    reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    AREA_LIGHT_SOURCE reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    OBJECT_BEGIN    reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    OBJECT_END      reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    OBJECT_INSTANCE reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    SHAPE           reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    REVERSE_ORIENTATION reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    INCLUDE         reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    IDENTITY        reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    TRANSLATE       reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    SCALE           reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    ROTATE          reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    LOOKAT          reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    COORDINATE_SYSTEM reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    TRANSFORM       reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    CONCAT_TRANSFORM reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
-    $end            reduce using rule 20 (statement_scene -> ATTRIBUTE_END .)
+    ATTRIBUTE_BEGIN reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    ATTRIBUTE_END   reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    TRANSFORM_BEGIN reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    TRANSFORM_END   reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    MATERIAL        reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    NAMED_MATERIAL  reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    MAKE_NAMED_MATERIAL reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    TEXTURE         reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    LIGHT_SOURCE    reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    AREA_LIGHT_SOURCE reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    OBJECT_BEGIN    reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    OBJECT_END      reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    OBJECT_INSTANCE reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    SHAPE           reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    REVERSE_ORIENTATION reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    INCLUDE         reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    IDENTITY        reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    TRANSLATE       reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    SCALE           reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    ROTATE          reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    LOOKAT          reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    COORDINATE_SYSTEM reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    TRANSFORM       reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    CONCAT_TRANSFORM reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
+    $end            reduce using rule 18 (statement_scene -> ATTRIBUTE_END .)
 
 
 state 6
 
-    (21) statement_scene -> TRANSFORM_BEGIN .
+    (19) statement_scene -> TRANSFORM_BEGIN .
 
-    ATTRIBUTE_BEGIN reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    ATTRIBUTE_END   reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    TRANSFORM_BEGIN reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    TRANSFORM_END   reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    MATERIAL        reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    NAMED_MATERIAL  reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    MAKE_NAMED_MATERIAL reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    TEXTURE         reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    LIGHT_SOURCE    reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    AREA_LIGHT_SOURCE reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    OBJECT_BEGIN    reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    OBJECT_END      reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    OBJECT_INSTANCE reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    SHAPE           reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    REVERSE_ORIENTATION reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    INCLUDE         reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    IDENTITY        reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    TRANSLATE       reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    SCALE           reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    ROTATE          reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    LOOKAT          reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    COORDINATE_SYSTEM reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    TRANSFORM       reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    CONCAT_TRANSFORM reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
-    $end            reduce using rule 21 (statement_scene -> TRANSFORM_BEGIN .)
+    ATTRIBUTE_BEGIN reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    ATTRIBUTE_END   reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    TRANSFORM_BEGIN reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    TRANSFORM_END   reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    MATERIAL        reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    NAMED_MATERIAL  reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    MAKE_NAMED_MATERIAL reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    TEXTURE         reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    LIGHT_SOURCE    reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    AREA_LIGHT_SOURCE reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    OBJECT_BEGIN    reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    OBJECT_END      reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    OBJECT_INSTANCE reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    SHAPE           reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    REVERSE_ORIENTATION reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    INCLUDE         reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    IDENTITY        reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    TRANSLATE       reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    SCALE           reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    ROTATE          reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    LOOKAT          reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    COORDINATE_SYSTEM reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    TRANSFORM       reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    CONCAT_TRANSFORM reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
+    $end            reduce using rule 19 (statement_scene -> TRANSFORM_BEGIN .)
 
 
 state 7
 
-    (22) statement_scene -> TRANSFORM_END .
+    (20) statement_scene -> TRANSFORM_END .
 
-    ATTRIBUTE_BEGIN reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    ATTRIBUTE_END   reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    TRANSFORM_BEGIN reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    TRANSFORM_END   reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    MATERIAL        reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    NAMED_MATERIAL  reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    MAKE_NAMED_MATERIAL reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    TEXTURE         reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    LIGHT_SOURCE    reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    AREA_LIGHT_SOURCE reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    OBJECT_BEGIN    reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    OBJECT_END      reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    OBJECT_INSTANCE reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    SHAPE           reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    REVERSE_ORIENTATION reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    INCLUDE         reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    IDENTITY        reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    TRANSLATE       reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    SCALE           reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    ROTATE          reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    LOOKAT          reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    COORDINATE_SYSTEM reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    TRANSFORM       reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    CONCAT_TRANSFORM reduce using rule 22 (statement_scene -> TRANSFORM_END .)
-    $end            reduce using rule 22 (statement_scene -> TRANSFORM_END .)
+    ATTRIBUTE_BEGIN reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    ATTRIBUTE_END   reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    TRANSFORM_BEGIN reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    TRANSFORM_END   reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    MATERIAL        reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    NAMED_MATERIAL  reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    MAKE_NAMED_MATERIAL reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    TEXTURE         reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    LIGHT_SOURCE    reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    AREA_LIGHT_SOURCE reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    OBJECT_BEGIN    reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    OBJECT_END      reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    OBJECT_INSTANCE reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    SHAPE           reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    REVERSE_ORIENTATION reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    INCLUDE         reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    IDENTITY        reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    TRANSLATE       reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    SCALE           reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    ROTATE          reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    LOOKAT          reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    COORDINATE_SYSTEM reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    TRANSFORM       reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    CONCAT_TRANSFORM reduce using rule 20 (statement_scene -> TRANSFORM_END .)
+    $end            reduce using rule 20 (statement_scene -> TRANSFORM_END .)
 
 
 state 8
@@ -664,36 +664,36 @@ state 29
 state 30
 
     (33) statement_scene -> MATERIAL STRING . arguments
-    (16) arguments -> . arguments argument
-    (17) arguments -> .
+    (21) arguments -> . arguments argument
+    (22) arguments -> .
 
-    STRING          reduce using rule 17 (arguments -> .)
-    ATTRIBUTE_BEGIN reduce using rule 17 (arguments -> .)
-    ATTRIBUTE_END   reduce using rule 17 (arguments -> .)
-    TRANSFORM_BEGIN reduce using rule 17 (arguments -> .)
-    TRANSFORM_END   reduce using rule 17 (arguments -> .)
-    MATERIAL        reduce using rule 17 (arguments -> .)
-    NAMED_MATERIAL  reduce using rule 17 (arguments -> .)
-    MAKE_NAMED_MATERIAL reduce using rule 17 (arguments -> .)
-    TEXTURE         reduce using rule 17 (arguments -> .)
-    LIGHT_SOURCE    reduce using rule 17 (arguments -> .)
-    AREA_LIGHT_SOURCE reduce using rule 17 (arguments -> .)
-    OBJECT_BEGIN    reduce using rule 17 (arguments -> .)
-    OBJECT_END      reduce using rule 17 (arguments -> .)
-    OBJECT_INSTANCE reduce using rule 17 (arguments -> .)
-    SHAPE           reduce using rule 17 (arguments -> .)
-    REVERSE_ORIENTATION reduce using rule 17 (arguments -> .)
-    INCLUDE         reduce using rule 17 (arguments -> .)
-    IDENTITY        reduce using rule 17 (arguments -> .)
-    TRANSLATE       reduce using rule 17 (arguments -> .)
-    SCALE           reduce using rule 17 (arguments -> .)
-    ROTATE          reduce using rule 17 (arguments -> .)
-    LOOKAT          reduce using rule 17 (arguments -> .)
-    COORDINATE_SYSTEM reduce using rule 17 (arguments -> .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 17 (arguments -> .)
-    TRANSFORM       reduce using rule 17 (arguments -> .)
-    CONCAT_TRANSFORM reduce using rule 17 (arguments -> .)
-    $end            reduce using rule 17 (arguments -> .)
+    STRING          reduce using rule 22 (arguments -> .)
+    ATTRIBUTE_BEGIN reduce using rule 22 (arguments -> .)
+    ATTRIBUTE_END   reduce using rule 22 (arguments -> .)
+    TRANSFORM_BEGIN reduce using rule 22 (arguments -> .)
+    TRANSFORM_END   reduce using rule 22 (arguments -> .)
+    MATERIAL        reduce using rule 22 (arguments -> .)
+    NAMED_MATERIAL  reduce using rule 22 (arguments -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 22 (arguments -> .)
+    TEXTURE         reduce using rule 22 (arguments -> .)
+    LIGHT_SOURCE    reduce using rule 22 (arguments -> .)
+    AREA_LIGHT_SOURCE reduce using rule 22 (arguments -> .)
+    OBJECT_BEGIN    reduce using rule 22 (arguments -> .)
+    OBJECT_END      reduce using rule 22 (arguments -> .)
+    OBJECT_INSTANCE reduce using rule 22 (arguments -> .)
+    SHAPE           reduce using rule 22 (arguments -> .)
+    REVERSE_ORIENTATION reduce using rule 22 (arguments -> .)
+    INCLUDE         reduce using rule 22 (arguments -> .)
+    IDENTITY        reduce using rule 22 (arguments -> .)
+    TRANSLATE       reduce using rule 22 (arguments -> .)
+    SCALE           reduce using rule 22 (arguments -> .)
+    ROTATE          reduce using rule 22 (arguments -> .)
+    LOOKAT          reduce using rule 22 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 22 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 22 (arguments -> .)
+    TRANSFORM       reduce using rule 22 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 22 (arguments -> .)
+    $end            reduce using rule 22 (arguments -> .)
 
     arguments                      shift and go to state 48
 
@@ -732,36 +732,36 @@ state 31
 state 32
 
     (35) statement_scene -> MAKE_NAMED_MATERIAL STRING . arguments
-    (16) arguments -> . arguments argument
-    (17) arguments -> .
+    (21) arguments -> . arguments argument
+    (22) arguments -> .
 
-    STRING          reduce using rule 17 (arguments -> .)
-    ATTRIBUTE_BEGIN reduce using rule 17 (arguments -> .)
-    ATTRIBUTE_END   reduce using rule 17 (arguments -> .)
-    TRANSFORM_BEGIN reduce using rule 17 (arguments -> .)
-    TRANSFORM_END   reduce using rule 17 (arguments -> .)
-    MATERIAL        reduce using rule 17 (arguments -> .)
-    NAMED_MATERIAL  reduce using rule 17 (arguments -> .)
-    MAKE_NAMED_MATERIAL reduce using rule 17 (arguments -> .)
-    TEXTURE         reduce using rule 17 (arguments -> .)
-    LIGHT_SOURCE    reduce using rule 17 (arguments -> .)
-    AREA_LIGHT_SOURCE reduce using rule 17 (arguments -> .)
-    OBJECT_BEGIN    reduce using rule 17 (arguments -> .)
-    OBJECT_END      reduce using rule 17 (arguments -> .)
-    OBJECT_INSTANCE reduce using rule 17 (arguments -> .)
-    SHAPE           reduce using rule 17 (arguments -> .)
-    REVERSE_ORIENTATION reduce using rule 17 (arguments -> .)
-    INCLUDE         reduce using rule 17 (arguments -> .)
-    IDENTITY        reduce using rule 17 (arguments -> .)
-    TRANSLATE       reduce using rule 17 (arguments -> .)
-    SCALE           reduce using rule 17 (arguments -> .)
-    ROTATE          reduce using rule 17 (arguments -> .)
-    LOOKAT          reduce using rule 17 (arguments -> .)
-    COORDINATE_SYSTEM reduce using rule 17 (arguments -> .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 17 (arguments -> .)
-    TRANSFORM       reduce using rule 17 (arguments -> .)
-    CONCAT_TRANSFORM reduce using rule 17 (arguments -> .)
-    $end            reduce using rule 17 (arguments -> .)
+    STRING          reduce using rule 22 (arguments -> .)
+    ATTRIBUTE_BEGIN reduce using rule 22 (arguments -> .)
+    ATTRIBUTE_END   reduce using rule 22 (arguments -> .)
+    TRANSFORM_BEGIN reduce using rule 22 (arguments -> .)
+    TRANSFORM_END   reduce using rule 22 (arguments -> .)
+    MATERIAL        reduce using rule 22 (arguments -> .)
+    NAMED_MATERIAL  reduce using rule 22 (arguments -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 22 (arguments -> .)
+    TEXTURE         reduce using rule 22 (arguments -> .)
+    LIGHT_SOURCE    reduce using rule 22 (arguments -> .)
+    AREA_LIGHT_SOURCE reduce using rule 22 (arguments -> .)
+    OBJECT_BEGIN    reduce using rule 22 (arguments -> .)
+    OBJECT_END      reduce using rule 22 (arguments -> .)
+    OBJECT_INSTANCE reduce using rule 22 (arguments -> .)
+    SHAPE           reduce using rule 22 (arguments -> .)
+    REVERSE_ORIENTATION reduce using rule 22 (arguments -> .)
+    INCLUDE         reduce using rule 22 (arguments -> .)
+    IDENTITY        reduce using rule 22 (arguments -> .)
+    TRANSLATE       reduce using rule 22 (arguments -> .)
+    SCALE           reduce using rule 22 (arguments -> .)
+    ROTATE          reduce using rule 22 (arguments -> .)
+    LOOKAT          reduce using rule 22 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 22 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 22 (arguments -> .)
+    TRANSFORM       reduce using rule 22 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 22 (arguments -> .)
+    $end            reduce using rule 22 (arguments -> .)
 
     arguments                      shift and go to state 49
 
@@ -775,72 +775,72 @@ state 33
 state 34
 
     (37) statement_scene -> LIGHT_SOURCE STRING . arguments
-    (16) arguments -> . arguments argument
-    (17) arguments -> .
+    (21) arguments -> . arguments argument
+    (22) arguments -> .
 
-    STRING          reduce using rule 17 (arguments -> .)
-    ATTRIBUTE_BEGIN reduce using rule 17 (arguments -> .)
-    ATTRIBUTE_END   reduce using rule 17 (arguments -> .)
-    TRANSFORM_BEGIN reduce using rule 17 (arguments -> .)
-    TRANSFORM_END   reduce using rule 17 (arguments -> .)
-    MATERIAL        reduce using rule 17 (arguments -> .)
-    NAMED_MATERIAL  reduce using rule 17 (arguments -> .)
-    MAKE_NAMED_MATERIAL reduce using rule 17 (arguments -> .)
-    TEXTURE         reduce using rule 17 (arguments -> .)
-    LIGHT_SOURCE    reduce using rule 17 (arguments -> .)
-    AREA_LIGHT_SOURCE reduce using rule 17 (arguments -> .)
-    OBJECT_BEGIN    reduce using rule 17 (arguments -> .)
-    OBJECT_END      reduce using rule 17 (arguments -> .)
-    OBJECT_INSTANCE reduce using rule 17 (arguments -> .)
-    SHAPE           reduce using rule 17 (arguments -> .)
-    REVERSE_ORIENTATION reduce using rule 17 (arguments -> .)
-    INCLUDE         reduce using rule 17 (arguments -> .)
-    IDENTITY        reduce using rule 17 (arguments -> .)
-    TRANSLATE       reduce using rule 17 (arguments -> .)
-    SCALE           reduce using rule 17 (arguments -> .)
-    ROTATE          reduce using rule 17 (arguments -> .)
-    LOOKAT          reduce using rule 17 (arguments -> .)
-    COORDINATE_SYSTEM reduce using rule 17 (arguments -> .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 17 (arguments -> .)
-    TRANSFORM       reduce using rule 17 (arguments -> .)
-    CONCAT_TRANSFORM reduce using rule 17 (arguments -> .)
-    $end            reduce using rule 17 (arguments -> .)
+    STRING          reduce using rule 22 (arguments -> .)
+    ATTRIBUTE_BEGIN reduce using rule 22 (arguments -> .)
+    ATTRIBUTE_END   reduce using rule 22 (arguments -> .)
+    TRANSFORM_BEGIN reduce using rule 22 (arguments -> .)
+    TRANSFORM_END   reduce using rule 22 (arguments -> .)
+    MATERIAL        reduce using rule 22 (arguments -> .)
+    NAMED_MATERIAL  reduce using rule 22 (arguments -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 22 (arguments -> .)
+    TEXTURE         reduce using rule 22 (arguments -> .)
+    LIGHT_SOURCE    reduce using rule 22 (arguments -> .)
+    AREA_LIGHT_SOURCE reduce using rule 22 (arguments -> .)
+    OBJECT_BEGIN    reduce using rule 22 (arguments -> .)
+    OBJECT_END      reduce using rule 22 (arguments -> .)
+    OBJECT_INSTANCE reduce using rule 22 (arguments -> .)
+    SHAPE           reduce using rule 22 (arguments -> .)
+    REVERSE_ORIENTATION reduce using rule 22 (arguments -> .)
+    INCLUDE         reduce using rule 22 (arguments -> .)
+    IDENTITY        reduce using rule 22 (arguments -> .)
+    TRANSLATE       reduce using rule 22 (arguments -> .)
+    SCALE           reduce using rule 22 (arguments -> .)
+    ROTATE          reduce using rule 22 (arguments -> .)
+    LOOKAT          reduce using rule 22 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 22 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 22 (arguments -> .)
+    TRANSFORM       reduce using rule 22 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 22 (arguments -> .)
+    $end            reduce using rule 22 (arguments -> .)
 
     arguments                      shift and go to state 51
 
 state 35
 
     (38) statement_scene -> AREA_LIGHT_SOURCE STRING . arguments
-    (16) arguments -> . arguments argument
-    (17) arguments -> .
+    (21) arguments -> . arguments argument
+    (22) arguments -> .
 
-    STRING          reduce using rule 17 (arguments -> .)
-    ATTRIBUTE_BEGIN reduce using rule 17 (arguments -> .)
-    ATTRIBUTE_END   reduce using rule 17 (arguments -> .)
-    TRANSFORM_BEGIN reduce using rule 17 (arguments -> .)
-    TRANSFORM_END   reduce using rule 17 (arguments -> .)
-    MATERIAL        reduce using rule 17 (arguments -> .)
-    NAMED_MATERIAL  reduce using rule 17 (arguments -> .)
-    MAKE_NAMED_MATERIAL reduce using rule 17 (arguments -> .)
-    TEXTURE         reduce using rule 17 (arguments -> .)
-    LIGHT_SOURCE    reduce using rule 17 (arguments -> .)
-    AREA_LIGHT_SOURCE reduce using rule 17 (arguments -> .)
-    OBJECT_BEGIN    reduce using rule 17 (arguments -> .)
-    OBJECT_END      reduce using rule 17 (arguments -> .)
-    OBJECT_INSTANCE reduce using rule 17 (arguments -> .)
-    SHAPE           reduce using rule 17 (arguments -> .)
-    REVERSE_ORIENTATION reduce using rule 17 (arguments -> .)
-    INCLUDE         reduce using rule 17 (arguments -> .)
-    IDENTITY        reduce using rule 17 (arguments -> .)
-    TRANSLATE       reduce using rule 17 (arguments -> .)
-    SCALE           reduce using rule 17 (arguments -> .)
-    ROTATE          reduce using rule 17 (arguments -> .)
-    LOOKAT          reduce using rule 17 (arguments -> .)
-    COORDINATE_SYSTEM reduce using rule 17 (arguments -> .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 17 (arguments -> .)
-    TRANSFORM       reduce using rule 17 (arguments -> .)
-    CONCAT_TRANSFORM reduce using rule 17 (arguments -> .)
-    $end            reduce using rule 17 (arguments -> .)
+    STRING          reduce using rule 22 (arguments -> .)
+    ATTRIBUTE_BEGIN reduce using rule 22 (arguments -> .)
+    ATTRIBUTE_END   reduce using rule 22 (arguments -> .)
+    TRANSFORM_BEGIN reduce using rule 22 (arguments -> .)
+    TRANSFORM_END   reduce using rule 22 (arguments -> .)
+    MATERIAL        reduce using rule 22 (arguments -> .)
+    NAMED_MATERIAL  reduce using rule 22 (arguments -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 22 (arguments -> .)
+    TEXTURE         reduce using rule 22 (arguments -> .)
+    LIGHT_SOURCE    reduce using rule 22 (arguments -> .)
+    AREA_LIGHT_SOURCE reduce using rule 22 (arguments -> .)
+    OBJECT_BEGIN    reduce using rule 22 (arguments -> .)
+    OBJECT_END      reduce using rule 22 (arguments -> .)
+    OBJECT_INSTANCE reduce using rule 22 (arguments -> .)
+    SHAPE           reduce using rule 22 (arguments -> .)
+    REVERSE_ORIENTATION reduce using rule 22 (arguments -> .)
+    INCLUDE         reduce using rule 22 (arguments -> .)
+    IDENTITY        reduce using rule 22 (arguments -> .)
+    TRANSLATE       reduce using rule 22 (arguments -> .)
+    SCALE           reduce using rule 22 (arguments -> .)
+    ROTATE          reduce using rule 22 (arguments -> .)
+    LOOKAT          reduce using rule 22 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 22 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 22 (arguments -> .)
+    TRANSFORM       reduce using rule 22 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 22 (arguments -> .)
+    $end            reduce using rule 22 (arguments -> .)
 
     arguments                      shift and go to state 52
 
@@ -911,36 +911,36 @@ state 37
 state 38
 
     (42) statement_scene -> SHAPE STRING . arguments
-    (16) arguments -> . arguments argument
-    (17) arguments -> .
+    (21) arguments -> . arguments argument
+    (22) arguments -> .
 
-    STRING          reduce using rule 17 (arguments -> .)
-    ATTRIBUTE_BEGIN reduce using rule 17 (arguments -> .)
-    ATTRIBUTE_END   reduce using rule 17 (arguments -> .)
-    TRANSFORM_BEGIN reduce using rule 17 (arguments -> .)
-    TRANSFORM_END   reduce using rule 17 (arguments -> .)
-    MATERIAL        reduce using rule 17 (arguments -> .)
-    NAMED_MATERIAL  reduce using rule 17 (arguments -> .)
-    MAKE_NAMED_MATERIAL reduce using rule 17 (arguments -> .)
-    TEXTURE         reduce using rule 17 (arguments -> .)
-    LIGHT_SOURCE    reduce using rule 17 (arguments -> .)
-    AREA_LIGHT_SOURCE reduce using rule 17 (arguments -> .)
-    OBJECT_BEGIN    reduce using rule 17 (arguments -> .)
-    OBJECT_END      reduce using rule 17 (arguments -> .)
-    OBJECT_INSTANCE reduce using rule 17 (arguments -> .)
-    SHAPE           reduce using rule 17 (arguments -> .)
-    REVERSE_ORIENTATION reduce using rule 17 (arguments -> .)
-    INCLUDE         reduce using rule 17 (arguments -> .)
-    IDENTITY        reduce using rule 17 (arguments -> .)
-    TRANSLATE       reduce using rule 17 (arguments -> .)
-    SCALE           reduce using rule 17 (arguments -> .)
-    ROTATE          reduce using rule 17 (arguments -> .)
-    LOOKAT          reduce using rule 17 (arguments -> .)
-    COORDINATE_SYSTEM reduce using rule 17 (arguments -> .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 17 (arguments -> .)
-    TRANSFORM       reduce using rule 17 (arguments -> .)
-    CONCAT_TRANSFORM reduce using rule 17 (arguments -> .)
-    $end            reduce using rule 17 (arguments -> .)
+    STRING          reduce using rule 22 (arguments -> .)
+    ATTRIBUTE_BEGIN reduce using rule 22 (arguments -> .)
+    ATTRIBUTE_END   reduce using rule 22 (arguments -> .)
+    TRANSFORM_BEGIN reduce using rule 22 (arguments -> .)
+    TRANSFORM_END   reduce using rule 22 (arguments -> .)
+    MATERIAL        reduce using rule 22 (arguments -> .)
+    NAMED_MATERIAL  reduce using rule 22 (arguments -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 22 (arguments -> .)
+    TEXTURE         reduce using rule 22 (arguments -> .)
+    LIGHT_SOURCE    reduce using rule 22 (arguments -> .)
+    AREA_LIGHT_SOURCE reduce using rule 22 (arguments -> .)
+    OBJECT_BEGIN    reduce using rule 22 (arguments -> .)
+    OBJECT_END      reduce using rule 22 (arguments -> .)
+    OBJECT_INSTANCE reduce using rule 22 (arguments -> .)
+    SHAPE           reduce using rule 22 (arguments -> .)
+    REVERSE_ORIENTATION reduce using rule 22 (arguments -> .)
+    INCLUDE         reduce using rule 22 (arguments -> .)
+    IDENTITY        reduce using rule 22 (arguments -> .)
+    TRANSLATE       reduce using rule 22 (arguments -> .)
+    SCALE           reduce using rule 22 (arguments -> .)
+    ROTATE          reduce using rule 22 (arguments -> .)
+    LOOKAT          reduce using rule 22 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 22 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 22 (arguments -> .)
+    TRANSFORM       reduce using rule 22 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 22 (arguments -> .)
+    $end            reduce using rule 22 (arguments -> .)
 
     arguments                      shift and go to state 53
 
@@ -1085,9 +1085,9 @@ state 47
 state 48
 
     (33) statement_scene -> MATERIAL STRING arguments .
-    (16) arguments -> arguments . argument
-    (9) argument -> . STRING basic_data_type
-    (10) argument -> . STRING data_list
+    (21) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
 
     ATTRIBUTE_BEGIN reduce using rule 33 (statement_scene -> MATERIAL STRING arguments .)
     ATTRIBUTE_END   reduce using rule 33 (statement_scene -> MATERIAL STRING arguments .)
@@ -1122,9 +1122,9 @@ state 48
 state 49
 
     (35) statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .
-    (16) arguments -> arguments . argument
-    (9) argument -> . STRING basic_data_type
-    (10) argument -> . STRING data_list
+    (21) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
 
     ATTRIBUTE_BEGIN reduce using rule 35 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
     ATTRIBUTE_END   reduce using rule 35 (statement_scene -> MAKE_NAMED_MATERIAL STRING arguments .)
@@ -1166,9 +1166,9 @@ state 50
 state 51
 
     (37) statement_scene -> LIGHT_SOURCE STRING arguments .
-    (16) arguments -> arguments . argument
-    (9) argument -> . STRING basic_data_type
-    (10) argument -> . STRING data_list
+    (21) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
 
     ATTRIBUTE_BEGIN reduce using rule 37 (statement_scene -> LIGHT_SOURCE STRING arguments .)
     ATTRIBUTE_END   reduce using rule 37 (statement_scene -> LIGHT_SOURCE STRING arguments .)
@@ -1203,9 +1203,9 @@ state 51
 state 52
 
     (38) statement_scene -> AREA_LIGHT_SOURCE STRING arguments .
-    (16) arguments -> arguments . argument
-    (9) argument -> . STRING basic_data_type
-    (10) argument -> . STRING data_list
+    (21) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
 
     ATTRIBUTE_BEGIN reduce using rule 38 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
     ATTRIBUTE_END   reduce using rule 38 (statement_scene -> AREA_LIGHT_SOURCE STRING arguments .)
@@ -1240,9 +1240,9 @@ state 52
 state 53
 
     (42) statement_scene -> SHAPE STRING arguments .
-    (16) arguments -> arguments . argument
-    (9) argument -> . STRING basic_data_type
-    (10) argument -> . STRING data_list
+    (21) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
 
     ATTRIBUTE_BEGIN reduce using rule 42 (statement_scene -> SHAPE STRING arguments .)
     ATTRIBUTE_END   reduce using rule 42 (statement_scene -> SHAPE STRING arguments .)
@@ -1318,8 +1318,8 @@ state 59
 
 state 60
 
-    (9) argument -> STRING . basic_data_type
-    (10) argument -> STRING . data_list
+    (11) argument -> STRING . basic_data_type
+    (12) argument -> STRING . data_list
     (2) basic_data_type -> . STRING
     (3) basic_data_type -> . NUMBER
     (8) data_list -> . L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET
@@ -1333,70 +1333,70 @@ state 60
 
 state 61
 
-    (16) arguments -> arguments argument .
+    (21) arguments -> arguments argument .
 
-    STRING          reduce using rule 16 (arguments -> arguments argument .)
-    ATTRIBUTE_BEGIN reduce using rule 16 (arguments -> arguments argument .)
-    ATTRIBUTE_END   reduce using rule 16 (arguments -> arguments argument .)
-    TRANSFORM_BEGIN reduce using rule 16 (arguments -> arguments argument .)
-    TRANSFORM_END   reduce using rule 16 (arguments -> arguments argument .)
-    MATERIAL        reduce using rule 16 (arguments -> arguments argument .)
-    NAMED_MATERIAL  reduce using rule 16 (arguments -> arguments argument .)
-    MAKE_NAMED_MATERIAL reduce using rule 16 (arguments -> arguments argument .)
-    TEXTURE         reduce using rule 16 (arguments -> arguments argument .)
-    LIGHT_SOURCE    reduce using rule 16 (arguments -> arguments argument .)
-    AREA_LIGHT_SOURCE reduce using rule 16 (arguments -> arguments argument .)
-    OBJECT_BEGIN    reduce using rule 16 (arguments -> arguments argument .)
-    OBJECT_END      reduce using rule 16 (arguments -> arguments argument .)
-    OBJECT_INSTANCE reduce using rule 16 (arguments -> arguments argument .)
-    SHAPE           reduce using rule 16 (arguments -> arguments argument .)
-    REVERSE_ORIENTATION reduce using rule 16 (arguments -> arguments argument .)
-    INCLUDE         reduce using rule 16 (arguments -> arguments argument .)
-    IDENTITY        reduce using rule 16 (arguments -> arguments argument .)
-    TRANSLATE       reduce using rule 16 (arguments -> arguments argument .)
-    SCALE           reduce using rule 16 (arguments -> arguments argument .)
-    ROTATE          reduce using rule 16 (arguments -> arguments argument .)
-    LOOKAT          reduce using rule 16 (arguments -> arguments argument .)
-    COORDINATE_SYSTEM reduce using rule 16 (arguments -> arguments argument .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 16 (arguments -> arguments argument .)
-    TRANSFORM       reduce using rule 16 (arguments -> arguments argument .)
-    CONCAT_TRANSFORM reduce using rule 16 (arguments -> arguments argument .)
-    $end            reduce using rule 16 (arguments -> arguments argument .)
+    STRING          reduce using rule 21 (arguments -> arguments argument .)
+    ATTRIBUTE_BEGIN reduce using rule 21 (arguments -> arguments argument .)
+    ATTRIBUTE_END   reduce using rule 21 (arguments -> arguments argument .)
+    TRANSFORM_BEGIN reduce using rule 21 (arguments -> arguments argument .)
+    TRANSFORM_END   reduce using rule 21 (arguments -> arguments argument .)
+    MATERIAL        reduce using rule 21 (arguments -> arguments argument .)
+    NAMED_MATERIAL  reduce using rule 21 (arguments -> arguments argument .)
+    MAKE_NAMED_MATERIAL reduce using rule 21 (arguments -> arguments argument .)
+    TEXTURE         reduce using rule 21 (arguments -> arguments argument .)
+    LIGHT_SOURCE    reduce using rule 21 (arguments -> arguments argument .)
+    AREA_LIGHT_SOURCE reduce using rule 21 (arguments -> arguments argument .)
+    OBJECT_BEGIN    reduce using rule 21 (arguments -> arguments argument .)
+    OBJECT_END      reduce using rule 21 (arguments -> arguments argument .)
+    OBJECT_INSTANCE reduce using rule 21 (arguments -> arguments argument .)
+    SHAPE           reduce using rule 21 (arguments -> arguments argument .)
+    REVERSE_ORIENTATION reduce using rule 21 (arguments -> arguments argument .)
+    INCLUDE         reduce using rule 21 (arguments -> arguments argument .)
+    IDENTITY        reduce using rule 21 (arguments -> arguments argument .)
+    TRANSLATE       reduce using rule 21 (arguments -> arguments argument .)
+    SCALE           reduce using rule 21 (arguments -> arguments argument .)
+    ROTATE          reduce using rule 21 (arguments -> arguments argument .)
+    LOOKAT          reduce using rule 21 (arguments -> arguments argument .)
+    COORDINATE_SYSTEM reduce using rule 21 (arguments -> arguments argument .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 21 (arguments -> arguments argument .)
+    TRANSFORM       reduce using rule 21 (arguments -> arguments argument .)
+    CONCAT_TRANSFORM reduce using rule 21 (arguments -> arguments argument .)
+    $end            reduce using rule 21 (arguments -> arguments argument .)
 
 
 state 62
 
     (36) statement_scene -> TEXTURE STRING STRING STRING . arguments
-    (16) arguments -> . arguments argument
-    (17) arguments -> .
+    (21) arguments -> . arguments argument
+    (22) arguments -> .
 
-    STRING          reduce using rule 17 (arguments -> .)
-    ATTRIBUTE_BEGIN reduce using rule 17 (arguments -> .)
-    ATTRIBUTE_END   reduce using rule 17 (arguments -> .)
-    TRANSFORM_BEGIN reduce using rule 17 (arguments -> .)
-    TRANSFORM_END   reduce using rule 17 (arguments -> .)
-    MATERIAL        reduce using rule 17 (arguments -> .)
-    NAMED_MATERIAL  reduce using rule 17 (arguments -> .)
-    MAKE_NAMED_MATERIAL reduce using rule 17 (arguments -> .)
-    TEXTURE         reduce using rule 17 (arguments -> .)
-    LIGHT_SOURCE    reduce using rule 17 (arguments -> .)
-    AREA_LIGHT_SOURCE reduce using rule 17 (arguments -> .)
-    OBJECT_BEGIN    reduce using rule 17 (arguments -> .)
-    OBJECT_END      reduce using rule 17 (arguments -> .)
-    OBJECT_INSTANCE reduce using rule 17 (arguments -> .)
-    SHAPE           reduce using rule 17 (arguments -> .)
-    REVERSE_ORIENTATION reduce using rule 17 (arguments -> .)
-    INCLUDE         reduce using rule 17 (arguments -> .)
-    IDENTITY        reduce using rule 17 (arguments -> .)
-    TRANSLATE       reduce using rule 17 (arguments -> .)
-    SCALE           reduce using rule 17 (arguments -> .)
-    ROTATE          reduce using rule 17 (arguments -> .)
-    LOOKAT          reduce using rule 17 (arguments -> .)
-    COORDINATE_SYSTEM reduce using rule 17 (arguments -> .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 17 (arguments -> .)
-    TRANSFORM       reduce using rule 17 (arguments -> .)
-    CONCAT_TRANSFORM reduce using rule 17 (arguments -> .)
-    $end            reduce using rule 17 (arguments -> .)
+    STRING          reduce using rule 22 (arguments -> .)
+    ATTRIBUTE_BEGIN reduce using rule 22 (arguments -> .)
+    ATTRIBUTE_END   reduce using rule 22 (arguments -> .)
+    TRANSFORM_BEGIN reduce using rule 22 (arguments -> .)
+    TRANSFORM_END   reduce using rule 22 (arguments -> .)
+    MATERIAL        reduce using rule 22 (arguments -> .)
+    NAMED_MATERIAL  reduce using rule 22 (arguments -> .)
+    MAKE_NAMED_MATERIAL reduce using rule 22 (arguments -> .)
+    TEXTURE         reduce using rule 22 (arguments -> .)
+    LIGHT_SOURCE    reduce using rule 22 (arguments -> .)
+    AREA_LIGHT_SOURCE reduce using rule 22 (arguments -> .)
+    OBJECT_BEGIN    reduce using rule 22 (arguments -> .)
+    OBJECT_END      reduce using rule 22 (arguments -> .)
+    OBJECT_INSTANCE reduce using rule 22 (arguments -> .)
+    SHAPE           reduce using rule 22 (arguments -> .)
+    REVERSE_ORIENTATION reduce using rule 22 (arguments -> .)
+    INCLUDE         reduce using rule 22 (arguments -> .)
+    IDENTITY        reduce using rule 22 (arguments -> .)
+    TRANSLATE       reduce using rule 22 (arguments -> .)
+    SCALE           reduce using rule 22 (arguments -> .)
+    ROTATE          reduce using rule 22 (arguments -> .)
+    LOOKAT          reduce using rule 22 (arguments -> .)
+    COORDINATE_SYSTEM reduce using rule 22 (arguments -> .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 22 (arguments -> .)
+    TRANSFORM       reduce using rule 22 (arguments -> .)
+    CONCAT_TRANSFORM reduce using rule 22 (arguments -> .)
+    $end            reduce using rule 22 (arguments -> .)
 
     arguments                      shift and go to state 74
 
@@ -1529,68 +1529,68 @@ state 69
 
 state 70
 
-    (9) argument -> STRING basic_data_type .
+    (11) argument -> STRING basic_data_type .
 
-    STRING          reduce using rule 9 (argument -> STRING basic_data_type .)
-    ATTRIBUTE_BEGIN reduce using rule 9 (argument -> STRING basic_data_type .)
-    ATTRIBUTE_END   reduce using rule 9 (argument -> STRING basic_data_type .)
-    TRANSFORM_BEGIN reduce using rule 9 (argument -> STRING basic_data_type .)
-    TRANSFORM_END   reduce using rule 9 (argument -> STRING basic_data_type .)
-    MATERIAL        reduce using rule 9 (argument -> STRING basic_data_type .)
-    NAMED_MATERIAL  reduce using rule 9 (argument -> STRING basic_data_type .)
-    MAKE_NAMED_MATERIAL reduce using rule 9 (argument -> STRING basic_data_type .)
-    TEXTURE         reduce using rule 9 (argument -> STRING basic_data_type .)
-    LIGHT_SOURCE    reduce using rule 9 (argument -> STRING basic_data_type .)
-    AREA_LIGHT_SOURCE reduce using rule 9 (argument -> STRING basic_data_type .)
-    OBJECT_BEGIN    reduce using rule 9 (argument -> STRING basic_data_type .)
-    OBJECT_END      reduce using rule 9 (argument -> STRING basic_data_type .)
-    OBJECT_INSTANCE reduce using rule 9 (argument -> STRING basic_data_type .)
-    SHAPE           reduce using rule 9 (argument -> STRING basic_data_type .)
-    REVERSE_ORIENTATION reduce using rule 9 (argument -> STRING basic_data_type .)
-    INCLUDE         reduce using rule 9 (argument -> STRING basic_data_type .)
-    IDENTITY        reduce using rule 9 (argument -> STRING basic_data_type .)
-    TRANSLATE       reduce using rule 9 (argument -> STRING basic_data_type .)
-    SCALE           reduce using rule 9 (argument -> STRING basic_data_type .)
-    ROTATE          reduce using rule 9 (argument -> STRING basic_data_type .)
-    LOOKAT          reduce using rule 9 (argument -> STRING basic_data_type .)
-    COORDINATE_SYSTEM reduce using rule 9 (argument -> STRING basic_data_type .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 9 (argument -> STRING basic_data_type .)
-    TRANSFORM       reduce using rule 9 (argument -> STRING basic_data_type .)
-    CONCAT_TRANSFORM reduce using rule 9 (argument -> STRING basic_data_type .)
-    $end            reduce using rule 9 (argument -> STRING basic_data_type .)
+    STRING          reduce using rule 11 (argument -> STRING basic_data_type .)
+    ATTRIBUTE_BEGIN reduce using rule 11 (argument -> STRING basic_data_type .)
+    ATTRIBUTE_END   reduce using rule 11 (argument -> STRING basic_data_type .)
+    TRANSFORM_BEGIN reduce using rule 11 (argument -> STRING basic_data_type .)
+    TRANSFORM_END   reduce using rule 11 (argument -> STRING basic_data_type .)
+    MATERIAL        reduce using rule 11 (argument -> STRING basic_data_type .)
+    NAMED_MATERIAL  reduce using rule 11 (argument -> STRING basic_data_type .)
+    MAKE_NAMED_MATERIAL reduce using rule 11 (argument -> STRING basic_data_type .)
+    TEXTURE         reduce using rule 11 (argument -> STRING basic_data_type .)
+    LIGHT_SOURCE    reduce using rule 11 (argument -> STRING basic_data_type .)
+    AREA_LIGHT_SOURCE reduce using rule 11 (argument -> STRING basic_data_type .)
+    OBJECT_BEGIN    reduce using rule 11 (argument -> STRING basic_data_type .)
+    OBJECT_END      reduce using rule 11 (argument -> STRING basic_data_type .)
+    OBJECT_INSTANCE reduce using rule 11 (argument -> STRING basic_data_type .)
+    SHAPE           reduce using rule 11 (argument -> STRING basic_data_type .)
+    REVERSE_ORIENTATION reduce using rule 11 (argument -> STRING basic_data_type .)
+    INCLUDE         reduce using rule 11 (argument -> STRING basic_data_type .)
+    IDENTITY        reduce using rule 11 (argument -> STRING basic_data_type .)
+    TRANSLATE       reduce using rule 11 (argument -> STRING basic_data_type .)
+    SCALE           reduce using rule 11 (argument -> STRING basic_data_type .)
+    ROTATE          reduce using rule 11 (argument -> STRING basic_data_type .)
+    LOOKAT          reduce using rule 11 (argument -> STRING basic_data_type .)
+    COORDINATE_SYSTEM reduce using rule 11 (argument -> STRING basic_data_type .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 11 (argument -> STRING basic_data_type .)
+    TRANSFORM       reduce using rule 11 (argument -> STRING basic_data_type .)
+    CONCAT_TRANSFORM reduce using rule 11 (argument -> STRING basic_data_type .)
+    $end            reduce using rule 11 (argument -> STRING basic_data_type .)
 
 
 state 71
 
-    (10) argument -> STRING data_list .
+    (12) argument -> STRING data_list .
 
-    STRING          reduce using rule 10 (argument -> STRING data_list .)
-    ATTRIBUTE_BEGIN reduce using rule 10 (argument -> STRING data_list .)
-    ATTRIBUTE_END   reduce using rule 10 (argument -> STRING data_list .)
-    TRANSFORM_BEGIN reduce using rule 10 (argument -> STRING data_list .)
-    TRANSFORM_END   reduce using rule 10 (argument -> STRING data_list .)
-    MATERIAL        reduce using rule 10 (argument -> STRING data_list .)
-    NAMED_MATERIAL  reduce using rule 10 (argument -> STRING data_list .)
-    MAKE_NAMED_MATERIAL reduce using rule 10 (argument -> STRING data_list .)
-    TEXTURE         reduce using rule 10 (argument -> STRING data_list .)
-    LIGHT_SOURCE    reduce using rule 10 (argument -> STRING data_list .)
-    AREA_LIGHT_SOURCE reduce using rule 10 (argument -> STRING data_list .)
-    OBJECT_BEGIN    reduce using rule 10 (argument -> STRING data_list .)
-    OBJECT_END      reduce using rule 10 (argument -> STRING data_list .)
-    OBJECT_INSTANCE reduce using rule 10 (argument -> STRING data_list .)
-    SHAPE           reduce using rule 10 (argument -> STRING data_list .)
-    REVERSE_ORIENTATION reduce using rule 10 (argument -> STRING data_list .)
-    INCLUDE         reduce using rule 10 (argument -> STRING data_list .)
-    IDENTITY        reduce using rule 10 (argument -> STRING data_list .)
-    TRANSLATE       reduce using rule 10 (argument -> STRING data_list .)
-    SCALE           reduce using rule 10 (argument -> STRING data_list .)
-    ROTATE          reduce using rule 10 (argument -> STRING data_list .)
-    LOOKAT          reduce using rule 10 (argument -> STRING data_list .)
-    COORDINATE_SYSTEM reduce using rule 10 (argument -> STRING data_list .)
-    COORDINATE_SYSTEM_TRANSFORM reduce using rule 10 (argument -> STRING data_list .)
-    TRANSFORM       reduce using rule 10 (argument -> STRING data_list .)
-    CONCAT_TRANSFORM reduce using rule 10 (argument -> STRING data_list .)
-    $end            reduce using rule 10 (argument -> STRING data_list .)
+    STRING          reduce using rule 12 (argument -> STRING data_list .)
+    ATTRIBUTE_BEGIN reduce using rule 12 (argument -> STRING data_list .)
+    ATTRIBUTE_END   reduce using rule 12 (argument -> STRING data_list .)
+    TRANSFORM_BEGIN reduce using rule 12 (argument -> STRING data_list .)
+    TRANSFORM_END   reduce using rule 12 (argument -> STRING data_list .)
+    MATERIAL        reduce using rule 12 (argument -> STRING data_list .)
+    NAMED_MATERIAL  reduce using rule 12 (argument -> STRING data_list .)
+    MAKE_NAMED_MATERIAL reduce using rule 12 (argument -> STRING data_list .)
+    TEXTURE         reduce using rule 12 (argument -> STRING data_list .)
+    LIGHT_SOURCE    reduce using rule 12 (argument -> STRING data_list .)
+    AREA_LIGHT_SOURCE reduce using rule 12 (argument -> STRING data_list .)
+    OBJECT_BEGIN    reduce using rule 12 (argument -> STRING data_list .)
+    OBJECT_END      reduce using rule 12 (argument -> STRING data_list .)
+    OBJECT_INSTANCE reduce using rule 12 (argument -> STRING data_list .)
+    SHAPE           reduce using rule 12 (argument -> STRING data_list .)
+    REVERSE_ORIENTATION reduce using rule 12 (argument -> STRING data_list .)
+    INCLUDE         reduce using rule 12 (argument -> STRING data_list .)
+    IDENTITY        reduce using rule 12 (argument -> STRING data_list .)
+    TRANSLATE       reduce using rule 12 (argument -> STRING data_list .)
+    SCALE           reduce using rule 12 (argument -> STRING data_list .)
+    ROTATE          reduce using rule 12 (argument -> STRING data_list .)
+    LOOKAT          reduce using rule 12 (argument -> STRING data_list .)
+    COORDINATE_SYSTEM reduce using rule 12 (argument -> STRING data_list .)
+    COORDINATE_SYSTEM_TRANSFORM reduce using rule 12 (argument -> STRING data_list .)
+    TRANSFORM       reduce using rule 12 (argument -> STRING data_list .)
+    CONCAT_TRANSFORM reduce using rule 12 (argument -> STRING data_list .)
+    $end            reduce using rule 12 (argument -> STRING data_list .)
 
 
 state 72
@@ -1631,21 +1631,21 @@ state 72
 state 73
 
     (8) data_list -> L_SQUARE_BRACKET . data_list_items R_SQUARE_BRACKET
-    (4) data_list_items -> . data_list_items basic_data_type
-    (5) data_list_items -> .
+    (6) data_list_items -> . data_list_items basic_data_type
+    (7) data_list_items -> .
 
-    R_SQUARE_BRACKET reduce using rule 5 (data_list_items -> .)
-    STRING          reduce using rule 5 (data_list_items -> .)
-    NUMBER          reduce using rule 5 (data_list_items -> .)
+    R_SQUARE_BRACKET reduce using rule 7 (data_list_items -> .)
+    STRING          reduce using rule 7 (data_list_items -> .)
+    NUMBER          reduce using rule 7 (data_list_items -> .)
 
     data_list_items                shift and go to state 79
 
 state 74
 
     (36) statement_scene -> TEXTURE STRING STRING STRING arguments .
-    (16) arguments -> arguments . argument
-    (9) argument -> . STRING basic_data_type
-    (10) argument -> . STRING data_list
+    (21) arguments -> arguments . argument
+    (11) argument -> . STRING basic_data_type
+    (12) argument -> . STRING data_list
 
     ATTRIBUTE_BEGIN reduce using rule 36 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
     ATTRIBUTE_END   reduce using rule 36 (statement_scene -> TEXTURE STRING STRING STRING arguments .)
@@ -1733,7 +1733,7 @@ state 78
 state 79
 
     (8) data_list -> L_SQUARE_BRACKET data_list_items . R_SQUARE_BRACKET
-    (4) data_list_items -> data_list_items . basic_data_type
+    (6) data_list_items -> data_list_items . basic_data_type
     (2) basic_data_type -> . STRING
     (3) basic_data_type -> . NUMBER
 
@@ -1799,11 +1799,11 @@ state 83
 
 state 84
 
-    (4) data_list_items -> data_list_items basic_data_type .
+    (6) data_list_items -> data_list_items basic_data_type .
 
-    R_SQUARE_BRACKET reduce using rule 4 (data_list_items -> data_list_items basic_data_type .)
-    STRING          reduce using rule 4 (data_list_items -> data_list_items basic_data_type .)
-    NUMBER          reduce using rule 4 (data_list_items -> data_list_items basic_data_type .)
+    R_SQUARE_BRACKET reduce using rule 6 (data_list_items -> data_list_items basic_data_type .)
+    STRING          reduce using rule 6 (data_list_items -> data_list_items basic_data_type .)
+    NUMBER          reduce using rule 6 (data_list_items -> data_list_items basic_data_type .)
 
 
 state 85

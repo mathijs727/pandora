@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<ProfilingTarget xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <StandaloneTarget>
+    <PythonInterpreter>
+      <Id>Global|PythonCore|3.7</Id>
+    </PythonInterpreter>
+    <WorkingDirectory>C:\Users\Mathijs\Documents\GitHub\pandora\projects\pbrt_importer\python</WorkingDirectory>
+    <Script>C:\Users\Mathijs\Documents\GitHub\pandora\projects\pbrt_importer\python\parse_pbrt.py</Script>
+    <Arguments />
+  </StandaloneTarget>
+</ProfilingTarget>
