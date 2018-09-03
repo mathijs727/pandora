@@ -101,3 +101,8 @@ def t_error(t):
 
 # Ignored characters
 t_ignore = " \t"
+
+
+def create_lexer():
+    import ply.lex as lex
+    return lex.lex()

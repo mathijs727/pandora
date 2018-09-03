@@ -6,10 +6,10 @@ from collections import namedtuple
 from enum import Enum
 import pickle
 from parsing.matrix import translate, scale, rotate, lookat
-from parsing.lexer import *
+from parsing.lexer import create_lexer, tokens
 import parsing.lexer
-import parsing.parser_basics
 import ply.yacc as yacc
+
 
 class ParsingState(Enum):
     CONFIG = 1
@@ -17,7 +17,10 @@ class ParsingState(Enum):
 
 
 parsing_state = ParsingState.CONFIG
-
+base_path = ""
+current_file = ""
+out_mesh_path = ""
+new_mesh_id = 0
 
 def p_statement_main(p):
     "statement_main : statements_config world_begin statements_scene WORLD_END"
@@ -49,15 +52,10 @@ def p_statements_scene(p):
     """statements_scene : statements_scene statement_scene
                          | """
 
-# Putting this at the top of the file confuses PLY for some weird reason
-base_path = ""
-out_mesh_path= ""
-new_mesh_id = 0
 
 def p_statement_include(p):
     "statement_include : INCLUDE STRING"
-    global parsing_state, base_path
-
+    global parsing_state, base_path, current_file
 
     # Store state
     current_file_bak = parsing.lexer.current_file
@@ -65,21 +63,20 @@ def p_statement_include(p):
     # Set new state
     include_file = os.path.join(base_path, p[2])
     parsing.lexer.current_file = include_file
-    parsing.parser_basics.current_file = include_file
+    current_file = include_file
 
     print(f"Processing include file {include_file}")
     with open(include_file, "r") as f:
-        lexer = lex.lex(optimize=True)
+        lexer = create_lexer()
         if parsing_state == ParsingState.CONFIG:
             parser = yacc.yacc(start="statements_config")
         else:
             parser = yacc.yacc(start="statements_scene")
         return parser.parse(f.read(), lexer=lexer)
 
-
     # Restore state
     parsing.lexer.current_file = current_file_bak
-    parsing.parser_basics.current_file = current_file_bak
+    current_file = current_file_bak
 
     return None
 
@@ -94,9 +91,6 @@ def p_statements_config_include(p):
     p[0] = p[1]
 
 
-# For some reason PLY fails if this is imported at the top of this file
-from parsing.parser_basics import *
-
 Camera = namedtuple("Camera", ["type", "arguments", "transform"])
 LightSource = namedtuple("LightSource", ["type", "arguments", "transform"])
 AreaLightSource = namedtuple("AreaLightSource", ["type", "arguments"])
@@ -109,6 +103,11 @@ Instance = namedtuple(
 Material = namedtuple("Material", ["type", "arguments"])
 Texture = namedtuple("Texture", ["name", "type", "texture_class", "arguments"])
 
+SampledSpectrum = namedtuple("SampledSpectrum", ["values", "wavelengths_nm"])
+SampledSpectrumFile = namedtuple("SampledSpectrumFile", ["filename"])
+TextureRef = namedtuple("TextureRef", ["name"])
+BlackBody = namedtuple("BlackBody", ["temperature_kelvin", "scale_factor"])
+
 named_materials = {}
 named_textures = {}
 light_sources = []
@@ -116,7 +115,7 @@ instance_templates = {}
 instances = []
 non_instanced_shapes = []
 
-default_material = Material(type="matte", arguments={"Kd": RGB(1.0, 1.0, 1.0)})
+default_material = Material(type="matte", arguments={"Kd": (1.0, 1.0, 1.0)})
 graphics_state_stack = []
 graphics_state = {"area_light": None,
                   "flip_normals": False, "material": default_material}
@@ -124,6 +123,96 @@ transform_stack = []
 named_transforms = {}
 cur_transform = np.identity(4)
 current_instance = None
+
+
+def p_error(p):
+    print(
+        f"Syntax error: unexpected token \"{p.value}\" in file \"{current_file}\" at line {p.lineno}")
+
+
+def p_basic_data_type(p):
+    """basic_data_type : STRING
+                       | NUMBER"""
+    p[0] = p[1]
+    lineno = p.lineno(n=1)
+    if lineno % 1000 == 0:
+        print(f"Parsed data at line {lineno}")
+
+
+def p_list(p):
+    "list : LIST"
+    text = p[1][1:-1]
+    if '"' in text:
+        import re
+        p[0] = [s[1:-1] for s in re.findall('"[^"]*"', text)]
+    elif '.' in text:
+        result = np.fromstring(text, dtype=float, sep=' ')
+        p[0] = result
+    else:
+        result = np.fromstring(text, dtype=int, sep=' ')
+        p[0] = result
+
+
+def p_argument(p):
+    """argument : STRING basic_data_type
+                | STRING list"""
+    global base_path
+    arg_type, arg_name = p[1].split()
+    data = p[2]
+
+    # Unfold lists of single length
+    if (isinstance(data, np.ndarray) or isinstance(data, list)) and len(data) == 1:
+        data = data[0]
+
+    float_types = ["float", "rgb", "xyz", "color", "spectrum", "point", "point2", "point3", "normal", "normal2", "normal3",
+                   "vector", "vector2", "vector3"]
+
+    if isinstance(data, np.ndarray):
+        if arg_type == "integer":
+            p[0] = {arg_name: {"type": arg_type, "value": data.astype(int)}}
+        elif arg_type in float_types:
+            p[0] = {arg_name: {"type": arg_type, "value": data.astype(float)}}
+        elif arg_type == "blackbody":
+            assert(len(data) == 2)
+            p[0] = {arg_name: {
+                "type": arg_type,
+                "value": {
+                    "blackbody_temperature_kelvin": float(data[0]),
+                    "blackbody_scale_factor": float(data[1])
+                }
+            }}
+        else:
+            print(data)
+            raise RuntimeError(f"Unknown argument type {arg_type}")
+    else:
+        if arg_type == "integer":
+            p[0] = {arg_name: {"type": arg_type, "value": int(data)}}
+        elif arg_type == "float":
+            p[0] = {arg_name: {"type": arg_type, "value": float(data)}}
+        elif arg_type == "bool":
+            p[0] = {arg_name: {"type": arg_type,
+                               "value": True if data == "true" else False}}
+        elif arg_type == "string":
+            p[0] = {arg_name: {"type": arg_type, "value": str(data)}}
+        elif arg_type == "texture":
+            p[0] = {arg_name: {"type": arg_type, "value": TextureRef(data)}}
+        elif arg_type == "spectrum":
+            p[0] = {arg_name: {"type": arg_type, "value": SampledSpectrumFile(
+                os.path.join(base_path, data))}}
+        else:
+            print(data)
+            raise RuntimeError(f"Unknown argument type {arg_type}")
+
+
+def p_arguments(p):
+    """arguments : arguments argument
+                 | """
+    if len(p) == 3:
+        # Merge dictionaries
+        p[1].update(p[2])
+        p[0] = p[1]
+    else:
+        p[0] = {}
 
 
 def p_statement_world_begin(p):
@@ -243,7 +332,8 @@ def p_statement_named_material(p):
     if material_name in named_materials:
         graphics_state["material"] = named_materials[material_name]
     else:
-        print(f"WARNING: named material {material_name} was not declared! Ignoring...")
+        print(
+            f"WARNING: named material {material_name} was not declared! Ignoring...")
 
 
 def p_statement_make_named_material(p):
@@ -264,8 +354,8 @@ def p_statement_texture(p):
             arguments["filename"] = [os.path.join(
                 base_path, f) for f in arguments["filename"]]
         else:
-            arguments["filename"] = os.path.join(
-                base_path, arguments["filename"])
+            arguments["filename"]["value"] = os.path.join(
+                base_path, arguments["filename"]["value"])
     named_textures[p[2]] = Texture(
         name=p[2], type=p[3], texture_class=p[4], arguments=arguments)
 
@@ -314,10 +404,11 @@ def p_statement_shape(p):
     arguments = p[3]
 
     if shape_type == "plymesh":
-        arguments["filename"] = os.path.join(base_path, arguments["filename"])
+        arguments["filename"]["value"] = os.path.join(base_path, arguments["filename"]["value"])
     else:
         global out_mesh_path, new_mesh_id
-        new_mesh_path = os.path.join(out_mesh_path, f"pbrt_mesh_{new_mesh_id}.bin")
+        new_mesh_path = os.path.join(
+            out_mesh_path, f"pbrt_mesh_{new_mesh_id}.bin")
         new_mesh_id += 1
 
         with open(new_mesh_path, "wb") as f:
@@ -359,22 +450,21 @@ def p_statement_sampler(p):
     sampler_type = p[2]
     arguments = p[3]
     # A PRBTv3 scene file may contain multiple samplers (ie the Crown scene)
-    p[0] = {"samplers": [merge_or_raise.merge(
-        {"type": sampler_type}, arguments)]}
+    p[0] = {"samplers": [{"type": sampler_type, "arguments": arguments}]}
 
 
 def p_statement_film(p):
     "statement_config : FILM STRING arguments"
     film_type = p[2]
     arguments = p[3]
-    p[0] = {"films": [merge_or_raise.merge({"type": film_type}, arguments)]}
+    p[0] = {"films": [{"type": film_type, "arguments": arguments}]}
 
 
 def p_statement_filter(p):
     "statement_config : FILTER STRING arguments"
     filter_type = p[2]
     arguments = p[3]
-    p[0] = {"filter": merge_or_raise.merge({"type": filter_type}, arguments)}
+    p[0] = {"filters": [{"type": filter_type, "arguments": arguments}]}
 
 
 def p_statement_integrator(p):
@@ -382,7 +472,7 @@ def p_statement_integrator(p):
     integrator_type = p[2]
     arguments = p[3]
     p[0] = {
-        "integrator": merge_or_raise.merge({"type": integrator_type}, arguments)
+        "integrator": {"type": integrator_type, "arguments": arguments}
     }
 
 
@@ -391,13 +481,12 @@ def p_statement_accelerator(p):
     accelerator_type = p[2]
     arguments = p[3]
     p[0] = {
-        "accelerator": merge_or_raise.merge({"type": accelerator_type}, arguments)
+        "accelerator": {"type": accelerator_type, "arguments": arguments}
     }
 
 
 def parse_file(file_path):
-    import re
-    lexer = lex.lex(optimize=True)
+    lexer = create_lexer()
     parser = yacc.yacc()
 
     import parsing.lexer
@@ -406,16 +495,14 @@ def parse_file(file_path):
     with open(file_path, "r") as f:
         string = f.read()
 
-    global base_path, out_mesh_path
+    global base_path, out_mesh_path, current_file
     out_mesh_path = os.path.join(os.path.abspath(os.getcwd()), "pbrt_meshes")
     if not os.path.exists(out_mesh_path):
         os.makedirs(out_mesh_path)
 
     current_file = os.path.abspath(file_path)
-    base_path = os.path.dirname(current_file)
-    parsing.parser_basics.base_path = base_path
     parsing.lexer.current_file = current_file
-    parsing.parser_basics.current_file = current_file
+    base_path = os.path.dirname(current_file)
 
     print("Base path: ", base_path)
 
