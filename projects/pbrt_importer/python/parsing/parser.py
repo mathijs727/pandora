@@ -61,14 +61,11 @@ def p_statement_include(p):
 
     # Store state
     current_file_bak = parsing.lexer.current_file
-    base_path_bak = base_path
 
     # Set new state
     include_file = os.path.join(base_path, p[2])
     parsing.lexer.current_file = include_file
     parsing.parser_basics.current_file = include_file
-    base_path = os.path.dirname(include_file)
-    parsing.parser_basics.base_path = base_path
 
     with open(include_file, "r") as f:
         lexer = lex.lex()
@@ -80,10 +77,8 @@ def p_statement_include(p):
 
 
     # Restore state
-    base_path = base_path_bak
     parsing.lexer.current_file = current_file_bak
     parsing.parser_basics.current_file = current_file_bak
-    parsing.parser_basics.base_path = base_path_bak
 
     return None
 
@@ -417,9 +412,14 @@ def parse_file(file_path):
     out_mesh_path = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "pbrt_meshes")
     if not os.path.exists(out_mesh_path):
         os.makedirs(out_mesh_path)
-    base_path = os.path.dirname(os.path.abspath(file_path))
+
+    current_file = os.path.abspath(file_path)
+    base_path = os.path.dirname(current_file)
     parsing.parser_basics.base_path = base_path
-    parsing.parser_basics.current_file = os.path.abspath(file_path)
+    parsing.lexer.current_file = current_file
+    parsing.parser_basics.current_file = current_file
+
+    print("Base path: ", base_path)
 
     print("Parsing...")
     return yacc.parse(string, lexer=lexer)
