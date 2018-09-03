@@ -2379,7 +2379,7 @@
       {
         "type": "trianglemesh",
         "arguments": {
-          "filename": "c:\\Users\\Mathijs\\Documents\\GitHub\\pandora\\projects\\pbrt_importer\\python\\pbrt_meshes\\pbrt_mesh_0.json"
+          "filename": "c:\\Users\\Mathijs\\Documents\\GitHub\\pandora\\projects\\pbrt_importer\\python\\pbrt_meshes\\pbrt_mesh_0.bin"
         },
         "transform": [
           [
@@ -2424,7 +2424,7 @@
       {
         "type": "trianglemesh",
         "arguments": {
-          "filename": "c:\\Users\\Mathijs\\Documents\\GitHub\\pandora\\projects\\pbrt_importer\\python\\pbrt_meshes\\pbrt_mesh_1.json"
+          "filename": "c:\\Users\\Mathijs\\Documents\\GitHub\\pandora\\projects\\pbrt_importer\\python\\pbrt_meshes\\pbrt_mesh_1.bin"
         },
         "transform": [
           [

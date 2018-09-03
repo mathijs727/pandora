@@ -1,5 +1,7 @@
 import ply.lex as lex
 
+current_file = ""
+
 tokens = (
     "WORLD_BEGIN", "WORLD_END",
     "CAMERA", "SAMPLER", "INTEGRATOR", "FILM", "FILTER", "ACCELERATOR",
@@ -77,10 +79,26 @@ def t_COMMENT(t):
     return None
 
 
+# http://www.dabeaz.com/ply/ply.html#ply_nn9
+def t_newline(t):
+    r'\n+'
+    t.lexer.lineno += len(t.value)
+
+# http://www.dabeaz.com/ply/ply.html#ply_nn9
+# Compute column.
+#     input is the input text string
+#     token is a token instance
+def find_column(input, token):
+    line_start = input.rfind('\n', 0, token.lexpos) + 1
+    return (token.lexpos - line_start) + 1
+
+
 def t_error(t):
-    print("Illegal character '%s'" % t.value[0])
+    global current_file
+    column = find_column(t.lexer.lexdata, t)
+    print("Illegal character '{}' in file {} at ({}: {})".format(t.value[0], current_file, t.lexer.lineno, column))
     t.lexer.skip(1)
 
 
 # Ignored characters
-t_ignore = " \t\n"
+t_ignore = " \t"

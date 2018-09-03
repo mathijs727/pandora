@@ -11,9 +11,11 @@ import simplejson
 import pickle
 
 if __name__ == "__main__":
-    #path = "E:/Pandora Scenes/PBRT/island-pbrt-v1/island/pbrt/"
-    #path = "/mnt/e/Pandora Scenes/PBRT/island-pbrt-v1/island/pbrt/"
-    #file_path = os.path.join(path, "island.pbrt")
+    if os.name == "nt":
+        path = "E:/Pandora Scenes/PBRT/island-pbrt-v1/island/pbrt/"
+    else:
+        path = "/mnt/e/Pandora Scenes/PBRT/island-pbrt-v1/island/pbrt/"
+    file_path = os.path.join(path, "island.pbrt")
 
     if os.name == "nt":
         path = "E:/Pandora Scenes/PBRT/pbrt-v3-scenes/breakfast"

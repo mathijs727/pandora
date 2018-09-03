@@ -7,8 +7,9 @@ from enum import Enum
 import pickle
 from parsing.matrix import translate, scale, rotate, lookat
 from parsing.lexer import *
+import parsing.lexer
+import parsing.parser_basics
 import ply.yacc as yacc
-
 
 class ParsingState(Enum):
     CONFIG = 1
@@ -49,18 +50,40 @@ def p_statements_scene(p):
                          | """
     p[0] = None
 
+# Putting this at the top of the file confuses PLY for some weird reason
+base_path = ""
+out_mesh_path= ""
+new_mesh_id = 0
 
 def p_statement_include(p):
     "statement_include : INCLUDE STRING"
-    global parsing_state
+    global parsing_state, base_path
 
-    with open(os.path.join(base_path, p[2])) as f:
+    # Store state
+    current_file_bak = parsing.lexer.current_file
+    base_path_bak = base_path
+
+    # Set new state
+    include_file = os.path.join(base_path, p[2])
+    parsing.lexer.current_file = include_file
+    parsing.parser_basics.current_file = include_file
+    base_path = os.path.dirname(include_file)
+    parsing.parser_basics.base_path = base_path
+
+    with open(include_file, "r") as f:
         lexer = lex.lex()
         if parsing_state == ParsingState.CONFIG:
             parser = yacc.yacc(start="statements_config")
         else:
             parser = yacc.yacc(start="statements_scene")
         return parser.parse(f.read(), lexer=lexer)
+
+
+    # Restore state
+    base_path = base_path_bak
+    parsing.lexer.current_file = current_file_bak
+    parsing.parser_basics.current_file = current_file_bak
+    parsing.parser_basics.base_path = base_path_bak
 
     return None
 
@@ -89,10 +112,6 @@ Instance = namedtuple(
     "Instance", ["template_name", "transform"])
 Material = namedtuple("Material", ["type", "arguments"])
 Texture = namedtuple("Texture", ["name", "type", "texture_class", "arguments"])
-
-base_path = ""
-out_mesh_path= ""
-new_mesh_id = 0
 
 named_materials = {}
 named_textures = {}
@@ -308,7 +327,7 @@ def p_statement_shape(p):
         new_mesh_id += 1
 
         with open(new_mesh_path, "wb") as f:
-            f.write(pickle.dumps(arguments, indent=2))
+            f.write(pickle.dumps(arguments))
 
         arguments = {"filename": new_mesh_path}
 
@@ -387,6 +406,9 @@ def parse_file(file_path):
     lexer = lex.lex()
     parser = yacc.yacc()
 
+    import parsing.lexer
+    parsing.lexer.current_file = file_path
+
     with open(file_path, "r") as f:
         string = f.read()
 
@@ -396,8 +418,8 @@ def parse_file(file_path):
     if not os.path.exists(out_mesh_path):
         os.makedirs(out_mesh_path)
     base_path = os.path.dirname(os.path.abspath(file_path))
-    import parsing.parser_basics
     parsing.parser_basics.base_path = base_path
+    parsing.parser_basics.current_file = os.path.abspath(file_path)
 
     print("Parsing...")
     return yacc.parse(string, lexer=lexer)
