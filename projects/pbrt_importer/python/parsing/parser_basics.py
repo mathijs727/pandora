@@ -6,8 +6,11 @@ base_path = ""
 current_file = ""
 
 Point = namedtuple("Point", ["x", "y", "z"])
+Point2 = namedtuple("Point2", ["x", "y"])
 Normal = namedtuple("Normal", ["x", "y", "z"])
+Normal2 = namedtuple("Normal2", ["x", "y"])
 Vector = namedtuple("Vector", ["x", "y", "z"])
+Vector2 = namedtuple("Vector2", ["x", "y"])
 
 RGB = namedtuple("RGB", ["r", "g", "b"])
 XYZ = namedtuple("XYZ", ["X", "Y", "Z"])
@@ -66,7 +69,17 @@ def p_argument(p):
             assert(len(data) % 2 == 0)
             p[0] = {arg_name: SampledSpectrum(
                 values=data[0::2], wavelengths_nm=data[1::2])}
-        elif arg_type == "point":
+        elif arg_type == "point2":
+            length = len(data)
+            if length == 2:
+                p[0] = {arg_name: Point2(data[0], data[1])}
+            else:
+                assert(length % 2 == 0)
+                result = []
+                for i in range(0, length, 2):
+                    result.append(Point2(data[i], data[i+1]))
+                p[0] = {arg_name: result}
+        elif arg_type == "point3" or arg_type == "point":
             length = len(data)
             if length == 3:
                 p[0] = {arg_name: Point(data[0], data[1], data[2])}
@@ -76,7 +89,17 @@ def p_argument(p):
                 for i in range(0, length, 3):
                     result.append(Point(data[i], data[i+1], data[i+2]))
                 p[0] = {arg_name: result}
-        elif arg_type == "normal":
+        elif arg_type == "normal2":
+            length = len(data)
+            if length == 2:
+                p[0] = {arg_name: Normal2(data[0], data[1])}
+            else:
+                assert(length % 2 == 0)
+                result = []
+                for i in range(0, length, 2):
+                    result.append(Normal2(data[i], data[i+1]))
+                p[0] = {arg_name: result}
+        elif arg_type == "normal3" or arg_type == "normal":
             length = len(data)
             if length == 3:
                 p[0] = {arg_name: Normal(data[0], data[1], data[2])}
@@ -86,7 +109,17 @@ def p_argument(p):
                 for i in range(0, length, 3):
                     result.append(Normal(data[i], data[i+1], data[i+2]))
                 p[0] = {arg_name: result}
-        elif arg_type == "vector":
+        elif arg_type == "vector2":
+            length = len(data)
+            if length == 2:
+                p[0] = {arg_name: Vector2(data[0], data[1])}
+            else:
+                assert(length % 2 == 0)
+                result = []
+                for i in range(0, length, 2):
+                    result.append(Vector2(data[i], data[i+1]))
+                p[0] = {arg_name: result}
+        elif arg_type == "vector3" or arg_type == "vector":
             length = len(data)
             if length == 3:
                 p[0] = {arg_name: Vector(data[0], data[1], data[2])}
