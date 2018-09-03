@@ -35,42 +35,28 @@ def p_basic_data_type(p):
         print(f"Parsed data at line {lineno}")
 
 
-def p_number_list(p):
-    "number_list : NUMBER_LIST"
-    print("NUMBER_LIST")
+def p_list(p):
+    "list : LIST"
+    print("LIST")
     text = p[1][1:-1]
-    print("CUT OFF BRACKETS")
-    if '.' in text:
-        print("DETERMINED TYPE = FLOAT")
+    if '"' in text:
+        #print("DETERMINED TYPE = STRING")
+        import re
+        p[0] = re.findall('"[^"]*"', text)
+    elif '.' in text:
+        #print("DETERMINED TYPE = FLOAT")
         result = np.fromstring(text, dtype=float, sep=' ')
-        print("PARSED")
         p[0] =result
     else:
-        print("DETERMINTED TYPE = INT")
+        #print("DETERMINTED TYPE = INT")
         result = np.fromstring(text, dtype=int, sep=' ')
-        print("PARSED")
         p[0] = result
-
-
-def p_string_list_items(p):
-    """string_list_items : string_list_items STRING
-                      | """
-
-    if len(p) == 3:
-        p[0] = p[1] + [p[2]]
-    else:
-        p[0] = []
-
-
-def p_string_list(p):
-    "string_list : L_SQUARE_BRACKET string_list_items R_SQUARE_BRACKET"
-    p[0] = p[2]
+    print("OUTLIST")
 
 
 def p_argument(p):
     """argument : STRING basic_data_type
-                | STRING string_list
-                | STRING number_list"""
+                | STRING list"""
     global base_path
     arg_type, arg_name = p[1].split()
     data = p[2]
@@ -159,6 +145,7 @@ def p_argument(p):
                 "blackbody_scale_factor": float(data[1])
             }
         else:
+            print(data)
             raise RuntimeError(f"Unknown argument type {arg_type}")
     else:
         if arg_type == "integer":
