@@ -1,3 +1,5 @@
+import ply.lex as lex
+
 tokens = (
     "WORLD_BEGIN", "WORLD_END",
     "CAMERA", "SAMPLER", "INTEGRATOR", "FILM", "FILTER", "ACCELERATOR",
@@ -40,6 +42,7 @@ t_AREA_LIGHT_SOURCE = r'AreaLightSource'
 
 t_L_SQUARE_BRACKET = '\['
 t_R_SQUARE_BRACKET = '\]'
+t_INCLUDE = r'Include'
 
 t_IDENTITY = r'Identity'
 t_TRANSLATE = r'Translate'

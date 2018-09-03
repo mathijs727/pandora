@@ -1,9 +1,21 @@
 from deepmerge import merge_or_raise
 import numpy as np
 import os
+import sys
 from collections import namedtuple
-from parsing.lexer import *
+from enum import Enum
+import pickle
 from parsing.matrix import translate, scale, rotate, lookat
+from parsing.lexer import *
+import ply.yacc as yacc
+
+
+class ParsingState(Enum):
+    CONFIG = 1
+    SCENE = 2
+
+
+parsing_state = ParsingState.CONFIG
 
 
 def p_statement_main(p):
@@ -38,6 +50,31 @@ def p_statements_scene(p):
     p[0] = None
 
 
+def p_statement_include(p):
+    "statement_include : INCLUDE STRING"
+    global parsing_state
+
+    with open(os.path.join(base_path, p[2])) as f:
+        lexer = lex.lex()
+        if parsing_state == ParsingState.CONFIG:
+            parser = yacc.yacc(start="statements_config")
+        else:
+            parser = yacc.yacc(start="statements_scene")
+        return parser.parse(f.read(), lexer=lexer)
+
+    return None
+
+
+def p_statements_scene_include(p):
+    """statement_scene : statement_include"""
+    p[0] = p[1]
+
+
+def p_statements_config_include(p):
+    """statement_config : statement_include"""
+    p[0] = p[1]
+
+
 # For some reason PLY fails if this is imported at the top of this file
 from parsing.parser_basics import *
 
@@ -52,6 +89,10 @@ Instance = namedtuple(
     "Instance", ["template_name", "transform"])
 Material = namedtuple("Material", ["type", "arguments"])
 Texture = namedtuple("Texture", ["name", "type", "texture_class", "arguments"])
+
+base_path = ""
+out_mesh_path= ""
+new_mesh_id = 0
 
 named_materials = {}
 named_textures = {}
@@ -72,9 +113,10 @@ current_instance = None
 
 def p_statement_world_begin(p):
     "world_begin : WORLD_BEGIN"
-    global named_transforms, cur_transform
+    global named_transforms, cur_transform, parsing_state
     named_transforms["world"] = cur_transform
     cur_transform = np.identity(4)
+    parsing_state = ParsingState.SCENE
 
 
 def p_statement_attribute_begin(p):
@@ -184,7 +226,10 @@ def p_statement_named_material(p):
     if material_name in named_materials:
         graphics_state["material"] = named_materials[material_name]
     else:
-        print(f"WARNING: named material f{material_name} was not declared! Ignoring...")
+        # Use old (pre Python 3.6) format syntax so we can run the program with PyPy
+        #print(f"WARNING: named material {material_name} was not declared! Ignoring...")
+        print("WARNING: named material {}  was not declared! Ignoring...".format(
+            material_name))
 
 
 def p_statement_make_named_material(p):
@@ -202,9 +247,11 @@ def p_statement_texture(p):
     arguments = p[5]
     if "filename" in arguments:
         if isinstance(arguments["filename"], list):
-            arguments["filename"] = [os.path.join(base_path, f) for f in arguments["filename"]]
+            arguments["filename"] = [os.path.join(
+                base_path, f) for f in arguments["filename"]]
         else:
-            arguments["filename"] = os.path.join(base_path, arguments["filename"])
+            arguments["filename"] = os.path.join(
+                base_path, arguments["filename"])
     named_textures[p[2]] = Texture(
         name=p[2], type=p[3], texture_class=p[4], arguments=arguments)
 
@@ -242,17 +289,28 @@ def p_statement_object_end(p):
 def p_statement_object_instance(p):
     "statement_scene : OBJECT_INSTANCE STRING"
     global instances
-    instances.append(Instance(template_name=p[2], transform=cur_transform.tolist()))
+    instances.append(
+        Instance(template_name=p[2], transform=cur_transform.tolist()))
 
 
 def p_statement_shape(p):
     "statement_scene : SHAPE STRING arguments"
-    global non_instanced_shapes, current_instance, graphics_state, cur_transform
+    global non_instanced_shapes, current_instance, graphics_state, cur_transform, base_path
     shape_type = p[2]
     arguments = p[3]
 
     if shape_type == "plymesh":
         arguments["filename"] = os.path.join(base_path, arguments["filename"])
+    else:
+        global out_mesh_path, new_mesh_id
+        new_mesh_path = os.path.join(
+            out_mesh_path, "pbrt_mesh_{}.bin".format(new_mesh_id))
+        new_mesh_id += 1
+
+        with open(new_mesh_path, "wb") as f:
+            f.write(pickle.dumps(arguments, indent=2))
+
+        arguments = {"filename": new_mesh_path}
 
     shape = Shape(shape_type, arguments, cur_transform.tolist(),
                   graphics_state["flip_normals"], graphics_state["material"], graphics_state["area_light"])
@@ -288,7 +346,8 @@ def p_statement_sampler(p):
     sampler_type = p[2]
     arguments = p[3]
     # A PRBTv3 scene file may contain multiple samplers (ie the Crown scene)
-    p[0] = {"samplers": [merge_or_raise.merge({"type": sampler_type}, arguments)]}
+    p[0] = {"samplers": [merge_or_raise.merge(
+        {"type": sampler_type}, arguments)]}
 
 
 def p_statement_film(p):
@@ -323,36 +382,25 @@ def p_statement_accelerator(p):
     }
 
 
-import ply.lex as lex
-lex.lex()
-
-import ply.yacc as yacc
-yacc.yacc()
-
-
 def parse_file(file_path):
     import re
+    lexer = lex.lex()
+    parser = yacc.yacc()
 
     with open(file_path, "r") as f:
         string = f.read()
 
-    # Textually replace include statements
-    global base_path
+    global base_path, out_mesh_path
+    # Path to the Python file that executed this script
+    out_mesh_path = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "pbrt_meshes")
+    if not os.path.exists(out_mesh_path):
+        os.makedirs(out_mesh_path)
     base_path = os.path.dirname(os.path.abspath(file_path))
     import parsing.parser_basics
     parsing.parser_basics.base_path = base_path
 
-    while True:
-        include_files = re.findall("Include \"(.*)\"", string)
-
-        if len(include_files) == 0:
-            break
-
-        for file_name in include_files:
-            with open(os.path.join(base_path, file_name)) as f:
-                string = string.replace(f"Include \"{file_name}\"", f.read())
-
-    return yacc.parse(string)
+    print("Parsing...")
+    return yacc.parse(string, lexer=lexer)
 
 
 if __name__ == "__main__":

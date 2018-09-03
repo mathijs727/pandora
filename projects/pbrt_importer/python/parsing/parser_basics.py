@@ -118,3 +118,4 @@ def p_arguments(p):
         p[0] = p[1]
     else:
         p[0] = {}
+
