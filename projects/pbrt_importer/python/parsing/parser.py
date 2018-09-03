@@ -215,16 +215,18 @@ def p_statement_transform_coord_sys_transform(p):
 
 
 def p_statement_transform(p):
-    "statement_transform : TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET"
+    "statement_transform : TRANSFORM number_list"
+    #"statement_transform : TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET"
     global cur_transform
-    matrix = np.array(p[3:19]).reshape((4, 4))
+    matrix = np.array(p[2]).reshape((4, 4))
     cur_transform = np.matmul(matrix, cur_transform)
 
 
 def p_statement_transform_concat(p):
-    "statement_transform : CONCAT_TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET"
+    "statement_transform : CONCAT_TRANSFORM number_list"
+    #"statement_transform : CONCAT_TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET"
     global cur_transform
-    matrix = np.array(p[3:19]).reshape((4, 4))
+    matrix = np.array(p[2]).reshape((4, 4))
     cur_transform = matrix
 
 

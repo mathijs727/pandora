@@ -1,5 +1,6 @@
 from deepmerge import merge_or_raise, exception
 from collections import namedtuple
+import numpy as np
 import os
 
 base_path = ""
@@ -21,7 +22,8 @@ BlackBody = namedtuple("BlackBody", ["temperature_kelvin", "scale_factor"])
 
 
 def p_error(p):
-    print("Syntax error: unexpected token \"{p.value}\" in file \"{current_file}\" at line {p.lineno}")
+    print(
+        f"Syntax error: unexpected token \"{p.value}\" in file \"{current_file}\" at line {p.lineno}")
 
 
 def p_basic_data_type(p):
@@ -32,8 +34,26 @@ def p_basic_data_type(p):
     if lineno % 1000 == 0:
         print(f"Parsed data at line {lineno}")
 
-def p_data_list_items(p):
-    """data_list_items : data_list_items basic_data_type
+
+def p_number_list(p):
+    "number_list : NUMBER_LIST"
+    print("NUMBER_LIST")
+    text = p[1][1:-1]
+    print("CUT OFF BRACKETS")
+    if '.' in text:
+        print("DETERMINED TYPE = FLOAT")
+        result = np.fromstring(text, dtype=float, sep=' ')
+        print("PARSED")
+        p[0] =result
+    else:
+        print("DETERMINTED TYPE = INT")
+        result = np.fromstring(text, dtype=int, sep=' ')
+        print("PARSED")
+        p[0] = result
+
+
+def p_string_list_items(p):
+    """string_list_items : string_list_items STRING
                       | """
 
     if len(p) == 3:
@@ -42,23 +62,24 @@ def p_data_list_items(p):
         p[0] = []
 
 
-def p_data_list(p):
-    "data_list : L_SQUARE_BRACKET data_list_items R_SQUARE_BRACKET"
+def p_string_list(p):
+    "string_list : L_SQUARE_BRACKET string_list_items R_SQUARE_BRACKET"
     p[0] = p[2]
 
 
 def p_argument(p):
     """argument : STRING basic_data_type
-                | STRING data_list"""
+                | STRING string_list
+                | STRING number_list"""
     global base_path
     arg_type, arg_name = p[1].split()
     data = p[2]
 
     # Unfold lists of single length
-    if isinstance(data, list) and len(data) == 1:
+    if (isinstance(data, list) or isinstance(data, np.ndarray)) and len(data) == 1:
         data = data[0]
 
-    if isinstance(data, list):
+    if isinstance(data, list) or isinstance(data, np.ndarray):
         if arg_type == "integer":
             p[0] = {arg_name: [int(x) for x in data]}
         elif arg_type == "float":
@@ -154,6 +175,7 @@ def p_argument(p):
             p[0] = {arg_name: SampledSpectrumFile(
                 os.path.join(base_path, data))}
         else:
+            print(data)
             raise RuntimeError(f"Unknown argument type {arg_type}")
 
 
@@ -166,4 +188,3 @@ def p_arguments(p):
         p[0] = p[1]
     else:
         p[0] = {}
-
