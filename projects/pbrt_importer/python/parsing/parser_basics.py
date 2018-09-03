@@ -40,15 +40,12 @@ def p_list(p):
     print("LIST")
     text = p[1][1:-1]
     if '"' in text:
-        #print("DETERMINED TYPE = STRING")
         import re
         p[0] = re.findall('"[^"]*"', text)
     elif '.' in text:
-        #print("DETERMINED TYPE = FLOAT")
         result = np.fromstring(text, dtype=float, sep=' ')
         p[0] =result
     else:
-        #print("DETERMINTED TYPE = INT")
         result = np.fromstring(text, dtype=int, sep=' ')
         p[0] = result
     print("OUTLIST")

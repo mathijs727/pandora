@@ -74,7 +74,7 @@ def t_NUMBER(t):
 
 
 def t_COMMENT(t):
-    r'\#.*'
+    r'\#[^\n]*'
     return None
 
 

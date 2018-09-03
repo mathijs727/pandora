@@ -69,7 +69,7 @@ def p_statement_include(p):
 
     print(f"Processing include file {include_file}")
     with open(include_file, "r") as f:
-        lexer = lex.lex()
+        lexer = lex.lex(optimize=True)
         if parsing_state == ParsingState.CONFIG:
             parser = yacc.yacc(start="statements_config")
         else:
@@ -397,7 +397,7 @@ def p_statement_accelerator(p):
 
 def parse_file(file_path):
     import re
-    lexer = lex.lex()
+    lexer = lex.lex(optimize=True)
     parser = yacc.yacc()
 
     import parsing.lexer
