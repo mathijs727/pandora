@@ -25,6 +25,7 @@
 #include <string>
 #include <tbb/tbb.h>
 #include <xmmintrin.h>
+#include "pandora/core/load_from_file.h"
 
 using namespace pandora;
 using namespace atlas;
@@ -60,23 +61,24 @@ int main()
     camera.setPosition(glm::vec3(0.796053410f, 0.283110082f, -0.0945308730f));
     camera.setOrientation(glm::quat(-0.702995539f, 0.130927190f, 0.687222004f, 0.127989486f));
 
-    Scene scene;
+    auto renderConfig = loadFromFile("E:/Pandora Scenes/pbrt_intermediate/breakfast/pandora.json");
+
+    Scene& scene = renderConfig.scene;
+    /*addCornellBox(scene);
+    addStanfordBunny(scene);
+    addStanfordDragon(scene, false);
+    addCrytekSponza(scene);*/
 
     // Skydome
     auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
     auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
-    //addCornellBox(scene);
-    //addStanfordBunny(scene);
-    //addStanfordDragon(scene, false);
-    addCrytekSponza(scene);
-
-    scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
+    //scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
 
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
-    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    PathIntegrator integrator(10, scene, camera.getSensor(), 1);
+    NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
+    //PathIntegrator integrator(10, scene, camera.getSensor(), 1);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
     //SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
 
@@ -92,8 +94,8 @@ int main()
         myWindow.updateInput();
         cameraControls.tick();
 
-        //if (cameraControls.cameraChanged())
-        integrator.startNewFrame();
+        if (cameraControls.cameraChanged())
+            integrator.startNewFrame();
 
         integrator.render(camera);
         samples++;

@@ -35,6 +35,7 @@ private:
 class Scene {
 public:
     Scene() = default;
+    Scene(Scene&&) = default;
     ~Scene() = default;
 
     void addSceneObject(std::unique_ptr<SceneObject>&& sceneNode);

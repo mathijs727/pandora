@@ -4,6 +4,7 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/integrator.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/interaction.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/light.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/core/load_from_file.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/material.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/pandora.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/perspective_camera.h"

@@ -101,11 +101,11 @@ InstanceTemplate = namedtuple(
 Instance = namedtuple(
     "Instance", ["template_name", "transform"])
 Material = namedtuple("Material", ["type", "arguments"])
-Texture = namedtuple("Texture", ["name", "type", "texture_class", "arguments"])
+Texture = namedtuple("Texture", ["type", "texture_class", "arguments"])
 
 SampledSpectrum = namedtuple("SampledSpectrum", ["values", "wavelengths_nm"])
 SampledSpectrumFile = namedtuple("SampledSpectrumFile", ["filename"])
-TextureRef = namedtuple("TextureRef", ["name"])
+#TextureRef = namedtuple("TextureRef", ["name"])
 BlackBody = namedtuple("BlackBody", ["temperature_kelvin", "scale_factor"])
 
 named_materials = {}
@@ -115,7 +115,17 @@ instance_templates = {}
 instances = []
 non_instanced_shapes = []
 
-default_material = Material(type="matte", arguments={"Kd": (1.0, 1.0, 1.0)})
+default_material = Material(
+    type="matte",
+    arguments={
+        "Kd": {
+            "type": "color",
+            "value": np.array([1.0, 1.0, 1.0])
+        },
+        "sigma": {
+            "type": "float",
+            "value": 1.0
+        }})
 graphics_state_stack = []
 graphics_state = {"area_light": None,
                   "flip_normals": False, "material": default_material}
@@ -156,7 +166,7 @@ def p_list(p):
 def p_argument(p):
     """argument : STRING basic_data_type
                 | STRING list"""
-    global base_path
+    global base_path, named_textures
     arg_type, arg_name = p[1].split()
     data = p[2]
 
@@ -195,7 +205,7 @@ def p_argument(p):
         elif arg_type == "string":
             p[0] = {arg_name: {"type": arg_type, "value": str(data)}}
         elif arg_type == "texture":
-            p[0] = {arg_name: {"type": arg_type, "value": TextureRef(data)}}
+            p[0] = {arg_name: {"type": arg_type, "value": named_textures[data]}}
         elif arg_type == "spectrum":
             p[0] = {arg_name: {"type": arg_type, "value": SampledSpectrumFile(
                 os.path.join(base_path, data))}}
@@ -340,7 +350,7 @@ def p_statement_make_named_material(p):
     "statement_scene : MAKE_NAMED_MATERIAL STRING arguments"
     global named_materials
     arguments = p[3]
-    material_type = arguments["type"]
+    material_type = arguments["type"]["value"]
     del arguments["type"]
     named_materials[p[2]] = Material(type=material_type, arguments=arguments)
 
@@ -356,8 +366,7 @@ def p_statement_texture(p):
         else:
             arguments["filename"]["value"] = os.path.join(
                 base_path, arguments["filename"]["value"])
-    named_textures[p[2]] = Texture(
-        name=p[2], type=p[3], texture_class=p[4], arguments=arguments)
+    named_textures[p[2]] = Texture(type=p[3], texture_class=p[4], arguments=arguments)
 
 
 def p_statement_light(p):

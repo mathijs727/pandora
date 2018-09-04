@@ -3,6 +3,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/core/bxdf.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/interaction.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/light.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/core/load_from_file.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/perspective_camera.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/sampler.cpp"
