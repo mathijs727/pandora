@@ -42,7 +42,7 @@ int main()
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-    //auto renderConfig = loadFromFile("E:/Pandora Scenes/pbrt_intermediate/breakfast/pandora.json", false);
+    //auto renderConfig = loadFromFile("E:/Pandora Scenes/pbrt_intermediate/buddha-fractal/pandora.json", false);
     auto renderConfig = createStaticScene();
     Scene& scene = renderConfig.scene;
     PerspectiveCamera& camera = *renderConfig.camera;
@@ -57,7 +57,7 @@ int main()
     auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
-    scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
+    //scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
 
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);

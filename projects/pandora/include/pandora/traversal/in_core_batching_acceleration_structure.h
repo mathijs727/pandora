@@ -23,9 +23,10 @@
 
 namespace pandora {
 
-static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 2048;
+static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 1024;
+static constexpr bool ENABLE_BATCHING = true;
 
-template <typename UserState, size_t BatchSize = 64>
+template <typename UserState, size_t BatchSize = 256>
 class InCoreBatchingAccelerationStructure {
 public:
     using InsertHandle = void*;
@@ -287,25 +288,29 @@ inline std::optional<bool> InCoreBatchingAccelerationStructure<UserState, BatchS
 {
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
-    RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
-    if (!batch || batch->full()) {
-        if (batch) {
-            // Batch was full, move it to the list of immutable batches
-            auto* oldHead = mutThisPtr->m_immutableRayBatchList.load();
-            do {
-                batch->setNext(oldHead);
-            } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
+    if constexpr (ENABLE_BATCHING) {
+        RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
+        if (!batch || batch->full()) {
+            if (batch) {
+                // Batch was full, move it to the list of immutable batches
+                auto* oldHead = mutThisPtr->m_immutableRayBatchList.load();
+                do {
+                    batch->setNext(oldHead);
+                } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
+            }
+
+            // Allocate a new batch and set it as the new active batch
+            batch = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
+            mutThisPtr->m_threadLocalActiveBatch.local() = batch;
         }
 
-        // Allocate a new batch and set it as the new active batch
-        batch = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
-        mutThisPtr->m_threadLocalActiveBatch.local() = batch;
+        bool success = batch->tryPush(ray, rayInfo, userState, insertHandle);
+        assert(success);
+
+        return {}; // Paused*/
+    } else {
+        return mutThisPtr->m_leafBVH.intersect(ray, rayInfo);
     }
-
-    bool success = batch->tryPush(ray, rayInfo, userState, insertHandle);
-    assert(success);
-
-    return {}; // Paused
 }
 
 template <typename UserState, size_t BatchSize>
@@ -313,25 +318,29 @@ inline std::optional<bool> InCoreBatchingAccelerationStructure<UserState, BatchS
 {
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
-    RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
-    if (!batch || batch->full()) {
-        if (batch) {
-            // Batch was full, move it to the list of immutable batches
-            auto* oldHead = mutThisPtr->m_immutableRayBatchList.load();
-            do {
-                batch->setNext(oldHead);
-            } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
+    if constexpr (ENABLE_BATCHING) {
+        RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
+        if (!batch || batch->full()) {
+            if (batch) {
+                // Batch was full, move it to the list of immutable batches
+                auto* oldHead = mutThisPtr->m_immutableRayBatchList.load();
+                do {
+                    batch->setNext(oldHead);
+                } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
+            }
+
+            // Allocate a new batch and set it as the new active batch
+            batch = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
+            mutThisPtr->m_threadLocalActiveBatch.local() = batch;
         }
 
-        // Allocate a new batch and set it as the new active batch
-        batch = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
-        mutThisPtr->m_threadLocalActiveBatch.local() = batch;
+        bool success = batch->tryPush(ray, userState, insertHandle);
+        assert(success);
+
+        return {}; // Paused
+    } else {
+        return mutThisPtr->m_leafBVH.intersectAny(ray);
     }
-
-    bool success = batch->tryPush(ray, userState, insertHandle);
-    assert(success);
-
-    return {}; // Paused
 }
 
 template <typename UserState, size_t BatchSize>
@@ -388,8 +397,7 @@ inline size_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLeve
                     }
                 } else {
                     // Intersect any
-                    if (ray.tfar == -std::numeric_limits<float>::infinity())
-                    {
+                    if (ray.tfar == -std::numeric_limits<float>::infinity()) {
                         m_accelerationStructurePtr->m_anyHitCallback(ray, userState);
                     } else {
                         auto optResult = m_accelerationStructurePtr->m_bvh.intersectAny(ray, userState, insertHandle);

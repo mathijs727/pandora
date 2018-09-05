@@ -11,10 +11,10 @@ if __name__ == "__main__":
     file_path = os.path.join(path, "island.pbrt")
 
     if os.name == "nt":
-        path = "E:/Pandora Scenes/PBRT/pbrt-v3-scenes/breakfast/"
+        path = "E:/Pandora Scenes/PBRT/pbrt-v3-scenes/buddha-fractal/"
     else:
-        path = "/mnt/e/Pandora Scenes/PBRT/pbrt-v3-scenes/breakfast"
-    file_path = os.path.join(path, "breakfast.pbrt")
+        path = "/mnt/e/Pandora Scenes/PBRT/pbrt-v3-scenes/buddha-fractal"
+    file_path = os.path.join(path, "buddha-fractal.pbrt")
 
     pbrt_file = parsing.parse_file(file_path)
 

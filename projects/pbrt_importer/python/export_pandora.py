@@ -1,6 +1,6 @@
 import argparse
 import pickle
-import json
+import ujson # ujson is way faster than the default json module for exporting large dictionaries
 from config_parser import ConfigParser
 from scene_parser import SceneParser
 
@@ -25,7 +25,9 @@ if __name__ == "__main__":
     pbrt_data = pickle.load(open(args.file, "rb"))
 
     pandora_data = extract_pandora_data(pbrt_data)
-    json.dump(pandora_data, open(args.out, "w"), indent=2)
+
+    print("Writing JSON")
+    ujson.dump(pandora_data, open(args.out, "w"), indent=2)
 
 
 """import pandora_py

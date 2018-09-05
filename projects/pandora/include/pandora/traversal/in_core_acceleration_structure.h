@@ -2,12 +2,12 @@
 #include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/traversal/bvh/embree_bvh.h"
-#include "pandora/traversal/bvh/naive_single_bvh2.h"
+//#include "pandora/traversal/bvh/naive_single_bvh2.h"
 //#include "pandora/traversal/bvh/wive_bvh8_build2.h"
-#include "pandora/traversal/bvh/wive_bvh8_build8.h"
+#include "pandora/core/stats.h"
+//#include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/memory_arena_ts.h"
-#include "pandora/core/stats.h"
 #include <gsl/gsl>
 #include <memory>
 
@@ -32,10 +32,19 @@ public:
 private:
     class LeafNode {
     public:
-        unsigned numPrimitives() const;
-        Bounds getPrimitiveBounds(unsigned primitiveID) const;
-        //inline bool intersectPrimitive(Ray& ray, SurfaceInteraction& si, unsigned primitiveID) const;
-        inline bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const;
+        LeafNode(const SceneObject* sceneObject, std::unique_ptr<BVH<LeafNode>>&& bvh); // Instance
+        LeafNode(const SceneObject* sceneObject, unsigned primitiveID);
+
+        Bounds getBounds() const;
+        bool intersect(Ray& ray, RayHit& hitInfo) const;
+
+    private:
+        // Is a primitive
+        const SceneObject* m_sceneObject;
+
+        // Is an instance
+        std::unique_ptr<BVH<LeafNode>> m_bvh;
+        unsigned m_primitiveID;
     };
 
     class PauseableLeafNode {
@@ -59,9 +68,9 @@ private:
     static PauseableBVH4<PauseableLeafNode, UserState> buildPauseableBVH(gsl::span<const std::unique_ptr<SceneObject>>);
 
 private:
-    //EmbreeBVH<LeafNode> m_bvh;
+    EmbreeBVH<LeafNode> m_bvh;
     //NaiveSingleRayBVH2<LeafNode> m_bvh;
-    WiVeBVH8Build8<LeafNode> m_bvh;
+    //WiVeBVH8Build8<LeafNode> m_bvh;
     //PauseableBVH4<PauseableLeafNode, UserState> m_bvh;
 
     HitCallback m_hitCallback;
@@ -117,10 +126,13 @@ template <typename UserState>
 template <typename T>
 inline T InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
 {
-    std::vector<const LeafNode*> leafs;
+    std::vector<LeafNode> leafs;
     for (const auto& sceneObject : sceneObjects) {
-        // Reinterpret sceneObject pointer as LeafNode pointer. This allows us to remove an unnecessary indirection (BVH -> LeafNode -> SceneObject becomes BVH -> SceneObject).
-        leafs.push_back(reinterpret_cast<const LeafNode*>(sceneObject.get()));
+        const auto& mesh = sceneObject->getMeshRef();
+        
+        for (unsigned primitiveID = 0; primitiveID < mesh.numTriangles(); primitiveID++) {
+            leafs.push_back(LeafNode(sceneObject.get(), primitiveID));
+        }
     }
 
     T bvh;
@@ -193,6 +205,53 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectAnyRequests(
 }
 
 template <typename UserState>
+inline InCoreAccelerationStructure<UserState>::LeafNode::LeafNode(const SceneObject* sceneObject, std::unique_ptr<BVH<LeafNode>>&& bvh)
+    : m_sceneObject(sceneObject)
+    , m_primitiveID(-1)
+    , m_bvh(std::move(bvh))
+{
+}
+
+template <typename UserState>
+inline InCoreAccelerationStructure<UserState>::LeafNode::LeafNode(const SceneObject* sceneObject, unsigned primitiveID)
+    : m_sceneObject(sceneObject)
+    , m_primitiveID(primitiveID)
+    , m_bvh(nullptr)
+{
+}
+
+template <typename UserState>
+inline Bounds InCoreAccelerationStructure<UserState>::LeafNode::getBounds() const
+{
+    return m_sceneObject->getMeshRef().getPrimitiveBounds(m_primitiveID);
+}
+
+template <typename UserState>
+inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersect(Ray& ray, RayHit& hitInfo) const
+{
+    if constexpr (false) {
+        return m_bvh->intersect(ray, hitInfo);
+    } else {
+        bool hit = m_sceneObject->getMeshRef().intersectPrimitive(ray, hitInfo, m_primitiveID);
+        if (hit) {
+            hitInfo.sceneObject = m_sceneObject;
+            hitInfo.primitiveID = m_primitiveID;
+        }
+        return hit;
+    }
+
+    /*// this pointer is actually a pointer to the sceneObject (see constructor)
+    auto sceneObject = reinterpret_cast<const SceneObject*>(this);
+
+    bool hit = sceneObject->getMeshRef().intersectPrimitive(ray, hitInfo, primitiveID);
+    if (hit) {
+        hitInfo.sceneObject = sceneObject;
+        hitInfo.primitiveID = primitiveID;
+    }
+    return hit;*/
+}
+
+/*template <typename UserState>
 inline unsigned InCoreAccelerationStructure<UserState>::LeafNode::numPrimitives() const
 {
     // this pointer is actually a pointer to the sceneObject (see constructor)
@@ -206,20 +265,6 @@ inline Bounds InCoreAccelerationStructure<UserState>::LeafNode::getPrimitiveBoun
     // this pointer is actually a pointer to the sceneObject (see constructor)
     auto sceneObject = reinterpret_cast<const SceneObject*>(this);
     return sceneObject->getMeshRef().getPrimitiveBounds(primitiveID);
-}
-
-template <typename UserState>
-inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const
-{
-    // this pointer is actually a pointer to the sceneObject (see constructor)
-    auto sceneObject = reinterpret_cast<const SceneObject*>(this);
-
-    bool hit = sceneObject->getMeshRef().intersectPrimitive(ray, hitInfo, primitiveID);
-    if (hit) {
-        hitInfo.sceneObject = sceneObject;
-        hitInfo.primitiveID = primitiveID;
-    }
-    return hit;
-}
+}*/
 
 }

@@ -1,8 +1,9 @@
 #pragma once
-#include "glm/glm.hpp"
 #include "pandora/core/material.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/lights/area_light.h"
+#include "pandora/traversal/bvh.h"
+#include <glm/glm.hpp>
 #include <gsl/span>
 #include <memory>
 #include <optional>
@@ -15,6 +16,8 @@ class SceneObject {
 public:
     SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material);
     SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
+    SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& transform, const std::shared_ptr<const Material>& material);
+    SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& transform, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
 
     // TODO: intersect function (with custom geometry in Embree)?
     inline const TriangleMesh& getMeshRef() const { return *m_mesh; };
@@ -27,8 +30,10 @@ public:
     std::optional<gsl::span<const AreaLight>> getAreaLights() const;
 
 private:
+    std::optional<glm::mat4> m_transform;
     std::shared_ptr<const TriangleMesh> m_mesh;
     std::shared_ptr<const Material> m_material;
+
     std::vector<AreaLight> m_areaLightPerPrimitive;
 };
 

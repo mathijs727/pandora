@@ -4,7 +4,7 @@
 #include "pandora/core/sensor.h"
 #include "pandora/samplers/uniform_sampler.h"
 #include "pandora/traversal/in_core_acceleration_structure.h"
-#include "pandora/traversal/in_core_batching_acceleration_structure.h"
+//#include "pandora/traversal/in_core_batching_acceleration_structure.h"
 #include <random>
 
 namespace pandora {
@@ -31,8 +31,8 @@ protected:
 
 protected:
     const Scene& m_scene;
-    //InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
-    InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
+    InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
+    //InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
 
     Sensor& m_sensor;
     const int m_sppPerCall;

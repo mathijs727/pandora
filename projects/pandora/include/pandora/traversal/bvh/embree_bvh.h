@@ -18,7 +18,7 @@ public:
 
     size_t size() const override final;
 
-    void build(gsl::span<const LeafObj*> objects) override final;
+    void build(gsl::span<LeafObj> objects) override final;
 
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
     bool intersectAny(Ray& ray) const override final;
@@ -35,6 +35,7 @@ private:
     RTCScene m_scene;
     std::atomic_size_t m_memoryUsed;
 
+    std::vector<LeafObj> m_leafs;
     static tbb::enumerable_thread_specific<gsl::span<RayHit>> s_intersectionDataRayHit;
 };
 

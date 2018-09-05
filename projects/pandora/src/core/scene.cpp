@@ -24,6 +24,24 @@ SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const 
     }
 }
 
+SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& transform, const std::shared_ptr<const Material>& material)
+    : m_mesh(mesh)
+    , m_transform(transform)
+    , m_material(material)
+{
+}
+
+SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& transform, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted)
+    : m_mesh(mesh)
+    , m_transform(transform)
+    , m_material(material)
+{
+    m_areaLightPerPrimitive.reserve(m_mesh->numTriangles());
+    for (unsigned i = 0; i < mesh->numTriangles(); i++) {
+        m_areaLightPerPrimitive.emplace_back(lightEmitted, 1, *mesh, i);
+    }
+}
+
 const AreaLight* SceneObject::getAreaLight(unsigned primID) const
 {
     if (m_areaLightPerPrimitive.empty())
