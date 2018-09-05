@@ -14,6 +14,6 @@ struct RenderConfig
     Scene scene;
 };
 
-RenderConfig loadFromFile(std::string_view filename);
+RenderConfig loadFromFile(std::string_view filename, bool loadMaterials = true);
 
 }
