@@ -80,8 +80,8 @@ void FpsCameraControls::tick()
 
     //TODO(Mathijs): store forward, left and up vectors in the class itself
     float moveSpeed = 0.01f;
-    glm::vec3 forward = m_orientation * glm::vec3(0.0f, 0.0f, 1.0f);
-    glm::vec3 left = m_orientation * glm::vec3(1.0f, 0.0f, 0.0f);
+    glm::vec3 forward = m_orientation * glm::vec3(0.0f, 0.0f, 1.0f * m_scale.z);
+    glm::vec3 left = m_orientation * glm::vec3(1.0f * m_scale.x, 0.0f, 0.0f);
 
     if (m_window.isKeyDown(GLFW_KEY_A)) {
         m_position += -left * deltaMsFloat * moveSpeed;
