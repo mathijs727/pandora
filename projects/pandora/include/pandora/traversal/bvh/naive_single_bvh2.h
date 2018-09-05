@@ -19,7 +19,7 @@ public:
 
     size_t size() const override final;
 
-    void build(gsl::span<const LeafObj*> objects) override final;
+    void build(gsl::span<LeafObj> objects) override final;
 
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
     bool intersectAny(Ray& ray) const override final;
@@ -28,7 +28,6 @@ private:
     static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
     static void innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr);
     static void innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr);
-
     static void* leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr);
 
     static bool deviceMemoryMonitorFunction(void* userPtr, int64_t bytes, bool post);
@@ -46,13 +45,12 @@ private:
         bool intersectAny(Ray& ray) const override final;
     };
     struct LeafNode : public BVHNode {
-        eastl::fixed_vector<std::pair<const LeafObj*, unsigned>, 4> leafs;
+        eastl::fixed_vector<LeafObj, 4> leafs;
 
         bool intersect(Ray& ray, RayHit& hitInfo) const override final;
         bool intersectAny(Ray& ray) const override final;
     };
 
-    std::vector<const LeafObj*> m_leafObjects;
     RTCDevice m_embreeDevice;
     RTCBVH m_embreeBVH;
     const BVHNode* m_root;
@@ -75,8 +73,7 @@ inline NaiveSingleRayBVH2<LeafObj>::NaiveSingleRayBVH2()
 
 template <typename LeafObj>
 inline NaiveSingleRayBVH2<LeafObj>::NaiveSingleRayBVH2(NaiveSingleRayBVH2<LeafObj>&& other)
-    : m_leafObjects(std::move(m_leafObjects))
-    , m_embreeDevice(std::move(other.m_embreeDevice))
+    : m_embreeDevice(std::move(other.m_embreeDevice))
     , m_embreeBVH(std::move(other.m_embreeBVH))
     , m_root(other.m_root)
 {
@@ -96,31 +93,28 @@ inline NaiveSingleRayBVH2<LeafObj>::~NaiveSingleRayBVH2()
 template <typename LeafObj>
 inline size_t NaiveSingleRayBVH2<LeafObj>::size() const
 {
-    return sizeof(decltype(*this)) + m_memoryUsed.load() + m_leafObjects.size() * sizeof(LeafObj*);
+    return sizeof(decltype(*this)) + m_memoryUsed.load();
 }
 
 template <typename LeafObj>
-inline void NaiveSingleRayBVH2<LeafObj>::build(gsl::span<const LeafObj*> objects)
+inline void NaiveSingleRayBVH2<LeafObj>::build(gsl::span<LeafObj> objects)
 {
 
     std::vector<RTCBuildPrimitive> embreePrimitives;
-    for (const auto* objectPtr : objects) {
-        for (unsigned primitiveID = 0; primitiveID < objectPtr->numPrimitives(); primitiveID++) {
-            auto bounds = objectPtr->getPrimitiveBounds(primitiveID);
+    for (unsigned leafID = 0; leafID < static_cast<unsigned>(objects.size()); leafID++) {
+        auto bounds = objects[leafID].getBounds();
 
-            RTCBuildPrimitive primitive;
-            primitive.lower_x = bounds.min.x;
-            primitive.lower_y = bounds.min.y;
-            primitive.lower_z = bounds.min.z;
-            primitive.upper_x = bounds.max.x;
-            primitive.upper_y = bounds.max.y;
-            primitive.upper_z = bounds.max.z;
-            primitive.primID = primitiveID;
-            primitive.geomID = (unsigned)m_leafObjects.size();
+        RTCBuildPrimitive primitive;
+        primitive.lower_x = bounds.min.x;
+        primitive.lower_y = bounds.min.y;
+        primitive.lower_z = bounds.min.z;
+        primitive.upper_x = bounds.max.x;
+        primitive.upper_y = bounds.max.y;
+        primitive.upper_z = bounds.max.z;
+        primitive.primID = leafID;
+        primitive.geomID = 0;
 
-            embreePrimitives.push_back(primitive);
-            m_leafObjects.push_back(objectPtr); // Vector of references is a nightmare
-        }
+        embreePrimitives.push_back(primitive);
     }
 
     RTCBuildArguments arguments = rtcDefaultBuildArguments();
@@ -138,7 +132,7 @@ inline void NaiveSingleRayBVH2<LeafObj>::build(gsl::span<const LeafObj*> objects
     arguments.setNodeChildren = innerNodeSetChildren;
     arguments.setNodeBounds = innerNodeSetBounds;
     arguments.createLeaf = leafCreate;
-    arguments.userPtr = this;
+    arguments.userPtr = objects.data();
 
     m_root = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
 }
@@ -165,7 +159,6 @@ inline void* NaiveSingleRayBVH2<LeafObj>::innerNodeCreate(RTCThreadLocalAllocato
 {
     assert(numChildren == 2);
 
-    auto* self = reinterpret_cast<NaiveSingleRayBVH2<LeafObj>*>(userPtr);
     void* ptr = rtcThreadLocalAlloc(alloc, sizeof(InnerNode), 16);
     return reinterpret_cast<void*>(new (ptr) InnerNode);
 }
@@ -174,7 +167,6 @@ template <typename LeafObj>
 inline void NaiveSingleRayBVH2<LeafObj>::innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr)
 {
     assert(numChildren == 2);
-    //auto* self = reinterpret_cast<NaiveSingleRayBVH2<LeafObj>*>(userPtr);
     (void)userPtr;
 
     auto* node = reinterpret_cast<InnerNode*>(nodePtr);
@@ -188,7 +180,6 @@ template <typename LeafObj>
 inline void NaiveSingleRayBVH2<LeafObj>::innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr)
 {
     assert(numChildren == 2);
-    //auto* self = reinterpret_cast<NaiveSingleRayBVH2<LeafObj>*>(userPtr);
     (void)userPtr;
 
     auto* node = reinterpret_cast<InnerNode*>(nodePtr);
@@ -205,12 +196,12 @@ inline void* NaiveSingleRayBVH2<LeafObj>::leafCreate(RTCThreadLocalAllocator all
 {
     assert(numPrims <= 4);
 
-    auto* self = reinterpret_cast<NaiveSingleRayBVH2<LeafObj>*>(userPtr);
+    auto* leafs = reinterpret_cast<LeafObj*>(userPtr);
     void* ptr = rtcThreadLocalAlloc(alloc, sizeof(LeafNode), 16);
 
     LeafNode* leafNode = new (ptr) LeafNode();
     for (size_t i = 0; i < numPrims; i++) {
-        leafNode->leafs.push_back({ self->m_leafObjects[prims[i].geomID], prims[i].primID });
+        leafNode->leafs.emplace_back(std::move(leafs[prims[i].primID]));
     }
     return ptr;
 }
@@ -275,8 +266,8 @@ template <typename LeafObj>
 inline bool NaiveSingleRayBVH2<LeafObj>::LeafNode::intersect(Ray& ray, RayHit& hitInfo) const
 {
     bool hit = false;
-    for (auto& [leafObject, primitiveID] : leafs) {
-        hit |= leafObject->intersectPrimitive(ray, hitInfo, primitiveID);
+    for (const auto& leafObject : leafs) {
+        hit |= leafObject.intersect(ray, hitInfo);
     }
     return hit;
 }
@@ -284,9 +275,9 @@ inline bool NaiveSingleRayBVH2<LeafObj>::LeafNode::intersect(Ray& ray, RayHit& h
 template <typename LeafObj>
 inline bool NaiveSingleRayBVH2<LeafObj>::LeafNode::intersectAny(Ray& ray) const
 {
-    for (auto& [leafObject, primitiveID] : leafs) {
+    for (const auto& leafObject : leafs) {
         RayHit hitInfo = {};
-        if (leafObject->intersectPrimitive(ray, hitInfo, primitiveID))
+        if (leafObject.intersect(ray, hitInfo))
             return true;
     }
     return false;
