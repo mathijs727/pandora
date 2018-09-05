@@ -19,19 +19,11 @@ class ConfigParser:
         fov = camera.arguments["fov"]["value"]
         camera_to_world_transform = np.linalg.inv(np.array(camera.world_to_camera_transform).reshape(4,4)).tolist()
 
-        print(f"World to camera transform:\n{camera.world_to_camera_transform}\nCamera to world transform:\n{camera_to_world_transform}")
-
-        t = np.array(camera_to_world_transform)
-        origin = np.dot(t, np.array([0,0,0,1]))
-        direction = np.dot(t, np.array([0,0,1,0]))
-        print(f"Origin: {origin}\nDirection: {direction}\n")
-        
-
         return {
             "type": camera_type,
             "resolution": resolution,
             "fov": fov,
-            "transform": camera_to_world_transform
+            "camera_to_world_transform": camera_to_world_transform
         }
 
     def data(self):

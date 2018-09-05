@@ -48,7 +48,7 @@ glm::mat4 PerspectiveCamera::getTransform() const
 
 void PerspectiveCamera::setTransform(const glm::mat4& matrix)
 {
-    //m_transform = matrix;
+    m_transform = matrix;
 }
 
 Sensor& PerspectiveCamera::getSensor()

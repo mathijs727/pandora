@@ -64,10 +64,10 @@ RenderConfig loadFromFile(std::string_view filename)
         glm::ivec2 resolution = { resolutionJson[0].get<int>(), resolutionJson[1].get<int>() };
         float cameraFov = cameraJson["fov"].get<float>();
 
-        glm::mat4 cameraTransform = readMat4(cameraJson["transform"]);
+        glm::mat4 cameraToWorldTransform = readMat4(cameraJson["camera_to_world_transform"]);
         //glm::vec4 position = cameraTransform * glm::vec4(0, 0, 0, 1);
         //std::cout << "Camera pos: [" << position.x << ", " << position.y << ", " << position.z << ", " << position.w << "]" << std::endl;
-        config.camera = std::make_unique<PerspectiveCamera>(resolution, cameraFov, cameraTransform);
+        config.camera = std::make_unique<PerspectiveCamera>(resolution, cameraFov, cameraToWorldTransform);
         config.resolution = resolution;
     }
 
