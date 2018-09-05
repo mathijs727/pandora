@@ -31,15 +31,9 @@ using namespace pandora;
 using namespace atlas;
 using namespace std::string_literals;
 
-const int width = 1280;
-const int height = 720;
-
 const std::string projectBasePath = "../../"s;
 
-void addCrytekSponza(Scene& scene);
-void addStanfordBunny(Scene& scene);
-void addStanfordDragon(Scene& scene, bool loadFromCache = false);
-void addCornellBox(Scene& scene);
+RenderConfig createStaticScene();
 
 int main()
 {
@@ -48,33 +42,21 @@ int main()
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-    Window myWindow(width, height, "Hello World!");
-    FramebufferGL frameBuffer(width, height);
-
-    glm::ivec2 resolution = glm::ivec2(width, height);
-    PerspectiveCamera camera = PerspectiveCamera(resolution, 65.0f);
-    FpsCameraControls cameraControls(myWindow, camera);
-    //camera.setPosition(glm::vec3(1.5f, 1.5f, 0.0f)); // Voxel grid
-    //camera.setPosition(glm::vec3(0.25f, 0.8f, -1.5f)); // Bunny / Dragon
-
-    // Sponza
-    camera.setPosition(glm::vec3(0.796053410f, 0.283110082f, -0.0945308730f));
-    camera.setOrientation(glm::quat(-0.702995539f, 0.130927190f, 0.687222004f, 0.127989486f));
-
     auto renderConfig = loadFromFile("E:/Pandora Scenes/pbrt_intermediate/breakfast/pandora.json");
-
     Scene& scene = renderConfig.scene;
-    /*addCornellBox(scene);
-    addStanfordBunny(scene);
-    addStanfordDragon(scene, false);
-    addCrytekSponza(scene);*/
+    PerspectiveCamera& camera = *renderConfig.camera;
+
+    Window myWindow(renderConfig.resolution.x, renderConfig.resolution.y, "Hello World!");
+    FramebufferGL frameBuffer(renderConfig.resolution.x, renderConfig.resolution.y);
+
+    FpsCameraControls cameraControls(myWindow, camera);
+    //scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
 
     // Skydome
     auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
     auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
 
-    //scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
 
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
@@ -113,6 +95,23 @@ int main()
     }
 
     return 0;
+}
+
+void addCrytekSponza(Scene& scene);
+void addStanfordBunny(Scene& scene);
+void addStanfordDragon(Scene& scene, bool loadFromCache = false);
+void addCornellBox(Scene& scene);
+
+RenderConfig createStaticScene()
+{
+    RenderConfig config;
+    config.resolution = glm::ivec2(1280, 720);
+    config.camera = std::make_unique<PerspectiveCamera>(config.resolution, 65.0f);
+    //addCornellBox(config.scene);
+    //addStanfordBunny(config.scene);
+    //addStanfordDragon(config.scene, false);
+    //addCrytekSponza(config.scene);
+    return std::move(config);
 }
 
 void addCrytekSponza(Scene& scene)

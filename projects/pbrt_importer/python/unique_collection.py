@@ -1,16 +1,32 @@
+import json
+
 class UniqueCollection:
     def __init__(self):
         self._list = []
         self._dict = {}
 
-    def __getitem__(self, item):
-        try:
-            return self._dict[item]
-        except KeyError:
+    def add_item(self, item):
+        if isinstance(item, dict):
+            key = json.dumps(item)
+        else:
+            key = item
+        
+        if key in self._dict:
+            return self._dict[key]
+        else:
             index = len(self._list)
             self._list.append(item)
-            self._dict[item] = index
+            self._dict[key] = index
             return index
 
-    def get_items(self):
+    def get_list(self):
         return self._list
+
+
+if __name__ == "__main__":
+    collection = UniqueCollection()
+    assert(collection.add_item({"a": "b"}) == 0)
+    assert(collection.add_item({"a": "c"}) == 1)
+    assert(collection.add_item({"b": "x"}) == 2)
+    assert(collection.add_item({"a": "b"}) == 0)
+    assert(collection.add_item(123.0) == 3)

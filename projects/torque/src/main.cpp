@@ -50,8 +50,8 @@ int main()
     //camera.setPosition(glm::vec3(0.25f, 0.8f, -1.5f)); // Bunny / Dragon
 
     // Sponza
-    camera.setPosition(glm::vec3(0.796053410f, 0.283110082f, -0.0945308730f));
-    camera.setOrientation(glm::quat(-0.702995539f, 0.130927190f, 0.687222004f, 0.127989486f));
+    //camera.setPosition(glm::vec3(0.796053410f, 0.283110082f, -0.0945308730f));
+    //camera.setOrientation(glm::quat(-0.702995539f, 0.130927190f, 0.687222004f, 0.127989486f));
 
     Scene scene;
 

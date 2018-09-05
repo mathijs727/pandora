@@ -1,8 +1,9 @@
 #pragma once
-#include "glm/gtc/quaternion.hpp"
 #include "pandora/core/perspective_camera.h"
 #include "ui/window.h"
 #include <chrono>
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 using namespace pandora;
 
@@ -20,6 +21,9 @@ private:
     Window& m_window;
     PerspectiveCamera& m_camera;
     glm::dvec3 m_cameraEulerAngles;
+
+    glm::quat m_orientation;
+    glm::vec3 m_position;
 
     using clock = std::chrono::high_resolution_clock;
     clock::time_point m_previousFrameTimePoint;

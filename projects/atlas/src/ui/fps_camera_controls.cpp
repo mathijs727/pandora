@@ -1,7 +1,7 @@
 #include "fps_camera_controls.h"
-#include "glm/gtc/quaternion.hpp"
 #include <algorithm>
 #include <iostream>
+#include <glm/gtc/matrix_transform.hpp>
 
 const double PI = 3.141592653589793;
 
@@ -11,6 +11,8 @@ FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
     : m_window(window)
     , m_camera(camera)
     , m_cameraEulerAngles(0.0)
+    , m_position(camera.getTransform() * glm::vec4(0, 0, 0, 1))
+    , m_orientation()
     , m_previousFrameTimePoint(clock::now())
     , m_initialFrame(true)
     , m_cameraChanged(true)
@@ -23,8 +25,6 @@ FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
             return;
 
         if (!m_initialFrame) {
-            glm::quat currentOrienation = m_camera.getOrienation();
-
             // Moving mouse to the left (negative x) should result in a counter-clock wise rotation so we multiply
             // the yaw rotation by minus one.
             glm::dvec2 delta2D = position - m_previousMousePos;
@@ -36,11 +36,14 @@ FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
                 m_cameraEulerAngles.x = std::clamp(m_cameraEulerAngles.x, -PI / 2.0, PI / 2.0);
                 m_cameraEulerAngles.y += yawDelta;
 
-                auto quat = glm::quat(m_cameraEulerAngles);
-                m_camera.setOrientation(quat);
-
-                glm::vec3 forward = quat * glm::vec3(0, 0, 1);
+                m_orientation = glm::quat(m_cameraEulerAngles);
                 m_cameraChanged = true;
+            }
+
+            if (m_cameraChanged) {
+                glm::mat4 transform = glm::translate(glm::mat4(1.0f), m_position);
+                transform *= glm::mat4_cast(m_orientation);
+                m_camera.setTransform(transform);
             }
 
             // Limit pitch movement so we cant make "loopings"
@@ -76,32 +79,37 @@ void FpsCameraControls::tick()
 
     //TODO(Mathijs): store forward, left and up vectors in the class itself
     float moveSpeed = 0.01f;
-    glm::vec3 cameraPosition = m_camera.getPosition();
-    glm::quat cameraOrientation = m_camera.getOrienation();
-
-    glm::vec3 forward = cameraOrientation * glm::vec3(0.0f, 0.0f, 1.0f);
-    glm::vec3 left = cameraOrientation * glm::vec3(1.0f, 0.0f, 0.0f);
+    glm::vec3 forward = m_orientation * glm::vec3(0.0f, 0.0f, 1.0f);
+    glm::vec3 left = m_orientation * glm::vec3(1.0f, 0.0f, 0.0f);
 
     if (m_window.isKeyDown(GLFW_KEY_A)) {
-        cameraPosition += -left * deltaMsFloat * moveSpeed;
+        m_position += -left * deltaMsFloat * moveSpeed;
         m_cameraChanged = true;
     }
     if (m_window.isKeyDown(GLFW_KEY_D)) {
-        cameraPosition += left * deltaMsFloat * moveSpeed;
+        m_position += left * deltaMsFloat * moveSpeed;
         m_cameraChanged = true;
     }
     if (m_window.isKeyDown(GLFW_KEY_W)) {
-        cameraPosition += forward * deltaMsFloat * moveSpeed;
+        m_position += forward * deltaMsFloat * moveSpeed;
         m_cameraChanged = true;
     }
     if (m_window.isKeyDown(GLFW_KEY_S)) {
-        cameraPosition += -forward * deltaMsFloat * moveSpeed;
+        m_position += -forward * deltaMsFloat * moveSpeed;
         m_cameraChanged = true;
     }
 
-    m_camera.setPosition(cameraPosition);
+    if (m_cameraChanged) {
+        glm::mat4 transform = glm::translate(glm::mat4(1.0f), m_position);
+        transform *= glm::mat4_cast(m_orientation);
+        m_camera.setTransform(transform);
+    }
 
     m_previousFrameTimePoint = now;
+
+    auto transform = m_camera.getTransform();
+    glm::vec3 position = transform * glm::vec4(0, 0, 0, 1);
+    std::cout << "Camera pos: [" << position.x << ", " << position.y << ", " << position.z << "]" << std::endl;
 }
 
 bool FpsCameraControls::cameraChanged()

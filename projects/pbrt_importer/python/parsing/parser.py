@@ -22,6 +22,7 @@ current_file = ""
 out_mesh_path = ""
 new_mesh_id = 0
 
+
 def p_statement_main(p):
     "statement_main : statements_config world_begin statements_scene WORLD_END"
     scene_data = {
@@ -91,7 +92,8 @@ def p_statements_config_include(p):
     p[0] = p[1]
 
 
-Camera = namedtuple("Camera", ["type", "arguments", "transform"])
+Camera = namedtuple(
+    "Camera", ["type", "arguments", "world_to_camera_transform"])
 LightSource = namedtuple("LightSource", ["type", "arguments", "transform"])
 AreaLightSource = namedtuple("AreaLightSource", ["type", "arguments"])
 Shape = namedtuple("Shape", ["type", "arguments",
@@ -296,9 +298,15 @@ def p_statement_transform_lookat(p):
     "statement_transform : LOOKAT NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER"
     global cur_transform
     eye = np.array([p[2], p[3], p[4]])
-    look = np.array([p[5], p[6], p[7]])
+    target = np.array([p[5], p[6], p[7]])
     up = np.array([p[8], p[9], p[10]])
-    cur_transform = np.matmul(lookat(eye, look, up), cur_transform)
+    print("LOOKAT")
+    print("eye: ", eye)
+    print("target: ", target)
+    print("up: ", up)
+    print("matrix:\n", lookat(eye, target, up))
+    cur_transform = np.matmul(lookat(eye, target, up), cur_transform)
+    print("current_matrix:\n", cur_transform)
 
 
 def p_statement_transform_coordinate_system(p):
@@ -317,7 +325,7 @@ def p_statement_transform(p):
     "statement_transform : TRANSFORM list"
     #"statement_transform : TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET"
     global cur_transform
-    matrix = np.array(p[2]).reshape((4, 4))
+    matrix = np.transpose(np.array(p[2]).reshape((4, 4)))
     cur_transform = np.matmul(matrix, cur_transform)
 
 
@@ -325,7 +333,7 @@ def p_statement_transform_concat(p):
     "statement_transform : CONCAT_TRANSFORM list"
     #"statement_transform : CONCAT_TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET"
     global cur_transform
-    matrix = np.array(p[2]).reshape((4, 4))
+    matrix = np.transpose(np.array(p[2]).reshape((4, 4)))
     cur_transform = matrix
 
 
@@ -366,7 +374,8 @@ def p_statement_texture(p):
         else:
             arguments["filename"]["value"] = os.path.join(
                 base_path, arguments["filename"]["value"])
-    named_textures[p[2]] = Texture(type=p[3], texture_class=p[4], arguments=arguments)
+    named_textures[p[2]] = Texture(
+        type=p[3], texture_class=p[4], arguments=arguments)
 
 
 def p_statement_light(p):
@@ -413,7 +422,8 @@ def p_statement_shape(p):
     arguments = p[3]
 
     if shape_type == "plymesh":
-        arguments["filename"]["value"] = os.path.join(base_path, arguments["filename"]["value"])
+        arguments["filename"]["value"] = os.path.join(
+            base_path, arguments["filename"]["value"])
     else:
         global out_mesh_path, new_mesh_id
         new_mesh_path = os.path.join(
@@ -450,7 +460,7 @@ def p_statement_camera(p):
     camera_type = p[2]
     arguments = p[3]
     p[0] = {
-        "camera": Camera(type=camera_type, arguments=arguments, transform=cur_transform.tolist())
+        "camera": Camera(type=camera_type, arguments=arguments, world_to_camera_transform=cur_transform.tolist())
     }
 
 
