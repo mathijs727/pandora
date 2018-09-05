@@ -4,7 +4,7 @@
 #include "pandora/core/sensor.h"
 #include "pandora/samplers/uniform_sampler.h"
 #include "pandora/traversal/in_core_acceleration_structure.h"
-//#include "pandora/traversal/in_core_batching_acceleration_structure.h"
+#include "pandora/traversal/in_core_batching_acceleration_structure.h"
 #include <random>
 
 namespace pandora {

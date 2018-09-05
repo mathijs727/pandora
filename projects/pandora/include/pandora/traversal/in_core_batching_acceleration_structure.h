@@ -101,9 +101,17 @@ private:
 
     class BotLevelLeafNode {
     public:
-        unsigned numPrimitives() const;
-        Bounds getPrimitiveBounds(unsigned primitiveID) const;
-        bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const;
+        BotLevelLeafNode(const SceneObject* sceneObject, unsigned primitiveID)
+            : m_sceneObject(sceneObject)
+            , m_primitiveID(primitiveID)
+        {
+        }
+        Bounds getBounds() const;
+        bool intersect(Ray& ray, RayHit& hitInfo) const;
+
+    private:
+        const SceneObject* m_sceneObject;
+        const unsigned m_primitiveID;
     };
 
     class TopLevelLeafNode {
@@ -420,42 +428,40 @@ inline size_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLeve
 template <typename UserState, size_t BatchSize>
 inline WiVeBVH8Build8<typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode> InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::buildBVH(gsl::span<const SceneObject*> sceneObjects)
 {
-    std::vector<const BotLevelLeafNode*> leafs(sceneObjects.size());
-    std::transform(std::begin(sceneObjects), std::end(sceneObjects), std::begin(leafs), [](const SceneObject* sceneObject) {
-        return reinterpret_cast<const BotLevelLeafNode*>(sceneObject);
-    });
+    std::vector<BotLevelLeafNode> leafs;
+    for (const auto& sceneObject : sceneObjects) {
+        for (unsigned primitiveID = 0; primitiveID < sceneObject->getMeshRef().numTriangles(); primitiveID++) {
+            leafs.push_back(BotLevelLeafNode(sceneObject, primitiveID));
+        }
+    }
 
     WiVeBVH8Build8<BotLevelLeafNode> bvh;
     bvh.build(leafs);
     return std::move(bvh);
 }
 
-template <typename UserState, size_t BatchSize>
+/*template <typename UserState, size_t BatchSize>
 inline unsigned InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::numPrimitives() const
 {
     // this pointer is actually a pointer to the sceneObject (see constructor)
     auto sceneObject = reinterpret_cast<const SceneObject*>(this);
     return sceneObject->getMeshRef().numTriangles();
+}*/
+
+template <typename UserState, size_t BatchSize>
+inline Bounds InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::getBounds() const
+{
+    return m_sceneObject->getMeshRef().getPrimitiveBounds(m_primitiveID);
 }
 
 template <typename UserState, size_t BatchSize>
-inline Bounds InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::getPrimitiveBounds(unsigned primitiveID) const
+inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::intersect(Ray& ray, RayHit& hitInfo) const
 {
-    // this pointer is actually a pointer to the sceneObject (see constructor)
-    auto sceneObject = reinterpret_cast<const SceneObject*>(this);
-    return sceneObject->getMeshRef().getPrimitiveBounds(primitiveID);
-}
 
-template <typename UserState, size_t BatchSize>
-inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const
-{
-    // this pointer is actually a pointer to the sceneObject (see constructor)
-    auto sceneObject = reinterpret_cast<const SceneObject*>(this);
-
-    bool hit = sceneObject->getMeshRef().intersectPrimitive(ray, hitInfo, primitiveID);
+    bool hit = m_sceneObject->getMeshRef().intersectPrimitive(ray, hitInfo, m_primitiveID);
     if (hit) {
-        hitInfo.sceneObject = sceneObject;
-        hitInfo.primitiveID = primitiveID;
+        hitInfo.sceneObject = m_sceneObject;
+        hitInfo.primitiveID = m_primitiveID;
     }
     return hit;
 }
