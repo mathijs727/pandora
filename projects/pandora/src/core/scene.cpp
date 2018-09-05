@@ -57,6 +57,66 @@ void Scene::addInfiniteLight(const std::shared_ptr<Light>& light)
     m_lightOwningPointers.push_back(light);
 }
 
+struct SplitSceneBVHNode {
+    virtual std::vector<unsigned> outputSceneObjects(
+        unsigned minPrimsPerPart,
+        std::vector<std::vector<unsigned>>& partPrims) const = 0;
+};
+
+struct SplitSceneBVHInnerNode : public SplitSceneBVHNode {
+    virtual std::vector<unsigned> outputSceneObjects(
+        unsigned minPrimsPerPart,
+        std::vector<std::vector<unsigned>>& partPrims) const override final
+    {
+        auto primsLeft = m_left->outputSceneObjects(minPrimsPerPart, partPrims);
+        auto primsRight = m_right->outputSceneObjects(minPrimsPerPart, partPrims);
+        auto numPrimsLeft = primsLeft.size();
+        auto numPrimsRight = primsRight.size();
+
+        if (numPrimsLeft == 0 && numPrimsRight == 0)
+            return {};
+
+        if (numPrimsLeft == 0 && numPrimsRight != 0) {
+            if (numPrimsRight > minPrimsPerPart) {
+                partPrims.push_back(std::move(primsRight));
+                return {};
+            } else {
+                return primsRight;
+            }
+        } else if (numPrimsLeft != 0 && numPrimsRight == 0) {
+            if (numPrimsLeft > minPrimsPerPart) {
+                partPrims.push_back(std::move(primsLeft));
+                return {};
+            } else {
+                return primsLeft;
+            }
+        } else {
+            // Merge the two arrays and check whether the result is large enough to become an output part
+            primsLeft.insert(std::end(primsLeft), std::begin(primsRight), std::end(primsRight));
+            if (numPrimsLeft + numPrimsRight > minPrimsPerPart) {
+                partPrims.push_back(std::move(primsLeft));
+                return {};
+            } else {
+                return primsLeft;
+            }
+        }
+    }
+
+    SplitSceneBVHNode* m_left;
+    SplitSceneBVHNode* m_right;
+};
+
+struct SplitSceneBVHLeafNode : public SplitSceneBVHNode {
+    virtual std::vector<unsigned> outputSceneObjects(
+        unsigned minPrimsPerPart,
+        std::vector<std::vector<unsigned>>& partPrims) const override final
+    {
+        return m_prims;
+    }
+
+    std::vector<unsigned> m_prims;
+};
+
 void Scene::splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject)
 {
     std::vector<std::unique_ptr<SceneObject>> splitSceneObjects;
@@ -97,40 +157,57 @@ void Scene::splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject)
         arguments.buildFlags = RTC_BUILD_FLAG_NONE;
         arguments.buildQuality = RTC_BUILD_QUALITY_MEDIUM;
         arguments.maxBranchingFactor = 2;
-        arguments.minLeafSize = maxPrimitivesPerSceneObject / 2;
-        arguments.maxLeafSize = maxPrimitivesPerSceneObject;
+        arguments.minLeafSize = maxPrimitivesPerSceneObject / 8;
+        arguments.maxLeafSize = maxPrimitivesPerSceneObject / 8;
         arguments.bvh = bvh;
         arguments.primitives = embreeBuildPrimitives.data();
         arguments.primitiveCount = embreeBuildPrimitives.size();
         arguments.primitiveArrayCapacity = embreeBuildPrimitives.capacity();
-        arguments.createNode = [](RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr) -> void* { return nullptr; };
-        arguments.setNodeChildren = [](void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr) {};
+        arguments.createNode = [](RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr) -> void* {
+            auto* mem = rtcThreadLocalAlloc(alloc, sizeof(SplitSceneBVHInnerNode), 8);
+            return new (mem) SplitSceneBVHInnerNode();
+        };
+        arguments.setNodeChildren = [](void* voidNodePtr, void** childPtr, unsigned numChildren, void* userPtr) {
+            ALWAYS_ASSERT(numChildren == 2);
+            auto* nodePtr = reinterpret_cast<SplitSceneBVHInnerNode*>(voidNodePtr);
+
+            nodePtr->m_left = reinterpret_cast<SplitSceneBVHNode*>(childPtr[0]);
+            nodePtr->m_right = reinterpret_cast<SplitSceneBVHNode*>(childPtr[1]);
+        };
         arguments.setNodeBounds = [](void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr) {};
         arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
-            auto partPrimitives = reinterpret_cast<tbb::concurrent_vector<std::vector<unsigned>>*>(userPtr);
-
-            std::vector<unsigned> primitiveIDs;
-            for (size_t i = 0; i < numPrims; i++) {
-                primitiveIDs.push_back(prims[i].primID);
-            }
-            partPrimitives->push_back(std::move(primitiveIDs));
-
-            return nullptr;
+            auto* mem = rtcThreadLocalAlloc(alloc, sizeof(SplitSceneBVHLeafNode), 8);
+            auto nodePtr = new (mem) SplitSceneBVHLeafNode();
+            nodePtr->m_prims = std::vector<unsigned>(numPrims);
+            for (size_t i = 0; i < numPrims; i++)
+                nodePtr->m_prims[i] = prims[i].primID;
+            return nodePtr;
         };
 
-        tbb::concurrent_vector<std::vector<unsigned>> partPrimitives;
-        arguments.userPtr = &partPrimitives;
-        rtcBuildBVH(&arguments);
+        const auto* rootNode = reinterpret_cast<SplitSceneBVHNode*>(rtcBuildBVH(&arguments));
+        std::vector<std::vector<unsigned>> partPrimitives;
+        auto leftOverPrims = rootNode->outputSceneObjects(maxPrimitivesPerSceneObject / 2, partPrimitives);
+        if (leftOverPrims.size() < maxPrimitivesPerSceneObject / 8) {
+            partPrimitives.back().insert(std::end(partPrimitives.back()), std::begin(leftOverPrims), std::end(leftOverPrims));
+        } else {
+            partPrimitives.push_back(leftOverPrims);
+        }
+        //ALWAYS_ASSERT(leftOverPrims.size() > 0);
+        //partPrimitives.push_back(leftOverPrims);
+
         rtcReleaseBVH(bvh);
         rtcReleaseDevice(device);
 
         auto material = sceneObject->getMaterial();
         for (const auto& primitiveIDs : partPrimitives) {
+            ALWAYS_ASSERT(primitiveIDs.size() > 10);
             auto mesh = std::make_shared<const TriangleMesh>(sceneObject->getMeshRef().subMesh(primitiveIDs));
             splitSceneObjects.push_back(std::make_unique<SceneObject>(mesh, material));
         }
     }
     m_sceneObjects = std::move(splitSceneObjects);
+
+    std::cout << "NUM SCENE OBJECTS AFTER SPLIT: " << m_sceneObjects.size() << std::endl;
 }
 
 gsl::span<const std::unique_ptr<SceneObject>> Scene::getSceneObjects() const

@@ -158,7 +158,7 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
         positions[i] = transform * glm::vec4(assimpVec(mesh->mVertices[i]), 1);
     }
 
-    // Normals & tangents
+    // Normals
     if (mesh->HasNormals() && !ignoreVertexNormals) {
         normals = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
         glm::mat3 normalTransform = transform;
@@ -183,6 +183,103 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
         std::move(normals),
         std::move(tangents),
         std::move(uvCoords));
+}
+
+std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::string_view filename, glm::mat4 objTransform, bool ignoreVertexNormals)
+{
+    if (!fileExists(filename)) {
+        LOG_WARNING("Could not find mesh file: "s + std::string(filename));
+        return {};
+    }
+
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile(filename.data(), aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate);
+    //importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
+
+    if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
+        LOG_WARNING("Failed to load mesh file: "s + std::string(filename));
+        return {};
+    }
+
+    std::vector<glm::ivec3> indices;
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> normals;
+
+    std::stack<std::tuple<aiNode*, glm::mat4>> stack;
+    stack.push({ scene->mRootNode, objTransform * assimpMatrix(scene->mRootNode->mTransformation) });
+    while (!stack.empty()) {
+        auto[node, transform] = stack.top();
+        stack.pop();
+
+        transform *= assimpMatrix(node->mTransformation);
+
+        for (unsigned i = 0; i < node->mNumMeshes; i++) {
+            // Process subMesh
+            const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+
+            if (mesh->mNumVertices == 0 || mesh->mNumFaces == 0)
+                THROW_ERROR("Empty mesh");
+
+            // Triangles
+            auto indexOffset = positions.size();
+            for (unsigned j = 0; j < mesh->mNumFaces; j++) {
+                const aiFace& face = mesh->mFaces[j];
+                if (face.mNumIndices != 3) {
+                    THROW_ERROR("Found a face which is not a triangle, discarding!");
+                }
+
+                auto aiIndices = face.mIndices;
+                indices.push_back(glm::ivec3{
+                    aiIndices[0] + indexOffset,
+                    aiIndices[1] + indexOffset,
+                    aiIndices[2] + indexOffset });
+            }
+
+            // Positions
+            for (unsigned j = 0; j < mesh->mNumVertices; j++) {
+                glm::vec3 pos = assimpVec(mesh->mVertices[j]);
+                glm::vec3 transformedPos = transform * glm::vec4(pos, 1);
+                positions.push_back(transformedPos);
+            }
+
+            // Normals
+            if (mesh->HasNormals() && !ignoreVertexNormals) {
+                glm::mat3 normalTransform = transform;
+                for (unsigned j = 0; j < mesh->mNumVertices; j++) {
+                    normals.push_back(normalTransform * glm::vec3(assimpVec(mesh->mNormals[j])));
+                }
+            } else {
+                std::cout << "WARNING: submesh has no normal vectors" << std::endl;
+                for (unsigned j = 0; j < mesh->mNumVertices; j++) {
+                    normals.push_back(glm::vec3(0));
+                }
+            }
+
+        }
+
+        for (unsigned i = 0; i < node->mNumChildren; i++) {
+            stack.push({ node->mChildren[i], transform });
+        }
+    }
+
+    ALWAYS_ASSERT(positions.size() == normals.size());
+    std::unique_ptr<glm::ivec3[]> pIndices = std::make_unique<glm::ivec3[]>(indices.size());
+    std::copy(std::begin(indices), std::end(indices), pIndices.get());
+    std::unique_ptr<glm::vec3[]> pPositions = std::make_unique<glm::vec3[]>(positions.size());
+    std::copy(std::begin(positions), std::end(positions), pPositions.get());
+    std::unique_ptr<glm::vec3[]> pNormals = std::make_unique<glm::vec3[]>(normals.size());
+    std::copy(std::begin(normals), std::end(normals), pNormals.get());
+    std::unique_ptr<glm::vec3[]> pTangents = nullptr;
+    std::unique_ptr<glm::vec2[]> pUvCoords = nullptr;
+
+    return TriangleMesh(
+        static_cast<unsigned>(indices.size()),
+        static_cast<unsigned>(positions.size()),
+        std::move(pIndices),
+        std::move(pPositions),
+        std::move(pNormals),
+        std::move(pTangents),
+        std::move(pUvCoords));
 }
 
 std::vector<TriangleMesh> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform, bool ignoreVertexNormals)
