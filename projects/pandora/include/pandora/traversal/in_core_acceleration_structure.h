@@ -1,11 +1,11 @@
 #pragma once
 #include "pandora/core/scene.h"
+#include "pandora/core/stats.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/traversal/bvh/embree_bvh.h"
 #include "pandora/traversal/bvh/naive_single_bvh2.h"
 #include "pandora/traversal/bvh/wive_bvh8_build2.h"
-#include "pandora/core/stats.h"
-//#include "pandora/traversal/bvh/wive_bvh8_build8.h"
+#include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/memory_arena_ts.h"
 #include <gsl/gsl>
@@ -70,8 +70,8 @@ private:
 private:
     //EmbreeBVH<LeafNode> m_bvh;
     //NaiveSingleRayBVH2<LeafNode> m_bvh;
-    WiVeBVH8Build2<LeafNode> m_bvh;
-    //WiVeBVH8Build8<LeafNode> m_bvh;
+    //WiVeBVH8Build2<LeafNode> m_bvh;
+    WiVeBVH8Build8<LeafNode> m_bvh;
     //PauseableBVH4<PauseableLeafNode, UserState> m_bvh;
 
     HitCallback m_hitCallback;
@@ -130,7 +130,7 @@ inline T InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::u
     std::vector<LeafNode> leafs;
     for (const auto& sceneObject : sceneObjects) {
         const auto& mesh = sceneObject->getMeshRef();
-        
+
         for (unsigned primitiveID = 0; primitiveID < mesh.numTriangles(); primitiveID++) {
             leafs.push_back(LeafNode(sceneObject.get(), primitiveID));
         }
