@@ -211,12 +211,13 @@ inline uint32_t WiVeBVH8<LeafObj>::intersectAnyInnerNode(const BVHNode* n, const
     simd::vec8_f32 tmin = simd::max(ray.tnear, simd::max(txMin, simd::max(tyMin, tzMin)));
     simd::vec8_f32 tmax = simd::min(ray.tfar, simd::min(txMax, simd::min(tyMax, tzMax)));
 
+    // Disable sorting since any hit will do
     //const simd::vec8_u32 indexMask(0b111);
     //const simd::vec8_u32 simd24(24);
     //simd::vec8_u32 index = (n->permutationOffsets >> ray.raySignShiftAmount) & indexMask;
-
     //tmin = tmin.permute(index);
     //tmax = tmax.permute(index);
+
     simd::mask8 mask = tmin <= tmax;
     simd::vec8_u32 compressPermuteIndices(mask.computeCompressPermutation());
     outChildren = n->children.permute(compressPermuteIndices);
@@ -226,25 +227,21 @@ inline uint32_t WiVeBVH8<LeafObj>::intersectAnyInnerNode(const BVHNode* n, const
 
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, RayHit& hitInfo) const
+inline bool WiVeBVH8<LeafObj>::intersectLeaf(const LeafObj* leafObjects, uint32_t objectCount, Ray& ray, RayHit& hitInfo) const
 {
     bool hit = false;
-    const auto* leafObjectIDs = n->leafObjectIDs;
-    const auto* primitiveIDs = n->primitiveIDs;
-    for (uint32_t i = 0; i < primitiveCount; i++) {
-        hit |= m_leafObjects[leafObjectIDs[i]]->intersectPrimitive(ray, hitInfo, primitiveIDs[i]);
+    for (uint32_t i = 0; i < objectCount; i++) {
+        hit |= leafObjects[i].intersect(ray, hitInfo);
     }
     return hit;
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersectAnyLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray) const
+inline bool WiVeBVH8<LeafObj>::intersectAnyLeaf(const LeafObj* leafObjects, uint32_t objectCount, Ray& ray) const
 {
-    const auto* leafObjectIDs = n->leafObjectIDs;
-    const auto* primitiveIDs = n->primitiveIDs;
-    for (uint32_t i = 0; i < primitiveCount; i++) {
-        RayHit hitInfo = {};
-        if (m_leafObjects[leafObjectIDs[i]]->intersectPrimitive(ray, hitInfo, primitiveIDs[i]))
+    RayHit hitInfo = {};
+    for (uint32_t i = 0; i < objectCount; i++) {
+        if (leafObjects[i].intersect(ray, hitInfo))
             return true;
     }
     return false;
@@ -331,29 +328,26 @@ inline void WiVeBVH8<LeafObj>::testBVHRecurse(const BVHNode* node, int depth, Te
 }
 
 template <typename LeafObj>
-inline void WiVeBVH8<LeafObj>::build(gsl::span<const LeafObj*> objects)
+inline void WiVeBVH8<LeafObj>::build(gsl::span<LeafObj> objects)
 {
-    for (const auto* objectPtr : objects) {
-        uint32_t leafObjectID = (uint32_t)m_leafObjects.size();
-        m_leafObjects.push_back(objectPtr); // Vector of references is a nightmare
+    std::vector<RTCBuildPrimitive> embreePrimitives;
 
-        for (unsigned primitiveID = 0; primitiveID < objectPtr->numPrimitives(); primitiveID++) {
-            auto bounds = objectPtr->getPrimitiveBounds(primitiveID);
+    for (unsigned leafID = 0; leafID < static_cast<unsigned>(objects.size()); leafID++) {
+        auto bounds = objects[leafID].getBounds();
 
-            RTCBuildPrimitive primitive;
-            primitive.lower_x = bounds.min.x;
-            primitive.lower_y = bounds.min.y;
-            primitive.lower_z = bounds.min.z;
-            primitive.upper_x = bounds.max.x;
-            primitive.upper_y = bounds.max.y;
-            primitive.upper_z = bounds.max.z;
-            primitive.primID = primitiveID;
-            primitive.geomID = leafObjectID;
-            m_primitives.push_back(primitive);
-        }
+        RTCBuildPrimitive primitive;
+        primitive.lower_x = bounds.min.x;
+        primitive.lower_y = bounds.min.y;
+        primitive.lower_z = bounds.min.z;
+        primitive.upper_x = bounds.max.x;
+        primitive.upper_y = bounds.max.y;
+        primitive.upper_z = bounds.max.z;
+        primitive.primID = leafID;
+        primitive.geomID = 0;
+        embreePrimitives.push_back(primitive);
     }
 
-    commit();
+    commit(embreePrimitives, objects);
 }
 
 template <typename LeafObj>

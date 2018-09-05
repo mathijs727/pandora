@@ -12,7 +12,7 @@ namespace pandora {
 template <typename LeafObj>
 class WiVeBVH8Build2 : public WiVeBVH8<LeafObj> {
 protected:
-    void commit() override final;
+    void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) override final;
 
 private:
     struct ConstructionBVHNode {
@@ -26,7 +26,7 @@ private:
     };
 
     struct ConstructionLeafNode : public ConstructionBVHNode {
-        eastl::fixed_vector<std::pair<uint32_t, uint32_t>, 4> leafs;
+        eastl::fixed_vector<LeafObj, 4> leafs;
     };
 
 private:

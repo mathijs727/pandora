@@ -22,7 +22,7 @@ public:
 
     size_t size() const override final;
 
-    void build(gsl::span<const LeafObj*> objects) override final;
+    void build(gsl::span<LeafObj> objects) override final;
 
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
     bool intersectAny(Ray& ray) const override final;
@@ -30,7 +30,7 @@ public:
 	void loadFromFile(std::string_view filename, gsl::span<const LeafObj*> objects);
 	void saveToFile(std::string_view filename);
 protected:
-	virtual void commit() = 0;
+	virtual void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) = 0;
 
     void testBVH() const;
 
@@ -57,8 +57,8 @@ private:
     struct SIMDRay;
     uint32_t intersectInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
     uint32_t intersectAnyInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
-    bool intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, RayHit& hitInfo) const;
-    bool intersectAnyLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray) const;
+    bool intersectLeaf(const LeafObj* leafObjects, uint32_t objectCount, Ray& ray, RayHit& hitInfo) const;
+    bool intersectAnyLeaf(const LeafObj* leafObjects, uint32_t objectCount, Ray& ray) const;
 
     struct TestBVHData {
         int numPrimitives = 0;
@@ -80,18 +80,15 @@ protected:
         simd::vec8_u32 permutationOffsets; // 3 bytes. Can use the other byte for flags but storing it on the stack during traversal is expensive.
     };
 
-    struct alignas(32) BVHLeaf {
+    /*struct alignas(32) BVHLeaf {
         uint32_t leafObjectIDs[4];
         uint32_t primitiveIDs[4];
-    };
+    };*/
 
     const static uint32_t emptyHandle = 0xFFFFFFFF;
 
-    std::vector<const LeafObj*> m_leafObjects;
-    std::vector<RTCBuildPrimitive> m_primitives;
-
     std::unique_ptr<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>> m_innerNodeAllocator;
-    std::unique_ptr<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>> m_leafNodeAllocator;
+    std::unique_ptr<ContiguousAllocatorTS<LeafObj>> m_leafNodeAllocator;
     uint32_t m_compressedRootHandle;
 
 private:
