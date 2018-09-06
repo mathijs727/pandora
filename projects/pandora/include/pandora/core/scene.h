@@ -16,12 +16,16 @@ class SceneObject {
 public:
     SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material);
     SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
-    SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& transform, const std::shared_ptr<const Material>& material);
-    SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& transform, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
+    SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldTransform, const std::shared_ptr<const Material>& material);
+    SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldTransform, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
 
     // TODO: intersect function (with custom geometry in Embree)?
     inline const TriangleMesh& getMeshRef() const { return *m_mesh; };
     inline const Material& getMaterialRef() const { return *m_material; };
+
+    inline bool hasTransform() const { return m_worldToInstanceTransform.has_value(); };
+    inline glm::mat4 getInstanceToWorldTransform() const { return *m_instanceToWorldTransform; };
+    inline glm::mat4 getWorldToInstanceTransform() const { return *m_worldToInstanceTransform; };
 
     inline std::shared_ptr<const TriangleMesh> getMesh() const { return m_mesh; };
     inline std::shared_ptr<const Material> getMaterial() const { return m_material; };
@@ -30,7 +34,9 @@ public:
     std::optional<gsl::span<const AreaLight>> getAreaLights() const;
 
 private:
-    std::optional<glm::mat4> m_transform;
+    std::optional<glm::mat4> m_instanceToWorldTransform;
+    std::optional<glm::mat4> m_worldToInstanceTransform;
+
     std::shared_ptr<const TriangleMesh> m_mesh;
     std::shared_ptr<const Material> m_material;
 

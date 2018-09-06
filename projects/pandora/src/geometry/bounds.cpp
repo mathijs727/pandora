@@ -40,6 +40,12 @@ Bounds Bounds::extended(const Bounds& other) const
     return { minBounds, maxBounds };
 }
 
+void Bounds::transform(const glm::mat4& transform)
+{
+    min = transform * glm::vec4(min, 1.0f);
+    max = transform * glm::vec4(max, 1.0f);
+}
+
 glm::vec3 Bounds::center() const
 {
     return (min + max) / 2.0f;
@@ -47,24 +53,24 @@ glm::vec3 Bounds::center() const
 
 glm::vec3 Bounds::extent() const
 {
-	return max - min;
+    return max - min;
 }
 
 float Bounds::surfaceArea() const
 {
-	glm::vec3 extent = max - min;
-	return 2.0f * (extent.x * extent.y + extent.y * extent.z + extent.z * extent.x);
+    glm::vec3 extent = max - min;
+    return 2.0f * (extent.x * extent.y + extent.y * extent.z + extent.z * extent.x);
 }
 
 Bounds Bounds::intersection(const Bounds& other) const
 {
-	return Bounds(glm::max(min, other.min), glm::min(max, other.max));
+    return Bounds(glm::max(min, other.min), glm::min(max, other.max));
 }
 
 bool Bounds::overlaps(const Bounds& other) const
 {
-	glm::vec3 extent = intersection(other).extent();
-	return (extent.x >= 0.0f && extent.y >= 0.0f && extent.z >= 0.0f);
+    glm::vec3 extent = intersection(other).extent();
+    return (extent.x >= 0.0f && extent.y >= 0.0f && extent.z >= 0.0f);
 }
 
 bool Bounds::intersect(const Ray& ray, float& tmin, float& tmax) const

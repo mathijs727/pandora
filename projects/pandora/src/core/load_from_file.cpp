@@ -149,7 +149,14 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
                 material = materials[jsonSceneObject["material_id"].get<int>()];
             else
                 material = defaultMaterial;
-            config.scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+
+            if (jsonSceneObject.find("transform") == jsonSceneObject.end()) {
+                config.scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+            } else {
+                glm::mat4 instanceToWorldTransform = readMat4(jsonSceneObject["transform"]);
+                config.scene.addSceneObject(std::make_unique<SceneObject>(
+                    mesh, instanceToWorldTransform, material));
+            }
         }
     }
 

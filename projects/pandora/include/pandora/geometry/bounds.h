@@ -9,11 +9,12 @@ public:
     Bounds();
     Bounds(glm::vec3 lower, glm::vec3 upper);
 
-
     void reset();
     void grow(glm::vec3 vec);
     void extend(const Bounds& other);
     Bounds extended(const Bounds& other) const;
+
+    void transform(const glm::mat4& transform);
 
     glm::vec3 center() const;
 	glm::vec3 extent() const;

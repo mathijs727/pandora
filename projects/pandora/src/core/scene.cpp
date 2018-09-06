@@ -24,16 +24,18 @@ SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const 
     }
 }
 
-SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& transform, const std::shared_ptr<const Material>& material)
+SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldTransform, const std::shared_ptr<const Material>& material)
     : m_mesh(mesh)
-    , m_transform(transform)
+    , m_instanceToWorldTransform(instanceToWorldTransform)
+    , m_worldToInstanceTransform(glm::inverse(instanceToWorldTransform))
     , m_material(material)
 {
 }
 
-SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& transform, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted)
+SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldTransform, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted)
     : m_mesh(mesh)
-    , m_transform(transform)
+    , m_instanceToWorldTransform(instanceToWorldTransform)
+    , m_worldToInstanceTransform(glm::inverse(instanceToWorldTransform))
     , m_material(material)
 {
     m_areaLightPerPrimitive.reserve(m_mesh->numTriangles());
