@@ -7,6 +7,7 @@ class SceneParser:
     def __init__(self, pbrt_scene):
         self._geometry = UniqueCollection()
         self._scene_objects = UniqueCollection()
+        self._instance_base_scene_objects = UniqueCollection()
         self._materials = UniqueCollection()
         self._float_textures = UniqueCollection()
         self._color_textures = UniqueCollection()
@@ -79,7 +80,7 @@ class SceneParser:
                 }
             })
 
-    def _create_shape(self, shape):
+    def _create_geometric_scene_object(self, shape):
         if shape.area_light is not None:
             print(f"TODO: Area light: {shape.area_light}")
 
@@ -94,32 +95,35 @@ class SceneParser:
 
         material_id = self._create_material_id(shape.material)
         return {
+            "instancing": False,
             "geometry_id": geometry_id,
             "material_id": material_id
         }
 
     def _create_scene_objects(self, pbrt_scene):
         for json_shape in pbrt_scene["non_instanced_shapes"]:
-            shape = self._create_shape(json_shape)
-            if shape is not None:
-                self._scene_objects.add_item(shape)
+            scene_object = self._create_geometric_scene_object(json_shape)
+            if scene_object is not None:
+                self._scene_objects.add_item(scene_object)
 
     def _create_scene_objects_instancing(self, pbrt_scene):
-        instanced_shapes = {}
+        named_base_scene_objecst = {}
         for instance_template in pbrt_scene["instance_templates"].values():
-            shapes = [self._create_shape(shape)
+            base_scene_objects = [self._create_geometric_scene_object(shape)
                       for shape in instance_template.shapes]
-            shapes = [shape for shape in shapes if shape is not None]
-            instanced_shapes[instance_template.name] = shapes
+            base_scene_objects = [so for so in base_scene_objects if so is not None]
+
+            base_so_ids = [self._instance_base_scene_objects.add_item(so) for so in base_scene_objects]
+            named_base_scene_objecst[instance_template.name] = base_so_ids
 
         num_instances = len(pbrt_scene["instances"])
         for i, instance in enumerate(pbrt_scene["instances"]):
-            if i % 1000 == 1:
-                print(f"instance {i+1} / {num_instances}")
-            for shape in instanced_shapes[instance.template_name]:
+            if i % 1000 == 0:
+                print(f"instance {i} / {num_instances-1}")
+            for base_scene_object_id in named_base_scene_objecst[instance.template_name]:
                 self._scene_objects.add_item({
-                    "geometry_id": shape["geometry_id"],
-                    "material_id": shape["material_id"],
+                    "instancing": True,
+                    "base_scene_object_id": base_scene_object_id,
                     "transform": instance.transform
                 })
 
@@ -130,6 +134,7 @@ class SceneParser:
         return {
             "geometry": self._geometry.get_list(),
             "scene_objects": self._scene_objects.get_list(),
+            "instance_base_scene_objects": self._instance_base_scene_objects.get_list(),
             "materials": self._materials.get_list(),
             "float_textures": self._float_textures.get_list(),
             "color_textures": self._color_textures.get_list()

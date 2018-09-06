@@ -36,6 +36,8 @@ public:
         TransportMode mode,
         bool allowMultipleLobes) const = 0;
 
+    virtual bool isInstancedSceneObject() const { return false; }
+
 protected:
     friend void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const SceneObject& sceneObject);
     virtual const TriangleMesh& mesh() const = 0;
@@ -64,6 +66,7 @@ public:
         bool allowMultipleLobes) const override final;
 
 private:
+    friend class InstancedSceneObject;
     const TriangleMesh& mesh() const override final { return *m_mesh; }
 
 private:
@@ -73,13 +76,10 @@ private:
     std::vector<AreaLight> m_areaLightPerPrimitive;
 };
 
-// Page 252 of PBRTv3
 class InstancedSceneObject : public SceneObject {
 public:
+    InstancedSceneObject(const std::shared_ptr<const GeometricSceneObject>& object, const glm::mat4& instanceToWorld);
     ~InstancedSceneObject() override final = default;
-
-    InstancedSceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorld, const std::shared_ptr<const Material>& material);
-    InstancedSceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorld, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
 
     Bounds worldBounds() const override final;
     Bounds worldBoundsPrimitive(unsigned primitiveID) const override final;
@@ -95,15 +95,17 @@ public:
         ShadingMemoryArena& memoryArena,
         TransportMode mode,
         bool allowMultipleLobes) const override final;
+
+    bool isInstancedSceneObject() const override final { return true; }
+    const GeometricSceneObject* getBaseObject() const { return m_baseObject.get(); }
+    Ray transformRayToInstanceSpace(const Ray& ray) const;// { return m_worldTransform.transform(ray); }
+
 private:
     // TODO: support instancing with the triangle grid voxelizer
-    const TriangleMesh& mesh() const override final { return *m_mesh; }
+    const TriangleMesh& mesh() const override final { return m_baseObject->mesh(); }
 
 private:
-    std::shared_ptr<const TriangleMesh> m_mesh;
-    std::shared_ptr<const Material> m_material;
-    std::vector<AreaLight> m_areaLightPerPrimitive;
-
+    std::shared_ptr<const GeometricSceneObject> m_baseObject;
     Transform m_worldTransform;
 };
 

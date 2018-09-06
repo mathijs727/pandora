@@ -142,7 +142,8 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
             geometry.push_back(std::make_shared<TriangleMesh>(std::move(meshes[0])));
         }
 
-        for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
+        //std::unordered_map<int, std::shared_ptr<GeometricSceneObject>> instancedSceneObjects;
+        auto makeGeomSceneObject = [&](nlohmann::json jsonSceneObject) {
             auto mesh = geometry[jsonSceneObject["geometry_id"].get<int>()];
             std::shared_ptr<Material> material;
             if (loadMaterials)
@@ -150,12 +151,24 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
             else
                 material = defaultMaterial;
 
-            if (jsonSceneObject.find("transform") == jsonSceneObject.end()) {
-                config.scene.addSceneObject(std::make_unique<GeometricSceneObject>(mesh, material));
+            return std::make_unique<GeometricSceneObject>(mesh, material);
+        };
+
+        // Create GeometricSceneObjects that will be pointed to by InstancedSceneObjects
+        std::vector<std::shared_ptr<GeometricSceneObject>> baseSceneObjects;
+        for (const auto jsonSceneObject : sceneJson["instance_base_scene_objects"]) {
+            baseSceneObjects.emplace_back(makeGeomSceneObject(jsonSceneObject));// Converts to shared_ptr
+        }
+
+        for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
+            if (jsonSceneObject["instancing"].get<bool>()) {
+                glm::mat4 transform = readMat4(jsonSceneObject["transform"]);
+                auto baseSceneObject = baseSceneObjects[jsonSceneObject["base_scene_object_id"].get<int>()];
+
+                auto instancedSceneObject = std::make_unique<InstancedSceneObject>(baseSceneObject, transform);
+                config.scene.addSceneObject(std::move(instancedSceneObject));
             } else {
-                glm::mat4 toWorldMatrix = readMat4(jsonSceneObject["transform"]);
-                config.scene.addSceneObject(std::make_unique<InstancedSceneObject>(
-                    mesh, toWorldMatrix, material));
+                config.scene.addSceneObject(makeGeomSceneObject(jsonSceneObject));
             }
         }
     }

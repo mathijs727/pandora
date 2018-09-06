@@ -38,14 +38,14 @@ private:
     // Leaf node of a bottom-level (instanced) BVH
     class InstanceLeafNode {
     public:
-        InstanceLeafNode(const TriangleMesh& triangleMesh, unsigned primitiveID);
+        InstanceLeafNode(const GeometricSceneObject& baseSceneObject, unsigned primitiveID);
 
         Bounds getBounds() const;
         bool intersect(Ray& ray, RayHit& hitInfo) const;
 
     private:
         // Is a primitive
-        const TriangleMesh& m_triangleMesh;
+        const GeometricSceneObject& m_baseSceneObject;
         const unsigned m_primitiveID;
     };
 
@@ -87,7 +87,6 @@ private:
 
 private:
     BVHType<LeafNode> m_bvh;
-    //PauseableBVH4<PauseableLeafNode, UserState> m_bvh;
 
     HitCallback m_hitCallback;
     AnyHitCallback m_anyHitCallback;
@@ -139,45 +138,44 @@ inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::
 }
 
 template <typename UserState>
-inline InCoreAccelerationStructure<UserState>::BVHType<typename InCoreAccelerationStructure<UserState>::LeafNode> InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
+inline InCoreAccelerationStructure<UserState>::BVHType<typename InCoreAccelerationStructure<UserState>::LeafNode>
+InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
 {
-    /*std::unordered_set<const TriangleMesh*> instancedMeshes;
+    // Instancing: find base scene objects
+    std::unordered_set<const GeometricSceneObject*> instancingBaseSceneObjects;
     for (const auto& sceneObject : sceneObjects) {
-        if (sceneObject->hasTransform()) {
-            instancedMeshes.insert(sceneObject->getMesh().get());
+        if (sceneObject->isInstancedSceneObject()) {
+            auto instancedSceneObject = dynamic_cast<const InstancedSceneObject*>(sceneObject.get());
+            instancingBaseSceneObjects.insert(instancedSceneObject->getBaseObject());
         }
     }
 
-    std::unordered_map<const TriangleMesh*, std::shared_ptr<BVHType<InstanceLeafNode>>> instancedBVHs;
-    for (auto meshPtr : instancedMeshes) {
-        // The triangle mesh has multiple occurences in the tree. Build a single BVH for the triangle mesh and repeat that
-        //  BVH multiple times throughout the scene.
-        std::vector<InstanceLeafNode> instanceTemplateLeafs;
-        for (unsigned primitiveID = 0; primitiveID < meshPtr->numTriangles(); primitiveID++) {
-            instanceTemplateLeafs.push_back(InstanceLeafNode(*meshPtr, primitiveID));
+    // Build BVHs for the base scene objects
+    std::unordered_map<const GeometricSceneObject*, std::shared_ptr<BVHType<InstanceLeafNode>>> instancedBVHs;
+    for (auto sceneObjectPtr : instancingBaseSceneObjects) {
+        std::vector<InstanceLeafNode> leafs;
+        for (unsigned primitiveID = 0; primitiveID < sceneObjectPtr->numPrimitives(); primitiveID++) {
+            leafs.push_back(InstanceLeafNode(*sceneObjectPtr, primitiveID));
         }
 
         auto bvh = std::make_shared<BVHType<InstanceLeafNode>>();
-        bvh->build(instanceTemplateLeafs);
-        instancedBVHs[meshPtr] = bvh;
-    }*/
+        bvh->build(leafs);
+        instancedBVHs[sceneObjectPtr] = bvh;
+    }
 
+    // Build the final BVH over all unique primitives / instanced scene objects
     std::vector<LeafNode> leafs;
     for (const auto& sceneObject : sceneObjects) {
-        // Single occurence => primitives can be incorporated into the top level tree for better performance
-        for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
-            leafs.emplace_back(*sceneObject, primitiveID);
-        }
-
-        /*if (sceneObject->hasTransform()) {
-            std::shared_ptr<BVHType<InstanceLeafNode>> bvh = instancedBVHs[sceneObject->getMesh().get()];
+        if (sceneObject->isInstancedSceneObject()) {
+            const auto* instancedSceneObject = dynamic_cast<const InstancedSceneObject*>(sceneObject.get());
+            auto bvh = instancedBVHs[instancedSceneObject->getBaseObject()];
             leafs.emplace_back(*sceneObject, bvh);
         } else {
             // Single occurence => primitives can be incorporated into the top level tree for better performance
-            for (unsigned primitiveID = 0; primitiveID < mesh.numTriangles(); primitiveID++) {
+            for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
                 leafs.emplace_back(*sceneObject, primitiveID);
             }
-        }*/
+        }
     }
 
     BVHType<LeafNode> bvh;
@@ -251,8 +249,8 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectAnyRequests(
 }
 
 template <typename UserState>
-inline InCoreAccelerationStructure<UserState>::InstanceLeafNode::InstanceLeafNode(const TriangleMesh& triangleMesh, unsigned primitiveID)
-    : m_triangleMesh(triangleMesh)
+inline InCoreAccelerationStructure<UserState>::InstanceLeafNode::InstanceLeafNode(const GeometricSceneObject& object, unsigned primitiveID)
+    : m_baseSceneObject(object)
     , m_primitiveID(primitiveID)
 {
 }
@@ -260,16 +258,13 @@ inline InCoreAccelerationStructure<UserState>::InstanceLeafNode::InstanceLeafNod
 template <typename UserState>
 inline Bounds InCoreAccelerationStructure<UserState>::InstanceLeafNode::getBounds() const
 {
-    return m_triangleMesh.getPrimitiveBounds(m_primitiveID);
+    return m_baseSceneObject.worldBoundsPrimitive(m_primitiveID);
 }
 
 template <typename UserState>
 inline bool InCoreAccelerationStructure<UserState>::InstanceLeafNode::intersect(Ray& ray, RayHit& hitInfo) const
 {
-    bool hit = m_triangleMesh.intersectPrimitive(ray, hitInfo, m_primitiveID);
-    if (hit)
-        hitInfo.primitiveID = m_primitiveID;
-    return hit;
+    return m_baseSceneObject.intersectPrimitive(ray, hitInfo, m_primitiveID);
 }
 
 template <typename UserState>
@@ -291,49 +286,33 @@ inline InCoreAccelerationStructure<UserState>::LeafNode::LeafNode(const SceneObj
 template <typename UserState>
 inline Bounds InCoreAccelerationStructure<UserState>::LeafNode::getBounds() const
 {
-    /*if (m_bvh) {
-        Bounds bounds = m_sceneObject.getMeshRef().getBounds();
-        bounds.transform(m_sceneObject.getInstanceToWorldTransform());
-        return bounds;
+    if (m_bvh) {
+        return m_sceneObject.worldBounds();
     } else {
-        return m_sceneObject.getMeshRef().getPrimitiveBounds(m_primitiveID);
-    }*/
-    return m_sceneObject.worldBoundsPrimitive(m_primitiveID);
+        return m_sceneObject.worldBoundsPrimitive(m_primitiveID);
+    }
 }
 
 template <typename UserState>
 inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersect(Ray& ray, RayHit& hitInfo) const
 {
-    bool hit = m_sceneObject.intersectPrimitive(ray, hitInfo, m_primitiveID);
-    if (hit) {
-        hitInfo.sceneObject = &m_sceneObject;
-    }
-    return hit;
-
-    /*if (!m_bvh) {
-        bool hit = m_sceneObject.getMeshRef().intersectPrimitive(ray, hitInfo, m_primitiveID);
+    if (!m_bvh) {
+        bool hit = m_sceneObject.intersectPrimitive(ray, hitInfo, m_primitiveID);
         if (hit) {
             hitInfo.sceneObject = &m_sceneObject;
-            hitInfo.primitiveID = m_primitiveID;
         }
         return hit;
     } else {
-        glm::vec3 origin = ray.origin;
-        glm::vec3 direction = ray.direction;
-        
-        glm::mat4 transform = m_sceneObject.getWorldToInstanceTransform();
-        ray.origin = transform * glm::vec4(ray.origin, 1.0f);
-        ray.direction = transform * glm::vec4(ray.direction, 0.0f);
+        const auto& instancedSceneObject = dynamic_cast<const InstancedSceneObject&>(m_sceneObject);
+        Ray localRay = instancedSceneObject.transformRayToInstanceSpace(ray);
 
-        bool hit = m_bvh->intersect(ray, hitInfo);
+        bool hit = m_bvh->intersect(localRay, hitInfo);
         if (hit) {
             hitInfo.sceneObject = &m_sceneObject;
         }
 
-        ray.origin = origin;
-        ray.direction = direction;
-
+        ray.tfar = localRay.tfar;
         return hit;
-    }*/
+    }
 }
 }

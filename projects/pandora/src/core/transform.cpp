@@ -30,7 +30,7 @@ glm::vec3 Transform::transformNormal(const glm::vec3& n) const
 Ray Transform::transform(const Ray& ray) const
 {
     glm::vec3 origin = m_inverseMatrix * glm::vec4(ray.origin, 1.0f);
-    glm::vec3 direction = m_inverseMatrix * glm::vec4(ray.origin, 0.0f);
+    glm::vec3 direction = m_inverseMatrix * glm::vec4(ray.direction, 0.0f);
     return Ray(origin, direction, ray.tnear, ray.tfar);
 }
 
@@ -38,15 +38,15 @@ Bounds Transform::transform(const Bounds& bounds) const
 {
     // Transform all 8 corners
     Bounds transformedBounds;
-    transformedBounds.grow(glm::vec3(bounds.min.x, bounds.min.y, bounds.min.z));
-    transformedBounds.grow(glm::vec3(bounds.max.x, bounds.min.y, bounds.min.z));
-    transformedBounds.grow(glm::vec3(bounds.min.x, bounds.max.y, bounds.min.z));
-    transformedBounds.grow(glm::vec3(bounds.min.x, bounds.min.y, bounds.max.z));
+    transformedBounds.grow(transformPoint(glm::vec3(bounds.min.x, bounds.min.y, bounds.min.z)));
+    transformedBounds.grow(transformPoint(glm::vec3(bounds.max.x, bounds.min.y, bounds.min.z)));
+    transformedBounds.grow(transformPoint(glm::vec3(bounds.min.x, bounds.max.y, bounds.min.z)));
+    transformedBounds.grow(transformPoint(glm::vec3(bounds.min.x, bounds.min.y, bounds.max.z)));
 
-    transformedBounds.grow(glm::vec3(bounds.min.x, bounds.max.y, bounds.max.z));
-    transformedBounds.grow(glm::vec3(bounds.max.x, bounds.max.y, bounds.min.z));
-    transformedBounds.grow(glm::vec3(bounds.max.x, bounds.min.y, bounds.max.z));
-    transformedBounds.grow(glm::vec3(bounds.max.x, bounds.max.y, bounds.max.z));
+    transformedBounds.grow(transformPoint(glm::vec3(bounds.min.x, bounds.max.y, bounds.max.z)));
+    transformedBounds.grow(transformPoint(glm::vec3(bounds.max.x, bounds.max.y, bounds.min.z)));
+    transformedBounds.grow(transformPoint(glm::vec3(bounds.max.x, bounds.min.y, bounds.max.z)));
+    transformedBounds.grow(transformPoint(glm::vec3(bounds.max.x, bounds.max.y, bounds.max.z)));
     return transformedBounds;
 }
 
