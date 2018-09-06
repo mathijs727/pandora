@@ -1,16 +1,21 @@
 from parsing.parser import Texture
 from unique_collection import UniqueCollection
 import numpy as np
+import pickle
+import os
 
 
 class SceneParser:
-    def __init__(self, pbrt_scene):
+    def __init__(self, pbrt_scene, out_mesh_folder):
         self._geometry = UniqueCollection()
         self._scene_objects = UniqueCollection()
         self._instance_base_scene_objects = UniqueCollection()
         self._materials = UniqueCollection()
         self._float_textures = UniqueCollection()
         self._color_textures = UniqueCollection()
+
+        self._out_mesh_id = 0
+        self._out_mesh_folder = out_mesh_folder
 
         self._create_scene_objects(pbrt_scene)
         self._create_scene_objects_instancing(pbrt_scene)
@@ -90,7 +95,17 @@ class SceneParser:
                 "filename": shape.arguments["filename"]["value"],
                 "transform": shape.transform
             })
+        elif shape.type == "trianglemesh":
+            with open(shape.arguments["filename"], "rb") as f:
+                filename = self._trianglemesh_to_obj(pickle.load(f))
+
+            geometry_id = self._geometry.add_item({
+                "type": "triangle",
+                "filename": filename,
+                "transform": shape.transform
+            })
         else:
+            print(f"Ignoring shape of unsupported type {shape.type}")
             return None
 
         material_id = self._create_material_id(shape.material)
@@ -110,16 +125,18 @@ class SceneParser:
         named_base_scene_objecst = {}
         for instance_template in pbrt_scene["instance_templates"].values():
             base_scene_objects = [self._create_geometric_scene_object(shape)
-                      for shape in instance_template.shapes]
-            base_scene_objects = [so for so in base_scene_objects if so is not None]
+                                  for shape in instance_template.shapes]
+            base_scene_objects = [
+                so for so in base_scene_objects if so is not None]
 
-            base_so_ids = [self._instance_base_scene_objects.add_item(so) for so in base_scene_objects]
+            base_so_ids = [self._instance_base_scene_objects.add_item(
+                so) for so in base_scene_objects]
             named_base_scene_objecst[instance_template.name] = base_so_ids
 
         num_instances = len(pbrt_scene["instances"])
         for i, instance in enumerate(pbrt_scene["instances"]):
-            if i % 1000 == 0:
-                print(f"instance {i} / {num_instances-1}")
+            # if i % 1000 == 0:
+            #    print(f"instance {i} / {num_instances-1}")
             for base_scene_object_id in named_base_scene_objecst[instance.template_name]:
                 self._scene_objects.add_item({
                     "instancing": True,
@@ -127,8 +144,35 @@ class SceneParser:
                     "transform": instance.transform
                 })
 
-    def _shape_to_obj(self, shape):
-        pass
+    def _trianglemesh_to_obj(self, geometry):
+        mesh_id = self._out_mesh_id
+        self._out_mesh_id += 1
+
+        mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
+        with open(mesh_file, "w") as f:
+            f.write("o PandoraMesh\n")
+
+            positions = geometry["P"]["value"]
+            for p0, p1, p2 in zip(*[positions[x::3] for x in (0, 1, 2)]):
+                f.write(f"v {p0} {p1} {p2}\n")
+
+            if "N" in geometry and "uv" in geometry:
+                normals = geometry["N"]["value"]
+                for n0, n1, n2 in zip(*[normals[x::3] for x in (0, 1, 2)]):
+                    f.write(f"vn {n0} {n1} {n2}\n")
+
+                uv_coords = geometry["uv"]["value"]
+                for uv0, uv1 in zip(*[uv_coords[x::2] for x in (0, 1)]):
+                    f.write(f"vt {uv0} {uv1}\n")
+
+                indices = geometry["indices"]["value"]
+                for i0, i1, i2 in zip(*[indices[x::3] for x in (0, 1, 2)]):
+                    f.write(f"f {i0+1}/{i0+1}/{i0+1} {i1+1}/{i1+1}/{i1+1} {i2+1}/{i2+1}/{i2+1}\n")# OBJ starts counting at 1...
+            else:
+                for i0, i1, i2 in zip(*[indices[x::3] for x in (0, 1, 2)]):
+                    f.write(f"f {i0+1} {i1+1} {i2+1}\n")# OBJ starts counting at 1...
+        
+        return mesh_file
 
     def data(self):
         return {

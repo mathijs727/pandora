@@ -137,9 +137,9 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
             auto filename = jsonGeometry["filename"].get<std::string>();
 
             glm::mat4 transform = readMat4(jsonGeometry["transform"]);
-            auto meshes = TriangleMesh::loadFromFile(filename, transform);
-            ALWAYS_ASSERT(meshes.size() == 1);
-            geometry.push_back(std::make_shared<TriangleMesh>(std::move(meshes[0])));
+            std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(filename, transform);
+            ALWAYS_ASSERT(meshOpt.has_value());
+            geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
         }
 
         //std::unordered_map<int, std::shared_ptr<GeometricSceneObject>> instancedSceneObjects;
