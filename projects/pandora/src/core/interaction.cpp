@@ -61,14 +61,14 @@ void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, ShadingMemor
 {
     // TODO: compute ray differentials
 
-    sceneObject->getMaterialRef().computeScatteringFunctions(*this, arena, mode, allowMultipleLobes);
+    sceneObject->computeScatteringFunctions(*this, arena, mode, allowMultipleLobes);
     assert(this->bsdf != nullptr);
 }
 
 glm::vec3 SurfaceInteraction::Le(const glm::vec3& w) const
 {
-    if (const AreaLight* areaLight = sceneObject->getAreaLight(primitiveID); areaLight) {
-        return areaLight->light(*this, w);
+    if (auto areaLightPtr = sceneObject->getPrimitiveAreaLight(primitiveID); areaLightPtr) {
+        return areaLightPtr->light(*this, w);
     }
 
     return glm::vec3(0.0f);

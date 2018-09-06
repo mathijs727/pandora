@@ -2,6 +2,7 @@
 #include "pandora/geometry/bounds.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/svo/voxel_grid.h"
+#include "pandora/core/scene.h"
 #include <iostream>
 
 #ifdef PANDORA_ISPC_SUPPORT
@@ -12,7 +13,7 @@ namespace pandora {
 
 static void meshToVoxelGridScalar(VoxelGrid& voxelGrid, const Bounds& gridBounds, const TriangleMesh& mesh);
 
-void meshToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const TriangleMesh& mesh)
+void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const SceneObject& sceneObject)
 {
 #ifdef PANDORA_ISPC_SUPPORT
 	ispc::Bounds ispcGridBounds;
@@ -24,8 +25,8 @@ void meshToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const Trian
 	ispcGridBounds.max.v[1] = gridBounds.max.y;
 	ispcGridBounds.max.v[2] = gridBounds.max.z;
 
-	const auto& triangles = mesh.getTriangles();
-	const auto& positions = mesh.getPositions();
+	const auto& triangles = sceneObject.mesh().getTriangles();
+	const auto& positions = sceneObject.mesh().getPositions();
 
 	const ispc::CPPVec3* ispcPositions = reinterpret_cast<const ispc::CPPVec3*>(positions.data());
 	const ispc::CPPVec3i* ispcTriangles = reinterpret_cast<const ispc::CPPVec3i*>(triangles.data());

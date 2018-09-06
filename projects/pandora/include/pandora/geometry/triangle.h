@@ -170,6 +170,7 @@ inline bool TriangleMesh::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned
 
     // Compute the first two barycentric coordinates and t value for triangle intersection
     float invDet = 1.0f / det;
+    hitInfo.primitiveID = primitiveID;
     hitInfo.geometricUV = glm::vec2(e0 * invDet, e1 * invDet);
     ray.tfar = tScaled * invDet;
     return true;

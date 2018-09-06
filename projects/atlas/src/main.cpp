@@ -42,8 +42,8 @@ int main()
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-    auto renderConfig = loadFromFile("E:/Pandora Scenes/pbrt_intermediate/buddha-fractal/pandora.json", false);
-    //auto renderConfig = createStaticScene();
+    //auto renderConfig = loadFromFile("E:/Pandora Scenes/pbrt_intermediate/buddha-fractal/pandora.json", false);
+    auto renderConfig = createStaticScene();
     Scene& scene = renderConfig.scene;
     PerspectiveCamera& camera = *renderConfig.camera;
 
@@ -55,13 +55,13 @@ int main()
     // Skydome
     auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
     auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
-    scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));
+    scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(1.0f), 1, colorTexture));
 
     //scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
 
-    DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
+    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    //PathIntegrator integrator(10, scene, camera.getSensor(), 1);
+    PathIntegrator integrator(10, scene, camera.getSensor(), 1);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
     //SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
 
@@ -137,7 +137,7 @@ void addCrytekSponza(Scene& scene)
     {
         auto meshOpt = TriangleMesh::loadFromFileSingleMesh(projectBasePath + "assets/3dmodels/sponza-crytek/sponza.obj", transform, false);
         if (meshOpt) {
-            scene.addSceneObject(std::make_unique<SceneObject>(std::make_shared<TriangleMesh>(std::move(*meshOpt)), material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(*meshOpt)), material));
         }
     } else {
         auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/sponza-crytek/sponza.obj", transform, false);
@@ -145,7 +145,7 @@ void addCrytekSponza(Scene& scene)
             if (mesh.getTriangles().size() < 4)
                 continue;
 
-            scene.addSceneObject(std::make_unique<SceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
         }
     }
 }
@@ -163,7 +163,7 @@ void addStanfordBunny(Scene& scene)
 
     if constexpr (true) {
         for (auto& mesh : meshes)
-            scene.addSceneObject(std::make_unique<SceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
     } else {
         assert(meshes.size() == 1);
         const TriangleMesh& bunnyMesh = meshes[0];
@@ -180,7 +180,7 @@ void addStanfordBunny(Scene& scene)
         splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh.subMesh(primitives2))));
 
         for (const auto& mesh : splitMeshes)
-            scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(mesh, material));
     }
 }
 
@@ -196,12 +196,12 @@ void addStanfordDragon(Scene& scene, bool loadFromCache)
     auto material = MetalMaterial::createCopper(roughness, true);
     if (loadFromCache) {
         auto mesh = std::make_shared<TriangleMesh>(std::move(TriangleMesh::loadFromCacheFile("dragon.geom")));
-        scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+        scene.addSceneObject(std::make_unique<GeometricSceneObject>(mesh, material));
     } else {
         auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply", transform, false);
         meshes[0].saveToCacheFile("dragon.geom"); // Only a single mesh
         for (auto& mesh : meshes) {
-            scene.addSceneObject(std::make_unique<SceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
         }
     }
 }
@@ -221,7 +221,7 @@ void addCornellBox(Scene& scene)
             // Back box
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
             auto material = std::make_shared<MatteMaterial>(kd, roughness);
-            scene.addSceneObject(std::make_unique<SceneObject>(meshPtr, material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(meshPtr, material));
         } else if (i == 1) {
             continue;
 
@@ -229,17 +229,17 @@ void addCornellBox(Scene& scene)
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
             auto ks = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.2f, 0.9f));
             auto material = std::make_shared<PlasticMaterial>(kd, ks, roughness);
-            scene.addSceneObject(std::make_unique<SceneObject>(meshPtr, material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(meshPtr, material));
         } else if (i == 5) {
             // Ceiling
             Spectrum light(1.0f);
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
             auto material = std::make_shared<MatteMaterial>(kd, roughness);
-            scene.addSceneObject(std::make_unique<SceneObject>(meshPtr, material, light));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(meshPtr, material, light));
         } else {
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.8f, 0.8f, 0.8f));
             auto material = std::make_shared<MatteMaterial>(kd, roughness);
-            scene.addSceneObject(std::make_unique<SceneObject>(meshPtr, material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(meshPtr, material));
         }
     }
 }

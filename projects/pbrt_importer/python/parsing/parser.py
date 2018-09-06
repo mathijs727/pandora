@@ -276,14 +276,14 @@ def p_statement_transform_translate(p):
     "statement_transform : TRANSLATE NUMBER NUMBER NUMBER"
     global cur_transform
     xyz = np.array([p[2], p[3], p[4]])
-    cur_transform = np.matmul(translate(xyz), cur_transform)
+    cur_transform = np.matmul(cur_transform, translate(xyz))
 
 
 def p_statement_transform_scale(p):
     "statement_transform : SCALE NUMBER NUMBER NUMBER"
     global cur_transform
     xyz = np.array([p[2], p[3], p[4]])
-    cur_transform = np.matmul(scale(xyz), cur_transform)
+    cur_transform = np.matmul(cur_transform, scale(xyz))
 
 
 def p_statement_transform_rotate(p):
@@ -291,7 +291,7 @@ def p_statement_transform_rotate(p):
     global cur_transform
     angle = p[2]
     xyz = np.array([p[3], p[4], p[5]])
-    cur_transform = np.matmul(rotate(angle, xyz), cur_transform)
+    cur_transform = np.matmul(cur_transform, rotate(angle, xyz))
 
 
 def p_statement_transform_lookat(p):
@@ -300,13 +300,13 @@ def p_statement_transform_lookat(p):
     eye = np.array([p[2], p[3], p[4]])
     target = np.array([p[5], p[6], p[7]])
     up = np.array([p[8], p[9], p[10]])
-    print("LOOKAT")
+    """print("LOOKAT")
     print("eye: ", eye)
     print("target: ", target)
     print("up: ", up)
-    print("matrix:\n", lookat(eye, target, up))
-    cur_transform = np.matmul(lookat(eye, target, up), cur_transform)
-    print("current_matrix:\n", cur_transform)
+    print("matrix:\n", lookat(eye, target, up))"""
+    cur_transform = np.matmul(cur_transform, lookat(eye, target, up))
+    #print("current_matrix:\n", cur_transform)
 
 
 def p_statement_transform_coordinate_system(p):
@@ -326,7 +326,7 @@ def p_statement_transform(p):
     #"statement_transform : TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET"
     global cur_transform
     matrix = np.transpose(np.array(p[2]).reshape((4, 4)))
-    cur_transform = np.matmul(matrix, cur_transform)
+    cur_transform = np.matmul(cur_transform, matrix)
 
 
 def p_statement_transform_concat(p):

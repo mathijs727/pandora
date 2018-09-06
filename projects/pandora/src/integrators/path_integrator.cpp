@@ -87,7 +87,7 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
         const auto& rayState = std::get<ShadowRayState>(s);
 
         assert(rayState.light);
-        if (si.sceneObject->getAreaLight(si.primitiveID) == rayState.light) {
+        if (si.sceneObject->getPrimitiveAreaLight(si.primitiveID) == rayState.light) {
             // Ray created by BSDF sampling (PBRTv3 page 861) - contains weight
             Spectrum li = si.Le(-r.direction);
             m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * li);

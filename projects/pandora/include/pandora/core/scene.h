@@ -1,5 +1,7 @@
 #pragma once
 #include "pandora/core/material.h"
+#include "pandora/core/pandora.h"
+#include "pandora/core/transform.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/lights/area_light.h"
 #include "pandora/traversal/bvh.h"
@@ -10,38 +12,84 @@
 #include <tuple>
 #include <vector>
 
+// Similar to the Primitive class in PBRTv3:
+// https://github.com/mmp/pbrt-v3/blob/master/src/core/primitive.h
+
 namespace pandora {
 
 class SceneObject {
 public:
-    SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material);
-    SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
-    SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldTransform, const std::shared_ptr<const Material>& material);
-    SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldTransform, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
+    virtual ~SceneObject() {};
 
-    // TODO: intersect function (with custom geometry in Embree)?
-    inline const TriangleMesh& getMeshRef() const { return *m_mesh; };
-    inline const Material& getMaterialRef() const { return *m_material; };
+    virtual Bounds worldBounds() const = 0;
+    virtual Bounds worldBoundsPrimitive(unsigned primitiveID) const = 0;
 
-    inline bool hasTransform() const { return m_worldToInstanceTransform.has_value(); };
-    inline glm::mat4 getInstanceToWorldTransform() const { return *m_instanceToWorldTransform; };
-    inline glm::mat4 getWorldToInstanceTransform() const { return *m_worldToInstanceTransform; };
+    virtual unsigned numPrimitives() const = 0;
+    virtual bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const = 0;
+    virtual SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const = 0;
 
-    inline std::shared_ptr<const TriangleMesh> getMesh() const { return m_mesh; };
-    inline std::shared_ptr<const Material> getMaterial() const { return m_material; };
+    virtual const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const = 0;
+    virtual const Material* getMaterial() const = 0;
+    virtual void computeScatteringFunctions(
+        SurfaceInteraction& si,
+        ShadingMemoryArena& memoryArena,
+        TransportMode mode,
+        bool allowMultipleLobes) const = 0;
 
-    const AreaLight* getAreaLight(unsigned primID) const;
-    std::optional<gsl::span<const AreaLight>> getAreaLights() const;
+protected:
+    friend void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const SceneObject& sceneObject);
+    virtual const TriangleMesh& mesh() const = 0;
+};
+
+class GeometricSceneObject : public SceneObject {
+public:
+    ~GeometricSceneObject() override final = default;
+
+    GeometricSceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material);
+    GeometricSceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
+
+    Bounds worldBounds() const override final;
+    Bounds worldBoundsPrimitive(unsigned primitiveID) const override final;
+
+    unsigned numPrimitives() const override final;
+    bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;
+    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const override final;
+
+    const AreaLight* getPrimitiveAreaLight(unsigned primitiveiD) const override final;
+    const Material* getMaterial() const override final;
+    void computeScatteringFunctions(
+        SurfaceInteraction& si,
+        ShadingMemoryArena& memoryArena,
+        TransportMode mode,
+        bool allowMultipleLobes) const override final;
 
 private:
-    std::optional<glm::mat4> m_instanceToWorldTransform;
-    std::optional<glm::mat4> m_worldToInstanceTransform;
+    const TriangleMesh& mesh() const override final { return *m_mesh; }
 
+private:
     std::shared_ptr<const TriangleMesh> m_mesh;
     std::shared_ptr<const Material> m_material;
 
     std::vector<AreaLight> m_areaLightPerPrimitive;
 };
+
+/*class InstancedSceneObject : public SceneObject {
+public:
+    InstancedSceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const Transform& instanceToWorld, const std::shared_ptr<const Material>& material);
+    InstancedSceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const Transform& instanceToWorld, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
+
+    Bounds worldBounds() const override final;
+    bool intersect(const Ray& ray, RayHit& rayHit) const override final;
+    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, RayHit& rayHit) const override final;
+    std::optional<AreaLight> getPrimitiveAreaLight() const override final;
+    const Material* getMaterial() const override final;
+    void computeScatteringFunctions(
+        SurfaceInteraction& isect,
+        ShadingMemoryArena& memoryArena,
+        TransportMode mode,
+        bool allowMultipleLobes) const override final;
+
+};*/
 
 class Scene {
 public:
@@ -52,7 +100,7 @@ public:
     void addSceneObject(std::unique_ptr<SceneObject>&& sceneNode);
     void addInfiniteLight(const std::shared_ptr<Light>& light);
 
-    void splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject);
+    //void splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject);
 
     gsl::span<const std::unique_ptr<SceneObject>> getSceneObjects() const;
     gsl::span<const Light* const> getLights() const;

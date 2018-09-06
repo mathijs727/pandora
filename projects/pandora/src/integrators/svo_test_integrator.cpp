@@ -14,14 +14,12 @@ OctreeType buildSVO(const Scene& scene)
 {
     Bounds gridBounds;
     for (const auto& sceneObject : scene.getSceneObjects()) {
-        const auto& mesh = sceneObject->getMeshRef();
-        gridBounds.extend(mesh.getBounds());
+        gridBounds.extend(sceneObject->worldBounds());
     }
 
     VoxelGrid voxelGrid(64);
     for (const auto& sceneObject : scene.getSceneObjects()) {
-        const auto& mesh = sceneObject->getMeshRef();
-        meshToVoxelGrid(voxelGrid, gridBounds, mesh);
+        sceneObjectToVoxelGrid(voxelGrid, gridBounds, *sceneObject);
     }
 
     auto result =  OctreeType(voxelGrid);

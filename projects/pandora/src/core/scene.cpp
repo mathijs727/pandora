@@ -1,14 +1,120 @@
+#include "..\..\include\pandora\core\scene.h"
 #include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
 #include <embree3/rtcore.h>
 #include <iostream>
 #include <tbb/concurrent_vector.h>
 
-static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
+//static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
 
 namespace pandora {
 
-SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material)
+GeometricSceneObject::GeometricSceneObject(
+    const std::shared_ptr<const TriangleMesh>& mesh,
+    const std::shared_ptr<const Material>& material)
+    : m_mesh(mesh)
+    , m_material(material)
+    , m_areaLightPerPrimitive()
+{
+}
+
+GeometricSceneObject::GeometricSceneObject(
+    const std::shared_ptr<const TriangleMesh>& mesh,
+    const std::shared_ptr<const Material>& material,
+    const Spectrum& lightEmitted)
+    : m_mesh(mesh)
+    , m_material(material)
+    , m_areaLightPerPrimitive()
+{
+    for (unsigned primitiveID = 0; m_mesh->numTriangles(); primitiveID++)
+        m_areaLightPerPrimitive.push_back(AreaLight(lightEmitted, 1, *mesh, primitiveID));
+}
+
+Bounds GeometricSceneObject::worldBounds() const
+{
+    return m_mesh->getBounds();
+}
+
+Bounds GeometricSceneObject::worldBoundsPrimitive(unsigned primitiveID) const
+{
+    return m_mesh->getPrimitiveBounds(primitiveID);
+}
+
+unsigned GeometricSceneObject::numPrimitives() const
+{
+    return m_mesh->numTriangles();
+}
+
+bool GeometricSceneObject::intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const
+{
+    return m_mesh->intersectPrimitive(ray, rayHit, primitiveID);
+}
+
+SurfaceInteraction GeometricSceneObject::fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const
+{
+    return m_mesh->fillSurfaceInteraction(ray, rayHit);
+}
+
+const AreaLight* GeometricSceneObject::getPrimitiveAreaLight(unsigned primitiveID) const
+{
+    if (m_areaLightPerPrimitive.empty())
+        return nullptr;
+    else
+        return &m_areaLightPerPrimitive[primitiveID];
+}
+
+const Material* GeometricSceneObject::getMaterial() const
+{
+    return m_material.get();
+}
+
+void GeometricSceneObject::computeScatteringFunctions(
+    SurfaceInteraction& si,
+    ShadingMemoryArena& memoryArena,
+    TransportMode mode,
+    bool allowMultipleLobes) const
+{
+    m_material->computeScatteringFunctions(si, memoryArena, mode, allowMultipleLobes);
+}
+
+
+gsl::span<const std::unique_ptr<SceneObject>> Scene::getSceneObjects() const
+{
+    return m_sceneObjects;
+}
+
+gsl::span<const Light* const> Scene::getLights() const
+{
+    return m_lights;
+}
+
+gsl::span<const Light* const> Scene::getInfiniteLights() const
+{
+    return m_infiniteLights;
+}
+
+void Scene::addSceneObject(std::unique_ptr<SceneObject>&& sceneObject)
+{
+    for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
+        if (const auto* light = sceneObject->getPrimitiveAreaLight(primitiveID); light)
+        {
+            m_lights.push_back(light);
+        }
+    }
+    m_sceneObjects.emplace_back(std::move(sceneObject));
+}
+
+void Scene::addInfiniteLight(const std::shared_ptr<Light>& light)
+{
+    m_lights.push_back(light.get());
+    m_infiniteLights.push_back(light.get());
+
+    m_lightOwningPointers.push_back(light);
+}
+
+}
+
+/*SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material)
     : m_mesh(mesh)
     , m_material(material)
 {
@@ -24,18 +130,16 @@ SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const 
     }
 }
 
-SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldTransform, const std::shared_ptr<const Material>& material)
+SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldMatrix, const std::shared_ptr<const Material>& material)
     : m_mesh(mesh)
-    , m_instanceToWorldTransform(instanceToWorldTransform)
-    , m_worldToInstanceTransform(glm::inverse(instanceToWorldTransform))
+    , m_transform(instanceToWorldMatrix)
     , m_material(material)
 {
 }
 
-SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldTransform, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted)
+SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldMatrix, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted)
     : m_mesh(mesh)
-    , m_instanceToWorldTransform(instanceToWorldTransform)
-    , m_worldToInstanceTransform(glm::inverse(instanceToWorldTransform))
+    , m_transform(instanceToWorldMatrix)
     , m_material(material)
 {
     m_areaLightPerPrimitive.reserve(m_mesh->numTriangles());
@@ -58,23 +162,6 @@ std::optional<gsl::span<const AreaLight>> SceneObject::getAreaLights() const
         return {};
     else
         return m_areaLightPerPrimitive;
-}
-
-void Scene::addSceneObject(std::unique_ptr<SceneObject>&& sceneObject)
-{
-    if (auto areaLights = sceneObject->getAreaLights(); areaLights) {
-        for (const auto& light : *areaLights)
-            m_lights.push_back(&light);
-    }
-    m_sceneObjects.emplace_back(std::move(sceneObject));
-}
-
-void Scene::addInfiniteLight(const std::shared_ptr<Light>& light)
-{
-    m_lights.push_back(light.get());
-    m_infiniteLights.push_back(light.get());
-
-    m_lightOwningPointers.push_back(light);
 }
 
 struct SplitSceneBVHNode {
@@ -230,20 +317,7 @@ void Scene::splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject)
     std::cout << "NUM SCENE OBJECTS AFTER SPLIT: " << m_sceneObjects.size() << std::endl;
 }
 
-gsl::span<const std::unique_ptr<SceneObject>> Scene::getSceneObjects() const
-{
-    return m_sceneObjects;
-}
 
-gsl::span<const Light* const> Scene::getLights() const
-{
-    return m_lights;
-}
-
-gsl::span<const Light* const> Scene::getInfiniteLights() const
-{
-    return m_infiniteLights;
-}
 
 }
 
@@ -274,4 +348,4 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
     }
 
     std::cout << ": " << str << std::endl;
-}
+}*/

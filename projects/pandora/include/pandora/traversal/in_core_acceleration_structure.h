@@ -141,7 +141,7 @@ inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::
 template <typename UserState>
 inline InCoreAccelerationStructure<UserState>::BVHType<typename InCoreAccelerationStructure<UserState>::LeafNode> InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
 {
-    std::unordered_set<const TriangleMesh*> instancedMeshes;
+    /*std::unordered_set<const TriangleMesh*> instancedMeshes;
     for (const auto& sceneObject : sceneObjects) {
         if (sceneObject->hasTransform()) {
             instancedMeshes.insert(sceneObject->getMesh().get());
@@ -160,12 +160,16 @@ inline InCoreAccelerationStructure<UserState>::BVHType<typename InCoreAccelerati
         auto bvh = std::make_shared<BVHType<InstanceLeafNode>>();
         bvh->build(instanceTemplateLeafs);
         instancedBVHs[meshPtr] = bvh;
-    }
+    }*/
 
     std::vector<LeafNode> leafs;
     for (const auto& sceneObject : sceneObjects) {
-        const auto& mesh = *sceneObject->getMesh();
-        if (sceneObject->hasTransform()) {
+        // Single occurence => primitives can be incorporated into the top level tree for better performance
+        for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
+            leafs.emplace_back(*sceneObject, primitiveID);
+        }
+
+        /*if (sceneObject->hasTransform()) {
             std::shared_ptr<BVHType<InstanceLeafNode>> bvh = instancedBVHs[sceneObject->getMesh().get()];
             leafs.emplace_back(*sceneObject, bvh);
         } else {
@@ -173,7 +177,7 @@ inline InCoreAccelerationStructure<UserState>::BVHType<typename InCoreAccelerati
             for (unsigned primitiveID = 0; primitiveID < mesh.numTriangles(); primitiveID++) {
                 leafs.emplace_back(*sceneObject, primitiveID);
             }
-        }
+        }*/
     }
 
     BVHType<LeafNode> bvh;
@@ -203,8 +207,9 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
             paused = false;
         }
         assert(!paused);
+
         if (hitInfo.sceneObject) {
-            SurfaceInteraction si = hitInfo.sceneObject->getMeshRef().fillSurfaceInteraction(ray, hitInfo);
+            SurfaceInteraction si = hitInfo.sceneObject->fillSurfaceInteraction(ray, hitInfo);
             m_hitCallback(ray, si, perRayUserData[i], nullptr);
         } else {
             m_missCallback(ray, perRayUserData[i]);
@@ -286,19 +291,26 @@ inline InCoreAccelerationStructure<UserState>::LeafNode::LeafNode(const SceneObj
 template <typename UserState>
 inline Bounds InCoreAccelerationStructure<UserState>::LeafNode::getBounds() const
 {
-    if (m_bvh) {
+    /*if (m_bvh) {
         Bounds bounds = m_sceneObject.getMeshRef().getBounds();
         bounds.transform(m_sceneObject.getInstanceToWorldTransform());
         return bounds;
     } else {
         return m_sceneObject.getMeshRef().getPrimitiveBounds(m_primitiveID);
-    }
+    }*/
+    return m_sceneObject.worldBoundsPrimitive(m_primitiveID);
 }
 
 template <typename UserState>
 inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersect(Ray& ray, RayHit& hitInfo) const
 {
-    if (!m_bvh) {
+    bool hit = m_sceneObject.intersectPrimitive(ray, hitInfo, m_primitiveID);
+    if (hit) {
+        hitInfo.sceneObject = &m_sceneObject;
+    }
+    return hit;
+
+    /*if (!m_bvh) {
         bool hit = m_sceneObject.getMeshRef().intersectPrimitive(ray, hitInfo, m_primitiveID);
         if (hit) {
             hitInfo.sceneObject = &m_sceneObject;
@@ -322,6 +334,6 @@ inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersect(Ray& ray
         ray.direction = direction;
 
         return hit;
-    }
+    }*/
 }
 }

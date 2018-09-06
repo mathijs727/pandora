@@ -14,6 +14,7 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/sensor.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/spectrum.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/stats.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/core/transform.h"
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/contiguous_allocator_generated.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/triangle_mesh_generated.h"
