@@ -14,8 +14,6 @@ public:
     void extend(const Bounds& other);
     Bounds extended(const Bounds& other) const;
 
-    void transform(const glm::mat4& transform);
-
     glm::vec3 center() const;
 	glm::vec3 extent() const;
     float surfaceArea() const;

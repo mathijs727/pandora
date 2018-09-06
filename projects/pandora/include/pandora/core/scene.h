@@ -73,23 +73,39 @@ private:
     std::vector<AreaLight> m_areaLightPerPrimitive;
 };
 
-/*class InstancedSceneObject : public SceneObject {
+// Page 252 of PBRTv3
+class InstancedSceneObject : public SceneObject {
 public:
-    InstancedSceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const Transform& instanceToWorld, const std::shared_ptr<const Material>& material);
-    InstancedSceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const Transform& instanceToWorld, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
+    ~InstancedSceneObject() override final = default;
+
+    InstancedSceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorld, const std::shared_ptr<const Material>& material);
+    InstancedSceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorld, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
 
     Bounds worldBounds() const override final;
-    bool intersect(const Ray& ray, RayHit& rayHit) const override final;
-    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, RayHit& rayHit) const override final;
-    std::optional<AreaLight> getPrimitiveAreaLight() const override final;
+    Bounds worldBoundsPrimitive(unsigned primitiveID) const override final;
+
+    unsigned numPrimitives() const override final;
+    bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;
+    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const override final;
+
+    const AreaLight* getPrimitiveAreaLight(unsigned primitiveiD) const override final;
     const Material* getMaterial() const override final;
     void computeScatteringFunctions(
-        SurfaceInteraction& isect,
+        SurfaceInteraction& si,
         ShadingMemoryArena& memoryArena,
         TransportMode mode,
         bool allowMultipleLobes) const override final;
+private:
+    // TODO: support instancing with the triangle grid voxelizer
+    const TriangleMesh& mesh() const override final { return *m_mesh; }
 
-};*/
+private:
+    std::shared_ptr<const TriangleMesh> m_mesh;
+    std::shared_ptr<const Material> m_material;
+    std::vector<AreaLight> m_areaLightPerPrimitive;
+
+    Transform m_worldTransform;
+};
 
 class Scene {
 public:

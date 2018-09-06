@@ -77,6 +77,82 @@ void GeometricSceneObject::computeScatteringFunctions(
     m_material->computeScatteringFunctions(si, memoryArena, mode, allowMultipleLobes);
 }
 
+InstancedSceneObject::InstancedSceneObject(
+    const std::shared_ptr<const TriangleMesh>& mesh,
+    const glm::mat4& instanceToWorldMatrix,
+    const std::shared_ptr<const Material>& material)
+    : m_mesh(mesh)
+    , m_material(material)
+    , m_areaLightPerPrimitive()
+    , m_worldTransform(instanceToWorldMatrix)
+{
+}
+
+InstancedSceneObject::InstancedSceneObject(
+    const std::shared_ptr<const TriangleMesh>& mesh,
+    const glm::mat4& instanceToWorldMatrix,
+    const std::shared_ptr<const Material>& material,
+    const Spectrum& lightEmitted)
+    : m_mesh(mesh)
+    , m_material(material)
+    , m_areaLightPerPrimitive()
+    , m_worldTransform(instanceToWorldMatrix)
+{
+    // TODO: area light world transform???
+    for (unsigned primitiveID = 0; m_mesh->numTriangles(); primitiveID++)
+        m_areaLightPerPrimitive.push_back(AreaLight(lightEmitted, 1, *mesh, primitiveID));
+}
+
+Bounds InstancedSceneObject::worldBounds() const
+{
+    return m_worldTransform.transform(m_mesh->getBounds());
+}
+
+Bounds InstancedSceneObject::worldBoundsPrimitive(unsigned primitiveID) const
+{
+    return m_worldTransform.transform(m_mesh->getPrimitiveBounds(primitiveID));
+}
+
+unsigned InstancedSceneObject::numPrimitives() const
+{
+    return m_mesh->numTriangles();
+}
+
+bool InstancedSceneObject::intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const
+{
+    Ray instanceSpaceRay = m_worldTransform.transform(ray);
+    bool hit = m_mesh->intersectPrimitive(instanceSpaceRay, rayHit, primitiveID);
+    ray.tfar = instanceSpaceRay.tfar;
+    return hit;
+}
+
+SurfaceInteraction InstancedSceneObject::fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const
+{
+    Ray instanceSpaceRay = m_worldTransform.transform(ray);
+    return m_worldTransform.transform(m_mesh->fillSurfaceInteraction(instanceSpaceRay, rayHit));
+}
+
+const AreaLight* InstancedSceneObject::getPrimitiveAreaLight(unsigned primitiveID) const
+{
+    if (m_areaLightPerPrimitive.empty())
+        return nullptr;
+    else
+        return &m_areaLightPerPrimitive[primitiveID];
+}
+
+const Material* InstancedSceneObject::getMaterial() const
+{
+    return m_material.get();
+}
+
+void InstancedSceneObject::computeScatteringFunctions(
+    SurfaceInteraction& si,
+    ShadingMemoryArena& memoryArena,
+    TransportMode mode,
+    bool allowMultipleLobes) const
+{
+    m_material->computeScatteringFunctions(si, memoryArena, mode, allowMultipleLobes);
+}
 
 gsl::span<const std::unique_ptr<SceneObject>> Scene::getSceneObjects() const
 {
@@ -96,8 +172,7 @@ gsl::span<const Light* const> Scene::getInfiniteLights() const
 void Scene::addSceneObject(std::unique_ptr<SceneObject>&& sceneObject)
 {
     for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
-        if (const auto* light = sceneObject->getPrimitiveAreaLight(primitiveID); light)
-        {
+        if (const auto* light = sceneObject->getPrimitiveAreaLight(primitiveID); light) {
             m_lights.push_back(light);
         }
     }

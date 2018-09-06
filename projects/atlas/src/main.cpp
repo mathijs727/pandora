@@ -42,8 +42,8 @@ int main()
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-    //auto renderConfig = loadFromFile("E:/Pandora Scenes/pbrt_intermediate/buddha-fractal/pandora.json", false);
-    auto renderConfig = createStaticScene();
+    auto renderConfig = loadFromFile("E:/Pandora Scenes/pbrt_intermediate/buddha-fractal/pandora.json", false);
+    //auto renderConfig = createStaticScene();
     Scene& scene = renderConfig.scene;
     PerspectiveCamera& camera = *renderConfig.camera;
 
@@ -59,9 +59,9 @@ int main()
 
     //scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
 
-    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
+    DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    PathIntegrator integrator(10, scene, camera.getSensor(), 1);
+    //PathIntegrator integrator(10, scene, camera.getSensor(), 1);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
     //SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
 

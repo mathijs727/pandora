@@ -40,12 +40,6 @@ Bounds Bounds::extended(const Bounds& other) const
     return { minBounds, maxBounds };
 }
 
-void Bounds::transform(const glm::mat4& transform)
-{
-    min = transform * glm::vec4(min, 1.0f);
-    max = transform * glm::vec4(max, 1.0f);
-}
-
 glm::vec3 Bounds::center() const
 {
     return (min + max) / 2.0f;

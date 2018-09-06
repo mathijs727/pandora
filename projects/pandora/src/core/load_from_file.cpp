@@ -153,10 +153,9 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
             if (jsonSceneObject.find("transform") == jsonSceneObject.end()) {
                 config.scene.addSceneObject(std::make_unique<GeometricSceneObject>(mesh, material));
             } else {
-                /*glm::mat4 instanceToWorldTransform = readMat4(jsonSceneObject["transform"]);
-                config.scene.addSceneObject(std::make_unique<SceneObject>(
-                    mesh, instanceToWorldTransform, material));*/
-                THROW_ERROR("TODO: fix instancing");
+                glm::mat4 toWorldMatrix = readMat4(jsonSceneObject["transform"]);
+                config.scene.addSceneObject(std::make_unique<InstancedSceneObject>(
+                    mesh, toWorldMatrix, material));
             }
         }
     }

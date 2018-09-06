@@ -95,7 +95,7 @@ void addCrytekSponza(Scene& scene)
         if (mesh.getTriangles().size() < 4)
             continue;
 
-        scene.addSceneObject(std::make_unique<SceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
+        scene.addSceneObject(std::make_unique<GeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
     }
 }
 
@@ -112,7 +112,7 @@ void addStanfordBunny(Scene& scene)
 
     if constexpr (true) {
         for (auto& mesh : meshes)
-            scene.addSceneObject(std::make_unique<SceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
     } else {
         assert(meshes.size() == 1);
         const TriangleMesh& bunnyMesh = meshes[0];
@@ -129,7 +129,7 @@ void addStanfordBunny(Scene& scene)
         splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh.subMesh(primitives2))));
 
         for (const auto& mesh : splitMeshes)
-            scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(mesh, material));
     }
 }
 
@@ -145,12 +145,12 @@ void addStanfordDragon(Scene& scene, bool loadFromCache)
     auto material = MetalMaterial::createCopper(roughness, true);
     if (loadFromCache) {
         auto mesh = std::make_shared<TriangleMesh>(std::move(TriangleMesh::loadFromCacheFile("dragon.geom")));
-        scene.addSceneObject(std::make_unique<SceneObject>(mesh, material));
+        scene.addSceneObject(std::make_unique<GeometricSceneObject>(mesh, material));
     } else {
         auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply", transform, false);
         meshes[0].saveToCacheFile("dragon.geom"); // Only a single mesh
         for (auto& mesh : meshes) {
-            scene.addSceneObject(std::make_unique<SceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
         }
     }
 }
@@ -170,7 +170,7 @@ void addCornellBox(Scene& scene)
             // Back box
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
             auto material = std::make_shared<MatteMaterial>(kd, roughness);
-            scene.addSceneObject(std::make_unique<SceneObject>(meshPtr, material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(meshPtr, material));
         } else if (i == 1) {
             continue;
 
@@ -178,17 +178,17 @@ void addCornellBox(Scene& scene)
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
             auto ks = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.2f, 0.9f));
             auto material = std::make_shared<PlasticMaterial>(kd, ks, roughness);
-            scene.addSceneObject(std::make_unique<SceneObject>(meshPtr, material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(meshPtr, material));
         } else if (i == 5) {
             // Ceiling
             Spectrum light(1.0f);
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
             auto material = std::make_shared<MatteMaterial>(kd, roughness);
-            scene.addSceneObject(std::make_unique<SceneObject>(meshPtr, material, light));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(meshPtr, material, light));
         } else {
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.8f, 0.8f, 0.8f));
             auto material = std::make_shared<MatteMaterial>(kd, roughness);
-            scene.addSceneObject(std::make_unique<SceneObject>(meshPtr, material));
+            scene.addSceneObject(std::make_unique<GeometricSceneObject>(meshPtr, material));
         }
     }
 }
