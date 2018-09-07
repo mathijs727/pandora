@@ -13,12 +13,57 @@ class SceneParser:
         self._materials = UniqueCollection()
         self._float_textures = UniqueCollection()
         self._color_textures = UniqueCollection()
+        self._light_sources = []
 
         self._out_mesh_id = 0
         self._out_mesh_folder = out_mesh_folder
 
+        self._color1_texture_id = self._create_texture_id({
+            "type": "color",
+            "value": [1.0, 1.0, 1.0]
+        })
+        self._float1_texture_id = self._create_texture_id({
+            "type": "float",
+            "value": 1.0
+        })
+
+        self._create_light_sources(pbrt_scene)
         self._create_scene_objects(pbrt_scene)
         self._create_scene_objects_instancing(pbrt_scene)
+
+
+    def _create_light_sources(self, pbrt_scene):
+        #print(pbrt_scene["light_sources"])
+        for light_source in pbrt_scene["light_sources"]:
+            if light_source.type == "infinite":
+                if "samples" in light_source.arguments:
+                    num_samples = light_source.arguments["samples"]["value"]
+                else:
+                    num_samples = 1
+
+                if "L" in light_source.arguments:
+                    L = light_source.arguments["L"]["value"]
+                else:
+                    L = [1.0, 1.0, 1.0]
+
+                if "scale" in light_source.arguments:
+                    L *= light_source.arguments["scale"]["value"]
+
+                if "mapname" in light_source.arguments:
+                    texture_id = self._create_texture_id(
+                        light_source.arguments["mapname"])
+                else:
+                    texture_id = self._color1_texture_id
+                self._light_sources.append({
+                    "type": "infinite",
+                    "texture": texture_id,
+                    "scale": L,
+                    "num_samples": num_samples,
+                    "transform": light_source.transform
+                })
+            else:
+                print(
+                    f"WARNING: skipping light source of unsupported type {light_source.type}")
 
     def _create_texture_id(self, texture_info):
         tex_type = texture_info["type"]
@@ -167,15 +212,19 @@ class SceneParser:
 
                 indices = geometry["indices"]["value"]
                 for i0, i1, i2 in zip(*[indices[x::3] for x in (0, 1, 2)]):
-                    f.write(f"f {i0+1}/{i0+1}/{i0+1} {i1+1}/{i1+1}/{i1+1} {i2+1}/{i2+1}/{i2+1}\n")# OBJ starts counting at 1...
+                    # OBJ starts counting at 1...
+                    f.write(
+                        f"f {i0+1}/{i0+1}/{i0+1} {i1+1}/{i1+1}/{i1+1} {i2+1}/{i2+1}/{i2+1}\n")
             else:
                 for i0, i1, i2 in zip(*[indices[x::3] for x in (0, 1, 2)]):
-                    f.write(f"f {i0+1} {i1+1} {i2+1}\n")# OBJ starts counting at 1...
-        
+                    # OBJ starts counting at 1...
+                    f.write(f"f {i0+1} {i1+1} {i2+1}\n")
+
         return mesh_file
 
     def data(self):
         return {
+            "lights": self._light_sources,
             "geometry": self._geometry.get_list(),
             "scene_objects": self._scene_objects.get_list(),
             "instance_base_scene_objects": self._instance_base_scene_objects.get_list(),
