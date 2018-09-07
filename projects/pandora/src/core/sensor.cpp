@@ -1,4 +1,5 @@
 #include "pandora/core/sensor.h"
+#include "pandora/utility/error_handling.h"
 #include <iterator>
 #include <memory>
 
@@ -20,6 +21,10 @@ void Sensor::clear(glm::vec3 color)
 void Sensor::addPixelContribution(glm::ivec2 pixel, glm::vec3 color)
 {
     auto& pixelVar = m_frameBuffer[getIndex(pixel.x, pixel.y)];
+
+    //ALWAYS_ASSERT(!glm::any(glm::isnan(color) || glm::isinf(color)));
+    if (glm::any(glm::isnan(color) || glm::isinf(color)))
+        return;
 
     auto currentColor = pixelVar.load();
     while (!pixelVar.compare_exchange_weak(currentColor, currentColor + color))
