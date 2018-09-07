@@ -1,11 +1,11 @@
 #include "pandora/core/load_from_file.h"
 #include "pandora/geometry/triangle.h"
+#include "pandora/lights/distant_light.h"
+#include "pandora/lights/environment_light.h"
 #include "pandora/materials/matte_material.h"
 #include "pandora/textures/constant_texture.h"
 #include "pandora/textures/image_texture.h"
 #include "pandora/utility/error_handling.h"
-#include "pandora/lights/distant_light.h"
-#include "pandora/lights/environment_light.h"
 #include <array>
 #include <fstream>
 #include <glm/glm.hpp>
@@ -78,40 +78,50 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
         auto dummyFloatTexture = std::make_shared<ConstantTexture<float>>(1.0f);
         auto dummyColorTexture = std::make_shared<ConstantTexture<glm::vec3>>(glm::vec3(1.0f));
 
-        // Load textures
-        std::vector<std::shared_ptr<Texture<float>>> floatTextures;
-        for (const auto jsonFloatTexture : sceneJson["float_textures"]) {
-            auto textureClass = jsonFloatTexture["class"].get<std::string>();
-            auto arguments = jsonFloatTexture["arguments"];
+        // Lazy load textures to reduce memory usage when loadMaterials is false
+        std::unordered_map<int, std::shared_ptr<Texture<float>>> _floatTextures;
+        auto getFloatTexture = [&](int texID) {
+            if (_floatTextures.find(texID) == _floatTextures.end()) {
+                const auto jsonFloatTexture = sceneJson["float_textures"][texID];
+                auto textureClass = jsonFloatTexture["class"].get<std::string>();
+                auto arguments = jsonFloatTexture["arguments"];
 
-            if (textureClass == "constant") {
-                float value = arguments["value"].get<float>();
-                floatTextures.push_back(std::make_shared<ConstantTexture<float>>(value));
-            } else if (textureClass == "imagemap") {
-                auto filename = arguments["filename"].get<std::string>();
-                floatTextures.push_back(std::make_shared<ImageTexture<float>>(filename));
-            } else {
-                std::cout << "Unknown texture class \"" << textureClass << "\"! Substituting with placeholder..." << std::endl;
-                floatTextures.push_back(dummyFloatTexture);
+                if (textureClass == "constant") {
+                    float value = arguments["value"].get<float>();
+                    _floatTextures[texID] = std::make_shared<ConstantTexture<float>>(value);
+                } else if (textureClass == "imagemap") {
+                    auto filename = arguments["filename"].get<std::string>();
+                    _floatTextures[texID] = std::make_shared<ImageTexture<float>>(filename);
+                } else {
+                    std::cout << "Unknown texture class \"" << textureClass << "\"! Substituting with placeholder..." << std::endl;
+                    _floatTextures[texID] = dummyFloatTexture;
+                }
             }
-        }
 
-        std::vector<std::shared_ptr<Texture<glm::vec3>>> colorTextures;
-        for (const auto jsonColorTexture : sceneJson["color_textures"]) {
-            auto textureClass = jsonColorTexture["class"].get<std::string>();
-            auto arguments = jsonColorTexture["arguments"];
+            return _floatTextures[texID];
+        };
 
-            if (textureClass == "constant") {
-                glm::vec3 value = readVec3(arguments["value"]);
-                colorTextures.push_back(std::make_shared<ConstantTexture<glm::vec3>>(value));
-            } else if (textureClass == "imagemap") {
-                auto filename = arguments["filename"].get<std::string>();
-                colorTextures.push_back(std::make_shared<ImageTexture<glm::vec3>>(filename));
-            } else {
-                std::cout << "Unknown texture class \"" << textureClass << "\"! Substituting with placeholder..." << std::endl;
-                colorTextures.push_back(dummyColorTexture);
+        std::unordered_map<int, std::shared_ptr<Texture<glm::vec3>>> _colorTextures;
+        auto getColorTexture = [&](int texID) {
+            if (_colorTextures.find(texID) == _colorTextures.end()) {
+                const auto jsonColorTexture = sceneJson["color_textures"][texID];
+                auto textureClass = jsonColorTexture["class"].get<std::string>();
+                auto arguments = jsonColorTexture["arguments"];
+
+                if (textureClass == "constant") {
+                    glm::vec3 value = readVec3(arguments["value"]);
+                    _colorTextures[texID] = std::make_shared<ConstantTexture<glm::vec3>>(value);
+                } else if (textureClass == "imagemap") {
+                    auto filename = arguments["filename"].get<std::string>();
+                    _colorTextures[texID] = std::make_shared<ImageTexture<glm::vec3>>(filename);
+                } else {
+                    std::cout << "Unknown texture class \"" << textureClass << "\"! Substituting with placeholder..." << std::endl;
+                    _colorTextures[texID] = dummyColorTexture;
+                }
             }
-        }
+
+            return _colorTextures[texID];
+        };
 
         // Load materials
         std::vector<std::shared_ptr<Material>> materials;
@@ -121,8 +131,8 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
                 auto arguments = jsonMaterial["arguments"];
 
                 if (materialType == "matte") {
-                    const auto& kd = colorTextures[arguments["kd"].get<int>()];
-                    const auto& sigma = floatTextures[arguments["sigma"].get<int>()];
+                    const auto& kd = getColorTexture(arguments["kd"].get<int>());
+                    const auto& sigma = getFloatTexture(arguments["sigma"].get<int>());
                     materials.push_back(std::make_shared<MatteMaterial>(kd, sigma));
                 } else {
                     std::cout << "Unknown material type \"" << materialType << "\"! Substituting with placeholder." << std::endl;
@@ -133,7 +143,6 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
         static std::shared_ptr<Material> defaultMaterial = std::make_shared<MatteMaterial>(
             std::make_shared<ConstantTexture<glm::vec3>>(glm::vec3(1.0f)),
             std::make_shared<ConstantTexture<float>>(1.0f));
-
 
         // Load geometry
         std::vector<std::shared_ptr<TriangleMesh>> geometry;
@@ -166,7 +175,7 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
         // Create instanced base objects
         std::vector<std::shared_ptr<GeometricSceneObject>> baseSceneObjects;
         for (const auto jsonSceneObject : sceneJson["instance_base_scene_objects"]) {
-            baseSceneObjects.emplace_back(makeGeomSceneObject(jsonSceneObject));// Converts to shared_ptr
+            baseSceneObjects.emplace_back(makeGeomSceneObject(jsonSceneObject)); // Converts to shared_ptr
         }
 
         // Create scene objects
@@ -189,7 +198,7 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
                 auto transform = readMat4(jsonLight["transform"]);
                 auto scale = readVec3(jsonLight["scale"]);
                 auto numSamples = jsonLight["num_samples"].get<int>();
-                auto texture = colorTextures[jsonLight["texture"].get<int>()];
+                auto texture = getColorTexture(jsonLight["texture"].get<int>());
 
                 config.scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, scale, numSamples, texture));
             } else if (type == "distant") {
