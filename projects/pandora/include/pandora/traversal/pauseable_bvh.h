@@ -12,11 +12,13 @@ using PauseableBVHInsertHandle = std::pair<uint32_t, uint64_t>;
 template <typename T, typename UserState>
 struct is_pauseable_leaf_obj {
     // Returns true if the ray exited the leaf node; false if the ray was paused
+    BOOST_TTI_HAS_MEMBER_FUNCTION(getBounds)
     BOOST_TTI_HAS_MEMBER_FUNCTION(intersect)
     BOOST_TTI_HAS_MEMBER_FUNCTION(intersectAny)
-    static constexpr bool hasIntersect = has_member_function_intersect<T, std::optional<bool>, boost::mpl::vector<Ray&, RayHit&, const UserState&, PauseableBVHInsertHandle>, boost::function_types::const_qualified>::value;
-    static constexpr bool hasIntersectAny = has_member_function_intersectAny<T, std::optional<bool>, boost::mpl::vector<Ray&, const UserState&, PauseableBVHInsertHandle>, boost::function_types::const_qualified>::value;
-    static constexpr bool value = hasIntersect && hasIntersectAny;
+    static constexpr bool has_bounds_func = has_member_function_getBounds<T, Bounds, boost::mpl::vector<>, boost::function_types::const_qualified>::value;
+    static constexpr bool has_intersect = has_member_function_intersect<T, std::optional<bool>, boost::mpl::vector<Ray&, RayHit&, const UserState&, PauseableBVHInsertHandle>, boost::function_types::const_qualified>::value;
+    static constexpr bool has_intersect_any = has_member_function_intersectAny<T, std::optional<bool>, boost::mpl::vector<Ray&, const UserState&, PauseableBVHInsertHandle>, boost::function_types::const_qualified>::value;
+    static constexpr bool value = has_bounds_func && has_intersect && has_intersect_any;
 };
 
 template <typename LeafObj, typename UserState>

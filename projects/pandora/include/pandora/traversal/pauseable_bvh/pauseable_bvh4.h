@@ -14,7 +14,7 @@ namespace pandora {
 template <typename LeafObj, typename UserState>
 class PauseableBVH4 : PauseableBVH<LeafObj, UserState> {
 public:
-    PauseableBVH4(gsl::span<LeafObj> object, gsl::span<const Bounds> bounds);
+    PauseableBVH4(gsl::span<LeafObj> object);
     PauseableBVH4(PauseableBVH4&&) = default;
     ~PauseableBVH4() = default;
 
@@ -102,20 +102,21 @@ private:
 };
 
 template <typename LeafObj, typename UserState>
-inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> objects, gsl::span<const Bounds> objectsBounds)
-    : m_innerNodeAllocator(objects.size())
-    , m_leafAllocator(objects.size())
+inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> leafs)
+    : m_innerNodeAllocator(leafs.size())
+    , m_leafAllocator(leafs.size())
 {
     assert(objects.size() == objectsBounds.size());
 
-    // Copy leafs
-    m_tmpConstructionLeafs = objects;
+    // Store in the class so that the (static) construction functions can access the objects
+    //  and move them into the BVH leafs
+    m_tmpConstructionLeafs = leafs;
 
     // Create a representatin of the leafs that Embree will understand
     std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
-    embreeBuildPrimitives.reserve(objects.size());
-    for (unsigned i = 0; i < static_cast<unsigned>(objects.size()); i++) {
-        auto bounds = objectsBounds[i];
+    embreeBuildPrimitives.reserve(leafs.size());
+    for (unsigned i = 0; i < static_cast<unsigned>(leafs.size()); i++) {
+        auto bounds = leafs[i].getBounds();
 
         RTCBuildPrimitive primitive;
         primitive.lower_x = bounds.min.x;
