@@ -24,7 +24,7 @@ glm::vec3 Transform::transformVector(const glm::vec3& v) const
 glm::vec3 Transform::transformNormal(const glm::vec3& n) const
 {
     // Take special care with the normals so that they always orthogonal to the surface
-    return glm::transpose(glm::mat3(m_inverseMatrix)) * n;
+    return glm::normalize(glm::transpose(glm::mat3(m_inverseMatrix)) * n);
 }
 
 Ray Transform::transform(const Ray& ray) const

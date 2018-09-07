@@ -4,6 +4,7 @@
 #include "assimp/scene.h"
 #include "glm/mat4x4.hpp"
 #include "pandora/core/stats.h"
+#include "pandora/core/transform.h"
 #include "pandora/flatbuffers/triangle_mesh_generated.h"
 #include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
@@ -129,9 +130,11 @@ TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
     return TriangleMesh(currentTriangle, currentVertex, std::move(triangles), std::move(positions), std::move(normals), std::move(tangents), std::move(uvCoords));
 }
 
-TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals)
+TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& matrix, bool ignoreVertexNormals)
 {
     const aiMesh* mesh = scene->mMeshes[meshIndex];
+
+    Transform transform(matrix);
 
     if (mesh->mNumVertices == 0 || mesh->mNumFaces == 0)
         THROW_ERROR("Empty mesh");
@@ -155,15 +158,14 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
 
     // Positions
     for (unsigned i = 0; i < mesh->mNumVertices; i++) {
-        positions[i] = transform * glm::vec4(assimpVec(mesh->mVertices[i]), 1);
+        positions[i] = transform.transformPoint(assimpVec(mesh->mVertices[i]));
     }
 
     // Normals
     if (mesh->HasNormals() && !ignoreVertexNormals) {
         normals = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
-        glm::mat3 normalTransform = transform;
         for (unsigned i = 0; i < mesh->mNumVertices; i++) {
-            normals[i] = normalTransform * glm::vec3(assimpVec(mesh->mNormals[i]));
+            normals[i] = transform.transformNormal(assimpVec(mesh->mNormals[i]));
         }
     }
 
@@ -194,8 +196,7 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::stri
 
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(filename.data(),
-        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices |
-        aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
+        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
     //importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
@@ -210,10 +211,11 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::stri
     std::stack<std::tuple<aiNode*, glm::mat4>> stack;
     stack.push({ scene->mRootNode, objTransform * assimpMatrix(scene->mRootNode->mTransformation) });
     while (!stack.empty()) {
-        auto[node, transform] = stack.top();
+        auto [node, matrix] = stack.top();
         stack.pop();
 
-        transform *= assimpMatrix(node->mTransformation);
+        matrix *= assimpMatrix(node->mTransformation);
+        Transform transform(matrix);
 
         for (unsigned i = 0; i < node->mNumMeshes; i++) {
             // Process subMesh
@@ -231,7 +233,7 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::stri
                 }
 
                 auto aiIndices = face.mIndices;
-                indices.push_back(glm::ivec3{
+                indices.push_back(glm::ivec3 {
                     aiIndices[0] + indexOffset,
                     aiIndices[1] + indexOffset,
                     aiIndices[2] + indexOffset });
@@ -240,15 +242,14 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::stri
             // Positions
             for (unsigned j = 0; j < mesh->mNumVertices; j++) {
                 glm::vec3 pos = assimpVec(mesh->mVertices[j]);
-                glm::vec3 transformedPos = transform * glm::vec4(pos, 1);
+                glm::vec3 transformedPos = transform.transformPoint(pos);
                 positions.push_back(transformedPos);
             }
 
             // Normals
             if (mesh->HasNormals() && !ignoreVertexNormals) {
-                glm::mat3 normalTransform = transform;
                 for (unsigned j = 0; j < mesh->mNumVertices; j++) {
-                    normals.push_back(normalTransform * glm::vec3(assimpVec(mesh->mNormals[j])));
+                    normals.push_back(transform.transformNormal(assimpVec(mesh->mNormals[j])));
                 }
             } else {
                 std::cout << "WARNING: submesh has no normal vectors" << std::endl;
@@ -256,11 +257,10 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::stri
                     normals.push_back(glm::vec3(0));
                 }
             }
-
         }
 
         for (unsigned i = 0; i < node->mNumChildren; i++) {
-            stack.push({ node->mChildren[i], transform });
+            stack.push({ node->mChildren[i], matrix });
         }
     }
 
@@ -293,8 +293,7 @@ std::vector<TriangleMesh> TriangleMesh::loadFromFile(const std::string_view file
 
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(filename.data(),
-        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices |
-        aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
+        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
     //importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
