@@ -383,6 +383,8 @@ def p_statement_light(p):
     global light_sources, cur_transform
     light_type = p[2]
     arguments = p[3]
+    if "mapname" in arguments:
+        arguments["mapname"]["value"] = os.path.join(base_path, arguments["mapname"]["value"])
     light_sources.append(LightSource(
         light_type, arguments, cur_transform.tolist()))
 
@@ -392,6 +394,8 @@ def p_statement_area_light(p):
     global graphics_state
     light_type = p[2]
     arguments = p[3]
+    if "mapname" in arguments:
+        arguments["mapname"]["value"] = os.path.join(base_path, arguments["mapname"]["value"])
     graphics_state["area_light"] = AreaLightSource(light_type, arguments)
 
 

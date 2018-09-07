@@ -32,6 +32,7 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/svo_test_integrator.h"
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/lights/area_light.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/lights/distant_light.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/lights/environment_light.h"
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/materials/matte_material.h"

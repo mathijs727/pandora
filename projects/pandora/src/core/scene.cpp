@@ -26,7 +26,7 @@ GeometricSceneObject::GeometricSceneObject(
     , m_material(material)
     , m_areaLightPerPrimitive()
 {
-    for (unsigned primitiveID = 0; m_mesh->numTriangles(); primitiveID++)
+    for (unsigned primitiveID = 0; primitiveID < m_mesh->numTriangles(); primitiveID++)
         m_areaLightPerPrimitive.push_back(AreaLight(lightEmitted, 1, *mesh, primitiveID));
 }
 
@@ -117,7 +117,8 @@ SurfaceInteraction InstancedSceneObject::fillSurfaceInteraction(const Ray& ray, 
 const AreaLight* InstancedSceneObject::getPrimitiveAreaLight(unsigned primitiveID) const
 {
     // TODO: does this work correctly with instancing???
-    return m_baseObject->getPrimitiveAreaLight(primitiveID);
+    //return m_baseObject->getPrimitiveAreaLight(primitiveID);
+    return nullptr;
 }
 
 const Material* InstancedSceneObject::getMaterial() const

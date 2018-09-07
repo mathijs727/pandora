@@ -4,6 +4,7 @@
 #include "pandora/textures/constant_texture.h"
 #include "pandora/textures/image_texture.h"
 #include "pandora/utility/error_handling.h"
+#include "pandora/lights/distant_light.h"
 #include "pandora/lights/environment_light.h"
 #include <array>
 #include <fstream>
@@ -154,7 +155,12 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
             else
                 material = defaultMaterial;
 
-            return std::make_unique<GeometricSceneObject>(mesh, material);
+            if (jsonSceneObject.find("area_light") != jsonSceneObject.end()) {
+                auto areaLight = readVec3(jsonSceneObject["area_light"]["L"]);
+                return std::make_unique<GeometricSceneObject>(mesh, material, areaLight);
+            } else {
+                return std::make_unique<GeometricSceneObject>(mesh, material);
+            }
         };
 
         // Create instanced base objects
@@ -186,6 +192,14 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
                 auto texture = colorTextures[jsonLight["texture"].get<int>()];
 
                 config.scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, scale, numSamples, texture));
+            } else if (type == "distant") {
+                auto transform = readMat4(jsonLight["transform"]);
+                auto L = readVec3(jsonLight["L"]);
+                auto dir = readVec3(jsonLight["direction"]);
+
+                config.scene.addInfiniteLight(std::make_shared<DistantLight>(transform, L, dir));
+            } else {
+                THROW_ERROR("Unknown light type");
             }
         }
     }

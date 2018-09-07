@@ -24,6 +24,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/integrators/svo_test_integrator.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/lights/area_light.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/lights/distant_light.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/lights/environment_light.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/samplers/rng/pcg.cpp"

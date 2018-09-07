@@ -25,12 +25,12 @@ EnvironmentLight::EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum
 {
 }
 
-glm::vec3 EnvironmentLight::power() const
+/*glm::vec3 EnvironmentLight::power() const
 {
     // Approximate total power
     float worldRadius = 1.0f; // TODO: Compute bounding sphere of scene?
     return glm::pi<float>() * worldRadius * worldRadius * m_l * m_texture->evaluate(glm::vec2(0.5f, 0.5f));
-}
+}*/
 
 // PBRTv3 page 849
 LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& u) const

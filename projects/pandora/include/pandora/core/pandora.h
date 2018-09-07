@@ -11,8 +11,11 @@ using ShadingMemoryArena = FreeListBackedMemoryArena<1024>;
 struct Interaction;
 struct SurfaceInteraction;
 struct LightSample;
+class Transform;
 
 class Light;
+class DistantLight;
+class EnvironmentLight;
 class AreaLight;
 
 class BxDF;

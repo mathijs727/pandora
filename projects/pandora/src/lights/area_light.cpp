@@ -13,10 +13,10 @@ AreaLight::AreaLight(glm::vec3 emittedLight, int numSamples, const TriangleMesh&
 {
 }
 
-glm::vec3 AreaLight::power() const
+/*glm::vec3 AreaLight::power() const
 {
     return m_emmitedLight * m_area * glm::pi<float>();
-}
+}*/
 
 glm::vec3 AreaLight::light(const Interaction& interaction, const glm::vec3& w) const
 {

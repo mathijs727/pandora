@@ -31,6 +31,37 @@ def constant_texture(v):
     else:
         print(f"Trying to create constant texture for unknown value \"{v}\"")
 
+def image_texture(mapname):
+        return Texture(
+        "color",# Type
+        "imagemap",# Class
+        { # Arguments
+            "filename": {
+                "type": "string",
+                "value": mapname
+            }
+        }
+    )
+
+
+def get_argument_with_default(arguments, name, default):
+    if name in arguments:
+        ret = arguments[name]["value"]
+        if isinstance(ret, np.ndarray):
+            return list(ret)
+        else:
+            return ret
+    else:
+        return default
+
+
+def _replace_black_body(v):
+    if isinstance(v, dict) and "blackbody_temperature_kelvin" in v:
+        print("WARNING: pandora does not handle blackbody emiters yet. Replacing by white...")
+        return [1.0, 1.0, 1.0]
+    else:
+        return v
+
 class SceneParser:
     def __init__(self, pbrt_scene, out_mesh_folder):
         self._geometry = UniqueCollection()
@@ -50,6 +81,7 @@ class SceneParser:
         self._create_scene_objects(pbrt_scene)
         self._create_scene_objects_instancing(pbrt_scene)
 
+
     def _create_light_sources(self, pbrt_scene):
         # print(pbrt_scene["light_sources"])
         for light_source in pbrt_scene["light_sources"]:
@@ -60,7 +92,7 @@ class SceneParser:
                     num_samples = 1
 
                 if "L" in light_source.arguments:
-                    L = light_source.arguments["L"]["value"]
+                    L = _replace_black_body(light_source.arguments["L"]["value"])
                 else:
                     L = [1.0, 1.0, 1.0]
 
@@ -68,16 +100,7 @@ class SceneParser:
                     L *= light_source.arguments["scale"]["value"]
 
                 if "mapname" in light_source.arguments:
-                    texture_id = self._create_texture_id({
-                        "class": "imagemap",
-                        "type": "color",
-                        "arguments": {
-                            "filename": {
-                                "type": "string",
-                                "value": light_source.arguments["mapname"]["value"]
-                            }
-                        }
-                    })
+                    texture_id = self._create_texture_id(image_texture(light_source.arguments["mapname"]["value"]))
                 else:
                     texture_id = self._create_texture_id(constant_texture(1.0))
                 self._light_sources.append({
@@ -85,6 +108,23 @@ class SceneParser:
                     "texture": texture_id,
                     "scale": L,
                     "num_samples": num_samples,
+                    "transform": light_source.transform
+                })
+            elif light_source.type == "distant":
+                if "from" in light_source.arguments and "to" in light_source.arguments:
+                    direction = light_source.arguments["to"]["value"] -light_source.arguments["from"]["value"]
+                else:
+                    direction = [0, 0, 1]
+                
+                if "L" in light_source.arguments:
+                    L = _replace_black_body(light_source.arguments["L"]["value"])
+                else:
+                    L = [1,1,1]
+
+                self._light_sources.append({
+                    "type": "distant",
+                    "L": L,
+                    "direction": list(direction),
                     "transform": light_source.transform
                 })
             else:
@@ -175,9 +215,6 @@ class SceneParser:
             })
 
     def _create_geometric_scene_object(self, shape):
-        if shape.area_light is not None:
-            print(f"TODO: Area light: {shape.area_light}")
-
         if shape.type == "plymesh":
             geometry_id=self._geometry.add_item({
                 "type": "triangle",
@@ -198,11 +235,25 @@ class SceneParser:
             return None
 
         material_id=self._create_material_id(shape.material)
-        return {
-            "instancing": False,
-            "geometry_id": geometry_id,
-            "material_id": material_id
-        }
+
+        if shape.area_light is not None:
+            area_light = {
+                "L": get_argument_with_default(shape.area_light.arguments, "L", [1,1,1]),
+                "num_samples": get_argument_with_default(shape.area_light.arguments, "nsamples", 1),
+                "two_sided": get_argument_with_default(shape.area_light.arguments, "twosided", False)
+            }
+            return {
+                "instancing": False,
+                "geometry_id": geometry_id,
+                "material_id": material_id,
+                "area_light": area_light
+            }
+        else:
+            return {
+                "instancing": False,
+                "geometry_id": geometry_id,
+                "material_id": material_id
+            }
 
     def _create_scene_objects(self, pbrt_scene):
         for json_shape in pbrt_scene["non_instanced_shapes"]:

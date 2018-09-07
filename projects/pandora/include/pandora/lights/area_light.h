@@ -8,7 +8,7 @@ class AreaLight : public Light {
 public:
     AreaLight(glm::vec3 emittedLight, int numSamples, const TriangleMesh& shape, unsigned primitiveID);
 
-    glm::vec3 power() const final;
+    //glm::vec3 power() const final;
 
     glm::vec3 light(const Interaction& ref, const glm::vec3& w) const;
 
