@@ -1,5 +1,6 @@
 import argparse
 import os
+import pickle
 import parsing
 from config_parser import ConfigParser
 from scene_parser import SceneParser
@@ -21,10 +22,12 @@ def extract_pandora_data(pbrt_data, out_mesh_folder):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Export preprocessed PBRT scenes to Pandora's JSON format")
-    parser.add_argument("--file", type=str,
-                        help="Path to PBRT scene file")
-    parser.add_argument("--out", type=str,
-                        help="Name/path of output Pandora scene description file")
+    parser.add_argument("--file", type=str, required=True,
+                        help="Either the PBRT scene file OR the intermediate file that was outputted on a previous run")
+    parser.add_argument("--out", type=str, required=True,
+                        help="Path/name of output Pandora scene description file")
+    parser.add_argument("--intermediate", type=bool, required=False, default=True,
+                        help="Whether to output intermediate files")
     args = parser.parse_args()
 
     if not os.path.isfile(args.file):
@@ -38,8 +41,20 @@ if __name__ == "__main__":
     out_mesh_folder = os.path.join(os.path.dirname(args.out), "pandora_meshes")
 
     #pbrt_data = pickle.load(open(args.file, "rb"))
-    print("==== PARSING PBRT FILE ====")
-    pbrt_data = parsing.parse_file(args.file, int_mesh_folder)
+    if args.file.endswith(".pbrt"):
+        print("==== PARSING PBRT FILE ====")
+        pbrt_data = parsing.parse_file(args.file, int_mesh_folder)
+    elif args.file.endswith(".bin"):
+        with open(args.file, "rb") as f:
+            pbrt_data = pickle.load(f)
+    else:
+        print("Input file has unknown file extension")
+        exit(-1)
+
+    if args.intermediate:
+        int_file = os.path.join(os.path.dirname(args.out), "intermediate.bin")
+        with open(int_file, "wb") as f:
+            pickle.dump(pbrt_data, f)
 
     print("==== CONVERTING TO PANDORA FORMAT ====")
     pandora_data = extract_pandora_data(pbrt_data, out_mesh_folder)
