@@ -7,7 +7,11 @@ class UniqueCollection:
 
     def add_item(self, item):
         if isinstance(item, dict):
-            key = json.dumps(item)
+            try:
+                key = json.dumps(item)
+            except TypeError as e:
+                print(e)
+                print(item)
         else:
             key = item
         

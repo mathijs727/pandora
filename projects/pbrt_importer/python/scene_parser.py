@@ -60,7 +60,7 @@ def _replace_black_body(v):
         print("WARNING: pandora does not handle blackbody emiters yet. Replacing by white...")
         return [1.0, 1.0, 1.0]
     else:
-        return v
+        return list(v)
 
 class SceneParser:
     def __init__(self, pbrt_scene, out_mesh_folder):

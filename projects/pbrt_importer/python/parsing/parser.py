@@ -147,8 +147,6 @@ def p_basic_data_type(p):
                        | NUMBER"""
     p[0] = p[1]
     lineno = p.lineno(n=1)
-    if lineno % 1000 == 0:
-        print(f"Parsed data at line {lineno}")
 
 
 def p_list(p):
