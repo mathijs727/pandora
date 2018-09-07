@@ -175,7 +175,7 @@ class SceneParser:
         if t == "texture":
             return self._create_texture_id(self._pbrt_named_textures[v])
         else:
-            assert(t == "spectrum" or t == "color")
+            assert(t == "spectrum" or t == "color" or t == "rgb")
             return self._create_texture_id(constant_texture(list(v)))
 
 
@@ -238,7 +238,7 @@ class SceneParser:
 
         if shape.area_light is not None:
             area_light = {
-                "L": get_argument_with_default(shape.area_light.arguments, "L", [1,1,1]),
+                "L": _replace_black_body(shape.area_light.arguments["L"]["value"]),#get_argument_with_default(shape.area_light.arguments, "L", [1,1,1]),
                 "num_samples": get_argument_with_default(shape.area_light.arguments, "nsamples", 1),
                 "two_sided": get_argument_with_default(shape.area_light.arguments, "twosided", False)
             }
