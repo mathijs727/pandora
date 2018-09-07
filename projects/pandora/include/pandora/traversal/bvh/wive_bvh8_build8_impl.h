@@ -37,7 +37,7 @@ inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreeP
     m_tmpConstructionLeafObjects = objects.data();
     this->m_compressedRootHandle = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rtcBuildBVH(&arguments)));
 
-	ALWAYS_ASSERT(this->isInnerNode(this->m_compressedRootHandle));
+	//ALWAYS_ASSERT(this->isInnerNode(this->m_compressedRootHandle));
 
     // Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);
