@@ -40,7 +40,7 @@ class GrowingFreeListTS {
 public:
     static_assert(sizeof(T) >= sizeof(void*)); // Needs to be bigger because can't properly disable padding?
 
-    GrowingFreeListTS();
+    GrowingFreeListTS() = default;
     ~GrowingFreeListTS() = default;
 
     template <typename... Args>
@@ -58,27 +58,12 @@ private:
 };
 
 template <typename T>
-inline GrowingFreeListTS<T>::GrowingFreeListTS()
-    //: m_freeListHead(nullptr)
-{
-}
-
-template <typename T>
 inline void GrowingFreeListTS<T>::deallocate(T* p)
 {
     p->~T();
 
     // https://en.cppreference.com/w/cpp/atomic/atomic_compare_exchange
     auto* newNode = reinterpret_cast<FreeListNode*>(p);
-
-    /*// Put the current value of m_freeListHead into newNode->next
-    newNode->next = m_freeListHead.load();
-
-    // Now make newNode the new head, but if the head is no longer what's stored in newNode->next
-    // (some other thread must have inserted a node just now) then put that new head into
-    // newNode->next and try again.
-    while (!m_freeListHead.compare_exchange_weak(newNode->next, newNode)) {
-    }*/
 
     m_freeList.push(newNode);
 }
@@ -87,10 +72,6 @@ template <typename T>
 template <typename... Args>
 inline T* GrowingFreeListTS<T>::allocate(Args... args)
 {
-    /*// Pop
-    auto* node = m_freeListHead.load();
-    while (node && !m_freeListHead.compare_exchange_weak(node, node->next)) {
-    }*/
     FreeListNode* node;
     if (!m_freeList.try_pop(node)) {
         // We could not reuse an old unused node so we have to allocate a new one

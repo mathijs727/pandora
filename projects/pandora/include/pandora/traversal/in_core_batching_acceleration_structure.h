@@ -26,7 +26,7 @@ namespace pandora {
 static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 1024;
 static constexpr bool ENABLE_BATCHING = true;
 
-template <typename UserState, size_t BatchSize = 64>
+template <typename UserState, size_t BatchSize = 16>
 class InCoreBatchingAccelerationStructure {
 public:
     using InsertHandle = void*;
@@ -110,7 +110,7 @@ private:
         bool intersect(Ray& ray, RayHit& hitInfo) const;
 
     private:
-        const GeometricSceneObject* m_sceneObject;
+        const GeometricSceneObject& m_sceneObject;
         const unsigned m_primitiveID;
     };
 
@@ -145,7 +145,6 @@ private:
     static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(gsl::span<const std::unique_ptr<SceneObject>>, InCoreBatchingAccelerationStructure& accelerationStructure);
 
 private:
-    //tbb::concurrent_vector<TopLevelLeafNode*> m_leafsWithBatchedRays;
     GrowingFreeListTS<RayBatch> m_batchAllocator;
     PauseableBVH4<TopLevelLeafNode, UserState> m_bvh;
     tbb::enumerable_thread_specific<RayBatch*> m_threadLocalPreallocatedRaybatch;

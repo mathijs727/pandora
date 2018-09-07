@@ -207,7 +207,7 @@ def p_argument(p):
         elif arg_type == "string":
             p[0] = {arg_name: {"type": arg_type, "value": str(data)}}
         elif arg_type == "texture":
-            p[0] = {arg_name: {"type": arg_type, "value": named_textures[data]}}
+            p[0] = {arg_name: {"type": arg_type, "value": data}}
         elif arg_type == "spectrum":
             p[0] = {arg_name: {"type": arg_type, "value": SampledSpectrumFile(
                 os.path.join(base_path, data))}}
@@ -504,7 +504,7 @@ def p_statement_accelerator(p):
     }
 
 
-def parse_file(file_path):
+def parse_file(file_path, int_mesh_folder):
     lexer = create_lexer()
     parser = yacc.yacc()
 
@@ -515,7 +515,7 @@ def parse_file(file_path):
         string = f.read()
 
     global base_path, out_mesh_path, current_file
-    out_mesh_path = os.path.join(os.path.abspath(os.getcwd()), "pbrt_meshes")
+    out_mesh_path = int_mesh_folder
     if not os.path.exists(out_mesh_path):
         os.makedirs(out_mesh_path)
 
@@ -526,7 +526,7 @@ def parse_file(file_path):
     print("Base path: ", base_path)
 
     print("Parsing...")
-    return yacc.parse(string, lexer=lexer)
+    return parser.parse(string, lexer=lexer)
 
 
 if __name__ == "__main__":

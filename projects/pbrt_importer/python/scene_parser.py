@@ -5,6 +5,32 @@ import pickle
 import os
 
 
+def constant_texture(v):
+    if isinstance(v, float):
+        return Texture(
+            "float",# Type
+            "constant",# Class
+            { # Arguments
+                "value": {
+                    "type": "float",
+                    "value": 0.5
+                }
+            }
+        )
+    elif isinstance(v, list):
+        return Texture(
+            "color",# Type
+            "constant",# Class
+            { # Arguments
+                "value": {
+                    "type": "color",
+                    "value": np.array(v)
+                }
+            }
+        )
+    else:
+        print(f"Trying to create constant texture for unknown value \"{v}\"")
+
 class SceneParser:
     def __init__(self, pbrt_scene, out_mesh_folder):
         self._geometry = UniqueCollection()
@@ -18,22 +44,14 @@ class SceneParser:
         self._out_mesh_id = 0
         self._out_mesh_folder = out_mesh_folder
 
-        self._color1_texture_id = self._create_texture_id({
-            "type": "color",
-            "value": [1.0, 1.0, 1.0]
-        })
-        self._float1_texture_id = self._create_texture_id({
-            "type": "float",
-            "value": 1.0
-        })
+        self._pbrt_named_textures = pbrt_scene["textures"]
 
         self._create_light_sources(pbrt_scene)
         self._create_scene_objects(pbrt_scene)
         self._create_scene_objects_instancing(pbrt_scene)
 
-
     def _create_light_sources(self, pbrt_scene):
-        #print(pbrt_scene["light_sources"])
+        # print(pbrt_scene["light_sources"])
         for light_source in pbrt_scene["light_sources"]:
             if light_source.type == "infinite":
                 if "samples" in light_source.arguments:
@@ -50,10 +68,18 @@ class SceneParser:
                     L *= light_source.arguments["scale"]["value"]
 
                 if "mapname" in light_source.arguments:
-                    texture_id = self._create_texture_id(
-                        light_source.arguments["mapname"])
+                    texture_id = self._create_texture_id({
+                        "class": "imagemap",
+                        "type": "color",
+                        "arguments": {
+                            "filename": {
+                                "type": "string",
+                                "value": light_source.arguments["mapname"]["value"]
+                            }
+                        }
+                    })
                 else:
-                    texture_id = self._color1_texture_id
+                    texture_id = self._create_texture_id(constant_texture(1.0))
                 self._light_sources.append({
                     "type": "infinite",
                     "texture": texture_id,
@@ -65,31 +91,27 @@ class SceneParser:
                 print(
                     f"WARNING: skipping light source of unsupported type {light_source.type}")
 
-    def _create_texture_id(self, texture_info):
-        tex_type = texture_info["type"]
-        if tex_type == "float":
-            # Inline texture property
-            texture = Texture(type=tex_type, texture_class="constant", arguments={
-                              "value": texture_info["value"]})
-        elif tex_type == "spectrum" or tex_type == "color" or tex_type == "rgb":
-            # Inline texture property
-            texture = Texture(type=tex_type, texture_class="constant", arguments={
-                              "value": list(texture_info["value"])})
-        elif tex_type == "texture":
-            # Texture class
-            texture = texture_info["value"]
-            arguments = {}
-            for key, value in texture.arguments.items():
-                arguments[key] = value["value"]
-            texture = Texture(texture.type, texture.texture_class, arguments)
+    def _create_texture_id(self, texture):
+        # Unpack arguments
+        arguments = {}
+        for key, value in texture.arguments.items():
+            v = value["value"]
+            if isinstance(v, np.ndarray):
+                v = list(v)
+            arguments[key] = v
+        
+        texture_type = None
+        if texture.type in ["spectrum", "rgb", "color"]:
+            texture_type = "color"
+        elif texture.type == "float":
+            texture_type = "float"
         else:
-            print(f"UNKNOWN TEXTURE: {texture_info}")
-            exit(1)
+            print(f"Unknown texture type \"{texture.type}\"")
 
         texture_dict = {
-            "type": texture.type if texture.type != "spectrum" else "color",
+            "type": texture_type if texture_type != "spectrum" else "color",
             "class": texture.texture_class,
-            "arguments": texture.arguments
+            "arguments": arguments
         }
 
         if texture_dict["type"] == "float":
@@ -97,14 +119,37 @@ class SceneParser:
         else:
             return self._color_textures.add_item(texture_dict)
 
+    def _float_tex_argument(self, argument):
+        t = argument["type"]
+        v = argument["value"]
+        if t == "texture":
+            return self._create_texture_id(self._pbrt_named_textures[v])
+        else:
+            assert(t == "float")
+            return self._create_texture_id(constant_texture(v))
+
+
+    def _color_tex_argument(self, argument):
+        t = argument["type"]
+        v = argument["value"]
+        if t == "texture":
+            return self._create_texture_id(self._pbrt_named_textures[v])
+        else:
+            assert(t == "spectrum" or t == "color")
+            return self._create_texture_id(constant_texture(list(v)))
+
+
     def _create_material_id(self, material):
         if material.type == "matte":
-            kd = self._create_texture_id(material.arguments["Kd"])
-            if "sigma" in material.arguments:
-                sigma = self._create_texture_id(material.arguments["sigma"])
+            if "Kd" in material.arguments:
+                kd = self._color_tex_argument(material.arguments["Kd"])
             else:
-                sigma = self._create_texture_id(
-                    {"type": "float", "value": 0.0})
+                kd = self._create_texture_id(constant_texture([0, 0, 0]))
+
+            if "sigma" in material.arguments:
+                sigma = self._float_tex_argument(material.arguments["sigma"])
+            else:
+                sigma = self._create_texture_id(constant_texture(0.5))
 
             # Leave out texture support for now?
             return self._materials.add_item({
@@ -118,9 +163,8 @@ class SceneParser:
             print(
                 f"Material type {material.type} is not supported yet. Replacing by matte white placeholder.")
 
-            kd = self._create_texture_id(
-                {"type": "spectrum", "value": np.array([1.0, 1.0, 1.0])})
-            sigma = self._create_texture_id({"type": "float", "value": 0.5})
+            kd = self._create_texture_id(constant_texture([1.0, 1.0, 1.0]))
+            sigma = self._create_texture_id(constant_texture(0.5))
 
             return self._materials.add_item({
                 "type": "matte",
@@ -135,16 +179,16 @@ class SceneParser:
             print(f"TODO: Area light: {shape.area_light}")
 
         if shape.type == "plymesh":
-            geometry_id = self._geometry.add_item({
+            geometry_id=self._geometry.add_item({
                 "type": "triangle",
                 "filename": shape.arguments["filename"]["value"],
                 "transform": shape.transform
             })
         elif shape.type == "trianglemesh":
             with open(shape.arguments["filename"], "rb") as f:
-                filename = self._trianglemesh_to_obj(pickle.load(f))
+                filename=self._trianglemesh_to_obj(pickle.load(f))
 
-            geometry_id = self._geometry.add_item({
+            geometry_id=self._geometry.add_item({
                 "type": "triangle",
                 "filename": filename,
                 "transform": shape.transform
@@ -153,7 +197,7 @@ class SceneParser:
             print(f"Ignoring shape of unsupported type {shape.type}")
             return None
 
-        material_id = self._create_material_id(shape.material)
+        material_id=self._create_material_id(shape.material)
         return {
             "instancing": False,
             "geometry_id": geometry_id,
@@ -162,23 +206,23 @@ class SceneParser:
 
     def _create_scene_objects(self, pbrt_scene):
         for json_shape in pbrt_scene["non_instanced_shapes"]:
-            scene_object = self._create_geometric_scene_object(json_shape)
+            scene_object=self._create_geometric_scene_object(json_shape)
             if scene_object is not None:
                 self._scene_objects.add_item(scene_object)
 
     def _create_scene_objects_instancing(self, pbrt_scene):
-        named_base_scene_objecst = {}
+        named_base_scene_objecst={}
         for instance_template in pbrt_scene["instance_templates"].values():
-            base_scene_objects = [self._create_geometric_scene_object(shape)
+            base_scene_objects=[self._create_geometric_scene_object(shape)
                                   for shape in instance_template.shapes]
-            base_scene_objects = [
+            base_scene_objects=[
                 so for so in base_scene_objects if so is not None]
 
-            base_so_ids = [self._instance_base_scene_objects.add_item(
+            base_so_ids=[self._instance_base_scene_objects.add_item(
                 so) for so in base_scene_objects]
-            named_base_scene_objecst[instance_template.name] = base_so_ids
+            named_base_scene_objecst[instance_template.name]=base_so_ids
 
-        num_instances = len(pbrt_scene["instances"])
+        num_instances=len(pbrt_scene["instances"])
         for i, instance in enumerate(pbrt_scene["instances"]):
             # if i % 1000 == 0:
             #    print(f"instance {i} / {num_instances-1}")
@@ -190,32 +234,33 @@ class SceneParser:
                 })
 
     def _trianglemesh_to_obj(self, geometry):
-        mesh_id = self._out_mesh_id
+        mesh_id=self._out_mesh_id
         self._out_mesh_id += 1
 
-        mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
+        mesh_file=os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
         with open(mesh_file, "w") as f:
             f.write("o PandoraMesh\n")
 
-            positions = geometry["P"]["value"]
+            positions=geometry["P"]["value"]
             for p0, p1, p2 in zip(*[positions[x::3] for x in (0, 1, 2)]):
                 f.write(f"v {p0} {p1} {p2}\n")
 
             if "N" in geometry and "uv" in geometry:
-                normals = geometry["N"]["value"]
+                normals=geometry["N"]["value"]
                 for n0, n1, n2 in zip(*[normals[x::3] for x in (0, 1, 2)]):
                     f.write(f"vn {n0} {n1} {n2}\n")
 
-                uv_coords = geometry["uv"]["value"]
+                uv_coords=geometry["uv"]["value"]
                 for uv0, uv1 in zip(*[uv_coords[x::2] for x in (0, 1)]):
                     f.write(f"vt {uv0} {uv1}\n")
 
-                indices = geometry["indices"]["value"]
+                indices=geometry["indices"]["value"]
                 for i0, i1, i2 in zip(*[indices[x::3] for x in (0, 1, 2)]):
                     # OBJ starts counting at 1...
                     f.write(
                         f"f {i0+1}/{i0+1}/{i0+1} {i1+1}/{i1+1}/{i1+1} {i2+1}/{i2+1}/{i2+1}\n")
             else:
+                indices=geometry["indices"]["value"]
                 for i0, i1, i2 in zip(*[indices[x::3] for x in (0, 1, 2)]):
                     # OBJ starts counting at 1...
                     f.write(f"f {i0+1} {i1+1} {i2+1}\n")

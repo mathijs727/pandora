@@ -34,11 +34,12 @@ if __name__ == "__main__":
         print("Error: output path does not exist")
         exit(1)
 
+    int_mesh_folder = os.path.join(os.path.dirname(args.out), "pbrt_meshes")
     out_mesh_folder = os.path.join(os.path.dirname(args.out), "pandora_meshes")
 
     #pbrt_data = pickle.load(open(args.file, "rb"))
     print("==== PARSING PBRT FILE ====")
-    pbrt_data = parsing.parse_file(args.file)
+    pbrt_data = parsing.parse_file(args.file, int_mesh_folder)
 
     print("==== CONVERTING TO PANDORA FORMAT ====")
     pandora_data = extract_pandora_data(pbrt_data, out_mesh_folder)
