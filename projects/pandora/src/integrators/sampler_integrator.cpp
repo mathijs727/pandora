@@ -3,6 +3,7 @@
 #include "pandora/core/sampler.h"
 #include "pandora/core/sensor.h"
 #include "pandora/utility/memory_arena.h"
+#include "pandora/core/stats.h"
 #include "utility/fix_visitor.h"
 #include <gsl/gsl>
 #include <tbb/blocked_range2d.h>
@@ -25,6 +26,9 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     m_cameraThisFrame = &camera;
 
     resetSamplers();
+
+    // RAII stopwatch
+    auto stopwatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
 
     // Generate camera rays
     glm::ivec2 resolution = m_sensor.getResolution();

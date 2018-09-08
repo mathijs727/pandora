@@ -11,11 +11,15 @@ RenderStats g_stats(exporters);
 
 nlohmann::json RenderStats::getMetricsSnapshot() const
 {
-    nlohmann::json result;
-    result["memory"]["geometry"] = memory.geometry;
-    result["memory"]["top_bvh"] = memory.topBVH;
-    result["memory"]["bot_bvh"] = memory.botBVH;
-    result["num_top_leaf_nodes"] = numTopLevelLeafNodes;
+    nlohmann::json ret;
+    ret["timings"]["total_render_time"] = timings.totalRenderTime;
+
+    ret["memory"]["geometry"] = memory.geometry;
+    ret["memory"]["top_bvh"] = memory.topBVH;
+    ret["memory"]["bot_bvh"] = memory.botBVH;
+
+    ret["num_top_leaf_nodes"] = numTopLevelLeafNodes;
+
     for (const auto& flushInfo : flushInfos) {
         // clang-format off
         nlohmann::json flushInfoJSON{
@@ -23,9 +27,9 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
             { "batches_per_leaf", flushInfo.batchesPerLeaf.operator nlohmann::json()}
         };
         // clang-format on
-        result["flush_info"].push_back(flushInfoJSON);
+        ret["flush_info"].push_back(flushInfoJSON);
     }
-    return result;
+    return ret;
 }
 
 }

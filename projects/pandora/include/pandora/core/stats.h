@@ -4,6 +4,8 @@
 #include "metrics/histogram.h"
 #include "metrics/offline_exporter.h"
 #include "metrics/stats.h"
+#include "metrics/stopwatch.h"
+#include <chrono>
 #include <list>
 
 namespace pandora {
@@ -11,6 +13,10 @@ namespace pandora {
 struct RenderStats : public metrics::Stats {
     // Inherit default constructor
     using metrics::Stats::Stats;
+
+    struct {
+        metrics::Stopwatch<std::chrono::milliseconds> totalRenderTime;
+    } timings;
 
     struct {
         metrics::Counter<size_t> geometry { "bytes" };
