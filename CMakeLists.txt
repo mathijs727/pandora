@@ -45,7 +45,7 @@ target_include_directories(mio INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/
 add_library(libmorton INTERFACE)
 target_include_directories(libmorton INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/libmorton/libmorton/include/")
 
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED COMPONENTS program_options)
 
 find_package(nlohmann_json)
 

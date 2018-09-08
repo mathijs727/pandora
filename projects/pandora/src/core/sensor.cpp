@@ -36,10 +36,10 @@ glm::ivec2 Sensor::getResolution() const
     return m_resolution;
 }
 
-gsl::not_null<const glm::vec3*> Sensor::getFramebufferRaw()
+gsl::span<const glm::vec3> Sensor::getFramebufferRaw()
 {
     std::transform(std::begin(m_frameBuffer), std::end(m_frameBuffer), std::begin(m_frameBufferCopy), [](const std::atomic<glm::vec3>& v) -> glm::vec3 { return v.load(); });
-    return gsl::not_null<const glm::vec3*>(m_frameBufferCopy.data());
+    return m_frameBufferCopy;
 }
 
 int Sensor::getIndex(int x, int y) const

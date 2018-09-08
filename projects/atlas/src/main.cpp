@@ -19,11 +19,8 @@
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
 
-#include <algorithm>
 #include <iostream>
-#include <pmmintrin.h>
-#include <string>
-#include <tbb/tbb.h>
+#include <chrono>
 #include <xmmintrin.h>
 #include "pandora/core/load_from_file.h"
 
