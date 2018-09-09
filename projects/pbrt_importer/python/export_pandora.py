@@ -62,10 +62,3 @@ if __name__ == "__main__":
     print("==== WRITING PANDORA SCENE FILE ====")
     ujson.dump(pandora_data, open(args.out, "w"), indent=2)
 
-
-"""import pandora_py
-
-if __name__ == "__main__":
-    world = pandora_py.createWorld()
-    #world.set("HELLO WORLD")
-    print(world.greet())"""

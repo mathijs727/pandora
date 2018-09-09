@@ -1,8 +1,18 @@
 ﻿#include <string>
 #include <boost/python.hpp>
 #include <memory>
+#include "string_to_number.h"
 
-struct World
+BOOST_PYTHON_MODULE(pandora_py)
+{
+	using namespace boost::python;
+	Py_Initialize();
+	numpy::initialize();
+	def("string_to_numpy_float", stringToNumpy<float>);
+	def("string_to_numpy_int", stringToNumpy<int>);
+}
+
+/*struct World
 {
 	void set(std::string msg) { this->msg = msg; }
 	std::string greet() { return this->msg; }
@@ -26,4 +36,4 @@ BOOST_PYTHON_MODULE(pandora_py)
 	register_ptr_to_python<std::shared_ptr<World>>();
 
 	def("createWorld", createWorld);
-}
+}*/

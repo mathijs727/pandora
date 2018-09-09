@@ -9,6 +9,7 @@ from parsing.matrix import translate, scale, rotate, lookat
 from parsing.lexer import create_lexer, tokens
 import parsing.lexer
 import ply.yacc as yacc
+from .. import pandora_py
 
 
 class ParsingState(Enum):
@@ -152,15 +153,20 @@ def p_basic_data_type(p):
 def p_list(p):
     "list : LIST"
     text = p[1][1:-1]
+    print("ENTER LIST")
     if '"' in text:
+        print("STRING_ARRAY")
         import re
         p[0] = [s[1:-1] for s in re.findall('"[^"]*"', text)]
     elif '.' in text:
-        result = np.fromstring(text, dtype=float, sep=' ')
+        print("FLOAT_ARRAY")
+        result = np.fromstring(text.tobytes(), dtype=float, sep=' ')
         p[0] = result
     else:
-        result = np.fromstring(text, dtype=int, sep=' ')
+        print("INT_ARRAY")
+        result = np.fromstring(text.tobytes(), dtype=int, sep=' ')
         p[0] = result
+    print("END LIST")
 
 
 def p_argument(p):
