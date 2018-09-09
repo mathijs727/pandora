@@ -26,7 +26,7 @@ namespace pandora {
 static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 1024;
 static constexpr bool ENABLE_BATCHING = true;
 
-template <typename UserState, size_t BatchSize = 16>
+template <typename UserState, size_t BatchSize = 512>
 class InCoreBatchingAccelerationStructure {
 public:
     using InsertHandle = void*;
@@ -110,7 +110,7 @@ private:
         bool intersect(Ray& ray, RayHit& hitInfo) const;
 
     private:
-        const GeometricSceneObject& m_sceneObject;
+        const GeometricSceneObject* m_sceneObject;
         const unsigned m_primitiveID;
     };
 
@@ -289,12 +289,12 @@ inline PauseableBVH4<typename InCoreBatchingAccelerationStructure<UserState, Bat
             leafs.push_back(BotLevelLeafNode(sceneObjectPtr, primitiveID));
         }
 
-        if (leafs.size() <= 4)
+        /*if (leafs.size() <= 4)
         {
             std::cout << "WARNING: skipping SceneObject with too little (" << leafs.size() << ") primitives" << std::endl;
             botLevelBVHs[sceneObjectPtr] = nullptr;
             continue;
-        }
+        }*/
 
         auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNode>>();
         bvh->build(leafs);
