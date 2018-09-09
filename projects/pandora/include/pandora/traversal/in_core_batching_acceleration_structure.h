@@ -26,7 +26,7 @@ namespace pandora {
 static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 1024;
 static constexpr bool ENABLE_BATCHING = true;
 
-template <typename UserState, size_t BatchSize = 512>
+template <typename UserState, size_t BatchSize = 64>
 class InCoreBatchingAccelerationStructure {
 public:
     using InsertHandle = void*;
@@ -50,19 +50,18 @@ private:
     public:
         RayBatch(RayBatch* nextPtr = nullptr)
             : m_nextPtr(nextPtr)
-            , m_index(0)
         {
         }
         void setNext(RayBatch* nextPtr) { m_nextPtr = nextPtr; }
         RayBatch* next() { return m_nextPtr; }
-        bool full() const { return m_index == BatchSize; }
+        bool full() const { return m_data.full(); }
 
         bool tryPush(const Ray& ray, const RayHit& hitInfo, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
         bool tryPush(const Ray& ray, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
 
         size_t size() const
         {
-            return m_index;
+            return m_data.size();
         }
 
         // https://www.fluentcpp.com/2018/05/08/std-iterator-deprecated/
@@ -90,13 +89,24 @@ private:
         const iterator end();
 
     private:
-        std::array<Ray, BatchSize> m_rays;
-        std::array<std::optional<RayHit>, BatchSize> m_hitInfos;
-        std::array<UserState, BatchSize> m_userStates;
-        std::array<PauseableBVHInsertHandle, BatchSize> m_insertHandles;
+        // NOTE: using a std::array here is expensive because the default constructor of all items will be called when the batch is created
+        // The larger the batches, the more expensive this becomes
+        struct BatchItem {
+            BatchItem(const Ray& ray, const std::optional<RayHit>& rayHit, const UserState& userState, const PauseableBVHInsertHandle& insertHandle)
+                : ray(ray)
+                , rayHit(rayHit)
+                , userState(userState)
+                , insertHandle(insertHandle)
+            {
+            }
+            Ray ray;
+            std::optional<RayHit> rayHit;
+            UserState userState;
+            PauseableBVHInsertHandle insertHandle;
+        };
+        eastl::fixed_vector<BatchItem, BatchSize> m_data;
 
         RayBatch* m_nextPtr;
-        size_t m_index;
     };
 
     class BotLevelLeafNode {
@@ -257,7 +267,6 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
         size_t raysProcessed = std::accumulate(std::begin(raysProcessedTL), std::end(raysProcessedTL), (size_t)0, std::plus<size_t>());
         if (raysProcessed == 0)
             break;
-            //std::cout << "Rays processed: " << raysProcessed << std::endl;
 #endif
     }
 
@@ -426,7 +435,6 @@ inline std::optional<bool> InCoreBatchingAccelerationStructure<UserState, BatchS
         } else {
             return m_leafBVH->intersectAny(ray);
         }
-
     }
 }
 
@@ -458,13 +466,13 @@ inline size_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLeve
         taskGroup.run([=]() {
             if (m_sceneObject->isInstancedSceneObject()) {
                 const auto* instancedSceneObject = dynamic_cast<const InstancedSceneObject*>(m_sceneObject);
-                for (auto[ray, hitInfo, userState, insertHandle] : *batch) {
+                for (auto [ray, hitInfo, userState, insertHandle] : *batch) {
                     auto localRay = instancedSceneObject->transformRayToInstanceSpace(ray);
 
                     // Intersect with the bottom-level BVH
                     if (hitInfo) {
                         if (m_leafBVH->intersect(localRay, *hitInfo)) {
-                            hitInfo->sceneObject = m_sceneObject;// Set to the actual (specific instance) scene object
+                            hitInfo->sceneObject = m_sceneObject; // Set to the actual (specific instance) scene object
                             ray.tfar = localRay.tfar;
                         }
                     } else {
@@ -473,7 +481,7 @@ inline size_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLeve
                     }
                 }
             } else {
-                for (auto[ray, hitInfo, userState, insertHandle] : *batch) {
+                for (auto [ray, hitInfo, userState, insertHandle] : *batch) {
                     // Intersect with the bottom-level BVH
                     if (hitInfo) {
                         if (m_leafBVH->intersect(ray, *hitInfo))
@@ -535,13 +543,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelL
 template <typename UserState, size_t BatchSize>
 inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const RayHit& hitInfo, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
-    auto index = m_index++;
-    assert(index < BatchSize);
-
-    m_rays[index] = ray;
-    m_userStates[index] = state;
-    m_hitInfos[index] = { hitInfo };
-    m_insertHandles[index] = insertHandle;
+    m_data.emplace_back(ray, hitInfo, state, insertHandle);
 
     return true;
 }
@@ -549,13 +551,8 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch:
 template <typename UserState, size_t BatchSize>
 inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
-    auto index = m_index++;
-    assert(index < BatchSize);
-
-    m_rays[index] = ray;
-    m_userStates[index] = state;
-    m_hitInfos[index] = {};
-    m_insertHandles[index] = insertHandle;
+    std::optional<RayHit> opt = {};
+    m_data.emplace_back(ray, opt, state, insertHandle);
 
     return true;
 }
@@ -569,7 +566,7 @@ inline const typename InCoreBatchingAccelerationStructure<UserState, BatchSize>:
 template <typename UserState, size_t BatchSize>
 inline const typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::end()
 {
-    return iterator(this, m_index);
+    return iterator(this, m_data.size());
 }
 
 template <typename UserState, size_t BatchSize>
@@ -611,6 +608,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch:
 template <typename UserState, size_t BatchSize>
 inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::value_type InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator*()
 {
-    return { m_rayBatch->m_rays[m_index], m_rayBatch->m_hitInfos[m_index], m_rayBatch->m_userStates[m_index], m_rayBatch->m_insertHandles[m_index] };
+    auto& [ray, hitInfo, userState, insertHandle] = m_rayBatch->m_data[m_index];
+    return { ray, hitInfo, userState, insertHandle };
 }
 }
