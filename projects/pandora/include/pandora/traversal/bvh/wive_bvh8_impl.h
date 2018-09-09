@@ -33,8 +33,8 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
     simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
 
     // Stack
-    alignas(32) std::array<uint32_t, 48> stackCompressedNodeHandles;
-    alignas(32) std::array<float, 48> stackDistances;
+    alignas(32) std::array<uint32_t, 64> stackCompressedNodeHandles;
+    alignas(32) std::array<float, 64> stackDistances;
     std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
     size_t stackPtr = 0;
 
