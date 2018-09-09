@@ -9,7 +9,10 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 find_package(Boost REQUIRED COMPONENTS python36 numpy36) # CMake / Boost doesnt support Python 3.7 yet
  
 # Build our library
-Python3_add_library(pandora_py MODULE "pandora_py.cpp" "string_to_number.cpp" "string_to_number.h")
+Python3_add_library(pandora_py MODULE
+    "src/pandora_py.cpp"
+    "src/string_to_number.cpp"
+    "src/string_to_number.h")
 set_target_properties(pandora_py PROPERTIES
     CXX_STANDARD 17
     CXX_EXTENSIONS OFF)
