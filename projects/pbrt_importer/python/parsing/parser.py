@@ -306,13 +306,7 @@ def p_statement_transform_lookat(p):
     eye = np.array([p[2], p[3], p[4]])
     target = np.array([p[5], p[6], p[7]])
     up = np.array([p[8], p[9], p[10]])
-    """print("LOOKAT")
-    print("eye: ", eye)
-    print("target: ", target)
-    print("up: ", up)
-    print("matrix:\n", lookat(eye, target, up))"""
     cur_transform = np.matmul(cur_transform, lookat(eye, target, up))
-    #print("current_matrix:\n", cur_transform)
 
 
 def p_statement_transform_coordinate_system(p):
@@ -435,7 +429,6 @@ def p_statement_shape(p):
         arguments["filename"]["value"] = os.path.join(
             base_path, arguments["filename"]["value"])
     else:
-        print("MESH_BATCHER")
         global mesh_batcher
         filename, start_byte, num_bytes = mesh_batcher.add_mesh(arguments)
         arguments = {"filename": filename, "start_byte": start_byte, "num_bytes": num_bytes}

@@ -39,5 +39,5 @@ class MeshBatcher:
         with open(self._current_mesh_filename, "wb") as f:
             f.write(self._data)
         
-        self._data = []
+        self._data.clear()
         self._current_mesh_filename = self._gen_filename()
