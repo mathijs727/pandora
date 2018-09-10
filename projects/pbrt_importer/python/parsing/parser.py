@@ -7,6 +7,7 @@ from enum import Enum
 import pickle
 from parsing.matrix import translate, scale, rotate, lookat
 from parsing.lexer import create_lexer, tokens
+from parsing.mesh_batch import MeshBatcher
 import parsing.lexer
 import ply.yacc as yacc
 
@@ -23,8 +24,7 @@ class ParsingState(Enum):
 parsing_state = ParsingState.CONFIG
 base_path = ""
 current_file = ""
-out_mesh_path = ""
-new_mesh_id = 0
+mesh_batcher = None
 
 
 def p_statement_main(p):
@@ -435,15 +435,10 @@ def p_statement_shape(p):
         arguments["filename"]["value"] = os.path.join(
             base_path, arguments["filename"]["value"])
     else:
-        global out_mesh_path, new_mesh_id
-        new_mesh_path = os.path.join(
-            out_mesh_path, f"pbrt_mesh_{new_mesh_id}.bin")
-        new_mesh_id += 1
-
-        with open(new_mesh_path, "wb") as f:
-            f.write(pickle.dumps(arguments))
-
-        arguments = {"filename": new_mesh_path}
+        print("MESH_BATCHER")
+        global mesh_batcher
+        filename, start_byte, num_bytes = mesh_batcher.add_mesh(arguments)
+        arguments = {"filename": filename, "start_byte": start_byte, "num_bytes": num_bytes}
 
     shape = Shape(shape_type, arguments, cur_transform.tolist(),
                   graphics_state["flip_normals"], graphics_state["material"], graphics_state["area_light"])
@@ -524,10 +519,10 @@ def parse_file(file_path, int_mesh_folder):
     with open(file_path, "r") as f:
         string = f.read()
 
-    global base_path, out_mesh_path, current_file
-    out_mesh_path = int_mesh_folder
-    if not os.path.exists(out_mesh_path):
-        os.makedirs(out_mesh_path)
+    global base_path, mesh_batcher, current_file
+    if not os.path.exists(int_mesh_folder):
+        os.makedirs(int_mesh_folder)
+    mesh_batcher = MeshBatcher(int_mesh_folder)
 
     current_file = os.path.abspath(file_path)
     parsing.lexer.current_file = current_file
@@ -536,7 +531,9 @@ def parse_file(file_path, int_mesh_folder):
     print("Base path: ", base_path)
 
     print("Parsing...")
-    return parser.parse(string, lexer=lexer)
+    ret = parser.parse(string, lexer=lexer)
+    mesh_batcher.destructor()
+    return ret
 
 
 if __name__ == "__main__":

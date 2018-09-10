@@ -223,7 +223,8 @@ class SceneParser:
             })
         elif shape.type == "trianglemesh":
             with open(shape.arguments["filename"], "rb") as f:
-                filename=self._trianglemesh_to_obj(pickle.load(f))
+                f.seek(shape.arguments["start_byte"])
+                filename=self._trianglemesh_to_obj(pickle.loads(f.read(shape.arguments["num_bytes"])))
 
             geometry_id=self._geometry.add_item({
                 "type": "triangle",
