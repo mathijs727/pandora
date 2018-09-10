@@ -20,7 +20,7 @@ class MeshBatcher:
     def add_mesh(self, data):
         filename = self._current_mesh_filename
         start_byte = self._file.tell()
-        pickle.dump(data, self._file)
+        pickle.dump(data, self._file, protocol=4)
         num_bytes = self._file.tell() - start_byte
 
         if sys.getsizeof(start_byte + num_bytes) > self._max_batch_size:

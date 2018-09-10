@@ -40,7 +40,6 @@ if __name__ == "__main__":
     int_mesh_folder = os.path.join(os.path.dirname(args.out), "pbrt_meshes")
     out_mesh_folder = os.path.join(os.path.dirname(args.out), "pandora_meshes")
 
-    #pbrt_data = pickle.load(open(args.file, "rb"))
     if args.file.endswith(".pbrt"):
         print("==== PARSING PBRT FILE ====")
         pbrt_data = parsing.parse_file(args.file, int_mesh_folder)
@@ -54,7 +53,7 @@ if __name__ == "__main__":
     if args.intermediate:
         int_file = os.path.join(os.path.dirname(args.out), "intermediate.bin")
         with open(int_file, "wb") as f:
-            pickle.dump(pbrt_data, f)
+            pickle.dump(pbrt_data, f, protocol=4)
 
     print("==== CONVERTING TO PANDORA FORMAT ====")
     pandora_data = extract_pandora_data(pbrt_data, out_mesh_folder)
