@@ -67,7 +67,9 @@ public:
 
 private:
     friend class InstancedSceneObject;
+    friend void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const SceneObject& sceneObject);
     const TriangleMesh& mesh() const override final { return *m_mesh; }
+
 
 private:
     std::shared_ptr<const TriangleMesh> m_mesh;

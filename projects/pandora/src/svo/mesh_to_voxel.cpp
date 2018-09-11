@@ -15,6 +15,7 @@ static void meshToVoxelGridScalar(VoxelGrid& voxelGrid, const Bounds& gridBounds
 
 void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const SceneObject& sceneObject)
 {
+    auto geomSceneObject = dynamic_cast<const GeometricSceneObject&>(sceneObject);
 #ifdef PANDORA_ISPC_SUPPORT
 	ispc::Bounds ispcGridBounds;
 	ispcGridBounds.min.v[0] = gridBounds.min.x;
@@ -25,15 +26,15 @@ void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, cons
 	ispcGridBounds.max.v[1] = gridBounds.max.y;
 	ispcGridBounds.max.v[2] = gridBounds.max.z;
 
-	const auto& triangles = sceneObject.mesh().getTriangles();
-	const auto& positions = sceneObject.mesh().getPositions();
+	const auto& triangles = geomSceneObject.mesh().getTriangles();
+	const auto& positions = geomSceneObject.mesh().getPositions();
 
 	const ispc::CPPVec3* ispcPositions = reinterpret_cast<const ispc::CPPVec3*>(positions.data());
 	const ispc::CPPVec3i* ispcTriangles = reinterpret_cast<const ispc::CPPVec3i*>(triangles.data());
 
 	ispc::meshToVoxelGrid(voxelGrid.data(), voxelGrid.resolution(), ispcGridBounds, ispcPositions, ispcTriangles, (uint32_t)triangles.size());
 #else
-	meshToVoxelGridScalar(voxelGrid, gridBounds, mesh);
+	meshToVoxelGridScalar(voxelGrid, gridBounds, geomSceneObject.mesh());
 #endif
 
 }

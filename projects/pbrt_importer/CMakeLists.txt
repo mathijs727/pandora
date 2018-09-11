@@ -11,14 +11,25 @@ find_package(Boost REQUIRED COMPONENTS python36 numpy36) # CMake / Boost doesnt 
 # Build our library
 Python3_add_library(pandora_py MODULE
     "src/pandora_py.cpp"
+    "src/mesh_wrapper.cpp"
+    "src/mesh_wrapper.h"
     "src/string_to_number.cpp"
     "src/string_to_number.h")
 set_target_properties(pandora_py PROPERTIES
     CXX_STANDARD 17
     CXX_EXTENSIONS OFF)
 
+
+add_library(xxx "src2/hello_world.cpp" "src2/hello_world.h")
+target_include_directories(xxx PUBLIC "src2/")
+target_link_libraries(xxx PRIVATE TBB::tbb)
+
 # Define the wrapper library that wraps our library
-target_link_libraries(pandora_py PRIVATE Boost::python36 Boost::numpy36 Python3::Python)
+target_link_libraries(pandora_py PRIVATE
+    Boost::python36
+    Boost::numpy36
+    xxx
+    glm)
 
 add_custom_command(
     TARGET pandora_py

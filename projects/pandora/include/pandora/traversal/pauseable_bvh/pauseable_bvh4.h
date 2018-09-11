@@ -106,8 +106,6 @@ inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> leafs
     : m_innerNodeAllocator(leafs.size())
     , m_leafAllocator(leafs.size())
 {
-    assert(objects.size() == objectsBounds.size());
-
     // Store in the class so that the (static) construction functions can access the objects
     //  and move them into the BVH leafs
     m_tmpConstructionLeafs = leafs;

@@ -23,7 +23,7 @@ class MeshBatcher:
         pickle.dump(data, self._file, protocol=4)
         num_bytes = self._file.tell() - start_byte
 
-        if sys.getsizeof(start_byte + num_bytes) > self._max_batch_size:
+        if start_byte + num_bytes > self._max_batch_size:
             self._create_new_batch()
 
         return (filename, start_byte, num_bytes)

@@ -3,15 +3,17 @@ import time
 import numpy as np
 import gc
 
+print("START")
+
 for s in range(100000):
-	string = " ".join([str(i) for i in range(s)])
+    string = " ".join([str(i) for i in range(s)])
 
-	x = pandora_py.string_to_numpy_int(string)
-	y = np.fromstring(string, dtype=int, sep=' ')
+    x = pandora_py.string_to_numpy_int(string)
+    y = np.fromstring(string, dtype=int, sep=' ')
 
-	if not (x == y).all():
-		print("Different results!")
-		assert(False)
+    if not (x == y).all():
+        print("Different results!")
+        assert(False)
 
 """print("==== FLOATS ====")
 print("Creating string...")

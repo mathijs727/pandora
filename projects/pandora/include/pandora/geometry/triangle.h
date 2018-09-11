@@ -1,10 +1,10 @@
 #pragma once
-#include "glm/glm.hpp"
 #include "pandora/core/interaction.h"
 #include "pandora/core/material.h"
 #include "pandora/core/ray.h"
 #include "pandora/geometry/bounds.h"
 #include "pandora/utility/math.h"
+#include <glm/glm.hpp>
 #include <gsl/span>
 #include <memory>
 #include <optional>
@@ -36,7 +36,6 @@ public:
 
     static std::optional<TriangleMesh> loadFromFileSingleMesh(const std::string_view filename, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
     static std::vector<TriangleMesh> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
-
     static TriangleMesh loadFromCacheFile(const std::string_view filename);
     void saveToCacheFile(const std::string_view filename);
 
@@ -68,8 +67,9 @@ private:
 
     void getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const;
     void getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
-    
+
     size_t size() const;
+
 private:
     unsigned m_numTriangles, m_numVertices;
 

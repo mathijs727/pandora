@@ -1,6 +1,6 @@
 import argparse
 import os
-import pickle
+from klepto.archives import hdf_archive
 import parsing
 from config_parser import ConfigParser
 from scene_parser import SceneParser
@@ -44,16 +44,19 @@ if __name__ == "__main__":
         print("==== PARSING PBRT FILE ====")
         pbrt_data = parsing.parse_file(args.file, int_mesh_folder)
     elif args.file.endswith(".bin"):
-        with open(args.file, "rb") as f:
-            pbrt_data = pickle.load(f)
+        #with open(args.file, "r") as f:
+        #    pbrt_data = hickle.load(f)
+        pbrt_data = hdf_archive(args.file, cached=False).load()
     else:
         print("Input file has unknown file extension")
         exit(-1)
 
     if args.intermediate:
+        print("==== STORING INTERMEDIATE DATA TO A FILE ====")
         int_file = os.path.join(os.path.dirname(args.out), "intermediate.bin")
-        with open(int_file, "wb") as f:
-            pickle.dump(pbrt_data, f, protocol=4)
+        hdf_archive(int_file, pbrt_data, cached=False)
+        #with open(int_file, "w") as f:
+        #    hickle.dump(pbrt_data, f)# Pickle crashes here on the Island scene with a memory error
 
     print("==== CONVERTING TO PANDORA FORMAT ====")
     pandora_data = extract_pandora_data(pbrt_data, out_mesh_folder)
