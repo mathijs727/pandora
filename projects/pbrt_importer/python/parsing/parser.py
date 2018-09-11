@@ -8,13 +8,18 @@ import pickle
 from parsing.matrix import translate, scale, rotate, lookat
 from parsing.lexer import create_lexer, tokens
 from parsing.mesh_batch import MeshBatcher
+from parsing.file_backed_list import FileBackedList
 import parsing.lexer
 import ply.yacc as yacc
+
+import itertools
+import collections
 
 # Get pandora_py from parent path
 # https://stackoverflow.com/questions/16780014/import-file-from-parent-directory
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pandora_py
+
 
 class ParsingState(Enum):
     CONFIG = 1
@@ -70,6 +75,8 @@ def p_statement_include(p):
     parsing.lexer.current_file = include_file
     current_file = include_file
 
+    # print_mem_info()
+
     print(f"Processing include file {include_file}")
     with open(include_file, "r") as f:
         lexer = create_lexer()
@@ -118,8 +125,9 @@ named_materials = {}
 named_textures = {}
 light_sources = []
 instance_templates = {}
-instances = []
-non_instanced_shapes = []
+instances = None  # FileBackedList
+non_instanced_shapes = None  # FileBackedList
+
 
 default_material = Material(
     type="matte",
@@ -139,6 +147,68 @@ transform_stack = []
 named_transforms = {}
 cur_transform = np.identity(4)
 current_instance = None
+
+
+# https://code.activestate.com/recipes/577504/
+def total_size(o, handlers={}, verbose=False):
+    """ Returns the approximate memory footprint an object and all of its contents.
+
+    Automatically finds the contents of the following builtin containers and
+    their subclasses:  tuple, list, deque, dict, set and frozenset.
+    To search other containers, add handlers to iterate over their contents:
+
+        handlers = {SomeContainerClass: iter,
+                    OtherContainerClass: OtherContainerClass.get_elements}
+
+    """
+    def dict_handler(d): return itertools.chain.from_iterable(d.items())
+    all_handlers = {tuple: iter,
+                    list: iter,
+                    collections.deque: iter,
+                    dict: dict_handler,
+                    set: iter,
+                    frozenset: iter,
+                    }
+    all_handlers.update(handlers)     # user handlers take precedence
+    seen = set()                      # track which object id's have already been seen
+    # estimate sizeof object without __sizeof__
+    default_size = sys.getsizeof(0)
+
+    def sizeof(o):
+        if id(o) in seen:       # do not double count the same object
+            return 0
+        seen.add(id(o))
+        s = sys.getsizeof(o, default_size)
+
+        if verbose:
+            print(s, type(o), repr(o), file=sys.stderr)
+
+        for typ, handler in all_handlers.items():
+            if isinstance(o, typ):
+                s += sum(map(sizeof, handler(o)))
+                break
+        return s
+
+    return sizeof(o)
+
+
+def print_mem_info():
+    print("++++ MEMORY USAGE ++++")
+    print("named_materials: ", total_size(named_materials) / 1000, "KB")
+    print("named_textures: ", total_size(named_textures) / 1000, "KB")
+    print("light_sources: ", total_size(light_sources) / 1000, "KB")
+    print("instance_templates: ", total_size(
+        instance_templates) / 1000, "KB")
+    print("instances: ", total_size(instances) / 1000, "KB")
+    print("non_instanced_shapes: ", total_size(
+        non_instanced_shapes) / 1000, "KB")
+    print("graphics_state_stack: ", total_size(
+        graphics_state_stack) / 1000, "KB")
+    print("graphics_state: ", total_size(graphics_state) / 1000, "KB")
+    print("transform_stack: ", total_size(transform_stack) / 1000, "KB")
+    print("named_transforms: ", total_size(named_transforms) / 1000, "KB")
+    print("cur_transform: ", total_size(cur_transform) / 1000, "KB")
+    print("current_instance: ", total_size(current_instance) / 1000, "KB")
 
 
 def p_error(p):
@@ -161,12 +231,14 @@ def p_list(p):
         p[0] = [s[1:-1] for s in re.findall('"[^"]*"', text)]
     elif '.' in text:
         #result = np.fromstring(text, dtype=float, sep=' ')
-        assert(len(text) < 2147483647) # The Python string length in C++ is a 32-bit int
+        # The Python string length in C++ is a 32-bit int
+        assert(len(text) < 2147483647)
         result = pandora_py.string_to_numpy_float(text)
         p[0] = result
     else:
         #result = np.fromstring(text, dtype=int, sep=' ')
-        assert(len(text) < 2147483647) # The Python string length in C++ is a 32-bit int
+        # The Python string length in C++ is a 32-bit int
+        assert(len(text) < 2147483647)
         result = pandora_py.string_to_numpy_int(text)
         p[0] = result
 
@@ -384,7 +456,8 @@ def p_statement_light(p):
     light_type = p[2]
     arguments = p[3]
     if "mapname" in arguments:
-        arguments["mapname"]["value"] = os.path.join(base_path, arguments["mapname"]["value"])
+        arguments["mapname"]["value"] = os.path.join(
+            base_path, arguments["mapname"]["value"])
     light_sources.append(LightSource(
         light_type, arguments, cur_transform.tolist()))
 
@@ -395,7 +468,8 @@ def p_statement_area_light(p):
     light_type = p[2]
     arguments = p[3]
     if "mapname" in arguments:
-        arguments["mapname"]["value"] = os.path.join(base_path, arguments["mapname"]["value"])
+        arguments["mapname"]["value"] = os.path.join(
+            base_path, arguments["mapname"]["value"])
     graphics_state["area_light"] = AreaLightSource(light_type, arguments)
 
 
@@ -431,7 +505,8 @@ def p_statement_shape(p):
     else:
         global mesh_batcher
         filename, start_byte, num_bytes = mesh_batcher.add_mesh(arguments)
-        arguments = {"filename": filename, "start_byte": start_byte, "num_bytes": num_bytes}
+        arguments = {"filename": filename,
+                     "start_byte": start_byte, "num_bytes": num_bytes}
 
     shape = Shape(shape_type, arguments, cur_transform.tolist(),
                   graphics_state["flip_normals"], graphics_state["material"], graphics_state["area_light"])
@@ -517,6 +592,12 @@ def parse_file(file_path, int_mesh_folder):
         os.makedirs(int_mesh_folder)
     mesh_batcher = MeshBatcher(int_mesh_folder)
 
+    global non_instanced_shapes, instances
+    shapes_folder = os.path.join(int_mesh_folder, "shapes")
+    instances_folder = os.path.join(int_mesh_folder, "instances")
+    non_instanced_shapes = FileBackedList(shapes_folder)
+    instances = FileBackedList(instances_folder)
+
     current_file = os.path.abspath(file_path)
     parsing.lexer.current_file = current_file
     base_path = os.path.dirname(current_file)
@@ -525,7 +606,12 @@ def parse_file(file_path, int_mesh_folder):
 
     print("Parsing...")
     ret = parser.parse(string, lexer=lexer)
+
+    # Give the batches / lists a chance to write to disk (since this isnt allowed in __del__)
     mesh_batcher.destructor()
+    non_instanced_shapes.destructor()
+    instances.destructor()
+
     return ret
 
 

@@ -1,23 +1,22 @@
 #include "string_to_number.h"
-#include <thread>
+#include <cctype>
 #include <chrono>
+#include <cstdlib>
 #include <iostream>
 #include <string_view>
-#include <cstdlib>
-#include <cctype>
 #include <thread>
 #include <tuple>
 
 namespace python = boost::python;
 namespace np = boost::python::numpy;
 
-struct TokenResult
-{
+struct TokenResult {
     std::string_view token;
     std::string_view next;
     int charsSkipped;
 };
-TokenResult getNextToken(std::string_view string) {
+TokenResult getNextToken(std::string_view string)
+{
     int tokenStart = 0;
     while (tokenStart < string.size() && std::isspace(string[tokenStart])) {
         tokenStart++;
@@ -97,8 +96,8 @@ std::vector<T> stringToVectorThreaded(std::string_view string)
 
     // Second pass
     std::vector<std::thread> threadPool;
-    for (const auto[partStartIndex, partString] : parts) {
-        threadPool.push_back(std::thread([partStartIndex, partString, &ret](){
+    for (const auto [partStartIndex, partString] : parts) {
+        threadPool.push_back(std::thread([partStartIndex, partString, &ret]() {
             int outIndex = partStartIndex;
             TokenResult tr = {
                 {},
@@ -107,8 +106,7 @@ std::vector<T> stringToVectorThreaded(std::string_view string)
             };
             while (!tr.next.empty()) {
                 tr = getNextToken(tr.next);
-                if (!tr.token.empty())
-                {
+                if (!tr.token.empty()) {
                     ret[outIndex++] = fromString<T>(tr.token.data());
                 }
             }
@@ -149,8 +147,7 @@ std::vector<T> stringToVector(std::string_view string)
     };
     while (!tr.next.empty()) {
         tr = getNextToken(tr.next);
-        if (!tr.token.empty())
-        {
+        if (!tr.token.empty()) {
             ret.push_back(fromString<T>(tr.token.data()));
         }
     }
@@ -164,10 +161,9 @@ python::object stringToNumpy(python::str string)
     const char* chars = python::extract<const char*>(string);
     int length = python::extract<int>(string.attr("__len__")());
 
-
     // Heap allocation so that it stays alive outside of this function
     std::vector<T>* numbers;
-    if (length > 10 * 1000 * 1000) {// Use multi-threading if the string is over 10MB
+    if (length > 10 * 1000 * 1000) { // Use multi-threading if the string is over 10MB
         numbers = new std::vector<T>(std::move(stringToVectorThreaded<T>(std::string_view(chars, length))));
     } else {
         numbers = new std::vector<T>(std::move(stringToVector<T>(std::string_view(chars, length))));

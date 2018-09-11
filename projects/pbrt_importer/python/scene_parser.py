@@ -8,9 +8,9 @@ import os
 def constant_texture(v):
     if isinstance(v, float):
         return Texture(
-            "float",# Type
-            "constant",# Class
-            { # Arguments
+            "float",  # Type
+            "constant",  # Class
+            {  # Arguments
                 "value": {
                     "type": "float",
                     "value": 0.5
@@ -19,9 +19,9 @@ def constant_texture(v):
         )
     elif isinstance(v, list):
         return Texture(
-            "color",# Type
-            "constant",# Class
-            { # Arguments
+            "color",  # Type
+            "constant",  # Class
+            {  # Arguments
                 "value": {
                     "type": "color",
                     "value": np.array(v)
@@ -31,11 +31,12 @@ def constant_texture(v):
     else:
         print(f"Trying to create constant texture for unknown value \"{v}\"")
 
+
 def image_texture(mapname):
-        return Texture(
-        "color",# Type
-        "imagemap",# Class
-        { # Arguments
+    return Texture(
+        "color",  # Type
+        "imagemap",  # Class
+        {  # Arguments
             "filename": {
                 "type": "string",
                 "value": mapname
@@ -57,10 +58,12 @@ def get_argument_with_default(arguments, name, default):
 
 def _replace_black_body(v):
     if isinstance(v, dict) and "blackbody_temperature_kelvin" in v:
-        print("WARNING: pandora does not handle blackbody emiters yet. Replacing by white...")
+        print(
+            "WARNING: pandora does not handle blackbody emiters yet. Replacing by white...")
         return [1.0, 1.0, 1.0]
     else:
         return list(v)
+
 
 class SceneParser:
     def __init__(self, pbrt_scene, out_mesh_folder):
@@ -81,7 +84,6 @@ class SceneParser:
         self._create_scene_objects(pbrt_scene)
         self._create_scene_objects_instancing(pbrt_scene)
 
-
     def _create_light_sources(self, pbrt_scene):
         # print(pbrt_scene["light_sources"])
         for light_source in pbrt_scene["light_sources"]:
@@ -92,7 +94,8 @@ class SceneParser:
                     num_samples = 1
 
                 if "L" in light_source.arguments:
-                    L = _replace_black_body(light_source.arguments["L"]["value"])
+                    L = _replace_black_body(
+                        light_source.arguments["L"]["value"])
                 else:
                     L = [1.0, 1.0, 1.0]
 
@@ -100,7 +103,8 @@ class SceneParser:
                     L *= light_source.arguments["scale"]["value"]
 
                 if "mapname" in light_source.arguments:
-                    texture_id = self._create_texture_id(image_texture(light_source.arguments["mapname"]["value"]))
+                    texture_id = self._create_texture_id(image_texture(
+                        light_source.arguments["mapname"]["value"]))
                 else:
                     texture_id = self._create_texture_id(constant_texture(1.0))
                 self._light_sources.append({
@@ -112,14 +116,16 @@ class SceneParser:
                 })
             elif light_source.type == "distant":
                 if "from" in light_source.arguments and "to" in light_source.arguments:
-                    direction = light_source.arguments["to"]["value"] -light_source.arguments["from"]["value"]
+                    direction = light_source.arguments["to"]["value"] - \
+                        light_source.arguments["from"]["value"]
                 else:
                     direction = [0, 0, 1]
-                
+
                 if "L" in light_source.arguments:
-                    L = _replace_black_body(light_source.arguments["L"]["value"])
+                    L = _replace_black_body(
+                        light_source.arguments["L"]["value"])
                 else:
-                    L = [1,1,1]
+                    L = [1, 1, 1]
 
                 self._light_sources.append({
                     "type": "distant",
@@ -139,7 +145,7 @@ class SceneParser:
             if isinstance(v, np.ndarray):
                 v = list(v)
             arguments[key] = v
-        
+
         texture_type = None
         if texture.type in ["spectrum", "rgb", "color"]:
             texture_type = "color"
@@ -168,7 +174,6 @@ class SceneParser:
             assert(t == "float")
             return self._create_texture_id(constant_texture(v))
 
-
     def _color_tex_argument(self, argument):
         t = argument["type"]
         v = argument["value"]
@@ -177,7 +182,6 @@ class SceneParser:
         else:
             assert(t == "spectrum" or t == "color" or t == "rgb")
             return self._create_texture_id(constant_texture(list(v)))
-
 
     def _create_material_id(self, material):
         if material.type == "matte":
@@ -216,7 +220,7 @@ class SceneParser:
 
     def _create_geometric_scene_object(self, shape):
         if shape.type == "plymesh":
-            geometry_id=self._geometry.add_item({
+            geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": shape.arguments["filename"]["value"],
                 "transform": shape.transform
@@ -225,12 +229,10 @@ class SceneParser:
             print("File: ", shape.arguments["filename"])
             with open(shape.arguments["filename"], "rb") as f:
                 f.seek(shape.arguments["start_byte"])
-                print("Seek to: ", shape.arguments["start_byte"])
-                print("Read bytes: ", shape.arguments["num_bytes"])
                 string = f.read(shape.arguments["num_bytes"])
-                filename=self._trianglemesh_to_obj(pickle.loads(string))
+                filename = self._trianglemesh_to_obj(pickle.loads(string))
 
-            geometry_id=self._geometry.add_item({
+            geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": filename,
                 "transform": shape.transform
@@ -239,11 +241,12 @@ class SceneParser:
             print(f"Ignoring shape of unsupported type {shape.type}")
             return None
 
-        material_id=self._create_material_id(shape.material)
+        material_id = self._create_material_id(shape.material)
 
         if shape.area_light is not None:
             area_light = {
-                "L": _replace_black_body(shape.area_light.arguments["L"]["value"]),#get_argument_with_default(shape.area_light.arguments, "L", [1,1,1]),
+                # get_argument_with_default(shape.area_light.arguments, "L", [1,1,1]),
+                "L": _replace_black_body(shape.area_light.arguments["L"]["value"]),
                 "num_samples": get_argument_with_default(shape.area_light.arguments, "nsamples", 1),
                 "two_sided": get_argument_with_default(shape.area_light.arguments, "twosided", False)
             }
@@ -262,27 +265,26 @@ class SceneParser:
 
     def _create_scene_objects(self, pbrt_scene):
         for json_shape in pbrt_scene["non_instanced_shapes"]:
-            scene_object=self._create_geometric_scene_object(json_shape)
+            scene_object = self._create_geometric_scene_object(json_shape)
             if scene_object is not None:
                 self._scene_objects.add_item(scene_object)
 
     def _create_scene_objects_instancing(self, pbrt_scene):
-        named_base_scene_objecst={}
+        named_base_scene_objects = {}
         for instance_template in pbrt_scene["instance_templates"].values():
-            base_scene_objects=[self._create_geometric_scene_object(shape)
+            base_scene_objects = [self._create_geometric_scene_object(shape)
                                   for shape in instance_template.shapes]
-            base_scene_objects=[
+            base_scene_objects = [
                 so for so in base_scene_objects if so is not None]
 
-            base_so_ids=[self._instance_base_scene_objects.add_item(
+            base_so_ids = [self._instance_base_scene_objects.add_item(
                 so) for so in base_scene_objects]
-            named_base_scene_objecst[instance_template.name]=base_so_ids
+            named_base_scene_objects[instance_template.name] = base_so_ids
 
-        num_instances=len(pbrt_scene["instances"])
-        for i, instance in enumerate(pbrt_scene["instances"]):
+        for instance in pbrt_scene["instances"]:
             # if i % 1000 == 0:
             #    print(f"instance {i} / {num_instances-1}")
-            for base_scene_object_id in named_base_scene_objecst[instance.template_name]:
+            for base_scene_object_id in named_base_scene_objects[instance.template_name]:
                 self._scene_objects.add_item({
                     "instancing": True,
                     "base_scene_object_id": base_scene_object_id,
@@ -290,33 +292,33 @@ class SceneParser:
                 })
 
     def _trianglemesh_to_obj(self, geometry):
-        mesh_id=self._out_mesh_id
+        mesh_id = self._out_mesh_id
         self._out_mesh_id += 1
 
-        mesh_file=os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
+        mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
         with open(mesh_file, "w") as f:
             f.write("o PandoraMesh\n")
 
-            positions=geometry["P"]["value"]
+            positions = geometry["P"]["value"]
             for p0, p1, p2 in zip(*[positions[x::3] for x in (0, 1, 2)]):
                 f.write(f"v {p0} {p1} {p2}\n")
 
             if "N" in geometry and "uv" in geometry:
-                normals=geometry["N"]["value"]
+                normals = geometry["N"]["value"]
                 for n0, n1, n2 in zip(*[normals[x::3] for x in (0, 1, 2)]):
                     f.write(f"vn {n0} {n1} {n2}\n")
 
-                uv_coords=geometry["uv"]["value"]
+                uv_coords = geometry["uv"]["value"]
                 for uv0, uv1 in zip(*[uv_coords[x::2] for x in (0, 1)]):
                     f.write(f"vt {uv0} {uv1}\n")
 
-                indices=geometry["indices"]["value"]
+                indices = geometry["indices"]["value"]
                 for i0, i1, i2 in zip(*[indices[x::3] for x in (0, 1, 2)]):
                     # OBJ starts counting at 1...
                     f.write(
                         f"f {i0+1}/{i0+1}/{i0+1} {i1+1}/{i1+1}/{i1+1} {i2+1}/{i2+1}/{i2+1}\n")
             else:
-                indices=geometry["indices"]["value"]
+                indices = geometry["indices"]["value"]
                 for i0, i1, i2 in zip(*[indices[x::3] for x in (0, 1, 2)]):
                     # OBJ starts counting at 1...
                     f.write(f"f {i0+1} {i1+1} {i2+1}\n")
