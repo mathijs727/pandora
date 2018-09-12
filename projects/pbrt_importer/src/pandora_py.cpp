@@ -1,9 +1,12 @@
-﻿#include "mesh_wrapper.h"
+﻿//#include "mesh_wrapper.h"
 #include "string_to_number.h"
 #include <boost/python.hpp>
+#include <iostream>
 
 BOOST_PYTHON_MODULE(pandora_py)
 {
+    std::cout << "HELLO WORLD" << std::endl;
+
     using namespace boost::python;
     Py_Initialize();
     numpy::initialize();

@@ -10,6 +10,8 @@
 namespace np = boost::python::numpy;
 
 class MeshWrapper {
+    using ndarray = boost::python::numpy::ndarray;
+
 public:
 
     MeshWrapper() = default;

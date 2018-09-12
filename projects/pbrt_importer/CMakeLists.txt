@@ -27,9 +27,9 @@ target_link_libraries(pandora_py PRIVATE
     libPandora
     glm)
 
-add_custom_command(
-    TARGET pandora_py
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-        "$<TARGET_FILE:pandora_py>"
-        "${CMAKE_CURRENT_LIST_DIR}/python/$<TARGET_FILE_NAME:pandora_py>")
+#add_custom_command(
+#    TARGET pandora_py
+#    POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E copy
+#        "$<TARGET_FILE:pandora_py>"
+#        "${CMAKE_CURRENT_LIST_DIR}/python/$<TARGET_FILE_NAME:pandora_py>")

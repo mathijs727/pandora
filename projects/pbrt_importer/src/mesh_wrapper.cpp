@@ -3,7 +3,7 @@
 #include <cstring>
 #include <glm/glm.hpp>
 #include <memory>
-//#include <pandora/geometry/triangle.h>
+#include <pandora/geometry/triangle.h>
 #include <string>
 #include <string_view>
 
