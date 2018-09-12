@@ -28,3 +28,7 @@ CMakeSettings.json
 
 *.pyd
 *.so
+workspace.code-workspace
+projects/pbrt_importer/python/parsing/parsetab.py
+projects/pbrt_importer/python/parsing/lextab.py
+projects/pbrt_importer/python/stats.json
