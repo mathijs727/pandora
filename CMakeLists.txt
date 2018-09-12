@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.11)
 project(pandora)
 
 option(PANDORA_ISPC_SUPPORT "Use ISPC to accelerate voxelization" OFF)
@@ -77,4 +77,8 @@ include("projects/torque/CMakeLists.txt")
 #    include("projects/voxel/CMakeLists.txt")
 #endif()
 
-add_subdirectory("projects/pbrt_importer/")
+
+message("CMAKE VERSION: ${CMAKE_VERSION}")
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.12")
+	add_subdirectory("projects/pbrt_importer/")	
+endif()
