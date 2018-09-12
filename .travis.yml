@@ -3,9 +3,9 @@ sudo: required
 notifications:
   email: false
 
-branches:
-  except:
-    - pbrt_scenes
+#branches:
+#  except:
+#    - pbrt_scenes
 
 services:
 - docker
