@@ -10,7 +10,7 @@ BOOST_PYTHON_MODULE(pandora_py)
     def("string_to_numpy_float", stringToNumpy<float>);
     def("string_to_numpy_int", stringToNumpy<int>);
 
-    class_<MeshWrapper>("MeshWrapper") //, init<std::string>())
-        //.def(init<np::ndarray, np::ndarray, np::ndarray, np::ndarray, np::ndarray>()) // Second constructor
+    class_<MeshWrapper>("TriangleMesh", init<std::string>())
+        .def(init<np::ndarray, np::ndarray, np::ndarray, np::ndarray, np::ndarray>()) // Second constructor
         .def("saveToCacheFile", &MeshWrapper::saveToCacheFile);
 }

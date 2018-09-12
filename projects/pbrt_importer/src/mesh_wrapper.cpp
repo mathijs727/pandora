@@ -1,4 +1,3 @@
-#pragma once
 #include "mesh_wrapper.h"
 #include <boost/python/numpy.hpp>
 #include <cstring>
@@ -7,12 +6,11 @@
 //#include <pandora/geometry/triangle.h>
 #include <string>
 #include <string_view>
-#include <hello_world.h>
 
 namespace python = boost::python;
 namespace np = boost::python::numpy;
 
-/*template <typename T>
+template <typename T>
 static std::unique_ptr<T[]> numpyToArray(np::ndarray npArray)
 {
     int64_t elementSize = npArray.get_dtype().get_itemsize();
@@ -73,9 +71,9 @@ static std::shared_ptr<pandora::TriangleMesh> createTriangleMesh(std::string fil
         std::cout << "FAILED TO LOAD MESH FROM FILE \"" << filename << "\"!" << std::endl;
         return std::shared_ptr<pandora::TriangleMesh>(nullptr);
     }
-}*/
+}
 
-/*MeshWrapper::MeshWrapper(
+MeshWrapper::MeshWrapper(
     np::ndarray npTriangles,
     np::ndarray npPositions,
     np::ndarray npNormals,
@@ -88,10 +86,9 @@ static std::shared_ptr<pandora::TriangleMesh> createTriangleMesh(std::string fil
 MeshWrapper::MeshWrapper(std::string filename)
     : m_mesh(createTriangleMesh(filename))
 {
-}*/
+}
 
 void MeshWrapper::saveToCacheFile(std::string filename)
 {
-    //m_mesh->saveToCacheFile(filename);
-    helloWorld();
+    m_mesh->saveToCacheFile(filename);
 }

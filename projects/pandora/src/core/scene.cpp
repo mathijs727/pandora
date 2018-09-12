@@ -1,4 +1,3 @@
-#include "..\..\include\pandora\core\scene.h"
 #include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
 #include <embree3/rtcore.h>

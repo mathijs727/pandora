@@ -25,7 +25,7 @@ public:
 
 	Ray generateRay(const CameraSample& sample) const;
 
-	template <int N>
+	/*template <int N>
 	void generateRaySOA(const gsl::span<CameraSample> samples, RaySOA<N>& outRays) const
 	{
 		for (int i = 0; i < samples.size(); i++) {
@@ -45,7 +45,7 @@ public:
 			outRays.tnear[i] = 0.0f;
 			outRays.tfar[i] = 1.0f;
 		}
-	}
+	}*/
 
 private:
     Sensor m_sensor;

@@ -260,8 +260,8 @@ inline void WiVeBVH8<LeafObj>::loadFromFile(std::string_view filename, gsl::span
     if ((uint32_t)objects.size() != bvh->numLeafObjects())
         THROW_ERROR("Number of leaf objects does not match that of the serialized BVH");
 
-    m_leafObjects.resize(objects.size());
-    std::copy(std::begin(objects), std::end(objects), std::begin(m_leafObjects));
+    this->m_leafObjects.resize(objects.size());
+    std::copy(std::begin(objects), std::end(objects), std::begin(this->m_leafObjects));
 
     mmapFile.unmap();
 }
@@ -277,7 +277,7 @@ inline void WiVeBVH8<LeafObj>::saveToFile(std::string_view filename)
         serializedInnerNodeAllocator,
         serializedLeafNodeAllocator,
         m_compressedRootHandle,
-        static_cast<uint32_t>(m_leafObjects.size()));
+        static_cast<uint32_t>(this->m_leafObjects.size()));
     builder.Finish(wiveBVH8);
 
     std::ofstream file;

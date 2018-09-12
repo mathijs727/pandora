@@ -3,10 +3,10 @@
 #
 cmake_minimum_required(VERSION 3.12)
 
-project("python_hello_world")
+project("pandora_python")
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
-find_package(Boost REQUIRED COMPONENTS python36 numpy36) # CMake / Boost doesnt support Python 3.7 yet
+find_package(Boost REQUIRED COMPONENTS python37 numpy37)
  
 # Build our library
 Python3_add_library(pandora_py MODULE
@@ -19,16 +19,12 @@ set_target_properties(pandora_py PROPERTIES
     CXX_STANDARD 17
     CXX_EXTENSIONS OFF)
 
-
-add_library(xxx "src2/hello_world.cpp" "src2/hello_world.h")
-target_include_directories(xxx PUBLIC "src2/")
-target_link_libraries(xxx PRIVATE TBB::tbb)
-
 # Define the wrapper library that wraps our library
 target_link_libraries(pandora_py PRIVATE
-    Boost::python36
-    Boost::numpy36
-    xxx
+    Boost::python37
+    Boost::numpy37
+    Python3::Python
+    libPandora
     glm)
 
 add_custom_command(

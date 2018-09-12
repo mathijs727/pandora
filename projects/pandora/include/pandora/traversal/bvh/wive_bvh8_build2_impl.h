@@ -29,8 +29,8 @@ inline void WiVeBVH8Build2<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreeP
     }
     auto* constructionTreeRootNode = dynamic_cast<ConstructionInnerNode*>(constructionRootPtr);
 
-    m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>((uint32_t)objects.size() * 2, 16);
-    m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<LeafObj>>((uint32_t)objects.size() * 2, 16);
+    this->m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>((uint32_t)objects.size() * 2, 16);
+    this->m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<LeafObj>>((uint32_t)objects.size() * 2, 16);
     //.m_leafNodeAllocator  = new ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::LeafNode>(1,2);
 
     orderChildrenConstructionBVH(constructionTreeRootNode);
@@ -39,17 +39,17 @@ inline void WiVeBVH8Build2<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreeP
     rootBounds.extend(constructionTreeRootNode->childBounds[0]);
     rootBounds.extend(constructionTreeRootNode->childBounds[1]);
     auto [compressedRootHandle, rootPtr] = collapseTreelet(constructionTreeRootNode, rootBounds);
-	m_compressedRootHandle = compressedRootHandle;
+	this->m_compressedRootHandle = compressedRootHandle;
 
 	// Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);
     rtcReleaseDevice(device);
 
 	// Shrink to fit BVH allocators
-	m_innerNodeAllocator->compact();
-	m_leafNodeAllocator->compact();
+	this->m_innerNodeAllocator->compact();
+	this->m_leafNodeAllocator->compact();
 
-    testBVH();
+    this->testBVH();
 }
 
 template <typename LeafObj>
@@ -207,7 +207,7 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
             }*/
             auto primitiveCount = (unsigned)node->leafs.size();
             auto* mutNode = const_cast<ConstructionLeafNode*>(node);
-            auto[leafHandle, leafPtr] = m_leafNodeAllocator->allocateNInitF(primitiveCount, [&](int i) -> LeafObj {
+            auto[leafHandle, leafPtr] = this->m_leafNodeAllocator->allocateNInitF(primitiveCount, [&](int i) -> LeafObj {
                 return std::move(mutNode->leafs[i]);
             });
 
@@ -257,7 +257,7 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
     for (int i = childIndex; i < 8; i++) // Fill data for unused child slots
     {
         minX[i] = minY[i] = minZ[i] = maxX[i] = maxY[i] = maxZ[i] = 0.0f;
-        children[i] = compressHandleEmpty();
+        children[i] = this->compressHandleEmpty();
     }
 
     // Generate permutations by creating an approximate back-to-front order
@@ -268,7 +268,7 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
                 bool posX = x > 0;
                 bool posY = y > 0;
                 bool posZ = z > 0;
-                uint32_t shiftAmount = signShiftAmount(posX, posY, posZ);
+                uint32_t shiftAmount = this->signShiftAmount(posX, posY, posZ);
 
                 uint32_t outIndex = 0;
                 std::function<void(uint32_t, bool)> generatePermutation = [&](uint32_t nodeID, bool isLeaf) {
@@ -293,7 +293,7 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
     }
 
     // Allocate and fill BVH8 node
-    auto [bvh8NodeHandle, bvh8NodePtr] = m_innerNodeAllocator->allocate();
+    auto [bvh8NodeHandle, bvh8NodePtr] = this->m_innerNodeAllocator->allocate();
     bvh8NodePtr->minX.load(minX);
     bvh8NodePtr->minY.load(minY);
     bvh8NodePtr->minZ.load(minZ);
@@ -302,5 +302,5 @@ inline std::pair<uint32_t, const typename WiVeBVH8<LeafObj>::BVHNode*> WiVeBVH8B
     bvh8NodePtr->maxZ.load(maxZ);
     bvh8NodePtr->permutationOffsets.load(permutationOffsets);
     bvh8NodePtr->children.load(children);
-    return { compressHandleInner(bvh8NodeHandle), bvh8NodePtr };
+    return { this->compressHandleInner(bvh8NodeHandle), bvh8NodePtr };
 }
