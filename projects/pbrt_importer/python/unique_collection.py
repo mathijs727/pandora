@@ -1,4 +1,13 @@
 import json
+import numpy as np
+
+
+class Float32Encoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.float32):
+            return float(obj)
+        return json.JSONEncoder.default(self, obj)
+
 
 class UniqueCollection:
     def __init__(self):
@@ -8,13 +17,13 @@ class UniqueCollection:
     def add_item(self, item):
         if isinstance(item, dict):
             try:
-                key = json.dumps(item)
+                key = json.dumps(item, cls=Float32Encoder)
             except TypeError as e:
                 print(e)
                 print(item)
         else:
             key = item
-        
+
         if key in self._dict:
             return self._dict[key]
         else:

@@ -3,6 +3,7 @@ from unique_collection import UniqueCollection
 import numpy as np
 import pickle
 import os
+import pandora_py
 
 
 def constant_texture(v):
@@ -204,8 +205,8 @@ class SceneParser:
                 }
             })
         else:
-            print(
-                f"Material type {material.type} is not supported yet. Replacing by matte white placeholder.")
+            # print(
+            #    f"Material type {material.type} is not supported yet. Replacing by matte white placeholder.")
 
             kd = self._create_texture_id(constant_texture([1.0, 1.0, 1.0]))
             sigma = self._create_texture_id(constant_texture(0.5))
@@ -230,7 +231,7 @@ class SceneParser:
             with open(shape.arguments["filename"], "rb") as f:
                 f.seek(shape.arguments["start_byte"])
                 string = f.read(shape.arguments["num_bytes"])
-                filename = self._trianglemesh_to_obj(pickle.loads(string))
+                filename = self._export_triangle_mesh(pickle.loads(string))
 
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
@@ -291,11 +292,37 @@ class SceneParser:
                     "transform": instance.transform
                 })
 
-    def _trianglemesh_to_obj(self, geometry):
+    def _export_triangle_mesh(self, geometry):
         mesh_id = self._out_mesh_id
         self._out_mesh_id += 1
 
-        mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
+        triangles = geometry["indices"]["value"]
+        positions = geometry["P"]["value"]
+
+        if "normals" in geometry:
+            normals = geometry["normals"]["value"]
+        else:
+            normals = np.empty((0))
+
+        if "tangents" in geometry:
+            tangents = geometry["tangents"]["value"]
+        else:
+            tangents = np.empty((0))
+
+        if "uv" in geometry:
+            uv_coords = geometry["uv"]["value"]
+        else:
+            uv_coords = np.empty((0))
+
+        print(positions.dtype)
+        for p0, p1, p2 in zip(*[positions[x::3] for x in (0, 1, 2)]):
+            print(f"python pos: {p0} {p1} {p2}")
+
+        mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.ply")
+        pandora_py.export_triangle_mesh(
+            mesh_file, triangles, positions, normals, tangents, uv_coords)
+
+        """mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
         with open(mesh_file, "w") as f:
             f.write("o PandoraMesh\n")
 
@@ -321,7 +348,7 @@ class SceneParser:
                 indices = geometry["indices"]["value"]
                 for i0, i1, i2 in zip(*[indices[x::3] for x in (0, 1, 2)]):
                     # OBJ starts counting at 1...
-                    f.write(f"f {i0+1} {i1+1} {i2+1}\n")
+                    f.write(f"f {i0+1} {i1+1} {i2+1}\n")"""
 
         return mesh_file
 

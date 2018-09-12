@@ -261,7 +261,8 @@ def p_argument(p):
         if arg_type == "integer":
             p[0] = {arg_name: {"type": arg_type, "value": data.astype(int)}}
         elif arg_type in float_types:
-            p[0] = {arg_name: {"type": arg_type, "value": data.astype(float)}}
+            p[0] = {arg_name: {"type": arg_type,
+                               "value": data.astype(np.float32)}}
         elif arg_type == "blackbody":
             assert(len(data) == 2)
             p[0] = {arg_name: {
