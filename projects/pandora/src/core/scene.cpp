@@ -8,73 +8,7 @@
 
 namespace pandora {
 
-GeometricSceneObject::GeometricSceneObject(
-    const std::shared_ptr<const TriangleMesh>& mesh,
-    const std::shared_ptr<const Material>& material)
-    : m_mesh(mesh)
-    , m_material(material)
-    , m_areaLightPerPrimitive()
-{
-}
 
-GeometricSceneObject::GeometricSceneObject(
-    const std::shared_ptr<const TriangleMesh>& mesh,
-    const std::shared_ptr<const Material>& material,
-    const Spectrum& lightEmitted)
-    : m_mesh(mesh)
-    , m_material(material)
-    , m_areaLightPerPrimitive()
-{
-    for (unsigned primitiveID = 0; primitiveID < m_mesh->numTriangles(); primitiveID++)
-        m_areaLightPerPrimitive.push_back(AreaLight(lightEmitted, 1, *mesh, primitiveID));
-}
-
-Bounds GeometricSceneObject::worldBounds() const
-{
-    return m_mesh->getBounds();
-}
-
-Bounds GeometricSceneObject::worldBoundsPrimitive(unsigned primitiveID) const
-{
-    return m_mesh->getPrimitiveBounds(primitiveID);
-}
-
-unsigned GeometricSceneObject::numPrimitives() const
-{
-    return m_mesh->numTriangles();
-}
-
-bool GeometricSceneObject::intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const
-{
-    return m_mesh->intersectPrimitive(ray, rayHit, primitiveID);
-}
-
-SurfaceInteraction GeometricSceneObject::fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const
-{
-    return m_mesh->fillSurfaceInteraction(ray, rayHit);
-}
-
-const AreaLight* GeometricSceneObject::getPrimitiveAreaLight(unsigned primitiveID) const
-{
-    if (m_areaLightPerPrimitive.empty())
-        return nullptr;
-    else
-        return &m_areaLightPerPrimitive[primitiveID];
-}
-
-const Material* GeometricSceneObject::getMaterial() const
-{
-    return m_material.get();
-}
-
-void GeometricSceneObject::computeScatteringFunctions(
-    SurfaceInteraction& si,
-    ShadingMemoryArena& memoryArena,
-    TransportMode mode,
-    bool allowMultipleLobes) const
-{
-    m_material->computeScatteringFunctions(si, memoryArena, mode, allowMultipleLobes);
-}
 
 InstancedSceneObject::InstancedSceneObject(
     const std::shared_ptr<const GeometricSceneObject>& object,

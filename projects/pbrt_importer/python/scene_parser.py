@@ -227,7 +227,6 @@ class SceneParser:
                 "transform": shape.transform
             })
         elif shape.type == "trianglemesh":
-            print("File: ", shape.arguments["filename"])
             with open(shape.arguments["filename"], "rb") as f:
                 f.seek(shape.arguments["start_byte"])
                 string = f.read(shape.arguments["num_bytes"])
@@ -313,10 +312,6 @@ class SceneParser:
             uv_coords = geometry["uv"]["value"]
         else:
             uv_coords = np.empty((0))
-
-        print(positions.dtype)
-        for p0, p1, p2 in zip(*[positions[x::3] for x in (0, 1, 2)]):
-            print(f"python pos: {p0} {p1} {p2}")
 
         mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.ply")
         pandora_py.export_triangle_mesh(

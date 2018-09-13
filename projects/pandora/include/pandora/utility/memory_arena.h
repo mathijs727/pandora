@@ -63,7 +63,7 @@ inline T* MemoryArena::allocate(Args... args)
 
     // Try to make an aligned allocation in the current block
     if (void* ptr = tryAlignedAllocInCurrentBlock(amount, alignment)) {
-        return new (ptr) T(args...);
+        return new (ptr) T(std::forward<Args>(args)...);
     }
 
     // Allocation failed because the block is full. Allocate a new block and try again
@@ -71,7 +71,7 @@ inline T* MemoryArena::allocate(Args... args)
 
     // Try again
     if (T* ptr = (T*)tryAlignedAllocInCurrentBlock(amount, alignment)) {
-        return new (ptr) T(args...);
+        return new (ptr) T(std::forward<Args>(args)...);
     }
 
     // If it failed again then we either ran out of memory or the amount we tried to allocate does not fit in our memory pool

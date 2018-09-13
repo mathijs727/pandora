@@ -26,7 +26,7 @@ if __name__ == "__main__":
                         help="Either the PBRT scene file OR the intermediate file that was outputted on a previous run")
     parser.add_argument("--out", type=str, required=True,
                         help="Path/name of output Pandora scene description file")
-    parser.add_argument("--intermediate", type=bool, required=False, default=False,
+    parser.add_argument("--intermediate", type=bool, required=False, default=True,
                         help="Whether to output intermediate files")
     args = parser.parse_args()
 

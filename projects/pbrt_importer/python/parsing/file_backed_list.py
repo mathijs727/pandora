@@ -3,7 +3,7 @@ import pickle
 
 
 class FileBackedList:
-    def __init__(self, folder, chunk_size=50000):
+    def __init__(self, folder, chunk_size=100000):
         self._folder = folder
         self._chunk_size = chunk_size
 

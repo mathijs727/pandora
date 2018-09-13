@@ -1,0 +1,1 @@
+#include "pandora/scene/instanced_scene_object.h"

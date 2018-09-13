@@ -30,7 +30,6 @@ void exportTriangleMesh(
     np::ndarray npTangents,
     np::ndarray npUVCoords)
 {
-    std::cout << "EXPORT" << std::endl;
     auto triangles = reinterpretNumpyArray<glm::ivec3>(npTriangles);
     auto positions = reinterpretNumpyArray<glm::vec3>(npPositions);
     auto normals = reinterpretNumpyArray<glm::vec3>(npNormals);
@@ -43,16 +42,7 @@ void exportTriangleMesh(
     plyFile.add_properties_to_element("vertex", { "x", "y", "z" },
         tinyply::Type::FLOAT32, positions.size(), reinterpret_cast<uint8_t*>(positions.data()), tinyply::Type::INVALID, 0);
 
-    std::cout << "Faces:" << std::endl;
-    for (auto face : triangles)
-        std::cout << "(" << face.x << ", " << face.y << ", " << face.z << ")" << std::endl;
-
-    std::cout << "Positions:" << std::endl;
-    for (auto v : positions)
-        std::cout << "(" << v.x << ", " << v.y << ", " << v.z << ")" << std::endl;
-
     if (!normals.empty()) {
-        std::cout << "HAS NORMALS" << std::endl;
         plyFile.add_properties_to_element("vertex", { "nx", "ny", "nz" },
             tinyply::Type::FLOAT32, normals.size(), reinterpret_cast<uint8_t*>(normals.data()), tinyply::Type::INVALID, 0);
     }
@@ -62,7 +52,6 @@ void exportTriangleMesh(
     //    tinyply::Type::INT32, tangents.size(), reinterpret_cast<uint8_t*>(tangents.data()), tinyply::Type::INVALID, 0);
 
     if (!uvCoords.empty()) {
-        std::cout << "HAS UV COORDS" << std::endl;
         plyFile.add_properties_to_element("vertex", { "u", "v" },
             tinyply::Type::FLOAT32, uvCoords.size(), reinterpret_cast<uint8_t*>(uvCoords.data()), tinyply::Type::INVALID, 0);
     }

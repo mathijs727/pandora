@@ -16,6 +16,10 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/stats.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/transform.h"
 
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/eviction/evictable.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/eviction/fifo_cache.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/eviction/geometry.h"
+
     "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/contiguous_allocator_generated.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/triangle_mesh_generated.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/wive_bvh8_generated.h"
@@ -44,6 +48,9 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/samplers/rng/pcg.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/samplers/uniform_sampler.h"
 
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/scene/geometric_scene_object.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/scene/instanced_scene_object.h"
+
     "${CMAKE_CURRENT_LIST_DIR}/pandora/shading/lambert_material.h"
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/mesh_to_voxel.h"
@@ -70,6 +77,7 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/traversal/pauseable_bvh.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/traversal/in_core_acceleration_structure.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/traversal/in_core_batching_acceleration_structure.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/traversal/ooc_batching_acceleration_structure.h"
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/contiguous_allocator_ts.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/error_handling.h"

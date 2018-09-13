@@ -192,7 +192,7 @@ inline std::pair<MemoryArenaTS::HandleN<T>, T*> MemoryArenaTS::allocateN(Args...
             // Run constructors
             T* tPtr = reinterpret_cast<T*>(ptr);
             for (uint8_t i = 0; i < N; i++) {
-                new (tPtr + i) T(args...);
+                new (tPtr + i) T(std::forward<Args>(args)...);
             }
 
             auto result = HandleN<T>(localBlock.blockIndex, (uint32_t)offsetInBytes, N);
@@ -213,7 +213,7 @@ inline std::pair<MemoryArenaTS::HandleN<T>, T*> MemoryArenaTS::allocateN(Args...
 			// Run constructors
 			T* tPtr = reinterpret_cast<T*>(ptr);
 			for (uint8_t i = 0; i < N; i++) {
-				new (tPtr + i) T(args...);
+				new (tPtr + i) T(std::forward<Args>(args)...);
 			}
 
 			auto result = HandleN<T>(localBlock.blockIndex, (uint32_t)offsetInBytes, N);

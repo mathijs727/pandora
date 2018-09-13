@@ -13,6 +13,8 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/core/stats.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/transform.cpp"
 
+        "${CMAKE_CURRENT_LIST_DIR}/eviction/geometry.cpp"
+
         "${CMAKE_CURRENT_LIST_DIR}/geometry/bounds.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/geometry/triangle.cpp"
 
@@ -29,6 +31,9 @@ target_sources(libPandora
 
         "${CMAKE_CURRENT_LIST_DIR}/samplers/rng/pcg.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/samplers/uniform_sampler.cpp"
+
+        "${CMAKE_CURRENT_LIST_DIR}/scene/geometric_scene_object.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/scene/instanced_scene_object.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_dag.cpp"

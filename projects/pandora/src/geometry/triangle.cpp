@@ -74,7 +74,7 @@ TriangleMesh::TriangleMesh(
     for (unsigned v = 0; v < numVertices; v++)
         m_bounds.grow(m_positions[v]);
 
-    g_stats.memory.geometry += size();
+    g_stats.memory.geometry += sizeBytes();
 }
 
 TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
@@ -407,6 +407,20 @@ void TriangleMesh::saveToCacheFile(const std::string_view filename)
     file.close();
 }
 
+size_t TriangleMesh::sizeBytes() const
+{
+    size_t size = sizeof(TriangleMesh);
+    size += m_numTriangles * sizeof(glm::ivec3);// triangles
+    size += m_numVertices * sizeof(glm::vec3);// positions
+    if (m_normals)
+        size += m_numVertices * sizeof(glm::vec3);// normals
+    if (m_tangents)
+        size += m_numVertices * sizeof(glm::vec3);// tangents
+    if (m_uvCoords)
+        size += m_numVertices * sizeof(glm::vec2);// uv coords
+    return size;
+}
+
 unsigned TriangleMesh::numTriangles() const
 {
     return m_numTriangles;
@@ -538,21 +552,6 @@ void TriangleMesh::getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const
     p[0] = m_positions[indices[0]];
     p[1] = m_positions[indices[1]];
     p[2] = m_positions[indices[2]];
-}
-
-size_t TriangleMesh::size() const
-{
-    size_t sizeBytes = sizeof(decltype(*this));
-    sizeBytes += sizeof(glm::ivec3) * m_numTriangles;
-    sizeBytes += sizeof(glm::vec3) * m_numVertices;
-    if (m_normals)
-        sizeBytes += sizeof(glm::vec3) * m_numVertices;
-    if (m_tangents)
-        sizeBytes += sizeof(glm::vec3) * m_numVertices;
-    if (m_uvCoords)
-        sizeBytes += sizeof(glm::vec2) * m_numVertices;
-
-    return sizeBytes;
 }
 
 }
