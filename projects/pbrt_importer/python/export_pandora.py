@@ -4,8 +4,7 @@ import pickle
 import parsing
 from config_parser import ConfigParser
 from scene_parser import SceneParser
-import ujson  # ujson is way faster than the default json module for exporting large dictionaries
-
+import ujson  # ujson is fast but does not support np.float32 types
 
 def extract_pandora_data(pbrt_data, out_mesh_folder):
     if not os.path.exists(out_mesh_folder):
@@ -37,6 +36,10 @@ if __name__ == "__main__":
         print("Error: output path does not exist")
         exit(1)
 
+    # Replaces forward slashes by backward slashes on Windows
+    args.file = os.path.normpath(args.file)
+    args.out = os.path.normpath(args.out)
+
     int_mesh_folder = os.path.join(os.path.dirname(args.out), "pbrt_meshes")
     out_mesh_folder = os.path.join(os.path.dirname(args.out), "pandora_meshes")
 
@@ -60,4 +63,6 @@ if __name__ == "__main__":
     pandora_data = extract_pandora_data(pbrt_data, out_mesh_folder)
 
     print("==== WRITING PANDORA SCENE FILE ====")
-    ujson.dump(pandora_data, open(args.out, "w"), indent=2)
+    with open(args.out, "w") as f:
+        print(f"Out file: {args.out}")
+        ujson.dump(pandora_data, f, indent=2)

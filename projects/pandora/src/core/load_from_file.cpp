@@ -6,6 +6,8 @@
 #include "pandora/textures/constant_texture.h"
 #include "pandora/textures/image_texture.h"
 #include "pandora/utility/error_handling.h"
+#include "pandora/scene/geometric_scene_object.h"
+#include "pandora/scene/instanced_scene_object.h"
 #include <array>
 #include <fstream>
 #include <glm/glm.hpp>
@@ -166,14 +168,14 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
 
             if (jsonSceneObject.find("area_light") != jsonSceneObject.end()) {
                 auto areaLight = readVec3(jsonSceneObject["area_light"]["L"]);
-                return std::make_unique<GeometricSceneObject>(mesh, material, areaLight);
+                return std::make_unique<InCoreGeometricSceneObject>(mesh, material, areaLight);
             } else {
-                return std::make_unique<GeometricSceneObject>(mesh, material);
+                return std::make_unique<InCoreGeometricSceneObject>(mesh, material);
             }
         };
 
         // Create instanced base objects
-        std::vector<std::shared_ptr<GeometricSceneObject>> baseSceneObjects;
+        std::vector<std::shared_ptr<InCoreGeometricSceneObject>> baseSceneObjects;
         for (const auto jsonSceneObject : sceneJson["instance_base_scene_objects"]) {
             baseSceneObjects.emplace_back(makeGeomSceneObject(jsonSceneObject)); // Converts to shared_ptr
         }
@@ -183,8 +185,7 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
             if (jsonSceneObject["instancing"].get<bool>()) {
                 glm::mat4 transform = readMat4(jsonSceneObject["transform"]);
                 auto baseSceneObject = baseSceneObjects[jsonSceneObject["base_scene_object_id"].get<int>()];
-
-                auto instancedSceneObject = std::make_unique<InstancedSceneObject>(baseSceneObject, transform);
+                auto instancedSceneObject = std::make_unique<InCoreInstancedSceneObject>(transform, baseSceneObject);
                 config.scene.addSceneObject(std::move(instancedSceneObject));
             } else {
                 config.scene.addSceneObject(makeGeomSceneObject(jsonSceneObject));

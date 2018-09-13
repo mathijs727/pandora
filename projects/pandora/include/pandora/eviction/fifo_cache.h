@@ -87,7 +87,7 @@ inline void FifoCache<T>::accessResource(EvictableResourceID resourceID, std::fu
         }
     }
 
-    callback(*sharedResourcePtr);
+    callback(sharedResourcePtr);
 }
 
 template <typename T>

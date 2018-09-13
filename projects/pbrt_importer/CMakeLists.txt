@@ -27,7 +27,7 @@ target_link_libraries(pandora_py PRIVATE
     Boost::numpy37
     Python3::Python
     #libPandora
-    tinyply
+    #tinyply
     glm)
 
 add_custom_command(

@@ -313,7 +313,7 @@ class SceneParser:
         else:
             uv_coords = np.empty((0))
 
-        mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.ply")
+        mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
         pandora_py.export_triangle_mesh(
             mesh_file, triangles, positions, normals, tangents, uv_coords)
 

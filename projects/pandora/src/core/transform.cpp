@@ -73,7 +73,7 @@ SurfaceInteraction Transform::transform(const SurfaceInteraction& si) const
     result.bsdf = si.bsdf;
     result.shape = si.shape;
     result.primitiveID = si.primitiveID;
-    result.sceneObject = si.sceneObject;
+    result.sceneObjectMaterial = si.sceneObjectMaterial;
     return result;
 }
 

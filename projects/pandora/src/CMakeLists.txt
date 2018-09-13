@@ -22,8 +22,8 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/integrators/naive_direct_lighting_integrator.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/direct_lighting_integrator.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/sampler_integrator.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/integrators/svo_depth_test_integrator.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/integrators/svo_test_integrator.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/integrators/svo_depth_test_integrator.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/integrators/svo_test_integrator.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/lights/area_light.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/lights/distant_light.cpp"
@@ -35,7 +35,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/scene/geometric_scene_object.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/scene/instanced_scene_object.cpp"
 
-        "${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_dag.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_octree.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/svo/voxel_grid.cpp"

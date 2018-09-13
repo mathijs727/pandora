@@ -2,6 +2,8 @@
 #include "pandora/core/scene.h"
 #include "pandora/core/stats.h"
 #include "pandora/geometry/triangle.h"
+#include "pandora/scene/geometric_scene_object.h"
+#include "pandora/scene/instanced_scene_object.h"
 #include "pandora/traversal/bvh/embree_bvh.h"
 #include "pandora/traversal/bvh/naive_single_bvh2.h"
 #include "pandora/traversal/bvh/wive_bvh8_build2.h"
@@ -24,7 +26,7 @@ public:
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
 public:
-    InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
+    InCoreAccelerationStructure(gsl::span<const std::unique_ptr<InCoreSceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
     ~InCoreAccelerationStructure() = default;
 
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
@@ -38,35 +40,35 @@ private:
     // Leaf node of a bottom-level (instanced) BVH
     class InstanceLeafNode {
     public:
-        InstanceLeafNode(const GeometricSceneObject& baseSceneObject, unsigned primitiveID);
+        InstanceLeafNode(const InCoreGeometricSceneObject& baseSceneObject, unsigned primitiveID);
 
         Bounds getBounds() const;
         bool intersect(Ray& ray, RayHit& hitInfo) const;
 
     private:
         // Is a primitive
-        const GeometricSceneObject& m_baseSceneObject;
+        const InCoreGeometricSceneObject& m_baseSceneObject;
         const unsigned m_primitiveID;
     };
 
     class LeafNode {
     public:
-        LeafNode(const SceneObject& sceneObject, const std::shared_ptr<BVHType<InstanceLeafNode>>& bvh); // Instanced object in the top-level BVH
-        LeafNode(const SceneObject& sceneObject, unsigned primitiveID); // Leaf of the top-level BVH
+        LeafNode(const InCoreSceneObject& sceneObject, const std::shared_ptr<BVHType<InstanceLeafNode>>& bvh); // Instanced object in the top-level BVH
+        LeafNode(const InCoreSceneObject& sceneObject, unsigned primitiveID); // Leaf of the top-level BVH
 
         Bounds getBounds() const;
         bool intersect(Ray& ray, RayHit& hitInfo) const;
 
     private:
         // Is a primitive
-        const SceneObject& m_sceneObject;
+        const InCoreSceneObject& m_sceneObject;
         const unsigned m_primitiveID;
 
         // Is an instance
         std::shared_ptr<BVHType<InstanceLeafNode>> m_bvh;
     };
 
-    static BVHType<LeafNode> buildBVH(gsl::span<const std::unique_ptr<SceneObject>>);
+    static BVHType<LeafNode> buildBVH(gsl::span<const std::unique_ptr<InCoreSceneObject>>);
 
 private:
     BVHType<LeafNode> m_bvh;
@@ -77,7 +79,7 @@ private:
 };
 
 template <typename UserState>
-inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
+inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<InCoreSceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
     : m_bvh(std::move(buildBVH(sceneObjects)))
     //: m_bvh(std::move(buildPauseableBVH(sceneObjects)))
     , m_hitCallback(hitCallback)
@@ -92,19 +94,19 @@ inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::
 
 template <typename UserState>
 inline InCoreAccelerationStructure<UserState>::BVHType<typename InCoreAccelerationStructure<UserState>::LeafNode>
-InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects)
+InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr<InCoreSceneObject>> sceneObjects)
 {
     // Instancing: find base scene objects
-    std::unordered_set<const GeometricSceneObject*> instancingBaseSceneObjects;
+    std::unordered_set<const InCoreGeometricSceneObject*> instancingBaseSceneObjects;
     for (const auto& sceneObject : sceneObjects) {
         if (sceneObject->isInstancedSceneObject()) {
-            auto instancedSceneObject = dynamic_cast<const InstancedSceneObject*>(sceneObject.get());
+            auto instancedSceneObject = dynamic_cast<const InCoreInstancedSceneObject*>(sceneObject.get());
             instancingBaseSceneObjects.insert(instancedSceneObject->getBaseObject());
         }
     }
 
     // Build BVHs for the base scene objects
-    std::unordered_map<const GeometricSceneObject*, std::shared_ptr<BVHType<InstanceLeafNode>>> instancedBVHs;
+    std::unordered_map<const InCoreGeometricSceneObject*, std::shared_ptr<BVHType<InstanceLeafNode>>> instancedBVHs;
     for (auto sceneObjectPtr : instancingBaseSceneObjects) {
         std::vector<InstanceLeafNode> leafs;
         for (unsigned primitiveID = 0; primitiveID < sceneObjectPtr->numPrimitives(); primitiveID++) {
@@ -120,7 +122,7 @@ InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr
     std::vector<LeafNode> leafs;
     for (const auto& sceneObject : sceneObjects) {
         if (sceneObject->isInstancedSceneObject()) {
-            const auto* instancedSceneObject = dynamic_cast<const InstancedSceneObject*>(sceneObject.get());
+            const auto* instancedSceneObject = dynamic_cast<const InCoreInstancedSceneObject*>(sceneObject.get());
             auto bvh = instancedBVHs[instancedSceneObject->getBaseObject()];
             leafs.emplace_back(*sceneObject, bvh);
         } else {
@@ -152,8 +154,10 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
 
         m_bvh.intersect(ray, hitInfo);
 
-        if (hitInfo.sceneObject) {
-            SurfaceInteraction si = hitInfo.sceneObject->fillSurfaceInteraction(ray, hitInfo);
+        const InCoreSceneObject* sceneObject = std::get<RayHit::InCore>(hitInfo.sceneObjectVariant).sceneObject;
+        if (sceneObject) {
+            SurfaceInteraction si = sceneObject->fillSurfaceInteraction(ray, hitInfo);
+            si.sceneObjectMaterial = sceneObject;
             m_hitCallback(ray, si, perRayUserData[i], nullptr);
         } else {
             m_missCallback(ray, perRayUserData[i]);
@@ -184,7 +188,7 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectAnyRequests(
 }
 
 template <typename UserState>
-inline InCoreAccelerationStructure<UserState>::InstanceLeafNode::InstanceLeafNode(const GeometricSceneObject& object, unsigned primitiveID)
+inline InCoreAccelerationStructure<UserState>::InstanceLeafNode::InstanceLeafNode(const InCoreGeometricSceneObject& object, unsigned primitiveID)
     : m_baseSceneObject(object)
     , m_primitiveID(primitiveID)
 {
@@ -203,7 +207,7 @@ inline bool InCoreAccelerationStructure<UserState>::InstanceLeafNode::intersect(
 }
 
 template <typename UserState>
-inline InCoreAccelerationStructure<UserState>::LeafNode::LeafNode(const SceneObject& sceneObject, const std::shared_ptr<BVHType<InstanceLeafNode>>& bvh)
+inline InCoreAccelerationStructure<UserState>::LeafNode::LeafNode(const InCoreSceneObject& sceneObject, const std::shared_ptr<BVHType<InstanceLeafNode>>& bvh)
     : m_sceneObject(sceneObject)
     , m_primitiveID(-1)
     , m_bvh(bvh)
@@ -211,7 +215,7 @@ inline InCoreAccelerationStructure<UserState>::LeafNode::LeafNode(const SceneObj
 }
 
 template <typename UserState>
-inline InCoreAccelerationStructure<UserState>::LeafNode::LeafNode(const SceneObject& sceneObject, unsigned primitiveID)
+inline InCoreAccelerationStructure<UserState>::LeafNode::LeafNode(const InCoreSceneObject& sceneObject, unsigned primitiveID)
     : m_sceneObject(sceneObject)
     , m_primitiveID(primitiveID)
     , m_bvh(nullptr)
@@ -234,16 +238,16 @@ inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersect(Ray& ray
     if (!m_bvh) {
         bool hit = m_sceneObject.intersectPrimitive(ray, hitInfo, m_primitiveID);
         if (hit) {
-            hitInfo.sceneObject = &m_sceneObject;
+            std::get<RayHit::InCore>(hitInfo.sceneObjectVariant).sceneObject = &m_sceneObject;
         }
         return hit;
     } else {
-        const auto& instancedSceneObject = dynamic_cast<const InstancedSceneObject&>(m_sceneObject);
+        const auto& instancedSceneObject = dynamic_cast<const InCoreInstancedSceneObject&>(m_sceneObject);
         Ray localRay = instancedSceneObject.transformRayToInstanceSpace(ray);
 
         bool hit = m_bvh->intersect(localRay, hitInfo);
         if (hit) {
-            hitInfo.sceneObject = &m_sceneObject;
+            std::get<RayHit::InCore>(hitInfo.sceneObjectVariant).sceneObject = &m_sceneObject;
         }
 
         ray.tfar = localRay.tfar;

@@ -10,6 +10,7 @@ BOOST_PYTHON_MODULE(pandora_py)
     Py_Initialize();
     numpy::initialize();
     def("string_to_numpy_float", stringToNumpy<float>);
+    def("string_to_numpy_double", stringToNumpy<double>);
     def("string_to_numpy_int", stringToNumpy<int>);
 
     def("export_triangle_mesh", exportTriangleMesh);

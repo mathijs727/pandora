@@ -40,7 +40,10 @@ class ConstantTexture;
 template <class T>
 class ImageTexture;
 
-class SceneObject;
+class SceneObjectMaterial;
+class SceneObjectGeometry;
+class InCoreSceneObject;
+class OOCSceneObject;
 class Scene;
 class TriangleMesh;
 struct Bounds;

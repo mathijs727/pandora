@@ -4,6 +4,6 @@
 namespace pandora
 {
 
-void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const SceneObject& sceneObject);
+void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const InstancedSceneObjectGeometry& sceneObjectGeometry);
 
 }

@@ -321,7 +321,6 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
     //	isect.normal = isect.shading.normal = -isect.normal;
 
     isect.wo = -ray.direction;
-    isect.sceneObject = hitInfo.sceneObject;
     isect.primitiveID = hitInfo.primitiveID;
     return isect;
 }

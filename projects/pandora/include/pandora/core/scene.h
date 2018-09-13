@@ -19,7 +19,7 @@
 
 namespace pandora {
 
-struct SceneObjectGeometry
+class SceneObjectGeometry
 {
 public:
     virtual ~SceneObjectGeometry() {};
@@ -41,18 +41,32 @@ public:
         ShadingMemoryArena& memoryArena,
         TransportMode mode,
         bool allowMultipleLobes) const = 0;
+
+    virtual const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const = 0;
 };
 
-class SceneObject {
+class InCoreSceneObject : public SceneObjectGeometry, public SceneObjectMaterial {
 public:
-    virtual ~SceneObject() {};
+    virtual ~InCoreSceneObject() {};
+
+    virtual Bounds worldBounds() const = 0;
+    virtual bool isInstancedSceneObject() const { return false; }
+
+    //protected:
+    //    friend void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const SceneObject& sceneObject);
+    //    virtual const TriangleMesh& mesh() const = 0;
+};
+
+class OOCSceneObject {
+public:
+    virtual ~OOCSceneObject() {};
 
     virtual Bounds worldBounds() const = 0;
     virtual const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const = 0;
     virtual bool isInstancedSceneObject() const { return false; }
 
-    virtual void lockGeometry(std::function<void(const SceneObjectGeometry&)> callback) = 0;
-    virtual void lockMaterial(std::function<void(const SceneObjectMaterial&)> callback) = 0;
+    virtual void lockGeometry(std::function<void(const SceneObjectGeometry&)> callback) const = 0;
+    virtual void lockMaterial(std::function<void(const SceneObjectMaterial&)> callback) const = 0;
 
 //protected:
 //    friend void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const SceneObject& sceneObject);
@@ -65,17 +79,17 @@ public:
     Scene(Scene&&) = default;
     ~Scene() = default;
 
-    void addSceneObject(std::unique_ptr<SceneObject>&& sceneNode);
+    void addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneNode);
     void addInfiniteLight(const std::shared_ptr<Light>& light);
 
     //void splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject);
 
-    gsl::span<const std::unique_ptr<SceneObject>> getSceneObjects() const;
+    gsl::span<const std::unique_ptr<InCoreSceneObject>> getSceneObjects() const;
     gsl::span<const Light* const> getLights() const;
     gsl::span<const Light* const> getInfiniteLights() const;
 
 private:
-    std::vector<std::unique_ptr<SceneObject>> m_sceneObjects;
+    std::vector<std::unique_ptr<InCoreSceneObject>> m_sceneObjects;
     std::vector<const Light*> m_lights;
     std::vector<const Light*> m_infiniteLights;
 

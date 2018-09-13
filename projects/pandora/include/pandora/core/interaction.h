@@ -26,7 +26,8 @@ public:
 
 struct SurfaceInteraction : public Interaction {
 public:
-    const SceneObject* sceneObject = nullptr;
+    // Warning: not an owning (shared) pointer because its not necessary for in-core rendering (no performance overhead)
+    const SceneObjectMaterial* sceneObjectMaterial;
 
     unsigned primitiveID;
 	const TriangleMesh* shape = nullptr;
@@ -45,7 +46,7 @@ public:
 
 public:
 	SurfaceInteraction()
-		: sceneObject(nullptr)
+		: sceneObjectMaterial(nullptr)
 	{
 	}
 	SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, const TriangleMesh* shape, unsigned primitiveID);
@@ -59,7 +60,7 @@ public:
 
 inline SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, const TriangleMesh* shape, unsigned primitiveID)
 	: Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo)
-    , sceneObject(nullptr)
+    , sceneObjectMaterial(nullptr)
 	, primitiveID(primitiveID)
     , shape(shape)
     , bsdf(nullptr)

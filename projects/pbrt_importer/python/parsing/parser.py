@@ -233,7 +233,8 @@ def p_list(p):
         #result = np.fromstring(text, dtype=float, sep=' ')
         # The Python string length in C++ is a 32-bit int
         assert(len(text) < 2147483647)
-        result = pandora_py.string_to_numpy_float(text)
+        # Neither ujson nor rapidjson support float32 so convert to a double
+        result = pandora_py.string_to_numpy_double(text)
         p[0] = result
     else:
         #result = np.fromstring(text, dtype=int, sep=' ')
@@ -262,7 +263,7 @@ def p_argument(p):
             p[0] = {arg_name: {"type": arg_type, "value": data.astype(int)}}
         elif arg_type in float_types:
             p[0] = {arg_name: {"type": arg_type,
-                               "value": data.astype(np.float32)}}
+                               "value": data}}
         elif arg_type == "blackbody":
             assert(len(data) == 2)
             p[0] = {arg_name: {

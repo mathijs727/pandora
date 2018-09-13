@@ -53,6 +53,12 @@ float fromString(const char* str)
     return std::strtof(str, &dummy);
 }
 
+template <>
+double fromString(const char* str)
+{
+    return std::atof(str);
+}
+
 template <typename T>
 std::vector<T> stringToVectorThreaded(std::string_view string)
 {
@@ -184,6 +190,6 @@ python::object stringToNumpy(python::str string)
     return np::from_data(numbers->data(), dt, shape, stride, python::object(h));
 }
 
-template python::object stringToNumpy<float>(python::str string);
-
 template python::object stringToNumpy<int>(python::str string);
+template python::object stringToNumpy<float>(python::str string);
+template python::object stringToNumpy<double>(python::str string);
