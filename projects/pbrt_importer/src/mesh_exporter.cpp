@@ -75,9 +75,10 @@ boost::python::tuple PandoraMeshBatch::addTriangleMesh(
     for (auto t : triangles) {
         m_file << "f";
         for (int i = 0; i < 3; i++) {
-            m_file << " " << (t[i] + 1);
+            auto index = t[i] + 1;// OBJ starts counting at 1...
+            m_file << " " << index;
             for (int c = 1; c < numChannels; c++) {
-                m_file << "/" << t[i];
+                m_file << "/" << index;
             }
         }
         m_file << "\n";

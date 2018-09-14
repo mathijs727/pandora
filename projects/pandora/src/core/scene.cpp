@@ -25,12 +25,11 @@ gsl::span<const Light* const> Scene::getInfiniteLights() const
 
 void Scene::addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneObject)
 {
-    std::cout << "TODO: Scene::addSceneObject => area light" << std::endl;
-    /*for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
+    for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
         if (const auto* light = sceneObject->getPrimitiveAreaLight(primitiveID); light) {
             m_lights.push_back(light);
         }
-    }*/
+    }
     m_sceneObjects.emplace_back(std::move(sceneObject));
 }
 

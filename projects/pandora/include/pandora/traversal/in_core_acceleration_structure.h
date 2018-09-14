@@ -99,8 +99,7 @@ InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr
     // Instancing: find base scene objects
     std::unordered_set<const InCoreGeometricSceneObject*> instancingBaseSceneObjects;
     for (const auto& sceneObject : sceneObjects) {
-        if (sceneObject->isInstancedSceneObject()) {
-            auto instancedSceneObject = dynamic_cast<const InCoreInstancedSceneObject*>(sceneObject.get());
+        if (const auto* instancedSceneObject = dynamic_cast<const InCoreInstancedSceneObject*>(sceneObject.get())) {
             instancingBaseSceneObjects.insert(instancedSceneObject->getBaseObject());
         }
     }
@@ -121,8 +120,7 @@ InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr
     // Build the final BVH over all unique primitives / instanced scene objects
     std::vector<LeafNode> leafs;
     for (const auto& sceneObject : sceneObjects) {
-        if (sceneObject->isInstancedSceneObject()) {
-            const auto* instancedSceneObject = dynamic_cast<const InCoreInstancedSceneObject*>(sceneObject.get());
+        if (const auto* instancedSceneObject = dynamic_cast<const InCoreInstancedSceneObject*>(sceneObject.get())) {
             auto bvh = instancedBVHs[instancedSceneObject->getBaseObject()];
             leafs.emplace_back(*sceneObject, bvh);
         } else {

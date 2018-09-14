@@ -198,7 +198,8 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::stri
 
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFileFromMemory(mmapFile.data(), length,
-        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate,
+        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices |
+        aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals,
         "obj");
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
@@ -218,7 +219,8 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::stri
 
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(filename.data(),
-        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate);
+        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices|
+        aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
         LOG_WARNING("Failed to load mesh file: "s + std::string(filename));

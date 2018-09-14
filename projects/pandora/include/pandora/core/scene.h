@@ -50,7 +50,6 @@ public:
     virtual ~InCoreSceneObject() {};
 
     virtual Bounds worldBounds() const = 0;
-    virtual bool isInstancedSceneObject() const { return false; }
 
     //protected:
     //    friend void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const SceneObject& sceneObject);

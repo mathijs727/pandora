@@ -184,16 +184,17 @@ class SceneParser:
             return self._create_texture_id(constant_texture(list(v)))
 
     def _create_material_id(self, material):
+        print(material)
         if material.type == "matte":
             if "Kd" in material.arguments:
                 kd = self._color_tex_argument(material.arguments["Kd"])
             else:
-                kd = self._create_texture_id(constant_texture([0, 0, 0]))
+                kd = self._create_texture_id(constant_texture([0.5, 0.5, 0.5]))
 
             if "sigma" in material.arguments:
                 sigma = self._float_tex_argument(material.arguments["sigma"])
             else:
-                sigma = self._create_texture_id(constant_texture(0.5))
+                sigma = self._create_texture_id(constant_texture(0.0))
 
             # Leave out texture support for now?
             return self._materials.add_item({

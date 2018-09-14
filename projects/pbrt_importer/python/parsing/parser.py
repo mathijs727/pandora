@@ -134,11 +134,11 @@ default_material = Material(
     arguments={
         "Kd": {
             "type": "color",
-            "value": np.array([1.0, 1.0, 1.0])
+            "value": np.array([0.5, 0.5, 0.5])
         },
         "sigma": {
             "type": "float",
-            "value": 1.0
+            "value": 0.0
         }})
 graphics_state_stack = []
 graphics_state = {"area_light": None,
