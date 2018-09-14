@@ -3,7 +3,7 @@ from unique_collection import UniqueCollection
 import numpy as np
 import pickle
 import os
-import pandora_py
+from pandora_mesh_exporter import PandoraMeshExporter
 
 
 def constant_texture(v):
@@ -76,8 +76,7 @@ class SceneParser:
         self._color_textures = UniqueCollection()
         self._light_sources = []
 
-        self._out_mesh_id = 0
-        self._out_mesh_folder = out_mesh_folder
+        self._out_mesh_exporter = PandoraMeshExporter(out_mesh_folder)
 
         self._pbrt_named_textures = pbrt_scene["textures"]
 
@@ -230,11 +229,13 @@ class SceneParser:
             with open(shape.arguments["filename"], "rb") as f:
                 f.seek(shape.arguments["start_byte"])
                 string = f.read(shape.arguments["num_bytes"])
-                filename = self._export_triangle_mesh(pickle.loads(string))
+                filename, start_byte, size_bytes = self._export_triangle_mesh(pickle.loads(string))
 
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": filename,
+                "start_byte": start_byte,
+                "size_bytes": size_bytes,
                 "transform": shape.transform
             })
         else:
@@ -282,8 +283,6 @@ class SceneParser:
             named_base_scene_objects[instance_template.name] = base_so_ids
 
         for instance in pbrt_scene["instances"]:
-            # if i % 1000 == 0:
-            #    print(f"instance {i} / {num_instances-1}")
             for base_scene_object_id in named_base_scene_objects[instance.template_name]:
                 self._scene_objects.add_item({
                     "instancing": True,
@@ -292,9 +291,6 @@ class SceneParser:
                 })
 
     def _export_triangle_mesh(self, geometry):
-        mesh_id = self._out_mesh_id
-        self._out_mesh_id += 1
-
         triangles = geometry["indices"]["value"]
         positions = geometry["P"]["value"]
 
@@ -313,39 +309,10 @@ class SceneParser:
         else:
             uv_coords = np.empty((0))
 
-        mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
-        pandora_py.export_triangle_mesh(
-            mesh_file, triangles, positions, normals, tangents, uv_coords)
-
-        """mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
-        with open(mesh_file, "w") as f:
-            f.write("o PandoraMesh\n")
-
-            positions = geometry["P"]["value"]
-            for p0, p1, p2 in zip(*[positions[x::3] for x in (0, 1, 2)]):
-                f.write(f"v {p0} {p1} {p2}\n")
-
-            if "N" in geometry and "uv" in geometry:
-                normals = geometry["N"]["value"]
-                for n0, n1, n2 in zip(*[normals[x::3] for x in (0, 1, 2)]):
-                    f.write(f"vn {n0} {n1} {n2}\n")
-
-                uv_coords = geometry["uv"]["value"]
-                for uv0, uv1 in zip(*[uv_coords[x::2] for x in (0, 1)]):
-                    f.write(f"vt {uv0} {uv1}\n")
-
-                indices = geometry["indices"]["value"]
-                for i0, i1, i2 in zip(*[indices[x::3] for x in (0, 1, 2)]):
-                    # OBJ starts counting at 1...
-                    f.write(
-                        f"f {i0+1}/{i0+1}/{i0+1} {i1+1}/{i1+1}/{i1+1} {i2+1}/{i2+1}/{i2+1}\n")
-            else:
-                indices = geometry["indices"]["value"]
-                for i0, i1, i2 in zip(*[indices[x::3] for x in (0, 1, 2)]):
-                    # OBJ starts counting at 1...
-                    f.write(f"f {i0+1} {i1+1} {i2+1}\n")"""
-
-        return mesh_file
+        #mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
+        #pandora_py.export_triangle_mesh(
+        #    mesh_file, triangles, positions, normals, tangents, uv_coords)
+        return self._out_mesh_exporter.add_triangle_mesh(triangles, positions, normals, tangents, uv_coords)
 
     def data(self):
         return {

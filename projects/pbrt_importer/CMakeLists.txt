@@ -30,6 +30,8 @@ target_link_libraries(pandora_py PRIVATE
     #tinyply
     glm)
 
+set_target_properties(pandora_py PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+
 add_custom_command(
     TARGET pandora_py
     POST_BUILD

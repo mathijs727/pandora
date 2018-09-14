@@ -152,10 +152,20 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
             auto geometryType = jsonGeometry["type"].get<std::string>();
             auto filename = jsonGeometry["filename"].get<std::string>();
 
-            glm::mat4 transform = readMat4(jsonGeometry["transform"]);
-            std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(filename, transform);
-            ALWAYS_ASSERT(meshOpt.has_value());
-            geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
+            if (filename.substr(filename.size() - 3, 3) == "bin") {
+                glm::mat4 transform = readMat4(jsonGeometry["transform"]);
+                size_t startByte = jsonGeometry["start_byte"];
+                size_t sizeBytes = jsonGeometry["size_bytes"];
+
+                std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(filename, startByte, sizeBytes, transform);
+                ALWAYS_ASSERT(meshOpt.has_value());
+                geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
+            } else {
+                glm::mat4 transform = readMat4(jsonGeometry["transform"]);
+                std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(filename, transform);
+                ALWAYS_ASSERT(meshOpt.has_value());
+                geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
+            }
         }
 
         auto makeGeomSceneObject = [&](nlohmann::json jsonSceneObject) {

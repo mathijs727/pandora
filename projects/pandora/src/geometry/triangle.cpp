@@ -187,6 +187,28 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
         std::move(uvCoords));
 }
 
+std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::string_view filename, size_t start, size_t length, glm::mat4 objTransform, bool ignoreVertexNormals)
+{
+    if (!fileExists(filename)) {
+        LOG_WARNING("Could not find mesh file: "s + std::string(filename));
+        return {};
+    }
+
+    auto mmapFile = mio::mmap_source(filename, start, length);
+
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFileFromMemory(mmapFile.data(), length,
+        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate,
+        "obj");
+
+    if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
+        LOG_WARNING("Failed to load mesh file: "s + std::string(filename));
+        return {};
+    }
+
+    return loadFromFileSingleMesh(scene, objTransform, ignoreVertexNormals);
+}
+
 std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::string_view filename, glm::mat4 objTransform, bool ignoreVertexNormals)
 {
     if (!fileExists(filename)) {
@@ -197,13 +219,17 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::stri
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(filename.data(),
         aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate);
-    //importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
         LOG_WARNING("Failed to load mesh file: "s + std::string(filename));
         return {};
     }
 
+    return loadFromFileSingleMesh(scene, objTransform, ignoreVertexNormals);
+}
+
+std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals)
+{
     std::vector<glm::ivec3> indices;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;

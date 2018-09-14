@@ -35,6 +35,7 @@ public:
     TriangleMesh subMesh(gsl::span<const unsigned> primitives) const;
 
     static std::optional<TriangleMesh> loadFromFileSingleMesh(const std::string_view filename, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
+    static std::optional<TriangleMesh> loadFromFileSingleMesh(const std::string_view filename, size_t start, size_t length, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
     static std::vector<TriangleMesh> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
 
     static TriangleMesh loadFromCacheFile(const std::string_view filename);
@@ -62,6 +63,7 @@ public:
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const;
 
 private:
+    static std::optional<TriangleMesh> loadFromFileSingleMesh(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals);
     static TriangleMesh createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
 
     gsl::span<const glm::vec3> getNormals() const;

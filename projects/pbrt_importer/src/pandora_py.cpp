@@ -13,9 +13,8 @@ BOOST_PYTHON_MODULE(pandora_py)
     def("string_to_numpy_double", stringToNumpy<double>);
     def("string_to_numpy_int", stringToNumpy<int>);
 
-    def("export_triangle_mesh", exportTriangleMesh);
+    //def("export_triangle_mesh", exportTriangleMesh);
 
-    /*class_<MeshWrapper>("TriangleMesh", init<std::string>())
-        .def(init<np::ndarray, np::ndarray, np::ndarray, np::ndarray, np::ndarray>()) // Second constructor
-        .def("saveToCacheFile", &MeshWrapper::saveToCacheFile);*/
+    class_<PandoraMeshBatch, boost::noncopyable>("PandoraMeshBatch", init<std::string>())
+        .def("addTriangleMesh", &PandoraMeshBatch::addTriangleMesh);
 }
