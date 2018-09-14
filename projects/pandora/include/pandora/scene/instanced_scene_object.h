@@ -43,13 +43,32 @@ public:
     SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const override final;
 
 private:
+    friend class OOCInstancedSceneObject;
     InstancedSceneObjectGeometry(
         const Transform& worldTransform,
-        const std::shared_ptr<const GeometricSceneObjectGeometry>& baseObjectGeometry);
+        const SceneObjectGeometry& baseObjectGeometry);
 
 private:
     const Transform m_worldTransform;
-    const std::shared_ptr<const GeometricSceneObjectGeometry> m_baseObjectGeometry;
+    const SceneObjectGeometry& m_baseObjectGeometry;
+};
+
+class OOCInstancedSceneObject : public OOCSceneObject {
+public:
+    OOCInstancedSceneObject(const glm::mat4& transformMatrix, const std::shared_ptr<const OOCGeometricSceneObject>& baseObject);
+    //GeometricSceneObjectOOC(const Bounds& worldBounds, const EvictableResourceHandle<TriangleMesh>& meshHandle, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
+    ~OOCInstancedSceneObject() override final = default;
+
+    Bounds worldBounds() const override final;
+
+    void lockGeometry(std::function<void(const SceneObjectGeometry&)> callback) const override final;
+    void lockMaterial(std::function<void(const SceneObjectMaterial&)> callback) const override final;
+
+private:
+    friend class InstancedSceneObjectOOC;
+private:
+    const Transform m_transform;
+    const std::shared_ptr<const OOCGeometricSceneObject> m_baseObject;
 };
 
 }

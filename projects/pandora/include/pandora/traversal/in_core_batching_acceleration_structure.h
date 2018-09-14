@@ -195,7 +195,7 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
         if (optResult) {
             if (*optResult) {
                 // We got the result immediately (traversal was not paused)
-                const auto* sceneObject = std::get<RayHit::InCore>(hitInfo.sceneObjectVariant).sceneObject;
+                const auto* sceneObject = std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant);
                 SurfaceInteraction si = sceneObject->fillSurfaceInteraction(ray, hitInfo);
                 si.sceneObjectMaterial = sceneObject;
                 m_hitCallback(ray, si, userState, nullptr);
@@ -382,14 +382,14 @@ inline std::optional<bool> InCoreBatchingAccelerationStructure<UserState, BatchS
             auto localRay = instancedSceneObject->transformRayToInstanceSpace(ray);
             if (mutThisPtr->m_leafBVH->intersect(localRay, rayInfo)) {
                 ray.tfar = localRay.tfar;
-                std::get<RayHit::InCore>(rayInfo.sceneObjectVariant).sceneObject = m_sceneObject;
+                std::get<const InCoreSceneObject*>(rayInfo.sceneObjectVariant) = m_sceneObject;
                 return true;
             } else {
                 return false;
             }
         } else {
             if (mutThisPtr->m_leafBVH->intersect(ray, rayInfo)) {
-                std::get<RayHit::InCore>(rayInfo.sceneObjectVariant).sceneObject = m_sceneObject;
+                std::get<const InCoreSceneObject*>(rayInfo.sceneObjectVariant) = m_sceneObject;
                 return true;
             } else {
                 return false;
@@ -466,7 +466,7 @@ inline size_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLeve
                     // Intersect with the bottom-level BVH
                     if (hitInfo) {
                         if (m_leafBVH->intersect(localRay, *hitInfo)) {
-                            std::get<RayHit::InCore>(hitInfo->sceneObjectVariant).sceneObject = instancedSceneObject;  // Set to the actual (specific instance) scene object
+                            std::get<const InCoreSceneObject*>(hitInfo->sceneObjectVariant) = instancedSceneObject;  // Set to the actual (specific instance) scene object
                             ray.tfar = localRay.tfar;
                         }
                     } else {
@@ -479,7 +479,7 @@ inline size_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLeve
                     // Intersect with the bottom-level BVH
                     if (hitInfo) {
                         if (m_leafBVH->intersect(ray, *hitInfo)) {
-                            std::get<RayHit::InCore>(hitInfo->sceneObjectVariant).sceneObject = m_sceneObject;
+                            std::get<const InCoreSceneObject*>(hitInfo->sceneObjectVariant) = m_sceneObject;
                         }
                     } else {
                         m_leafBVH->intersectAny(ray);
@@ -493,7 +493,7 @@ inline size_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLeve
                     auto optResult = m_accelerationStructurePtr->m_bvh.intersect(ray, *hitInfo, userState, insertHandle);
                     if (optResult) {
                         // Ray exited the system so hitInfo contains the closest hit
-                        const auto* sceneObject = std::get<RayHit::InCore>(hitInfo->sceneObjectVariant).sceneObject;
+                        const auto* sceneObject = std::get<const InCoreSceneObject*>(hitInfo->sceneObjectVariant);
                         if (sceneObject) {
                             // Compute the full surface interaction
                             SurfaceInteraction si = sceneObject->fillSurfaceInteraction(ray, *hitInfo);

@@ -59,7 +59,7 @@ Ray InCoreInstancedSceneObject::transformRayToInstanceSpace(const Ray& ray) cons
 
 InstancedSceneObjectGeometry::InstancedSceneObjectGeometry(
     const Transform& worldTransform,
-    const std::shared_ptr<const GeometricSceneObjectGeometry>& baseObjectGeometry)
+    const SceneObjectGeometry& baseObjectGeometry)
     : m_worldTransform(worldTransform)
     , m_baseObjectGeometry(baseObjectGeometry)
 {
@@ -67,18 +67,18 @@ InstancedSceneObjectGeometry::InstancedSceneObjectGeometry(
 
 Bounds InstancedSceneObjectGeometry::worldBoundsPrimitive(unsigned primitiveID) const
 {
-    return m_worldTransform.transform(m_baseObjectGeometry->worldBoundsPrimitive(primitiveID));
+    return m_worldTransform.transform(m_baseObjectGeometry.worldBoundsPrimitive(primitiveID));
 }
 
 unsigned InstancedSceneObjectGeometry::numPrimitives() const
 {
-    return m_baseObjectGeometry->numPrimitives();
+    return m_baseObjectGeometry.numPrimitives();
 }
 
 bool InstancedSceneObjectGeometry::intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const
 {
     Ray instanceSpaceRay = m_worldTransform.transform(ray);
-    bool hit = m_baseObjectGeometry->intersectPrimitive(instanceSpaceRay, rayHit, primitiveID);
+    bool hit = m_baseObjectGeometry.intersectPrimitive(instanceSpaceRay, rayHit, primitiveID);
     ray.tfar = instanceSpaceRay.tfar;
     return hit;
 }
@@ -86,7 +86,32 @@ bool InstancedSceneObjectGeometry::intersectPrimitive(Ray& ray, RayHit& rayHit, 
 SurfaceInteraction InstancedSceneObjectGeometry::fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const
 {
     Ray instanceSpaceRay = m_worldTransform.transform(ray);
-    return m_worldTransform.transform(m_baseObjectGeometry->fillSurfaceInteraction(instanceSpaceRay, rayHit));
+    return m_worldTransform.transform(m_baseObjectGeometry.fillSurfaceInteraction(instanceSpaceRay, rayHit));
+}
+
+OOCInstancedSceneObject::OOCInstancedSceneObject(const glm::mat4& transformMatrix, const std::shared_ptr<const OOCGeometricSceneObject>& baseObject)
+    : m_transform(transformMatrix)
+    , m_baseObject(baseObject)
+{
+}
+
+Bounds OOCInstancedSceneObject::worldBounds() const
+{
+    return m_transform.transform(m_baseObject->worldBounds());
+}
+
+void OOCInstancedSceneObject::lockGeometry(std::function<void(const SceneObjectGeometry&)> callback) const
+{
+    m_baseObject->lockGeometry([=](const SceneObjectGeometry& geometryProperties) {
+        callback(InstancedSceneObjectGeometry(m_transform, geometryProperties));
+    });
+}
+
+void OOCInstancedSceneObject::lockMaterial(std::function<void(const SceneObjectMaterial&)> callback) const
+{
+    m_baseObject->lockMaterial([=](const SceneObjectMaterial& materialProperties) {
+        callback(materialProperties);
+    });
 }
 
 }

@@ -5,6 +5,7 @@
 #include "pandora/samplers/uniform_sampler.h"
 #include "pandora/traversal/in_core_acceleration_structure.h"
 #include "pandora/traversal/in_core_batching_acceleration_structure.h"
+#include "pandora/traversal/ooc_batching_acceleration_structure.h"
 #include <random>
 
 namespace pandora {
@@ -46,7 +47,7 @@ template <typename IntegratorState>
 inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& sensor, int sppPerCall)
     : m_scene(scene)
     , m_accelerationStructure(
-          scene.getSceneObjects(),
+         scene.getInCoreSceneObjects(),
           [this](const Ray& r, const SurfaceInteraction& si, const IntegratorState& s, const InsertHandle& h) {
               rayHit(r, si, s, h);
           },

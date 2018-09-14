@@ -1,4 +1,8 @@
 #include "..\..\include\pandora\scene\geometric_scene_object.h"
+#include "..\..\include\pandora\scene\geometric_scene_object.h"
+#include "..\..\include\pandora\scene\geometric_scene_object.h"
+#include "..\..\include\pandora\scene\geometric_scene_object.h"
+#include "..\..\include\pandora\scene\geometric_scene_object.h"
 #include "pandora/scene/geometric_scene_object.h"
 
 namespace pandora {
@@ -121,4 +125,32 @@ const AreaLight* GeometricSceneObjectMaterial::getPrimitiveAreaLight(unsigned pr
     else
         return &m_areaLightPerPrimitive[primitiveID];
 }
+
+OOCGeometricSceneObject::OOCGeometricSceneObject(
+    const Bounds& worldBounds,
+    const EvictableResourceHandle<TriangleMesh>& meshHandle,
+    const std::shared_ptr<const Material>& material) :
+    m_worldBounds(worldBounds),
+    m_meshHandle(meshHandle),
+    m_materialProperties(material)
+{
+}
+
+Bounds OOCGeometricSceneObject::worldBounds() const
+{
+    return m_worldBounds;
+}
+
+void OOCGeometricSceneObject::lockGeometry(std::function<void(const SceneObjectGeometry&)> callback) const
+{
+    m_meshHandle.lock([=](std::shared_ptr<TriangleMesh> triangleMesh) {
+        callback(GeometricSceneObjectGeometry(triangleMesh));
+    });
+}
+
+void OOCGeometricSceneObject::lockMaterial(std::function<void(const SceneObjectMaterial&)> callback) const
+{
+    callback(m_materialProperties);
+}
+
 }

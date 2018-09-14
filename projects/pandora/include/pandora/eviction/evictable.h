@@ -14,7 +14,7 @@ public:
     EvictableResourceHandle(FifoCache<T>& cache, EvictableResourceID resource);
 
     template <typename F>
-    void lock(F&& callback);
+    void lock(F&& callback) const;
 private:
     FifoCache<T>& m_cache;
     EvictableResourceID m_resourceID;
@@ -29,9 +29,10 @@ inline EvictableResourceHandle<T>::EvictableResourceHandle(FifoCache<T>& cache, 
 
 template<typename T>
 template <typename F>
-inline void EvictableResourceHandle<T>::lock(F&& callback)
+inline void EvictableResourceHandle<T>::lock(F&& callback) const
 {
-    return m_cache.accessResource(m_resourceID, callback);
+    auto* mutThisPtr = const_cast<EvictableResourceHandle<T>*>(this);
+    return mutThisPtr->m_cache.accessResource(m_resourceID, callback);
 }
 
 }

@@ -15,6 +15,7 @@ public:
 
 private:
     friend class InCoreGeometricSceneObject;
+    friend class OOCGeometricSceneObject;
     GeometricSceneObjectGeometry(const std::shared_ptr<const TriangleMesh>& mesh);
 
 private:
@@ -34,6 +35,7 @@ public:
     const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const override final;
 private:
     friend class InCoreGeometricSceneObject;
+    friend class OOCGeometricSceneObject;
     GeometricSceneObjectMaterial(const std::shared_ptr<const Material>& material);
     GeometricSceneObjectMaterial(const std::shared_ptr<const Material>& material, std::vector<AreaLight>&& areaLights);
 
@@ -75,15 +77,14 @@ private:
     GeometricSceneObjectMaterial m_materialProperties;
 };
 
-/*class InstancedSceneObjectOOC;
-class GeometricSceneObjectOOC : public OOCSceneObject {
+class OOCInstancedSceneObject;
+class OOCGeometricSceneObject : public OOCSceneObject {
 public:
-    GeometricSceneObjectOOC(const Bounds& worldBounds, const EvictableResourceHandle<TriangleMesh>& meshHandle, const std::shared_ptr<const Material>& material);
+    OOCGeometricSceneObject(const Bounds& worldBounds, const EvictableResourceHandle<TriangleMesh>& meshHandle, const std::shared_ptr<const Material>& material);
     //GeometricSceneObjectOOC(const Bounds& worldBounds, const EvictableResourceHandle<TriangleMesh>& meshHandle, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
-    ~GeometricSceneObjectOOC() override final = default;
+    ~OOCGeometricSceneObject() override final = default;
 
     Bounds worldBounds() const override final;
-    const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const override final;
 
     void lockGeometry(std::function<void(const SceneObjectGeometry&)> callback) const override final;
     void lockMaterial(std::function<void(const SceneObjectMaterial&)> callback) const override final;
@@ -93,8 +94,7 @@ private:
 private:
     Bounds m_worldBounds;
     EvictableResourceHandle<TriangleMesh> m_meshHandle;
-    std::shared_ptr<const Material> m_material;
-    std::vector<AreaLight> m_areaLightPerPrimitive;
-};*/
+    GeometricSceneObjectMaterial m_materialProperties;
+};
 
 }

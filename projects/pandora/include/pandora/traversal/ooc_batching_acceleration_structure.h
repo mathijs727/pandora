@@ -3,10 +3,11 @@
 #include "pandora/core/ray.h"
 #include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
+#include "pandora/scene/geometric_scene_object.h"
+#include "pandora/scene/instanced_scene_object.h"
 #include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/growing_free_list_ts.h"
-#include "pandora/eviction/fifo_cache.h"
 #include <array>
 #include <atomic>
 #include <bitset>
@@ -24,11 +25,11 @@
 
 namespace pandora {
 
-static constexpr unsigned OOC_BATCHING_PRIMS_PER_LEAF = 1024;
-static constexpr bool ENABLE_BATCHING = true;
+static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 1024;
 
 template <typename UserState, size_t BatchSize = 64>
-class OOCBatchingAccelerationStructure {
+class OOCCoreBatchingAccelerationStructure {
+    static constexpr bool ENABLE_BATCHING = true;
 public:
     using InsertHandle = void*;
     using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&, const InsertHandle&)>;
@@ -36,8 +37,8 @@ public:
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
 public:
-    OOCBatchingAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
-    ~OOCBatchingAccelerationStructure() = default;
+    OOCCoreBatchingAccelerationStructure(gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
+    ~OOCCoreBatchingAccelerationStructure() = default;
 
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
     void placeIntersectAnyRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
@@ -45,7 +46,7 @@ public:
     void flush();
 
 private:
-    static constexpr unsigned PRIMITIVES_PER_LEAF = OOC_CORE_BATCHING_PRIMS_PER_LEAF;
+    static constexpr unsigned PRIMITIVES_PER_LEAF = IN_CORE_BATCHING_PRIMS_PER_LEAF;
 
     struct RayBatch {
     public:
@@ -112,7 +113,7 @@ private:
 
     class BotLevelLeafNode {
     public:
-        BotLevelLeafNode(const GeometricSceneObject* sceneObject, unsigned primitiveID)
+        BotLevelLeafNode(const OOCGeometricSceneObject* sceneObject, unsigned primitiveID)
             : m_sceneObject(sceneObject)
             , m_primitiveID(primitiveID)
         {
@@ -121,7 +122,7 @@ private:
         bool intersect(Ray& ray, RayHit& hitInfo) const;
 
     private:
-        const GeometricSceneObject* m_sceneObject;
+        const OOCGeometricSceneObject* m_sceneObject;
         const unsigned m_primitiveID;
     };
 
@@ -129,9 +130,9 @@ private:
     public:
         TopLevelLeafNode(TopLevelLeafNode&& other);
         TopLevelLeafNode(
-            const SceneObject* sceneObject,
+            const OOCSceneObject* sceneObject,
             const std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNode>>& bvh,
-            OOCBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure);
+            OOCCoreBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure);
 
         Bounds getBounds() const;
 
@@ -145,15 +146,15 @@ private:
         //static WiVeBVH8Build8<BotLevelLeafNode> buildBVH(gsl::span<const SceneObject*> sceneObject);
 
     private:
-        const SceneObject* m_sceneObject;
+        const OOCSceneObject* m_sceneObject;
         std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNode>> m_leafBVH;
 
         tbb::enumerable_thread_specific<RayBatch*> m_threadLocalActiveBatch;
         std::atomic<RayBatch*> m_immutableRayBatchList;
-        OOCBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
+        OOCCoreBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
     };
 
-    static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(gsl::span<const std::unique_ptr<SceneObject>>, OOCBatchingAccelerationStructure& accelerationStructure);
+    static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(gsl::span<const std::unique_ptr<OOCSceneObject>>, OOCCoreBatchingAccelerationStructure& accelerationStructure);
 
 private:
     GrowingFreeListTS<RayBatch> m_batchAllocator;
@@ -166,7 +167,7 @@ private:
 };
 
 template <typename UserState, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, BatchSize>::OOCBatchingAccelerationStructure(gsl::span<const std::unique_ptr<SceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
+inline OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::OOCCoreBatchingAccelerationStructure(gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
     : m_batchAllocator()
     , m_bvh(std::move(buildBVH(sceneObjects, *this)))
     , m_threadLocalPreallocatedRaybatch([&]() { return m_batchAllocator.allocate(); })
@@ -177,7 +178,7 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::OOCBatchingAccele
 }
 
 template <typename UserState, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeIntersectRequests(
+inline void OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::placeIntersectRequests(
     gsl::span<const Ray> rays,
     gsl::span<const UserState> perRayUserData,
     const InsertHandle& insertHandle)
@@ -194,8 +195,14 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeInterse
         if (optResult) {
             if (*optResult) {
                 // We got the result immediately (traversal was not paused)
-                SurfaceInteraction si = hitInfo.sceneObject->fillSurfaceInteraction(ray, hitInfo);
-                m_hitCallback(ray, si, userState, nullptr);
+                const auto* sceneObject = std::get<const OOCSceneObject*>(hitInfo.sceneObjectVariant);
+                sceneObject->lockGeometry([=](const SceneObjectGeometry& geometryProperties) {
+                    SurfaceInteraction si = geometryProperties.fillSurfaceInteraction(ray, hitInfo);
+                    si.sceneObjectMaterial = sceneObject->lockMaterial([=](const SceneObjectMaterial& materialProperties) {
+                        si.sceneObjectMaterial = &materialProperties;
+                        m_hitCallback(ray, si, userState, nullptr);
+                    });
+                });
             } else {
                 m_missCallback(ray, userState);
             }
@@ -204,7 +211,7 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeInterse
 }
 
 template <typename UserState, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeIntersectAnyRequests(
+inline void OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::placeIntersectAnyRequests(
     gsl::span<const Ray> rays,
     gsl::span<const UserState> perRayUserData,
     const InsertHandle& insertHandle)
@@ -229,7 +236,7 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeInterse
 }
 
 template <typename UserState, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
+inline void OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
 {
     while (true) {
 #ifndef NDEBUG
@@ -275,16 +282,16 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
 }
 
 template <typename UserState, size_t BatchSize>
-inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode, UserState> OOCBatchingAccelerationStructure<UserState, BatchSize>::buildBVH(
-    gsl::span<const std::unique_ptr<SceneObject>> sceneObjects,
-    OOCBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure)
+inline PauseableBVH4<typename OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode, UserState> OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::buildBVH(
+    gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
+    OOCCoreBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure)
 {
     // Find all referenced geometric scene objects
-    std::unordered_set<const GeometricSceneObject*> uniqueGeometricSceneObjects;
+    std::unordered_set<const OOCGeometricSceneObject*> uniqueGeometricSceneObjects;
     for (const auto& sceneObject : sceneObjects) {
-        if (auto instancedSceneObject = dynamic_cast<const InstancedSceneObject*>(sceneObject.get())) {
+        if (auto instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(sceneObject.get())) {
             uniqueGeometricSceneObjects.insert(instancedSceneObject->getBaseObject());
-        } else if (auto geometricSceneObject = dynamic_cast<const GeometricSceneObject*>(sceneObject.get())) {
+        } else if (auto geometricSceneObject = dynamic_cast<const OOCGeometricSceneObject*>(sceneObject.get())) {
             uniqueGeometricSceneObjects.insert(geometricSceneObject);
         } else {
             THROW_ERROR("Unknown scene object type!");
@@ -292,19 +299,12 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
     }
 
     // Build a BVH for each unique GeometricSceneObject
-    std::unordered_map<const GeometricSceneObject*, std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNode>>> botLevelBVHs;
+    std::unordered_map<const OOCGeometricSceneObject*, std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNode>>> botLevelBVHs;
     for (auto sceneObjectPtr : uniqueGeometricSceneObjects) {
         std::vector<BotLevelLeafNode> leafs;
         for (unsigned primitiveID = 0; primitiveID < sceneObjectPtr->numPrimitives(); primitiveID++) {
             leafs.push_back(BotLevelLeafNode(sceneObjectPtr, primitiveID));
         }
-
-        /*if (leafs.size() <= 4)
-        {
-            std::cout << "WARNING: skipping SceneObject with too little (" << leafs.size() << ") primitives" << std::endl;
-            botLevelBVHs[sceneObjectPtr] = nullptr;
-            continue;
-        }*/
 
         auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNode>>();
         bvh->build(leafs);
@@ -314,11 +314,11 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
     // Build the final BVH over all (instanced) scene objects
     std::vector<TopLevelLeafNode> leafs;
     for (const auto& sceneObject : sceneObjects) {
-        if (const auto* instancedSceneObject = dynamic_cast<const InstancedSceneObject*>(sceneObject.get())) {
+        if (const auto* instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(sceneObject.get())) {
             auto bvh = botLevelBVHs[instancedSceneObject->getBaseObject()];
             if (bvh)
                 leafs.emplace_back(sceneObject.get(), bvh, accelerationStructure);
-        } else if (const auto* geometricSceneObject = dynamic_cast<const GeometricSceneObject*>(sceneObject.get())) {
+        } else if (const auto* geometricSceneObject = dynamic_cast<const OOCGeometricSceneObject*>(sceneObject.get())) {
             auto bvh = botLevelBVHs[geometricSceneObject];
             if (bvh)
                 leafs.emplace_back(sceneObject.get(), bvh, accelerationStructure);
@@ -328,10 +328,10 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
 }
 
 template <typename UserState, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(
-    const SceneObject* sceneObject,
+inline OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(
+    const OOCSceneObject* sceneObject,
     const std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNode>>& bvh,
-    OOCBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure)
+    OOCCoreBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure)
     : m_sceneObject(sceneObject)
     , m_leafBVH(bvh)
     , m_threadLocalActiveBatch([]() { return nullptr; })
@@ -341,7 +341,7 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
 }
 
 template <typename UserState, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(TopLevelLeafNode&& other)
+inline OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(TopLevelLeafNode&& other)
     : m_sceneObject(other.m_sceneObject)
     , m_leafBVH(std::move(other.m_leafBVH))
     , m_threadLocalActiveBatch(std::move(other.m_threadLocalActiveBatch))
@@ -351,13 +351,13 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
 }
 
 template <typename UserState, size_t BatchSize>
-inline Bounds OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::getBounds() const
+inline Bounds OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::getBounds() const
 {
     return m_sceneObject->worldBounds();
 }
 
 template <typename UserState, size_t BatchSize>
-inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersect(Ray& ray, RayHit& rayInfo, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
+inline std::optional<bool> OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersect(Ray& ray, RayHit& rayInfo, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
 {
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
@@ -382,19 +382,18 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
 
         return {}; // Paused*/
     } else {
-        if (m_sceneObject->isInstancedSceneObject()) {
-            const auto* instancedSceneObject = dynamic_cast<const InstancedSceneObject*>(m_sceneObject);
+        if (const auto* instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(m_sceneObject)) {
             auto localRay = instancedSceneObject->transformRayToInstanceSpace(ray);
             if (mutThisPtr->m_leafBVH->intersect(localRay, rayInfo)) {
                 ray.tfar = localRay.tfar;
-                rayInfo.sceneObject = m_sceneObject;
+                std::get<const OOCSceneObject*>(rayInfo.sceneObjectVariant) = m_sceneObject;
                 return true;
             } else {
                 return false;
             }
         } else {
             if (mutThisPtr->m_leafBVH->intersect(ray, rayInfo)) {
-                rayInfo.sceneObject = m_sceneObject;
+                std::get<const OOCSceneObject*>(rayInfo.sceneObjectVariant) = m_sceneObject;
                 return true;
             } else {
                 return false;
@@ -404,7 +403,7 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
 }
 
 template <typename UserState, size_t BatchSize>
-inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
+inline std::optional<bool> OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
 {
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
@@ -429,8 +428,7 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
 
         return {}; // Paused
     } else {
-        if (m_sceneObject->isInstancedSceneObject()) {
-            const auto* instancedSceneObject = dynamic_cast<const InstancedSceneObject*>(m_sceneObject);
+        if (const auto* instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(m_sceneObject)) {
             auto localRay = instancedSceneObject->transformRayToInstanceSpace(ray);
             return m_leafBVH->intersectAny(localRay);
         } else {
@@ -440,7 +438,7 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
 }
 
 template <typename UserState, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::prepareForFlushUnsafe()
+inline void OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::prepareForFlushUnsafe()
 {
     for (auto& batch : m_threadLocalActiveBatch) {
         if (batch) {
@@ -452,7 +450,7 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeaf
 }
 
 template <typename UserState, size_t BatchSize>
-inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::flush()
+inline size_t OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::flush()
 {
     RayBatch* batch = m_immutableRayBatchList.exchange(nullptr);
     if (!batch)
@@ -465,62 +463,69 @@ inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLe
 
         auto next = batch->next();
         taskGroup.run([=]() {
-            if (m_sceneObject->isInstancedSceneObject()) {
-                const auto* instancedSceneObject = dynamic_cast<const InstancedSceneObject*>(m_sceneObject);
-                for (auto[ray, hitInfo, userState, insertHandle] : *batch) {
-                    auto localRay = instancedSceneObject->transformRayToInstanceSpace(ray);
+            // TODO: lock outside the taskGroup.run. NOTE: this requires acquiring a shared_ptr of OOCSceneObjectGeometry
+            m_sceneObject->lockGeometry([batch, m_sceneObject](const OOCSceneObjectGeometry& geometryProperties) {
+                if (const auto* instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(m_sceneObject)) {
+                    for (auto&[ray, hitInfo, userState, insertHandle] : *batch) {
+                        auto localRay = instancedSceneObject->transformRayToInstanceSpace(ray);
 
-                    // Intersect with the bottom-level BVH
-                    if (hitInfo) {
-                        if (m_leafBVH->intersect(localRay, *hitInfo)) {
-                            hitInfo->sceneObject = m_sceneObject; // Set to the actual (specific instance) scene object
-                            ray.tfar = localRay.tfar;
-                        }
-                    } else {
-                        if (m_leafBVH->intersectAny(localRay))
-                            ray.tfar = localRay.tfar;
-                    }
-                }
-            } else {
-                for (auto[ray, hitInfo, userState, insertHandle] : *batch) {
-                    // Intersect with the bottom-level BVH
-                    if (hitInfo) {
-                        if (m_leafBVH->intersect(ray, *hitInfo))
-                            hitInfo->sceneObject = m_sceneObject;
-                    } else {
-                        m_leafBVH->intersectAny(ray);
-                    }
-                }
-            }
-
-            for (auto[ray, hitInfo, userState, insertHandle] : *batch) {
-                if (hitInfo) {
-                    // Insert the ray back into the top-level  BVH
-                    auto optResult = m_accelerationStructurePtr->m_bvh.intersect(ray, *hitInfo, userState, insertHandle);
-                    if (optResult) {
-                        // Ray exited the system so hitInfo contains the closest hit
-                        if (hitInfo->sceneObject) {
-                            // Compute the full surface interaction
-                            SurfaceInteraction si = hitInfo->sceneObject->fillSurfaceInteraction(ray, *hitInfo);
-                            m_accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
+                        // Intersect with the bottom-level BVH
+                        if (hitInfo) {
+                            if (m_leafBVH->intersect(localRay, *hitInfo)) {
+                                std::get<const OOCSceneObject*>(hitInfo->sceneObjectVariant) = instancedSceneObject;  // Set to the actual (specific instance) scene object
+                                SurfaceInteraction si = geometryProperties.fillSurfaceInteraction(ray, *hitInfo);
+                                ray.tfar = localRay.tfar;
+                            }
                         } else {
-                            m_accelerationStructurePtr->m_missCallback(ray, userState);
+                            if (m_leafBVH->intersectAny(localRay))
+                                ray.tfar = localRay.tfar;
                         }
                     }
                 } else {
-                    // Intersect any
-                    if (ray.tfar == -std::numeric_limits<float>::infinity()) {
-                        m_accelerationStructurePtr->m_anyHitCallback(ray, userState);
-                    } else {
-                        auto optResult = m_accelerationStructurePtr->m_bvh.intersectAny(ray, userState, insertHandle);
-                        if (optResult && *optResult == false) {
-                            // Ray exited system
-                            m_accelerationStructurePtr->m_missCallback(ray, userState);
+                    for (auto&[ray, hitInfo, userState, insertHandle] : *batch) {
+                        // Intersect with the bottom-level BVH
+                        if (hitInfo) {
+                            if (m_leafBVH->intersect(ray, *hitInfo)) {
+                                std::get<const OOCSceneObject*>(hitInfo->sceneObjectVariant) = m_sceneObject;
+                            }
+                        } else {
+                            m_leafBVH->intersectAny(ray);
                         }
                     }
                 }
-            }
-            m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
+
+                m_sceneObject->lockMaterial([=](const OOCSceneObjectMaterial& materialProperties) {
+                    for (auto[ray, hitInfo, userState, insertHandle] : *batch) {
+                        if (hitInfo) {
+                            // Insert the ray back into the top-level  BVH
+                            auto optResult = m_accelerationStructurePtr->m_bvh.intersect(ray, *hitInfo, userState, insertHandle);
+                            if (optResult) {
+                                // Ray exited the system so hitInfo contains the closest hit
+                                const auto* hitSceneObject = std::get<const OOCSceneObject*>(hitInfo->sceneObjectVariant);
+                                if (hitSceneObject) {
+                                    // Compute the full surface interaction
+                                    si.sceneObjectMaterial = materialProperties;
+                                    m_accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
+                                } else {
+                                    m_accelerationStructurePtr->m_missCallback(ray, userState);
+                                }
+                            }
+                        } else {
+                            // Intersect any
+                            if (ray.tfar == -std::numeric_limits<float>::infinity()) {
+                                m_accelerationStructurePtr->m_anyHitCallback(ray, userState);
+                            } else {
+                                auto optResult = m_accelerationStructurePtr->m_bvh.intersectAny(ray, userState, insertHandle);
+                                if (optResult && *optResult == false) {
+                                    // Ray exited system
+                                    m_accelerationStructurePtr->m_missCallback(ray, userState);
+                                }
+                            }
+                        }
+                    }
+                    m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
+                });
+            });
         });
         batch = next;
     }
@@ -530,19 +535,19 @@ inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLe
 }
 
 template <typename UserState, size_t BatchSize>
-inline Bounds OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::getBounds() const
+inline Bounds OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::getBounds() const
 {
     return m_sceneObject->worldBoundsPrimitive(m_primitiveID);
 }
 
 template <typename UserState, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::intersect(Ray& ray, RayHit& hitInfo) const
+inline bool OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::intersect(Ray& ray, RayHit& hitInfo) const
 {
     return m_sceneObject->intersectPrimitive(ray, hitInfo, m_primitiveID);
 }
 
 template <typename UserState, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const RayHit& hitInfo, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
+inline bool OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const RayHit& hitInfo, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
     m_data.emplace_back(ray, hitInfo, state, insertHandle);
 
@@ -550,7 +555,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tr
 }
 
 template <typename UserState, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
+inline bool OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
     std::optional<RayHit> opt = {};
     m_data.emplace_back(ray, opt, state, insertHandle);
@@ -559,33 +564,33 @@ inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tr
 }
 
 template <typename UserState, size_t BatchSize>
-inline const typename OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::begin()
+inline const typename OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::begin()
 {
     return iterator(this, 0);
 }
 
 template <typename UserState, size_t BatchSize>
-inline const typename OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::end()
+inline const typename OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::end()
 {
     return iterator(this, m_data.size());
 }
 
 template <typename UserState, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::iterator(OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch* batch, size_t index)
+inline OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::iterator(OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch* batch, size_t index)
     : m_rayBatch(batch)
     , m_index(index)
 {
 }
 
 template <typename UserState, size_t BatchSize>
-inline typename OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator& OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator++()
+inline typename OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator& OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator++()
 {
     m_index++;
     return *this;
 }
 
 template <typename UserState, size_t BatchSize>
-inline typename OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator++(int)
+inline typename OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator++(int)
 {
     auto r = *this;
     m_index++;
@@ -593,21 +598,21 @@ inline typename OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch
 }
 
 template <typename UserState, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator==(OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator other) const
+inline bool OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator==(OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator other) const
 {
     assert(m_rayBatch == other.m_rayBatch);
     return m_index == other.m_index;
 }
 
 template <typename UserState, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator!=(OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator other) const
+inline bool OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator!=(OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator other) const
 {
     assert(m_rayBatch == other.m_rayBatch);
     return m_index != other.m_index;
 }
 
 template <typename UserState, size_t BatchSize>
-inline typename OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::value_type OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator*()
+inline typename OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::value_type OOCCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator*()
 {
     auto&[ray, hitInfo, userState, insertHandle] = m_rayBatch->m_data[m_index];
     return { ray, hitInfo, userState, insertHandle };

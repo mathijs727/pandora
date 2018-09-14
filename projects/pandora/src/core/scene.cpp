@@ -8,10 +8,34 @@
 
 namespace pandora {
 
-gsl::span<const std::unique_ptr<InCoreSceneObject>> Scene::getSceneObjects() const
+void Scene::addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneObject)
 {
-    return m_sceneObjects;
+    for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
+        if (const auto* light = sceneObject->getPrimitiveAreaLight(primitiveID); light) {
+            m_lights.push_back(light);
+        }
+    }
+    m_inCoreSceneObjects.emplace_back(std::move(sceneObject));
 }
+
+void Scene::addInfiniteLight(const std::shared_ptr<Light>& light)
+{
+    m_lights.push_back(light.get());
+    m_infiniteLights.push_back(light.get());
+
+    m_lightOwningPointers.push_back(light);
+}
+
+gsl::span<const std::unique_ptr<InCoreSceneObject>> Scene::getInCoreSceneObjects() const
+{
+    return m_inCoreSceneObjects;
+}
+
+gsl::span<const std::unique_ptr<OOCSceneObject>> Scene::getOOCSceneObjects() const
+{
+    return m_oocSceneObjects;
+}
+
 
 gsl::span<const Light* const> Scene::getLights() const
 {
@@ -21,24 +45,6 @@ gsl::span<const Light* const> Scene::getLights() const
 gsl::span<const Light* const> Scene::getInfiniteLights() const
 {
     return m_infiniteLights;
-}
-
-void Scene::addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneObject)
-{
-    for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
-        if (const auto* light = sceneObject->getPrimitiveAreaLight(primitiveID); light) {
-            m_lights.push_back(light);
-        }
-    }
-    m_sceneObjects.emplace_back(std::move(sceneObject));
-}
-
-void Scene::addInfiniteLight(const std::shared_ptr<Light>& light)
-{
-    m_lights.push_back(light.get());
-    m_infiniteLights.push_back(light.get());
-
-    m_lightOwningPointers.push_back(light);
 }
 
 }

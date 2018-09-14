@@ -152,7 +152,7 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
 
         m_bvh.intersect(ray, hitInfo);
 
-        const InCoreSceneObject* sceneObject = std::get<RayHit::InCore>(hitInfo.sceneObjectVariant).sceneObject;
+        const auto* sceneObject = std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant);
         if (sceneObject) {
             SurfaceInteraction si = sceneObject->fillSurfaceInteraction(ray, hitInfo);
             si.sceneObjectMaterial = sceneObject;
@@ -236,7 +236,7 @@ inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersect(Ray& ray
     if (!m_bvh) {
         bool hit = m_sceneObject.intersectPrimitive(ray, hitInfo, m_primitiveID);
         if (hit) {
-            std::get<RayHit::InCore>(hitInfo.sceneObjectVariant).sceneObject = &m_sceneObject;
+            std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant) = &m_sceneObject;
         }
         return hit;
     } else {
@@ -245,7 +245,7 @@ inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersect(Ray& ray
 
         bool hit = m_bvh->intersect(localRay, hitInfo);
         if (hit) {
-            std::get<RayHit::InCore>(hitInfo.sceneObjectVariant).sceneObject = &m_sceneObject;
+            std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant) = &m_sceneObject;
         }
 
         ray.tfar = localRay.tfar;

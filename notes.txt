@@ -124,3 +124,10 @@ With parsing performance getting to reasonable numbers the second problem was me
 Another limiting factor was that each individual mesh in the input pbrt files was written to a temporary binary file and then converted again to a regular mesh (obj/ply) file. Although the latter is hard to circumvent, some performance was gained by merging small meshes into a larger file (at least 500MB).
 
 The result of these optimizations is that the parsing phase "only" requires about 8GB of ram (during the parsing of the large 6GB files).
+
+
+=== OUT OF CORE RENDERING ===
+The batching architecture is designed to reduce the amount of times that data has to be loaded from disk. In out-of-core rendering it is extra important that the latency of loading data from disk is hidden as much as possible. Similar to the design of GPUs, threads that are waiting for file I/O (VRAM in the GPU analogy) are swapped with threads that have active work to do. In our case that means making sure that there are always as many threads traversing as there are cores.
+
+This design seems not that easy to implement. Intel TBB was not designed to support asynchronous file I/O. Furthermore, it might make handling the cache harder. If file I/O is asynchronous than all top level leaf nodes might be requested to load before any load is finished. Although the file I/O should not run on the TBB worker threads, it is important to ensure that they do not produce more data than the worker threads can process, otherwise the process will run out of memory or evict data that has not been processed yet (depending on the implementation). Alternatively, one could perform the loading in the TBB worker threads but ask TBB to spawn additional threads. This would completely rely on the operating system to swap in/out threads. This might be slower than reserving one core for running I/O threads.
+

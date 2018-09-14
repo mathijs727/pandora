@@ -61,8 +61,6 @@ public:
     virtual ~OOCSceneObject() {};
 
     virtual Bounds worldBounds() const = 0;
-    virtual const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const = 0;
-    virtual bool isInstancedSceneObject() const { return false; }
 
     virtual void lockGeometry(std::function<void(const SceneObjectGeometry&)> callback) const = 0;
     virtual void lockMaterial(std::function<void(const SceneObjectMaterial&)> callback) const = 0;
@@ -79,16 +77,19 @@ public:
     ~Scene() = default;
 
     void addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneNode);
+    void addSceneObject(std::unique_ptr<OOCSceneObject>&& sceneNode);
     void addInfiniteLight(const std::shared_ptr<Light>& light);
 
     //void splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject);
 
-    gsl::span<const std::unique_ptr<InCoreSceneObject>> getSceneObjects() const;
+    gsl::span<const std::unique_ptr<InCoreSceneObject>> getInCoreSceneObjects() const;
+    gsl::span<const std::unique_ptr<OOCSceneObject>> getOOCSceneObjects() const;
     gsl::span<const Light* const> getLights() const;
     gsl::span<const Light* const> getInfiniteLights() const;
 
 private:
-    std::vector<std::unique_ptr<InCoreSceneObject>> m_sceneObjects;
+    std::vector<std::unique_ptr<InCoreSceneObject>> m_inCoreSceneObjects;
+    std::vector<std::unique_ptr<OOCSceneObject>> m_oocSceneObjects;
     std::vector<const Light*> m_lights;
     std::vector<const Light*> m_infiniteLights;
 
