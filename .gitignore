@@ -1,3 +1,16 @@
+# Manual build folder
+build
+build-release
+build-gcc
+
+# Flatbuffers include folder (generated from the actual flatbuffers)
+projects/pandora/flatbuffers/include/
+
+# Temporary python cache files
+*.pyc
+*.pyd
+*.so
+
 # Visual Studio (Code)
 CMakeSettings.json
 .vscode
@@ -10,11 +23,6 @@ projects/.vs/
 # Assets
 assets/
 
-# Manual build folder
-build
-build-release
-build-gcc
-
 # Dependencies folders
 third_party/downloads/
 third_party/install/
@@ -23,11 +31,7 @@ third_party/install/
 *.sublime-project
 *.sublime-workspace
 CMakeSettings.json
-# Temporary python cache files
-*.pyc
 
-*.pyd
-*.so
 workspace.code-workspace
 projects/pbrt_importer/python/parsing/parsetab.py
 projects/pbrt_importer/python/parsing/lextab.py

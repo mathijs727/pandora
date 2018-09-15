@@ -52,6 +52,11 @@ find_package(nlohmann_json)
 add_library(tinyply "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/tinyply.cpp")
 target_include_directories(tinyply PUBLIC "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/")
 
+
+find_package(Flatbuffers REQUIRED)
+get_property(FLATBUFFERS_FLATC_EXECUTABLE TARGET flatbuffers::flatc PROPERTY IMPORTED_LOCATION_RELEASE)
+include("cmake/BuildFlatBuffers.cmake") # Include cmake script that defines the flatc compile function
+
 if (PANDORA_BUILD_TESTS)
     find_package(GTest REQUIRED)
 endif()

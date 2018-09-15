@@ -17,6 +17,21 @@ if (PANDORA_ISPC_SUPPORT)
 	target_compile_definitions(libPandora PUBLIC "PANDORA_ISPC_SUPPORT")
 endif()
 
+set(pandora_flatbuffer_files
+	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/contiguous_allocator.fbs"
+	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/triangle_mesh.fbs"
+	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/wive_bvh8.fbs")
+set(pandora_flatbuffer_include_folder "${CMAKE_CURRENT_LIST_DIR}/flatbuffers/include/")
+build_flatbuffers(
+	"${pandora_flatbuffer_files}" # flatbuffers_schemas
+	"" # schema_include_dirs
+	pandoraFlatbuffers # custom_target_name
+	"" # additional_dependencies
+	"${pandora_flatbuffer_include_folder}" # generated_includes_dir
+	"" # binary_schemas_dir
+	"") # copy_text_schemas_dir
+add_dependencies(libPandora pandoraFlatbuffers)
+
 target_link_libraries(libPandora PUBLIC
 	simd
 	metrics
@@ -39,8 +54,11 @@ if (UNIX)
 	target_link_libraries(libPandora PRIVATE atomic)
 endif()
 
-target_include_directories(libPandora PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/")
-target_include_directories(libPandora PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src/")
+target_include_directories(libPandora PUBLIC
+	"${CMAKE_CURRENT_LIST_DIR}/include/"
+	"${pandora_flatbuffer_include_folder}")
+target_include_directories(libPandora PRIVATE
+	"${CMAKE_CURRENT_LIST_DIR}/src/")
 include(${CMAKE_CURRENT_LIST_DIR}/src/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/include/CMakeLists.txt)
 

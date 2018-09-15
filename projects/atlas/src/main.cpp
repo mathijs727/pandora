@@ -183,7 +183,7 @@ void addStanfordBunny(Scene& scene)
 
 void addStanfordDragon(Scene& scene, bool loadFromCache)
 {
-    auto transform = glm::mat4(1.0f);
+    /*auto transform = glm::mat4(1.0f);
     transform = glm::translate(transform, glm::vec3(0, -0.5f, 0));
     transform = glm::scale(transform, glm::vec3(10));
     transform = glm::rotate(transform, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -200,7 +200,7 @@ void addStanfordDragon(Scene& scene, bool loadFromCache)
         for (auto& mesh : meshes) {
             scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
         }
-    }
+    }*/
 }
 
 void addCornellBox(Scene& scene)

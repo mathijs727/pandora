@@ -5,7 +5,6 @@
 #include "glm/mat4x4.hpp"
 #include "pandora/core/stats.h"
 #include "pandora/core/transform.h"
-#include "pandora/flatbuffers/triangle_mesh_generated.h"
 #include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
 #include <cassert>
@@ -198,8 +197,7 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::stri
 
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFileFromMemory(mmapFile.data(), length,
-        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices |
-        aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals,
+        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals,
         "obj");
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
@@ -219,8 +217,7 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::stri
 
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(filename.data(),
-        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices|
-        aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
+        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
         LOG_WARNING("Failed to load mesh file: "s + std::string(filename));
@@ -352,50 +349,36 @@ std::vector<TriangleMesh> TriangleMesh::loadFromFile(const std::string_view file
     return result;
 }
 
-TriangleMesh TriangleMesh::loadFromCacheFile(const std::string_view filename)
+TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh)
 {
-    auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
-    auto triangleMesh = serialization::GetTriangleMesh(mmapFile.data());
-    unsigned numTriangles = triangleMesh->numTriangles();
-    unsigned numVertices = triangleMesh->numVertices();
+    m_numTriangles = serializedTriangleMesh->numTriangles();
+    m_numVertices = serializedTriangleMesh->numVertices();
 
-    std::unique_ptr<glm::ivec3[]> triangles = std::make_unique<glm::ivec3[]>(numTriangles);
-    std::memcpy(triangles.get(), triangleMesh->triangles()->data(), triangleMesh->triangles()->size());
+    m_triangles = std::make_unique<glm::ivec3[]>(m_numTriangles);
+    std::memcpy(m_triangles.get(), serializedTriangleMesh->triangles()->data(), serializedTriangleMesh->triangles()->size());
 
-    std::unique_ptr<glm::vec3[]> positions = std::make_unique<glm::vec3[]>(numVertices);
-    std::memcpy(positions.get(), triangleMesh->positions()->data(), triangleMesh->positions()->size());
+    m_positions = std::make_unique<glm::vec3[]>(m_numVertices);
+    std::memcpy(m_positions.get(), serializedTriangleMesh->positions()->data(), serializedTriangleMesh->positions()->size());
 
-    std::unique_ptr<glm::vec3[]> normals;
-    if (triangleMesh->normals()) {
-        normals = std::make_unique<glm::vec3[]>(numVertices);
-        std::memcpy(normals.get(), triangleMesh->normals()->data(), triangleMesh->normals()->size());
+    if (serializedTriangleMesh->normals()) {
+        m_normals = std::make_unique<glm::vec3[]>(m_numVertices);
+        std::memcpy(m_normals.get(), serializedTriangleMesh->normals()->data(), serializedTriangleMesh->normals()->size());
     }
 
-    std::unique_ptr<glm::vec3[]> tangents;
-    if (triangleMesh->tangents()) {
-        tangents = std::make_unique<glm::vec3[]>(numVertices);
-        std::memcpy(tangents.get(), triangleMesh->tangents()->data(), triangleMesh->tangents()->size());
+    if (serializedTriangleMesh->tangents()) {
+        m_tangents = std::make_unique<glm::vec3[]>(m_numVertices);
+        std::memcpy(m_tangents.get(), serializedTriangleMesh->tangents()->data(), serializedTriangleMesh->tangents()->size());
     }
 
-    std::unique_ptr<glm::vec2[]> uvCoords;
-    if (triangleMesh->uvCoords()) {
-        uvCoords = std::make_unique<glm::vec2[]>(numVertices);
-        std::memcpy(uvCoords.get(), triangleMesh->uvCoords()->data(), triangleMesh->uvCoords()->size());
+    if (serializedTriangleMesh->uvCoords()) {
+        m_uvCoords = std::make_unique<glm::vec2[]>(m_numVertices);
+        std::memcpy(m_uvCoords.get(), serializedTriangleMesh->uvCoords()->data(), serializedTriangleMesh->uvCoords()->size());
     }
 
-    mmapFile.unmap();
 
-    return TriangleMesh(
-        numTriangles,
-        numVertices,
-        std::move(triangles),
-        std::move(positions),
-        std::move(normals),
-        std::move(tangents),
-        std::move(uvCoords));
 }
 
-void TriangleMesh::saveToCacheFile(const std::string_view filename)
+flatbuffers::Offset<serialization::TriangleMesh> TriangleMesh::serialize(flatbuffers::FlatBufferBuilder& builder) const
 {
     size_t estimatedSize = 1024 + m_numTriangles * sizeof(glm::ivec3) + m_numVertices * sizeof(glm::vec3);
     if (m_normals)
@@ -405,7 +388,6 @@ void TriangleMesh::saveToCacheFile(const std::string_view filename)
     if (m_uvCoords)
         estimatedSize += m_numVertices * sizeof(glm::vec2);
 
-    flatbuffers::FlatBufferBuilder builder(estimatedSize);
     auto triangles = builder.CreateVector(reinterpret_cast<const int8_t*>(m_triangles.get()), m_numTriangles * sizeof(glm::ivec3));
     auto positions = builder.CreateVector(reinterpret_cast<const int8_t*>(m_positions.get()), m_numVertices * sizeof(glm::vec3));
     flatbuffers::Offset<flatbuffers::Vector<int8_t>> normals = 0;
@@ -418,7 +400,7 @@ void TriangleMesh::saveToCacheFile(const std::string_view filename)
     if (m_uvCoords)
         uvCoords = builder.CreateVector(reinterpret_cast<const int8_t*>(m_uvCoords.get()), m_numVertices * sizeof(glm::vec2));
 
-    auto triangleMesh = serialization::CreateTriangleMesh(
+    return serialization::CreateTriangleMesh(
         builder,
         m_numTriangles,
         m_numVertices,
@@ -427,25 +409,19 @@ void TriangleMesh::saveToCacheFile(const std::string_view filename)
         normals,
         tangents,
         uvCoords);
-    builder.Finish(triangleMesh);
-
-    std::ofstream file;
-    file.open(filename.data(), std::ios::out | std::ios::binary | std::ios::trunc);
-    file.write(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
-    file.close();
 }
 
 size_t TriangleMesh::sizeBytes() const
 {
     size_t size = sizeof(TriangleMesh);
-    size += m_numTriangles * sizeof(glm::ivec3);// triangles
-    size += m_numVertices * sizeof(glm::vec3);// positions
+    size += m_numTriangles * sizeof(glm::ivec3); // triangles
+    size += m_numVertices * sizeof(glm::vec3); // positions
     if (m_normals)
-        size += m_numVertices * sizeof(glm::vec3);// normals
+        size += m_numVertices * sizeof(glm::vec3); // normals
     if (m_tangents)
-        size += m_numVertices * sizeof(glm::vec3);// tangents
+        size += m_numVertices * sizeof(glm::vec3); // tangents
     if (m_uvCoords)
-        size += m_numVertices * sizeof(glm::vec2);// uv coords
+        size += m_numVertices * sizeof(glm::vec2); // uv coords
     return size;
 }
 

@@ -1,5 +1,16 @@
 namespace pandora.serialization;
 
+struct Vec3 {
+	x: float;
+	y: float;
+	z: float;
+}
+
+struct Bounds {
+	min: Vec3;
+	max: Vec3;
+}
+
 table TriangleMesh
 {
 	numTriangles: uint32;
@@ -9,6 +20,7 @@ table TriangleMesh
 	normals: [byte];
 	tangents: [byte];
 	uvCoords: [byte];
+	bounds: Bounds;
 }
 
 root_type TriangleMesh;
