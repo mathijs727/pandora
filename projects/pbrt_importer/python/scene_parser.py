@@ -3,6 +3,7 @@ from unique_collection import UniqueCollection
 import numpy as np
 import pickle
 import os
+import plyfile
 from pandora_mesh_exporter import PandoraMeshExporter
 
 
@@ -184,7 +185,6 @@ class SceneParser:
             return self._create_texture_id(constant_texture(list(v)))
 
     def _create_material_id(self, material):
-        print(material)
         if material.type == "matte":
             if "Kd" in material.arguments:
                 kd = self._color_tex_argument(material.arguments["Kd"])
@@ -220,24 +220,55 @@ class SceneParser:
             })
 
     def _create_geometric_scene_object(self, shape):
+        transform_matrix = np.reshape(shape.transform, (4, 4))
         if shape.type == "plymesh":
+            filename = shape.arguments["filename"]["value"]
+            with open(filename, "rb") as f:
+                plydata = plyfile.PlyData.read(f)
+                num_vertices = plydata["vertex"].count
+                # TODO: make sure that the multiplication axis are correct
+                positions = np.vstack(
+                    (plydata["vertex"]["x"], plydata["vertex"]["y"], plydata["vertex"]["z"], np.ones((num_vertices))))
+                transformed_positions = np.matmul(transform_matrix, positions)
+
+                bounds_min = np.min(transformed_positions[:-1], axis=1)
+                bounds_max = np.max(transformed_positions[:-1], axis=1)
+
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": shape.arguments["filename"]["value"],
-                "transform": shape.transform
+                "transform": shape.transform,
+                "bounds": (bounds_min.tolist(), bounds_max.tolist())
             })
         elif shape.type == "trianglemesh":
             with open(shape.arguments["filename"], "rb") as f:
                 f.seek(shape.arguments["start_byte"])
                 string = f.read(shape.arguments["num_bytes"])
-                filename, start_byte, size_bytes = self._export_triangle_mesh(pickle.loads(string))
+                triangle_mesh_data = pickle.loads(string)
+                filename, start_byte, size_bytes = self._export_triangle_mesh(
+                    triangle_mesh_data)
+                
+                # TODO: make sure that the multiplication axis are correct
+                # Load the positions from a contiguous array into an array of 3D coordinates
+                positions = triangle_mesh_data["P"]["value"]
+                num_vertices = len(positions) // 3
+                positions = positions.reshape((num_vertices, 3)).T
+
+                # Convert to homogeneous coordinates and transform
+                positions = np.row_stack((positions, np.ones(num_vertices)))
+                transformed_positions = np.matmul(transform_matrix, positions)
+
+                # Bounds of transformed positions
+                bounds_min = np.min(transformed_positions[:-1], axis=1)
+                bounds_max = np.max(transformed_positions[:-1], axis=1)
 
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": filename,
                 "start_byte": start_byte,
                 "size_bytes": size_bytes,
-                "transform": shape.transform
+                "transform": shape.transform,
+                "bounds": (bounds_min.tolist(), bounds_max.tolist())
             })
         else:
             print(f"Ignoring shape of unsupported type {shape.type}")
@@ -311,7 +342,7 @@ class SceneParser:
             uv_coords = np.empty((0))
 
         #mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
-        #pandora_py.export_triangle_mesh(
+        # pandora_py.export_triangle_mesh(
         #    mesh_file, triangles, positions, normals, tangents, uv_coords)
         return self._out_mesh_exporter.add_triangle_mesh(triangles, positions, normals, tangents, uv_coords)
 

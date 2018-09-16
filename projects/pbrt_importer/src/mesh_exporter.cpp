@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <vector>
 
+namespace py = boost::python;
+namespace np = boost::python::numpy;
 using namespace std::string_literals;
 
 template <typename T>
@@ -38,7 +40,7 @@ PandoraMeshBatch::PandoraMeshBatch(std::string filename) :
 {
 }
 
-boost::python::tuple PandoraMeshBatch::addTriangleMesh(
+py::object PandoraMeshBatch::addTriangleMesh(
     np::ndarray npTriangles,
     np::ndarray npPositions,
     np::ndarray npNormals,
@@ -85,5 +87,5 @@ boost::python::tuple PandoraMeshBatch::addTriangleMesh(
     }
 
     size_t sizeBytes = static_cast<size_t>(m_file.tellp()) - startByte;
-    return boost::python::make_tuple(m_filename, startByte, sizeBytes);
+    return py::make_tuple(m_filename, startByte, sizeBytes);
 }
