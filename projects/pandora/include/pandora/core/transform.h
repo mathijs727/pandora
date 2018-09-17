@@ -3,6 +3,7 @@
 #include "pandora/core/ray.h"
 #include "pandora/geometry/bounds.h"
 #include "pandora/core/interaction.h"
+#include "pandora/flatbuffers/data_types_generated.h"
 #include <glm/glm.hpp>
 
 namespace pandora {
@@ -10,6 +11,9 @@ namespace pandora {
 class Transform {
 public:
     Transform(const glm::mat4& matrix);
+    Transform(const serialization::Transform* serializedTransform);
+
+    serialization::Transform serialize() const;
 
     glm::vec3 transformPoint(const glm::vec3& p) const;
     glm::vec3 transformVector(const glm::vec3& v) const;

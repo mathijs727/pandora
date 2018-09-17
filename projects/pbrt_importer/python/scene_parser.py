@@ -221,6 +221,7 @@ class SceneParser:
 
     def _create_geometric_scene_object(self, shape):
         transform_matrix = np.reshape(shape.transform, (4, 4))
+        shape_bounds = None
         if shape.type == "plymesh":
             filename = shape.arguments["filename"]["value"]
             with open(filename, "rb") as f:
@@ -233,12 +234,12 @@ class SceneParser:
 
                 bounds_min = np.min(transformed_positions[:-1], axis=1)
                 bounds_max = np.max(transformed_positions[:-1], axis=1)
+                shape_bounds = (bounds_min.tolist(), bounds_max.tolist())
 
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": shape.arguments["filename"]["value"],
-                "transform": shape.transform,
-                "bounds": (bounds_min.tolist(), bounds_max.tolist())
+                "transform": shape.transform
             })
         elif shape.type == "trianglemesh":
             with open(shape.arguments["filename"], "rb") as f:
@@ -261,14 +262,14 @@ class SceneParser:
                 # Bounds of transformed positions
                 bounds_min = np.min(transformed_positions[:-1], axis=1)
                 bounds_max = np.max(transformed_positions[:-1], axis=1)
+                shape_bounds = (bounds_min.tolist(), bounds_max.tolist())
 
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": filename,
                 "start_byte": start_byte,
                 "size_bytes": size_bytes,
-                "transform": shape.transform,
-                "bounds": (bounds_min.tolist(), bounds_max.tolist())
+                "transform": shape.transform
             })
         else:
             print(f"Ignoring shape of unsupported type {shape.type}")
@@ -287,13 +288,15 @@ class SceneParser:
                 "instancing": False,
                 "geometry_id": geometry_id,
                 "material_id": material_id,
-                "area_light": area_light
+                "area_light": area_light,
+                "bounds": shape_bounds
             }
         else:
             return {
                 "instancing": False,
                 "geometry_id": geometry_id,
-                "material_id": material_id
+                "material_id": material_id,
+                "bounds": shape_bounds
             }
 
     def _create_scene_objects(self, pbrt_scene):

@@ -21,14 +21,26 @@ struct ContiguousAllocator FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
   uint32_t maxSize() const {
     return GetField<uint32_t>(VT_MAXSIZE, 0);
   }
+  bool mutate_maxSize(uint32_t _maxSize) {
+    return SetField<uint32_t>(VT_MAXSIZE, _maxSize, 0);
+  }
   uint32_t blockSize() const {
     return GetField<uint32_t>(VT_BLOCKSIZE, 0);
+  }
+  bool mutate_blockSize(uint32_t _blockSize) {
+    return SetField<uint32_t>(VT_BLOCKSIZE, _blockSize, 0);
   }
   uint32_t currentSize() const {
     return GetField<uint32_t>(VT_CURRENTSIZE, 0);
   }
+  bool mutate_currentSize(uint32_t _currentSize) {
+    return SetField<uint32_t>(VT_CURRENTSIZE, _currentSize, 0);
+  }
   const flatbuffers::Vector<int8_t> *data() const {
     return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_DATA);
+  }
+  flatbuffers::Vector<int8_t> *mutable_data() {
+    return GetPointer<flatbuffers::Vector<int8_t> *>(VT_DATA);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&

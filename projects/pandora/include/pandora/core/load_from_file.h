@@ -15,5 +15,6 @@ struct RenderConfig
 };
 
 RenderConfig loadFromFile(std::string_view filename, bool loadMaterials = true);
+RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials = true);
 
 }

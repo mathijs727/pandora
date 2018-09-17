@@ -11,28 +11,25 @@ template <typename T>
 class EvictableResourceHandle
 {
 public:
-    EvictableResourceHandle(FifoCache<T>& cache, EvictableResourceID resource);
+    EvictableResourceHandle(const FifoCache<T>& cache, EvictableResourceID resource);
 
-    template <typename F>
-    void lock(F&& callback) const;
+    std::shared_ptr<T> getBlocking() const;
 private:
-    FifoCache<T>& m_cache;
+    FifoCache<T> m_cache;
     EvictableResourceID m_resourceID;
-    std::shared_ptr<T> m_resource;
 };
 
 template<typename T>
-inline EvictableResourceHandle<T>::EvictableResourceHandle(FifoCache<T>& cache, EvictableResourceID resourceID) :
+inline EvictableResourceHandle<T>::EvictableResourceHandle(const FifoCache<T>& cache, EvictableResourceID resourceID) :
     m_cache(cache), m_resourceID(resourceID)
 {
 }
 
 template<typename T>
-template <typename F>
-inline void EvictableResourceHandle<T>::lock(F&& callback) const
+inline std::shared_ptr<T> EvictableResourceHandle<T>::getBlocking() const
 {
     auto* mutThisPtr = const_cast<EvictableResourceHandle<T>*>(this);
-    return mutThisPtr->m_cache.accessResource(m_resourceID, callback);
+    return mutThisPtr->m_cache->accessResource(m_resourceID, callback);
 }
 
 }

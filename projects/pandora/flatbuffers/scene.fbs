@@ -1,0 +1,15 @@
+include "data_types.fbs";
+include "triangle_mesh.fbs";
+
+namespace pandora.serialization;
+
+table InstancedSceneObjectGeometry
+{
+	transform: Transform;
+	geometryHandle: uint;
+}
+
+table GeometricSceneObjectGeometry
+{
+	geometry: TriangleMesh;
+}

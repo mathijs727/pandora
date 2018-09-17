@@ -1,11 +1,15 @@
 #pragma once
 #include "pandora/core/scene.h"
+#include "pandora/flatbuffers/scene_generated.h"
 
 namespace pandora {
 
 class GeometricSceneObjectGeometry : public SceneObjectGeometry {
 public:
+    GeometricSceneObjectGeometry(const pandora::serialization::TriangleMesh* serialized);
     ~GeometricSceneObjectGeometry() override final = default;
+
+    flatbuffers::Offset<serialization::GeometricSceneObjectGeometry> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
     Bounds worldBoundsPrimitive(unsigned primitiveID) const override final;
 
@@ -80,20 +84,20 @@ private:
 class OOCInstancedSceneObject;
 class OOCGeometricSceneObject : public OOCSceneObject {
 public:
-    OOCGeometricSceneObject(const Bounds& worldBounds, const EvictableResourceHandle<TriangleMesh>& meshHandle, const std::shared_ptr<const Material>& material);
+    OOCGeometricSceneObject(const Bounds& worldBounds, const EvictableResourceHandle<TriangleMesh>& geometryHandle, const std::shared_ptr<const Material>& material);
     //GeometricSceneObjectOOC(const Bounds& worldBounds, const EvictableResourceHandle<TriangleMesh>& meshHandle, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
     ~OOCGeometricSceneObject() override final = default;
 
     Bounds worldBounds() const override final;
 
-    void lockGeometry(std::function<void(const SceneObjectGeometry&)> callback) const override final;
-    void lockMaterial(std::function<void(const SceneObjectMaterial&)> callback) const override final;
+    std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
+    std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
 
 private:
     friend class InstancedSceneObjectOOC;
 private:
     Bounds m_worldBounds;
-    EvictableResourceHandle<TriangleMesh> m_meshHandle;
+    EvictableResourceHandle<TriangleMesh> m_geometryHandle;
     GeometricSceneObjectMaterial m_materialProperties;
 };
 

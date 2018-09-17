@@ -6,6 +6,8 @@
 
 #include "flatbuffers/flatbuffers.h"
 
+#include "data_types_generated.h"
+
 namespace pandora {
 namespace serialization {
 
@@ -19,28 +21,56 @@ struct TriangleMesh FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_POSITIONS = 10,
     VT_NORMALS = 12,
     VT_TANGENTS = 14,
-    VT_UVCOORDS = 16
+    VT_UVCOORDS = 16,
+    VT_BOUNDS = 18
   };
   uint32_t numTriangles() const {
     return GetField<uint32_t>(VT_NUMTRIANGLES, 0);
   }
+  bool mutate_numTriangles(uint32_t _numTriangles) {
+    return SetField<uint32_t>(VT_NUMTRIANGLES, _numTriangles, 0);
+  }
   uint32_t numVertices() const {
     return GetField<uint32_t>(VT_NUMVERTICES, 0);
+  }
+  bool mutate_numVertices(uint32_t _numVertices) {
+    return SetField<uint32_t>(VT_NUMVERTICES, _numVertices, 0);
   }
   const flatbuffers::Vector<int8_t> *triangles() const {
     return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_TRIANGLES);
   }
+  flatbuffers::Vector<int8_t> *mutable_triangles() {
+    return GetPointer<flatbuffers::Vector<int8_t> *>(VT_TRIANGLES);
+  }
   const flatbuffers::Vector<int8_t> *positions() const {
     return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_POSITIONS);
+  }
+  flatbuffers::Vector<int8_t> *mutable_positions() {
+    return GetPointer<flatbuffers::Vector<int8_t> *>(VT_POSITIONS);
   }
   const flatbuffers::Vector<int8_t> *normals() const {
     return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_NORMALS);
   }
+  flatbuffers::Vector<int8_t> *mutable_normals() {
+    return GetPointer<flatbuffers::Vector<int8_t> *>(VT_NORMALS);
+  }
   const flatbuffers::Vector<int8_t> *tangents() const {
     return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_TANGENTS);
   }
+  flatbuffers::Vector<int8_t> *mutable_tangents() {
+    return GetPointer<flatbuffers::Vector<int8_t> *>(VT_TANGENTS);
+  }
   const flatbuffers::Vector<int8_t> *uvCoords() const {
     return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_UVCOORDS);
+  }
+  flatbuffers::Vector<int8_t> *mutable_uvCoords() {
+    return GetPointer<flatbuffers::Vector<int8_t> *>(VT_UVCOORDS);
+  }
+  const Bounds *bounds() const {
+    return GetStruct<const Bounds *>(VT_BOUNDS);
+  }
+  Bounds *mutable_bounds() {
+    return GetStruct<Bounds *>(VT_BOUNDS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -56,6 +86,7 @@ struct TriangleMesh FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.Verify(tangents()) &&
            VerifyOffset(verifier, VT_UVCOORDS) &&
            verifier.Verify(uvCoords()) &&
+           VerifyField<Bounds>(verifier, VT_BOUNDS) &&
            verifier.EndTable();
   }
 };
@@ -84,6 +115,9 @@ struct TriangleMeshBuilder {
   void add_uvCoords(flatbuffers::Offset<flatbuffers::Vector<int8_t>> uvCoords) {
     fbb_.AddOffset(TriangleMesh::VT_UVCOORDS, uvCoords);
   }
+  void add_bounds(const Bounds *bounds) {
+    fbb_.AddStruct(TriangleMesh::VT_BOUNDS, bounds);
+  }
   explicit TriangleMeshBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -104,8 +138,10 @@ inline flatbuffers::Offset<TriangleMesh> CreateTriangleMesh(
     flatbuffers::Offset<flatbuffers::Vector<int8_t>> positions = 0,
     flatbuffers::Offset<flatbuffers::Vector<int8_t>> normals = 0,
     flatbuffers::Offset<flatbuffers::Vector<int8_t>> tangents = 0,
-    flatbuffers::Offset<flatbuffers::Vector<int8_t>> uvCoords = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<int8_t>> uvCoords = 0,
+    const Bounds *bounds = 0) {
   TriangleMeshBuilder builder_(_fbb);
+  builder_.add_bounds(bounds);
   builder_.add_uvCoords(uvCoords);
   builder_.add_tangents(tangents);
   builder_.add_normals(normals);
@@ -124,7 +160,8 @@ inline flatbuffers::Offset<TriangleMesh> CreateTriangleMeshDirect(
     const std::vector<int8_t> *positions = nullptr,
     const std::vector<int8_t> *normals = nullptr,
     const std::vector<int8_t> *tangents = nullptr,
-    const std::vector<int8_t> *uvCoords = nullptr) {
+    const std::vector<int8_t> *uvCoords = nullptr,
+    const Bounds *bounds = 0) {
   return pandora::serialization::CreateTriangleMesh(
       _fbb,
       numTriangles,
@@ -133,7 +170,8 @@ inline flatbuffers::Offset<TriangleMesh> CreateTriangleMeshDirect(
       positions ? _fbb.CreateVector<int8_t>(*positions) : 0,
       normals ? _fbb.CreateVector<int8_t>(*normals) : 0,
       tangents ? _fbb.CreateVector<int8_t>(*tangents) : 0,
-      uvCoords ? _fbb.CreateVector<int8_t>(*uvCoords) : 0);
+      uvCoords ? _fbb.CreateVector<int8_t>(*uvCoords) : 0,
+      bounds);
 }
 
 inline const pandora::serialization::TriangleMesh *GetTriangleMesh(const void *buf) {
@@ -142,6 +180,10 @@ inline const pandora::serialization::TriangleMesh *GetTriangleMesh(const void *b
 
 inline const pandora::serialization::TriangleMesh *GetSizePrefixedTriangleMesh(const void *buf) {
   return flatbuffers::GetSizePrefixedRoot<pandora::serialization::TriangleMesh>(buf);
+}
+
+inline TriangleMesh *GetMutableTriangleMesh(void *buf) {
+  return flatbuffers::GetMutableRoot<TriangleMesh>(buf);
 }
 
 inline bool VerifyTriangleMeshBuffer(

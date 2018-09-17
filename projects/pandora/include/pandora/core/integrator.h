@@ -33,7 +33,8 @@ protected:
 protected:
     const Scene& m_scene;
     //InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
-    InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
+    //InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
+    OOCBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
 
     Sensor& m_sensor;
     const int m_sppPerCall;

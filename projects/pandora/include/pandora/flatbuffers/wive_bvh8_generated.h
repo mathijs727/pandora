@@ -23,14 +23,26 @@ struct WiVeBVH8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const ContiguousAllocator *innerNodeAllocator() const {
     return GetPointer<const ContiguousAllocator *>(VT_INNERNODEALLOCATOR);
   }
+  ContiguousAllocator *mutable_innerNodeAllocator() {
+    return GetPointer<ContiguousAllocator *>(VT_INNERNODEALLOCATOR);
+  }
   const ContiguousAllocator *leafNodeAllocator() const {
     return GetPointer<const ContiguousAllocator *>(VT_LEAFNODEALLOCATOR);
+  }
+  ContiguousAllocator *mutable_leafNodeAllocator() {
+    return GetPointer<ContiguousAllocator *>(VT_LEAFNODEALLOCATOR);
   }
   uint32_t compressedRootHandle() const {
     return GetField<uint32_t>(VT_COMPRESSEDROOTHANDLE, 0);
   }
+  bool mutate_compressedRootHandle(uint32_t _compressedRootHandle) {
+    return SetField<uint32_t>(VT_COMPRESSEDROOTHANDLE, _compressedRootHandle, 0);
+  }
   uint32_t numLeafObjects() const {
     return GetField<uint32_t>(VT_NUMLEAFOBJECTS, 0);
+  }
+  bool mutate_numLeafObjects(uint32_t _numLeafObjects) {
+    return SetField<uint32_t>(VT_NUMLEAFOBJECTS, _numLeafObjects, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -91,6 +103,10 @@ inline const pandora::serialization::WiVeBVH8 *GetWiVeBVH8(const void *buf) {
 
 inline const pandora::serialization::WiVeBVH8 *GetSizePrefixedWiVeBVH8(const void *buf) {
   return flatbuffers::GetSizePrefixedRoot<pandora::serialization::WiVeBVH8>(buf);
+}
+
+inline WiVeBVH8 *GetMutableWiVeBVH8(void *buf) {
+  return flatbuffers::GetMutableRoot<WiVeBVH8>(buf);
 }
 
 inline bool VerifyWiVeBVH8Buffer(

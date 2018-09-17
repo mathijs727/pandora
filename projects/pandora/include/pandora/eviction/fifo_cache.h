@@ -22,8 +22,9 @@ public:
     // Hand of ownership of the resource to the cache
     EvictableResourceID emplaceFactoryUnsafe(std::function<T(void)> factoryFunc); // Not thread-safe
 
-    void accessResource(EvictableResourceID resourceID, std::function<void(std::shared_ptr<T>)> callback);
+    std::shared_ptr<T> getBlocking(EvictableResourceID resourceID);
 
+    void evictAll();
 private:
     void evict(size_t bytes);
 
@@ -60,7 +61,7 @@ inline EvictableResourceID FifoCache<T>::emplaceFactoryUnsafe(std::function<T(vo
 }
 
 template <typename T>
-inline void FifoCache<T>::accessResource(EvictableResourceID resourceID, std::function<void(std::shared_ptr<T>)> callback)
+inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resourceID)
 {
     auto& cacheItem = m_cacheMap[resourceID];
     std::shared_ptr<T> sharedResourcePtr = cacheItem.itemPtr.lock();
@@ -87,18 +88,24 @@ inline void FifoCache<T>::accessResource(EvictableResourceID resourceID, std::fu
         }
     }
 
-    callback(sharedResourcePtr);
+    return sharedResourcePtr;
+}
+
+template<typename T>
+inline void FifoCache<T>::evictAll()
+{
+    m_cacheHistory.clear();
 }
 
 template <typename T>
-inline void FifoCache<T>::evict(size_t toEvict)
+inline void FifoCache<T>::evict(size_t bytesToEvict)
 {
-    size_t evicted = 0;
-    while (evicted < toEvict) {
+    size_t bytesEvicted = 0;
+    while (bytesEvicted < bytesToEvict) {
         std::shared_ptr<T> sharedResourcePtr;
         m_cacheHistory.try_pop(sharedResourcePtr);
 
-        evicted += sharedResourcePtr->sizeBytes();
+        bytesEvicted += sharedResourcePtr->sizeBytes();
     }
     m_currentSizeBytes.fetch_sub(evicted);
 }

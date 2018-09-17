@@ -13,6 +13,8 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/core/stats.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/transform.cpp"
 
+        "${CMAKE_CURRENT_LIST_DIR}/flatbuffers/data_conversion.cpp"
+
         "${CMAKE_CURRENT_LIST_DIR}/eviction/geometry.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/geometry/bounds.cpp"

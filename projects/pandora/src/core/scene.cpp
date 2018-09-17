@@ -1,3 +1,4 @@
+#include "..\..\include\pandora\core\scene.h"
 #include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
 #include <embree3/rtcore.h>
@@ -17,6 +18,18 @@ void Scene::addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneObject)
     }
     m_inCoreSceneObjects.emplace_back(std::move(sceneObject));
 }
+
+void Scene::addSceneObject(std::unique_ptr<OOCSceneObject>&& sceneObject)
+{
+    std::cout << "(scene.cpp) addSceneObject cannot access area lights yet" << std::endl;
+    /*for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
+        if (const auto* light = sceneObject->getPrimitiveAreaLight(primitiveID); light) {
+            m_lights.push_back(light);
+        }
+    }*/
+    m_oocSceneObjects.emplace_back(std::move(sceneObject));
+}
+
 
 void Scene::addInfiniteLight(const std::shared_ptr<Light>& light)
 {
@@ -45,6 +58,11 @@ gsl::span<const Light* const> Scene::getLights() const
 gsl::span<const Light* const> Scene::getInfiniteLights() const
 {
     return m_infiniteLights;
+}
+
+FifoCache<GeometryCollection>& Scene::geometryCache()
+{
+    return m_geometryCache;
 }
 
 }

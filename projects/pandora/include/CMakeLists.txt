@@ -21,6 +21,9 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/eviction/geometry.h"
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/contiguous_allocator_generated.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/data_conversion.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/ooc_batching_generated.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/scene_generated.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/triangle_mesh_generated.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/wive_bvh8_generated.h"
 

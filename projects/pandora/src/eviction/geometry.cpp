@@ -1,7 +1,13 @@
-#include "..\..\include\pandora\eviction\geometry.h"
 #include "pandora/eviction/geometry.h"
+#include "pandora/core/scene.h"
 
 namespace pandora {
+
+EvictableGeometryHandle::EvictableGeometryHandle(FifoCache<GeometryCollection>& cache, EvictableResourceID resourceID)
+    : m_cache(cache)
+    , m_resourceID(resourceID)
+{
+}
 
 /*EvictableGeometry EvictableGeometry::createFromMeshFile(TriangleMesh&& mesh, std::string_view cacheFilename)
 {

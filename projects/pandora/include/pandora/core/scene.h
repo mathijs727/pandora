@@ -41,7 +41,6 @@ public:
         ShadingMemoryArena& memoryArena,
         TransportMode mode,
         bool allowMultipleLobes) const = 0;
-
     virtual const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const = 0;
 };
 
@@ -62,8 +61,8 @@ public:
 
     virtual Bounds worldBounds() const = 0;
 
-    virtual void lockGeometry(std::function<void(const SceneObjectGeometry&)> callback) const = 0;
-    virtual void lockMaterial(std::function<void(const SceneObjectMaterial&)> callback) const = 0;
+    virtual std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const = 0;
+    virtual std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const = 0;
 
 //protected:
 //    friend void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const SceneObject& sceneObject);
@@ -87,7 +86,11 @@ public:
     gsl::span<const Light* const> getLights() const;
     gsl::span<const Light* const> getInfiniteLights() const;
 
+    FifoCache<TriangleMesh>& geometryCache();
+
 private:
+    FifoCache<TriangleMesh> m_geometryCache;
+
     std::vector<std::unique_ptr<InCoreSceneObject>> m_inCoreSceneObjects;
     std::vector<std::unique_ptr<OOCSceneObject>> m_oocSceneObjects;
     std::vector<const Light*> m_lights;

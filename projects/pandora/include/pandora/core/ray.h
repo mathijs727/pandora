@@ -37,13 +37,13 @@ struct RayHit {
     /*struct InCore
     {
         const InCoreSceneObject* sceneObject = nullptr;
-    };
+    };*/
     struct OutOfCore
     {
         const OOCSceneObject* sceneObject = nullptr;
-        //std::shared_ptr<SceneObjectGeometry> sceneObjectGeometry = nullptr;
-    };*/
-    std::variant<const InCoreSceneObject*, const OOCSceneObject*> sceneObjectVariant;
+        const SceneObjectGeometry* sceneObjectGeometry = nullptr;
+    };
+    std::variant<const InCoreSceneObject*, OutOfCore> sceneObjectVariant;
     unsigned primitiveID = (unsigned)-1;
 
     glm::vec2 geometricUV;

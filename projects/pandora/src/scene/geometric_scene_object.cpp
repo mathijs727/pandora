@@ -1,8 +1,4 @@
 #include "..\..\include\pandora\scene\geometric_scene_object.h"
-#include "..\..\include\pandora\scene\geometric_scene_object.h"
-#include "..\..\include\pandora\scene\geometric_scene_object.h"
-#include "..\..\include\pandora\scene\geometric_scene_object.h"
-#include "..\..\include\pandora\scene\geometric_scene_object.h"
 #include "pandora/scene/geometric_scene_object.h"
 
 namespace pandora {
@@ -76,6 +72,11 @@ GeometricSceneObjectGeometry::GeometricSceneObjectGeometry(const std::shared_ptr
 {
 }
 
+GeometricSceneObjectGeometry::GeometricSceneObjectGeometry(const pandora::serialization::TriangleMesh* serialized)
+    : m_mesh(std::make_shared<TriangleMesh>(serialized))
+{
+}
+
 Bounds GeometricSceneObjectGeometry::worldBoundsPrimitive(unsigned primitiveID) const
 {
     return m_mesh->getPrimitiveBounds(primitiveID);
@@ -94,6 +95,11 @@ bool GeometricSceneObjectGeometry::intersectPrimitive(Ray& ray, RayHit& rayHit, 
 SurfaceInteraction GeometricSceneObjectGeometry::fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const
 {
     return m_mesh->fillSurfaceInteraction(ray, rayHit);
+}
+
+flatbuffers::Offset<serialization::GeometricSceneObjectGeometry> GeometricSceneObjectGeometry::serialize(flatbuffers::FlatBufferBuilder& builder) const
+{
+    return serialization::CreateGeometricSceneObjectGeometry(builder, m_mesh->serialize(builder));
 }
 
 GeometricSceneObjectMaterial::GeometricSceneObjectMaterial(const std::shared_ptr<const Material>& material)
@@ -128,11 +134,10 @@ const AreaLight* GeometricSceneObjectMaterial::getPrimitiveAreaLight(unsigned pr
 
 OOCGeometricSceneObject::OOCGeometricSceneObject(
     const Bounds& worldBounds,
-    const EvictableResourceHandle<TriangleMesh>& meshHandle,
-    const std::shared_ptr<const Material>& material) :
-    m_worldBounds(worldBounds),
-    m_meshHandle(meshHandle),
-    m_materialProperties(material)
+    const EvictableResourceHandle<TriangleMesh>& geometryHandle,
+    const std::shared_ptr<const Material>& material)
+    : m_geometryHandle(geometryHandle)
+    , m_materialProperties(material)
 {
 }
 
@@ -141,16 +146,15 @@ Bounds OOCGeometricSceneObject::worldBounds() const
     return m_worldBounds;
 }
 
-void OOCGeometricSceneObject::lockGeometry(std::function<void(const SceneObjectGeometry&)> callback) const
+
+std::unique_ptr<SceneObjectGeometry> OOCGeometricSceneObject::getGeometryBlocking() const
 {
-    m_meshHandle.lock([=](std::shared_ptr<TriangleMesh> triangleMesh) {
-        callback(GeometricSceneObjectGeometry(triangleMesh));
-    });
+    return std::make_unique<GeometricSceneObjectGeometry>(m_geometryHandle.getBlocking());
 }
 
-void OOCGeometricSceneObject::lockMaterial(std::function<void(const SceneObjectMaterial&)> callback) const
+std::unique_ptr<SceneObjectMaterial> OOCGeometricSceneObject::getMaterialBlocking() const
 {
-    callback(m_materialProperties);
+    return std::make_unique<GeometricSceneObjectMaterial>(m_materialProperties);
 }
 
 }

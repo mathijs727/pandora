@@ -6,25 +6,26 @@
 
 namespace pandora {
 
-/*class EvictableGeometry : public EvictableResource {
+using GeometryCollection = std::vector<std::shared_ptr<TriangleMesh>>;
+
+class EvictableGeometryHandle
+{
 public:
-    static EvictableGeometry createFromMeshFile(TriangleMesh&& mesh, std::string_view cacheFilename);
-    static EvictableGeometry createFromCacheFile(std::string_view filename);
+    EvictableGeometryHandle(FifoCache<GeometryCollection>& cache, EvictableResourceID resource);
 
-    void shrink() override final;
-    void expand() override final;
-    bool isShrunk() const override final;
-
-    size_t byteSize() const;
-
-    const TriangleMesh& get() const;
-
+    template <typename F>
+    void lock(F&& callback) const;
 private:
-    EvictableGeometry(std::string_view cacheFilename);
+    FifoCache<GeometryCollection>& m_cache;
+    EvictableResourceID m_resourceID;
+};
 
-private:
-    std::string m_cacheFilename;
-    std::optional<TriangleMesh> m_meshOpt;
-};*/
+template<typename F>
+inline void EvictableGeometryHandle::lock(F && callback) const
+{
+    m_cache.accessResource(m_resourceID, [=](std::shared_ptr<GeometryCollection> geometryCollection) {
+        callback((*geometryCollection)[0]);
+    });
+}
 
 }

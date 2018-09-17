@@ -31,6 +31,7 @@ public:
         std::unique_ptr<glm::vec3[]>&& tangents,
         std::unique_ptr<glm::vec2[]>&& uvCoords);
     TriangleMesh(TriangleMesh&&) = default;
+    TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh);
     ~TriangleMesh() = default;
 
     TriangleMesh subMesh(gsl::span<const unsigned> primitives) const;
@@ -41,7 +42,6 @@ public:
 
     //static TriangleMesh loadFromCacheFile(const std::string_view filename);
     //void saveToCacheFile(const std::string_view filename);
-    TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh);
     flatbuffers::Offset<serialization::TriangleMesh> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
     size_t sizeBytes() const;

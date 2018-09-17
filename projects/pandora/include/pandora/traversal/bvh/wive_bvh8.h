@@ -2,6 +2,7 @@
 #include "pandora/geometry/bounds.h"
 #include "pandora/traversal/bvh.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
+#include "pandora/flatbuffers/wive_bvh8_generated.h"
 #include "simd/simd8.h"
 #include <EASTL/fixed_vector.h>
 #include <embree3/rtcore.h>
@@ -17,8 +18,11 @@ template <typename LeafObj>
 class WiVeBVH8 : public BVH<LeafObj> {
 public:
 	WiVeBVH8() = default;
+    WiVeBVH8(const serialization::WiVeBVH8* serialized, gsl::span<const LeafObj*> objects);
 	WiVeBVH8(WiVeBVH8&&) = default;
     ~WiVeBVH8() = default;
+
+    flatbuffers::Offset<serialization::WiVeBVH8> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
     size_t size() const override final;
 
@@ -27,8 +31,10 @@ public:
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
     bool intersectAny(Ray& ray) const override final;
 
-	void loadFromFile(std::string_view filename, gsl::span<const LeafObj*> objects);
-	void saveToFile(std::string_view filename);
+	//void loadFromFile(std::string_view filename, gsl::span<const LeafObj*> objects);
+	//void saveToFile(std::string_view filename);
+
+
 protected:
 	virtual void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) = 0;
 

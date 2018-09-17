@@ -1,5 +1,5 @@
-#include "..\..\include\pandora\scene\instanced_scene_object.h"
 #include "pandora/scene/instanced_scene_object.h"
+#include "pandora/flatbuffers/data_conversion.h"
 
 namespace pandora {
 
@@ -65,6 +65,30 @@ InstancedSceneObjectGeometry::InstancedSceneObjectGeometry(
 {
 }
 
+InstancedSceneObjectGeometry::InstancedSceneObjectGeometry(
+    const serialization::InstancedSceneObjectGeometry* serialized,
+    const std::function<const GeometricSceneObjectGeometry&(uint32_t)>& geometryGenerator)
+    : m_worldTransform(Transform(serialized->transform()))
+    , m_baseObjectGeometry(geometryGenerator(serialized->geometryHandle()))
+{
+}
+
+flatbuffers::Offset<serialization::InstancedSceneObjectGeometry> InstancedSceneObjectGeometry::serialize(
+    flatbuffers::FlatBufferBuilder& builder,
+    const std::function<uint32_t(const GeometricSceneObjectGeometry*)>& handleGenerator) const
+{
+    // TODO: support multiple levels of instancing
+    auto geometricBaseObjectGeometry = dynamic_cast<const GeometricSceneObjectGeometry*>(&m_baseObjectGeometry);
+    uint32_t geometryHandle = handleGenerator(geometricBaseObjectGeometry);
+
+    auto serializedTransform = m_worldTransform.serialize();
+
+    return serialization::CreateInstancedSceneObjectGeometry(
+        builder,
+        &serializedTransform,
+        geometryHandle);
+}
+
 Bounds InstancedSceneObjectGeometry::worldBoundsPrimitive(unsigned primitiveID) const
 {
     return m_worldTransform.transform(m_baseObjectGeometry.worldBoundsPrimitive(primitiveID));
@@ -100,18 +124,14 @@ Bounds OOCInstancedSceneObject::worldBounds() const
     return m_transform.transform(m_baseObject->worldBounds());
 }
 
-void OOCInstancedSceneObject::lockGeometry(std::function<void(const SceneObjectGeometry&)> callback) const
+std::unique_ptr<SceneObjectGeometry> OOCInstancedSceneObject::getGeometryBlocking() const
 {
-    m_baseObject->lockGeometry([=](const SceneObjectGeometry& geometryProperties) {
-        callback(InstancedSceneObjectGeometry(m_transform, geometryProperties));
-    });
+    return std::make_unique<InstancedSceneObjectGeometry>(m_baseObject->getGeometryBlocking());
 }
 
-void OOCInstancedSceneObject::lockMaterial(std::function<void(const SceneObjectMaterial&)> callback) const
+std::unique_ptr<SceneObjectMaterial> OOCInstancedSceneObject::getMaterialBlocking() const
 {
-    m_baseObject->lockMaterial([=](const SceneObjectMaterial& materialProperties) {
-        callback(materialProperties);
-    });
+    return m_baseObject->getMaterialBlocking();
 }
 
 }
