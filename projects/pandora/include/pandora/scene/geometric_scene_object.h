@@ -99,14 +99,16 @@ public:
     ~OOCGeometricSceneObject() override final = default;
 
     Bounds worldBounds() const override final;
+    unsigned numPrimitives() const override final;
 
     std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
     std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
 
 private:
-    friend class InstancedSceneObjectOOC;
+    friend class OOCInstancedSceneObject;
 private:
     Bounds m_worldBounds;
+    unsigned m_numPrimitives;
     EvictableResourceHandle<TriangleMesh> m_geometryHandle;
 
     std::shared_ptr<const Material> m_material;

@@ -72,7 +72,8 @@ public:
     ~OOCInstancedSceneObject() override final = default;
 
     Bounds worldBounds() const override final;
-
+    unsigned numPrimitives() const override final;
+    
     std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
     std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
 

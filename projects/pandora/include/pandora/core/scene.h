@@ -67,6 +67,7 @@ public:
     virtual ~OOCSceneObject() {};
 
     virtual Bounds worldBounds() const = 0;
+    virtual unsigned numPrimitives() const = 0;
 
     virtual std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const = 0;
     virtual std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const = 0;

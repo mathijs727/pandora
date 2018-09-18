@@ -1,8 +1,11 @@
 #include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
+#include "pandora/scene/geometric_scene_object.h"
+#include "pandora/scene/instanced_scene_object.h"
 #include <embree3/rtcore.h>
 #include <iostream>
 #include <tbb/concurrent_vector.h>
+#include <unordered_set>
 
 //static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
 
@@ -104,30 +107,45 @@ std::vector<std::vector<const OOCSceneObject*>> groupSceneObjects(
     };
 
     struct BVHNode {
-        virtual std::pair<std::vector<const OOCSceneObject*>, uint32_t> group(
+        virtual std::pair<std::vector<const OOCSceneObject*>, std::unordered_set<const OOCSceneObject*>> group(
             uint32_t minPrimsPerGroup, std::vector<std::vector<const OOCSceneObject*>>& out) const = 0;
     };
 
     struct BVHInnerNode : public BVHNode {
-        virtual std::pair<std::vector<const OOCSceneObject*>, uint32_t> group(
+        virtual std::pair<std::vector<const OOCSceneObject*>, std::unordered_set<const OOCSceneObject*>> group(
             uint32_t minPrimsPerGroup, std::vector<std::vector<const OOCSceneObject*>>& out) const
         {
-            auto [leftObjects, leftNumPrims] = leftChild->group(minPrimsPerGroup, out);
-            auto [rightObjects, rightNumPrims] = rightChild->group(minPrimsPerGroup, out);
-            if (leftNumPrims != 0 && rightNumPrims == 0) {
-                return { std::move(leftObjects), leftNumPrims };
-            } else if (leftNumPrims == 0 && rightNumPrims != 0) {
-                return { std::move(rightObjects), rightNumPrims };
-            } else if (leftNumPrims != 0 && rightNumPrims != 0) {
-                leftObjects.insert(std::end(leftObjects), std::begin(rightObjects), std::end(rightObjects));
-                if (leftNumPrims + rightNumPrims >= minPrimsPerGroup) {
+            auto [leftObjects, leftUniqueAndBaseObjects] = leftChild->group(minPrimsPerGroup, out);
+            auto [rightObjects, rightUniqueAndBaseObjects] = rightChild->group(minPrimsPerGroup, out);
+            if (!leftObjects.empty() && rightObjects.empty()) {
+                return { std::move(leftObjects), std::move(leftUniqueAndBaseObjects) };
+            } else if (leftObjects.empty() && !rightObjects.empty()) {
+                return { std::move(rightObjects), std::move(rightUniqueAndBaseObjects) };
+            } else if (!leftObjects.empty() && !rightObjects.empty()) {
+                std::vector<const OOCSceneObject*> objects = std::move(leftObjects);
+                objects.insert(std::end(objects), std::begin(rightObjects), std::end(rightObjects));
+
+                std::unordered_set<const OOCSceneObject*> uniqueAndBaseObjects = std::move(leftUniqueAndBaseObjects);
+                uniqueAndBaseObjects.insert(std::begin(rightUniqueAndBaseObjects), std::end(rightUniqueAndBaseObjects));
+
+                uint32_t numUniqueAndBasePrims = std::transform_reduce(
+                    std::begin(uniqueAndBaseObjects),
+                    std::end(uniqueAndBaseObjects),
+                    0u,
+                    [](uint32_t l, uint32_t r) {
+                        return l + r;
+                    },
+                    [](const OOCSceneObject* object) {
+                        return object->numPrimitives();
+                    });
+                if (numUniqueAndBasePrims >= minPrimsPerGroup) {
                     out.emplace_back(std::move(leftObjects));
-                    return { {}, 0 };
+                    return { {}, {} };
                 } else {
-                    return { std::move(leftObjects), leftNumPrims + rightNumPrims };
+                    return { std::move(objects), std::move(uniqueAndBaseObjects) };
                 }
             } else {
-                return { {}, 0 };
+                return { {}, {} };
             }
         }
 
@@ -136,13 +154,21 @@ std::vector<std::vector<const OOCSceneObject*>> groupSceneObjects(
     };
 
     struct BVHLeafNode : public BVHNode {
-        virtual std::pair<std::vector<const OOCSceneObject*>, uint32_t> group(
+        virtual std::pair<std::vector<const OOCSceneObject*>, std::unordered_set<const OOCSceneObject*>> group(
             uint32_t minPrimsPerGroup, std::vector<std::vector<const OOCSceneObject*>>& out) const
         {
-            auto geometry = sceneObject->getGeometryBlocking();
-            return { { sceneObject }, geometry->numPrimitives() };
-        }
+            if (sceneObject->numPrimitives() > minPrimsPerGroup) {
+                std::cout << "Add single scene object because prims " << sceneObject->numPrimitives() << " > " << minPrimsPerGroup << std::endl;
+                out.emplace_back(std::vector<const OOCSceneObject*> { sceneObject });
+                return { {}, {} };
+            }
 
+            if (const auto* instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(sceneObject)) {
+                return { { sceneObject }, { instancedSceneObject->getBaseObject() } };
+            } else {
+                return { { sceneObject }, { sceneObject } };
+            }
+        }
         const OOCSceneObject* sceneObject;
     };
 
@@ -207,7 +233,7 @@ std::vector<std::vector<const OOCSceneObject*>> groupSceneObjects(
     const auto* rootNode = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
 
     std::vector<std::vector<const OOCSceneObject*>> ret;
-    auto[leftOverObjects, leftOverNumPrims] = rootNode->group(primitivesPerGroup, ret);
+    auto [leftOverObjects, leftOverUniqueAndBaseObject] = rootNode->group(primitivesPerGroup, ret);
     if (!leftOverObjects.empty()) {
         ret.emplace_back(std::move(leftOverObjects));
     }
@@ -370,7 +396,6 @@ void splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject)
 
     std::cout << "NUM SCENE OBJECTS AFTER SPLIT: " << m_sceneObjects.size() << std::endl;
 }*/
-
 }
 
 /*SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material)

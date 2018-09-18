@@ -174,6 +174,7 @@ OOCGeometricSceneObject::OOCGeometricSceneObject(
     for (unsigned primID = 0; primID < geometry->numPrimitives(); primID++) {
         m_worldBounds.extend(geometry->worldBoundsPrimitive(primID));
     }
+    m_numPrimitives = geometry->numPrimitives();
 
     // Get the mesh (should already be in cache because of the above call) and keep it in
     m_areaLightMeshOwner = geometryHandle.getBlocking();
@@ -184,6 +185,11 @@ OOCGeometricSceneObject::OOCGeometricSceneObject(
 Bounds OOCGeometricSceneObject::worldBounds() const
 {
     return m_worldBounds;
+}
+
+unsigned OOCGeometricSceneObject::numPrimitives() const
+{
+    return m_numPrimitives;
 }
 
 std::unique_ptr<SceneObjectGeometry> OOCGeometricSceneObject::getGeometryBlocking() const

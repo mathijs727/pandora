@@ -151,4 +151,10 @@ Ray OOCInstancedSceneObject::transformRayToInstanceSpace(const Ray& ray) const
     return m_transform.transform(ray);
 }
 
+unsigned pandora::OOCInstancedSceneObject::numPrimitives() const
+{
+    return m_baseObject->numPrimitives();
+}
+
+
 }
