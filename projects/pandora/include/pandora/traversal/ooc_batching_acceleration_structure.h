@@ -171,8 +171,8 @@ private:
         TopLevelLeafNode(
             std::string_view cacheFilename,
             gsl::span<const OOCSceneObject*> sceneObjects,
-            FifoCache<GeometryData>& geometryCache,
-            OOCBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure);
+            FifoCache<GeometryData>* geometryCache,
+            OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
         TopLevelLeafNode(TopLevelLeafNode&& other);
 
         Bounds getBounds() const;
@@ -187,7 +187,7 @@ private:
         static EvictableResourceHandle<GeometryData> generateCachedBVH(
             std::string_view filename,
             gsl::span<const OOCSceneObject*> sceneObjects,
-            FifoCache<GeometryData>& cache);
+            FifoCache<GeometryData>* cache);
 
     private:
         EvictableResourceHandle<GeometryData> m_geometryDataHandle;
@@ -195,14 +195,14 @@ private:
 
         tbb::enumerable_thread_specific<RayBatch*> m_threadLocalActiveBatch;
         std::atomic<RayBatch*> m_immutableRayBatchList;
-        OOCBatchingAccelerationStructure<UserState, BatchSize>& m_accelerationStructurePtr;
+        OOCBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
     };
 
     static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(
         std::string_view cacheFolder,
-        FifoCache<typename TopLevelLeafNode::GeometryData>& cache,
+        FifoCache<typename TopLevelLeafNode::GeometryData>* cache,
         gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
-        OOCBatchingAccelerationStructure& accelerationStructure);
+        OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
 
 private:
     FifoCache<typename TopLevelLeafNode::GeometryData> m_geometryCache;
@@ -223,7 +223,7 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::OOCBatchingAccele
     HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
     : m_geometryCache(geometryCacheSize)
     , m_batchAllocator()
-    , m_bvh(std::move(buildBVH("ooc_node_cache/", m_geometryCache, sceneObjects, *this)))
+    , m_bvh(std::move(buildBVH("ooc_node_cache/", &m_geometryCache, sceneObjects, this)))
     , m_threadLocalPreallocatedRaybatch([&]() { return m_batchAllocator.allocate(); })
     , m_hitCallback(hitCallback)
     , m_anyHitCallback(anyHitCallback)
@@ -330,15 +330,15 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
 template <typename UserState, size_t BatchSize>
 inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode, UserState> OOCBatchingAccelerationStructure<UserState, BatchSize>::buildBVH(
     std::string_view cacheFolder,
-    FifoCache<typename TopLevelLeafNode::GeometryData>& cache,
+    FifoCache<typename TopLevelLeafNode::GeometryData>* cache,
     gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
-    OOCBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure)
+    OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
 {
     std::vector<TopLevelLeafNode> leafs;
     for (int i = 0; i < sceneObjects.size(); i++) {
         std::string cacheFilename = std::string(cacheFolder) + "node" + std::to_string(i) + ".bin";
         std::vector<const OOCSceneObject*> nodeSceneObjects = { sceneObjects[i].get() };
-        leafs.emplace_back(cacheFilename, nodeSceneObjects, cache, accelerationStructure);
+        leafs.emplace_back(cacheFilename, nodeSceneObjects, cache, accelerationStructurePtr);
     }
     return PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
 }
@@ -347,8 +347,8 @@ template <typename UserState, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(
     std::string_view cacheFilename,
     gsl::span<const OOCSceneObject*> sceneObjects,
-    FifoCache<GeometryData>& geometryCache,
-    OOCBatchingAccelerationStructure<UserState, BatchSize>& accelerationStructure)
+    FifoCache<GeometryData>* geometryCache,
+    OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructure)
     : m_geometryDataHandle(generateCachedBVH(cacheFilename, sceneObjects, geometryCache))
     //, m_sceneObjects()
     , m_threadLocalActiveBatch([]() { return nullptr; })
@@ -372,7 +372,7 @@ template <typename UserState, size_t BatchSize>
 inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::GeometryData> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::generateCachedBVH(
     std::string_view filename,
     gsl::span<const OOCSceneObject*> sceneObjects,
-    FifoCache<GeometryData>& cache)
+    FifoCache<GeometryData>* cache)
 {
     // Collect the list of [unique] geometric scene objects that are referenced by instanced scene objects
     std::set<const OOCGeometricSceneObject*> instancedBaseObjects;
@@ -477,7 +477,7 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
     file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
     file.close();
 
-    auto resourceID = cache.emplaceFactoryUnsafe([filename = std::string(filename), geometricSceneObjects, instancedSceneObjects]() -> GeometryData {
+    auto resourceID = cache->emplaceFactoryUnsafe([filename = std::string(filename), geometricSceneObjects, instancedSceneObjects]() -> GeometryData {
         auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
         auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(mmapFile.data());
         const auto* serializedInstanceBaseBVHs = serializedTopLevelLeafNode->instance_base_bvh();
@@ -559,7 +559,7 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
         }
 
         // Allocate a new batch and set it as the new active batch
-        batch = mutThisPtr->m_accelerationStructurePtr.m_batchAllocator.allocate();
+        batch = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
         mutThisPtr->m_threadLocalActiveBatch.local() = batch;
     }
 
@@ -585,7 +585,7 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
         }
 
         // Allocate a new batch and set it as the new active batch
-        batch = mutThisPtr->m_accelerationStructurePtr.m_batchAllocator.allocate();
+        batch = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
         mutThisPtr->m_threadLocalActiveBatch.local() = batch;
     }
 
@@ -635,7 +635,7 @@ inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLe
             for (auto [ray, hitInfo, userState, insertHandle] : *batch) {
                 if (hitInfo) {
                     // Insert the ray back into the top-level  BVH
-                    auto optResult = m_accelerationStructurePtr.m_bvh.intersect(ray, *hitInfo, userState, insertHandle);
+                    auto optResult = m_accelerationStructurePtr->m_bvh.intersect(ray, *hitInfo, userState, insertHandle);
                     if (optResult && *optResult == false) {
                         // Ray exited the system so hitInfo contains the closest hit
                         const auto& hitInfoSceneObject = std::get<RayHit::OutOfCore>(hitInfo->sceneObjectVariant);
@@ -644,25 +644,25 @@ inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLe
                             SurfaceInteraction si = hitInfoSceneObject.sceneObjectGeometry->fillSurfaceInteraction(ray, *hitInfo);
                             auto owningMaterialPtr = hitInfoSceneObject.sceneObject->getMaterialBlocking(); // Keep alive during the callback
                             si.sceneObjectMaterial = owningMaterialPtr.get();
-                            m_accelerationStructurePtr.m_hitCallback(ray, si, userState, nullptr);
+                            m_accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
                         } else {
-                            m_accelerationStructurePtr.m_missCallback(ray, userState);
+                            m_accelerationStructurePtr->m_missCallback(ray, userState);
                         }
                     }
                 } else {
                     // Intersect any
                     if (ray.tfar == -std::numeric_limits<float>::infinity()) { // Ray hit something
-                        m_accelerationStructurePtr.m_anyHitCallback(ray, userState);
+                        m_accelerationStructurePtr->m_anyHitCallback(ray, userState);
                     } else {
-                        auto optResult = m_accelerationStructurePtr.m_bvh.intersectAny(ray, userState, insertHandle);
+                        auto optResult = m_accelerationStructurePtr->m_bvh.intersectAny(ray, userState, insertHandle);
                         if (optResult && *optResult == false) {
                             // Ray exited system
-                            m_accelerationStructurePtr.m_missCallback(ray, userState);
+                            m_accelerationStructurePtr->m_missCallback(ray, userState);
                         }
                     }
                 }
             }
-            m_accelerationStructurePtr.m_batchAllocator.deallocate(batch);
+            m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
         });
         batch = next;
     }

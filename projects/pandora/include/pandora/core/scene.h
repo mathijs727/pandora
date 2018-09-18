@@ -90,7 +90,7 @@ public:
     gsl::span<const Light* const> getLights() const;
     gsl::span<const Light* const> getInfiniteLights() const;
 
-    FifoCache<TriangleMesh>& geometryCache();
+    FifoCache<TriangleMesh>* geometryCache();
 
 private:
     std::unique_ptr<FifoCache<TriangleMesh>> m_geometryCache;

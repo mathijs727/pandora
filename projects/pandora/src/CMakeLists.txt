@@ -15,8 +15,6 @@ target_sources(libPandora
 
         "${CMAKE_CURRENT_LIST_DIR}/flatbuffers/data_conversion.cpp"
 
-        "${CMAKE_CURRENT_LIST_DIR}/eviction/geometry.cpp"
-
         "${CMAKE_CURRENT_LIST_DIR}/geometry/bounds.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/geometry/triangle.cpp"
 

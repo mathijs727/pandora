@@ -333,7 +333,7 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
             std::make_shared<ConstantTexture<float>>(1.0f));
 
         // Load geometry
-        auto& geometryCache = config.scene.geometryCache();
+        auto* geometryCache = config.scene.geometryCache();
         std::vector<EvictableResourceID> geometry;
         for (const auto jsonGeometry : sceneJson["geometry"]) {
             auto geometryType = jsonGeometry["type"].get<std::string>();
@@ -344,7 +344,7 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
 
-                auto resourceID = geometryCache.emplaceFactoryUnsafe([=]() -> TriangleMesh {
+                auto resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
                     std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(filename, startByte, sizeBytes, transform);
                     ALWAYS_ASSERT(meshOpt.has_value());
                     return std::move(*meshOpt);
@@ -352,7 +352,7 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
                 geometry.push_back(resourceID);
             } else {
                 glm::mat4 transform = readMat4(jsonGeometry["transform"]);
-                auto resourceID = geometryCache.emplaceFactoryUnsafe([=]() -> TriangleMesh {
+                auto resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
                     std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(filename, transform);
                     ALWAYS_ASSERT(meshOpt.has_value());
                     return std::move(*meshOpt);
