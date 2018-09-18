@@ -161,6 +161,7 @@ OOCGeometricSceneObject::OOCGeometricSceneObject(
     for (unsigned primID = 0; primID < geometry->numPrimitives(); primID++) {
         m_worldBounds.extend(geometry->worldBoundsPrimitive(primID));
     }
+    m_numPrimitives = geometry->numPrimitives();
 }
 
 OOCGeometricSceneObject::OOCGeometricSceneObject(

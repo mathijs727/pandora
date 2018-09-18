@@ -248,9 +248,8 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeInterse
         UserState userState = perRayUserData[i];
 
         auto optResult = m_bvh.intersect(ray, hitInfo, userState);
-        if (optResult) {
+        if (optResult && *optResult == false) {
             // If we get a result directly it must be because we missed the scene
-            ALWAYS_ASSERT(*optResult == false);
             m_missCallback(ray, userState);
         }
     }
@@ -335,7 +334,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
     gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
     OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
 {
-    auto sceneObjectGroups = groupSceneObjects(10000000, sceneObjects);
+    auto sceneObjectGroups = groupSceneObjects(25000, sceneObjects);
 
     std::vector<TopLevelLeafNode> leafs;
     for (size_t i = 0; i < sceneObjectGroups.size(); i++) {

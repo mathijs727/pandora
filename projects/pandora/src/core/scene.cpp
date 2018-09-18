@@ -139,7 +139,7 @@ std::vector<std::vector<const OOCSceneObject*>> groupSceneObjects(
                         return object->numPrimitives();
                     });
                 if (numUniqueAndBasePrims >= minPrimsPerGroup) {
-                    out.emplace_back(std::move(leftObjects));
+                    out.emplace_back(std::move(objects));
                     return { {}, {} };
                 } else {
                     return { std::move(objects), std::move(uniqueAndBaseObjects) };
@@ -236,6 +236,10 @@ std::vector<std::vector<const OOCSceneObject*>> groupSceneObjects(
     auto [leftOverObjects, leftOverUniqueAndBaseObject] = rootNode->group(primitivesPerGroup, ret);
     if (!leftOverObjects.empty()) {
         ret.emplace_back(std::move(leftOverObjects));
+    }
+
+    for (const auto& group : ret) {
+        ALWAYS_ASSERT(group.size() > 0);
     }
 
     // Free Embree memory (including memory allocated with rtcThreadLocalAlloc
