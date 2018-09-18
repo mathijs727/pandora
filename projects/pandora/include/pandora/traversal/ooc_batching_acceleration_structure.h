@@ -40,7 +40,7 @@ public:
 public:
     OOCBatchingAccelerationStructure(
         size_t geometryCacheSize,
-        gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
+        const Scene& scene,
         HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
     ~OOCBatchingAccelerationStructure() = default;
 
@@ -219,16 +219,18 @@ private:
 template <typename UserState, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, BatchSize>::OOCBatchingAccelerationStructure(
     size_t geometryCacheSize,
-    gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
+    const Scene& scene,
     HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
     : m_geometryCache(geometryCacheSize)
     , m_batchAllocator()
-    , m_bvh(std::move(buildBVH("ooc_node_cache/", &m_geometryCache, sceneObjects, this)))
+    , m_bvh(std::move(buildBVH("ooc_node_cache/", &m_geometryCache, scene.getOOCSceneObjects(), this)))
     , m_threadLocalPreallocatedRaybatch([&]() { return m_batchAllocator.allocate(); })
     , m_hitCallback(hitCallback)
     , m_anyHitCallback(anyHitCallback)
     , m_missCallback(missCallback)
 {
+    // Loading the meshes to compute their bounds. Now we don't need them anymore because 
+    scene.geometryCache()->evictAll();
 }
 
 template <typename UserState, size_t BatchSize>
@@ -340,6 +342,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
         std::vector<const OOCSceneObject*> nodeSceneObjects = { sceneObjects[i].get() };
         leafs.emplace_back(cacheFilename, nodeSceneObjects, cache, accelerationStructurePtr);
     }
+
     return PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
 }
 

@@ -49,7 +49,7 @@ inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& senso
     : m_scene(scene)
     , m_accelerationStructure(
           1024llu * 1024llu * 1024llu * 16llu, // 1GB
-          scene.getOOCSceneObjects(),
+          scene,
           //scene.getInCoreSceneObjects(),
           [this](const Ray& r, const SurfaceInteraction& si, const IntegratorState& s, const InsertHandle& h) {
               rayHit(r, si, s, h);

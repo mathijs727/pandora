@@ -364,7 +364,7 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
         auto makeGeomSceneObject = [&](nlohmann::json jsonSceneObject) {
             auto geometryResourceID = geometry[jsonSceneObject["geometry_id"].get<int>()];
             auto geometry = EvictableResourceHandle<TriangleMesh>(geometryCache, geometryResourceID);
-            auto worldBounds = Bounds(readVec3(jsonSceneObject["bounds"][0]), readVec3(jsonSceneObject["bounds"][1]));
+            //auto worldBounds = Bounds(readVec3(jsonSceneObject["bounds"][0]), readVec3(jsonSceneObject["bounds"][1]));
             std::shared_ptr<Material> material;
             if (loadMaterials)
                 material = materials[jsonSceneObject["material_id"].get<int>()];

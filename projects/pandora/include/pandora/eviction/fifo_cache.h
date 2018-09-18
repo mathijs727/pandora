@@ -23,9 +23,9 @@ public:
     // Hand of ownership of the resource to the cache
     EvictableResourceID emplaceFactoryUnsafe(std::function<T(void)> factoryFunc); // Not thread-safe
 
-    std::shared_ptr<T> getBlocking(EvictableResourceID resourceID);
+    std::shared_ptr<T> getBlocking(EvictableResourceID resourceID) const;
 
-    void evictAll();
+    void evictAll() const;
 
 private:
     void evict(size_t bytes);
@@ -71,10 +71,12 @@ inline EvictableResourceID FifoCache<T>::emplaceFactoryUnsafe(std::function<T(vo
 }
 
 template <typename T>
-inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resourceID)
+inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resourceID) const
 {
+    auto* mutThis = const_cast<FifoCache<T>*>(this);
+
     ALWAYS_ASSERT(m_cacheMap.find(resourceID) != m_cacheMap.end());
-    auto& cacheItem = m_cacheMap[resourceID];
+    auto& cacheItem = mutThis->m_cacheMap[resourceID];
     std::shared_ptr<T> sharedResourcePtr = cacheItem.itemPtr.lock();
     if (!sharedResourcePtr) {
         std::scoped_lock lock(cacheItem.loadMutex);
@@ -88,18 +90,18 @@ inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resource
             size_t resourceSize = sharedResourcePtr->size();
             cacheItem.itemPtr.store(sharedResourcePtr);
             ALWAYS_ASSERT(m_owningPointers.find(resourceID) == m_owningPointers.end());
-            ALWAYS_ASSERT(m_cacheMap[resourceID].itemPtr.lock() == sharedResourcePtr);
+            ALWAYS_ASSERT(mutThis->m_cacheMap[resourceID].itemPtr.lock() == sharedResourcePtr);
             //m_cacheHistory.push(sharedResourcePtr);
-            m_owningPointers[resourceID] = sharedResourcePtr;
+            mutThis->m_owningPointers[resourceID] = sharedResourcePtr;
 
-            size_t oldCacheSize = m_currentSizeBytes.fetch_add(resourceSize);
+            size_t oldCacheSize = mutThis->m_currentSizeBytes.fetch_add(resourceSize);
             size_t newCacheSize = oldCacheSize + resourceSize;
             if (newCacheSize > m_maxSizeBytes) {
                 // If another thread caused us to go over the memory limit that we only have to account
                 //  for our own contribution.
                 size_t overallocated = std::min(newCacheSize - m_maxSizeBytes, resourceSize);
                 //std::cout << "Current cache size: " << newCacheSize << std::endl;
-                evict(overallocated);
+                mutThis->evict(overallocated);
             }
         }
     }
@@ -108,9 +110,11 @@ inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resource
 }
 
 template <typename T>
-inline void FifoCache<T>::evictAll()
+inline void FifoCache<T>::evictAll() const
 {
-    m_cacheHistory.clear();
+    auto* mutThis = const_cast<FifoCache<T>*>(this);
+    //mutThis->m_cacheHistory.clear();
+    mutThis->m_owningPointers.clear();
 }
 
 template <typename T>

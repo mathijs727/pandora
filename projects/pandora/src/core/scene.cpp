@@ -63,6 +63,11 @@ gsl::span<const Light* const> Scene::getInfiniteLights() const
     return m_infiniteLights;
 }
 
+const FifoCache<TriangleMesh>* Scene::geometryCache() const
+{
+    return m_geometryCache.get();
+}
+
 FifoCache<TriangleMesh>* Scene::geometryCache()
 {
     return m_geometryCache.get();
