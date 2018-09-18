@@ -48,7 +48,8 @@ template <typename IntegratorState>
 inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& sensor, int sppPerCall)
     : m_scene(scene)
     , m_accelerationStructure(
-         scene.getInCoreSceneObjects(),
+          1024 * 1024 * 1024, // 1GB
+          scene.getOOCSceneObjects(),
           [this](const Ray& r, const SurfaceInteraction& si, const IntegratorState& s, const InsertHandle& h) {
               rayHit(r, si, s, h);
           },

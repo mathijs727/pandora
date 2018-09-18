@@ -18,7 +18,7 @@ template <typename LeafObj>
 class WiVeBVH8 : public BVH<LeafObj> {
 public:
 	WiVeBVH8() = default;
-    WiVeBVH8(const serialization::WiVeBVH8* serialized, gsl::span<const LeafObj*> objects);
+    WiVeBVH8(const serialization::WiVeBVH8* serialized);
 	WiVeBVH8(WiVeBVH8&&) = default;
     ~WiVeBVH8() = default;
 

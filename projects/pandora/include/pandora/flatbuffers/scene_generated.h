@@ -18,8 +18,7 @@ struct GeometricSceneObjectGeometry;
 
 struct InstancedSceneObjectGeometry FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum {
-    VT_TRANSFORM = 4,
-    VT_GEOMETRYHANDLE = 6
+    VT_TRANSFORM = 4
   };
   const Transform *transform() const {
     return GetStruct<const Transform *>(VT_TRANSFORM);
@@ -27,16 +26,9 @@ struct InstancedSceneObjectGeometry FLATBUFFERS_FINAL_CLASS : private flatbuffer
   Transform *mutable_transform() {
     return GetStruct<Transform *>(VT_TRANSFORM);
   }
-  uint32_t geometryHandle() const {
-    return GetField<uint32_t>(VT_GEOMETRYHANDLE, 0);
-  }
-  bool mutate_geometryHandle(uint32_t _geometryHandle) {
-    return SetField<uint32_t>(VT_GEOMETRYHANDLE, _geometryHandle, 0);
-  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<Transform>(verifier, VT_TRANSFORM) &&
-           VerifyField<uint32_t>(verifier, VT_GEOMETRYHANDLE) &&
            verifier.EndTable();
   }
 };
@@ -46,9 +38,6 @@ struct InstancedSceneObjectGeometryBuilder {
   flatbuffers::uoffset_t start_;
   void add_transform(const Transform *transform) {
     fbb_.AddStruct(InstancedSceneObjectGeometry::VT_TRANSFORM, transform);
-  }
-  void add_geometryHandle(uint32_t geometryHandle) {
-    fbb_.AddElement<uint32_t>(InstancedSceneObjectGeometry::VT_GEOMETRYHANDLE, geometryHandle, 0);
   }
   explicit InstancedSceneObjectGeometryBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -64,10 +53,8 @@ struct InstancedSceneObjectGeometryBuilder {
 
 inline flatbuffers::Offset<InstancedSceneObjectGeometry> CreateInstancedSceneObjectGeometry(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const Transform *transform = 0,
-    uint32_t geometryHandle = 0) {
+    const Transform *transform = 0) {
   InstancedSceneObjectGeometryBuilder builder_(_fbb);
-  builder_.add_geometryHandle(geometryHandle);
   builder_.add_transform(transform);
   return builder_.Finish();
 }

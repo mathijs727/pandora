@@ -44,7 +44,7 @@ public:
     //void saveToCacheFile(const std::string_view filename);
     flatbuffers::Offset<serialization::TriangleMesh> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
-    size_t sizeBytes() const;
+    size_t size() const;
 
     unsigned numTriangles() const;
     unsigned numVertices() const;

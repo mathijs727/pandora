@@ -29,6 +29,8 @@ public:
     virtual unsigned numPrimitives() const = 0;
     virtual bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const = 0;
     virtual SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const = 0;
+
+    virtual size_t size() const = 0;
 };
 
 class SceneObjectMaterial
@@ -72,6 +74,7 @@ public:
 class Scene {
 public:
     Scene() = default;
+    Scene(size_t geometryCacheSize);
     Scene(Scene&&) = default;
     ~Scene() = default;
 
@@ -89,7 +92,7 @@ public:
     FifoCache<TriangleMesh>& geometryCache();
 
 private:
-    FifoCache<TriangleMesh> m_geometryCache;
+    std::unique_ptr<FifoCache<TriangleMesh>> m_geometryCache;
 
     std::vector<std::unique_ptr<InCoreSceneObject>> m_inCoreSceneObjects;
     std::vector<std::unique_ptr<OOCSceneObject>> m_oocSceneObjects;

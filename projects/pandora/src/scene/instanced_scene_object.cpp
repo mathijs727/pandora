@@ -57,52 +57,51 @@ Ray InCoreInstancedSceneObject::transformRayToInstanceSpace(const Ray& ray) cons
     return m_worldTransform.transform(ray);
 }
 
+size_t InCoreInstancedSceneObject::size() const
+{
+    return sizeof(decltype(*this)) + m_baseObject->size();
+}
+
 InstancedSceneObjectGeometry::InstancedSceneObjectGeometry(
     const Transform& worldTransform,
-    const SceneObjectGeometry& baseObjectGeometry)
+    std::unique_ptr<SceneObjectGeometry>&& baseObjectGeometry)
     : m_worldTransform(worldTransform)
-    , m_baseObjectGeometry(baseObjectGeometry)
+    , m_baseObjectGeometry(std::move(baseObjectGeometry))
 {
 }
 
 InstancedSceneObjectGeometry::InstancedSceneObjectGeometry(
     const serialization::InstancedSceneObjectGeometry* serialized,
-    const std::function<const GeometricSceneObjectGeometry&(uint32_t)>& geometryGenerator)
+    std::unique_ptr<SceneObjectGeometry>&& baseObjectGeometry)
     : m_worldTransform(Transform(serialized->transform()))
-    , m_baseObjectGeometry(geometryGenerator(serialized->geometryHandle()))
+    , m_baseObjectGeometry(std::move(baseObjectGeometry))
 {
 }
 
 flatbuffers::Offset<serialization::InstancedSceneObjectGeometry> InstancedSceneObjectGeometry::serialize(
-    flatbuffers::FlatBufferBuilder& builder,
-    const std::function<uint32_t(const GeometricSceneObjectGeometry*)>& handleGenerator) const
+    flatbuffers::FlatBufferBuilder& builder) const
 {
     // TODO: support multiple levels of instancing
-    auto geometricBaseObjectGeometry = dynamic_cast<const GeometricSceneObjectGeometry*>(&m_baseObjectGeometry);
-    uint32_t geometryHandle = handleGenerator(geometricBaseObjectGeometry);
-
     auto serializedTransform = m_worldTransform.serialize();
-
     return serialization::CreateInstancedSceneObjectGeometry(
         builder,
-        &serializedTransform,
-        geometryHandle);
+        &serializedTransform);
 }
 
 Bounds InstancedSceneObjectGeometry::worldBoundsPrimitive(unsigned primitiveID) const
 {
-    return m_worldTransform.transform(m_baseObjectGeometry.worldBoundsPrimitive(primitiveID));
+    return m_worldTransform.transform(m_baseObjectGeometry->worldBoundsPrimitive(primitiveID));
 }
 
 unsigned InstancedSceneObjectGeometry::numPrimitives() const
 {
-    return m_baseObjectGeometry.numPrimitives();
+    return m_baseObjectGeometry->numPrimitives();
 }
 
 bool InstancedSceneObjectGeometry::intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const
 {
     Ray instanceSpaceRay = m_worldTransform.transform(ray);
-    bool hit = m_baseObjectGeometry.intersectPrimitive(instanceSpaceRay, rayHit, primitiveID);
+    bool hit = m_baseObjectGeometry->intersectPrimitive(instanceSpaceRay, rayHit, primitiveID);
     ray.tfar = instanceSpaceRay.tfar;
     return hit;
 }
@@ -110,7 +109,12 @@ bool InstancedSceneObjectGeometry::intersectPrimitive(Ray& ray, RayHit& rayHit, 
 SurfaceInteraction InstancedSceneObjectGeometry::fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const
 {
     Ray instanceSpaceRay = m_worldTransform.transform(ray);
-    return m_worldTransform.transform(m_baseObjectGeometry.fillSurfaceInteraction(instanceSpaceRay, rayHit));
+    return m_worldTransform.transform(m_baseObjectGeometry->fillSurfaceInteraction(instanceSpaceRay, rayHit));
+}
+
+size_t InstancedSceneObjectGeometry::size() const
+{
+    return sizeof(decltype(*this)) + m_baseObjectGeometry->size();
 }
 
 OOCInstancedSceneObject::OOCInstancedSceneObject(const glm::mat4& transformMatrix, const std::shared_ptr<const OOCGeometricSceneObject>& baseObject)
@@ -132,6 +136,11 @@ std::unique_ptr<SceneObjectGeometry> OOCInstancedSceneObject::getGeometryBlockin
 std::unique_ptr<SceneObjectMaterial> OOCInstancedSceneObject::getMaterialBlocking() const
 {
     return m_baseObject->getMaterialBlocking();
+}
+
+Ray OOCInstancedSceneObject::transformRayToInstanceSpace(const Ray& ray) const
+{
+    return m_transform.transform(ray);
 }
 
 }

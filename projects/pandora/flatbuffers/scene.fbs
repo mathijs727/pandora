@@ -6,7 +6,6 @@ namespace pandora.serialization;
 table InstancedSceneObjectGeometry
 {
 	transform: Transform;
-	geometryHandle: uint;
 }
 
 table GeometricSceneObjectGeometry

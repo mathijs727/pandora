@@ -74,7 +74,7 @@ inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resource
             // TODO: load data on a worker thread
             const auto& factoryFunc = m_resourceFactories[resourceID];
             sharedResourcePtr = std::make_shared<T>(factoryFunc());
-            size_t resourceSize = sharedResourcePtr->sizeBytes();
+            size_t resourceSize = sharedResourcePtr->size();
             cacheItem.itemPtr.store(sharedResourcePtr);
 
             size_t oldCacheSize = m_currentSizeBytes.fetch_add(resourceSize);
@@ -105,9 +105,9 @@ inline void FifoCache<T>::evict(size_t bytesToEvict)
         std::shared_ptr<T> sharedResourcePtr;
         m_cacheHistory.try_pop(sharedResourcePtr);
 
-        bytesEvicted += sharedResourcePtr->sizeBytes();
+        bytesEvicted += sharedResourcePtr->size();
     }
-    m_currentSizeBytes.fetch_sub(evicted);
+    m_currentSizeBytes.fetch_sub(bytesEvicted);
 }
 
 }

@@ -10,17 +10,17 @@
 namespace pandora {
 
 template <typename LeafObj>
-inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, gsl::span<const LeafObj*> objects)
+inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized)
 {
     m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(serialized->innerNodeAllocator());
     m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>(serialized->leafNodeAllocator());
     m_compressedRootHandle = serialized->compressedRootHandle();
 
-    if ((uint32_t)objects.size() != serialized->numLeafObjects())
+    /*if ((uint32_t)objects.size() != serialized->numLeafObjects())
         THROW_ERROR("Number of leaf objects does not match that of the serialized BVH");
 
     this->m_leafObjects.resize(objects.size());
-    std::copy(std::begin(objects), std::end(objects), std::begin(this->m_leafObjects));
+    std::copy(std::begin(objects), std::end(objects), std::begin(this->m_leafObjects));*/
 }
 
 template <typename LeafObj>

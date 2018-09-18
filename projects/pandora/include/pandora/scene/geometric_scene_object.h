@@ -17,6 +17,8 @@ public:
     bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;
     SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const override final;
 
+    size_t size() const override final;
+
 private:
     friend class InCoreGeometricSceneObject;
     friend class OOCGeometricSceneObject;
@@ -69,6 +71,8 @@ public:
         ShadingMemoryArena& memoryArena,
         TransportMode mode,
         bool allowMultipleLobes) const override final;
+
+    size_t size() const override final;
 
 private:
     static std::vector<AreaLight> createAreaLights(const Spectrum& lightEmitted, const TriangleMesh& mesh);

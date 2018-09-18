@@ -73,7 +73,7 @@ TriangleMesh::TriangleMesh(
     for (unsigned v = 0; v < numVertices; v++)
         m_bounds.grow(m_positions[v]);
 
-    g_stats.memory.geometry += sizeBytes();
+    g_stats.memory.geometry += size();
 }
 
 TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
@@ -411,7 +411,7 @@ flatbuffers::Offset<serialization::TriangleMesh> TriangleMesh::serialize(flatbuf
         uvCoords);
 }
 
-size_t TriangleMesh::sizeBytes() const
+size_t TriangleMesh::size() const
 {
     size_t size = sizeof(TriangleMesh);
     size += m_numTriangles * sizeof(glm::ivec3); // triangles

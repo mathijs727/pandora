@@ -50,6 +50,11 @@ SurfaceInteraction InCoreGeometricSceneObject::fillSurfaceInteraction(const Ray&
     return m_geometricProperties.fillSurfaceInteraction(ray, rayHit);
 }
 
+size_t InCoreGeometricSceneObject::size() const
+{
+    return m_geometricProperties.size();// + m_materialProperties.size();
+}
+
 void InCoreGeometricSceneObject::computeScatteringFunctions(
     SurfaceInteraction& si,
     ShadingMemoryArena& memoryArena,
@@ -95,6 +100,11 @@ bool GeometricSceneObjectGeometry::intersectPrimitive(Ray& ray, RayHit& rayHit, 
 SurfaceInteraction GeometricSceneObjectGeometry::fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const
 {
     return m_mesh->fillSurfaceInteraction(ray, rayHit);
+}
+
+size_t GeometricSceneObjectGeometry::size() const
+{
+    return m_mesh->size();
 }
 
 flatbuffers::Offset<serialization::GeometricSceneObjectGeometry> GeometricSceneObjectGeometry::serialize(flatbuffers::FlatBufferBuilder& builder) const
@@ -149,7 +159,8 @@ Bounds OOCGeometricSceneObject::worldBounds() const
 
 std::unique_ptr<SceneObjectGeometry> OOCGeometricSceneObject::getGeometryBlocking() const
 {
-    return std::make_unique<GeometricSceneObjectGeometry>(m_geometryHandle.getBlocking());
+    return std::unique_ptr<GeometricSceneObjectGeometry>(new GeometricSceneObjectGeometry(m_geometryHandle.getBlocking()));
+    //return std::make_unique<GeometricSceneObjectGeometry>(m_geometryHandle.getBlocking());
 }
 
 std::unique_ptr<SceneObjectMaterial> OOCGeometricSceneObject::getMaterialBlocking() const

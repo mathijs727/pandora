@@ -1,4 +1,3 @@
-#include "..\..\include\pandora\core\scene.h"
 #include "pandora/core/scene.h"
 #include "pandora/geometry/triangle.h"
 #include <embree3/rtcore.h>
@@ -8,6 +7,11 @@
 //static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
 
 namespace pandora {
+
+Scene::Scene(size_t geometryCacheSize) :
+    m_geometryCache(std::make_unique<FifoCache<TriangleMesh>>(geometryCacheSize))
+{
+}
 
 void Scene::addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneObject)
 {
@@ -60,9 +64,9 @@ gsl::span<const Light* const> Scene::getInfiniteLights() const
     return m_infiniteLights;
 }
 
-FifoCache<GeometryCollection>& Scene::geometryCache()
+FifoCache<TriangleMesh>& Scene::geometryCache()
 {
-    return m_geometryCache;
+    return *m_geometryCache;
 }
 
 }

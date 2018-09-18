@@ -30,6 +30,8 @@ public:
     Ray transformRayToInstanceSpace(const Ray& ray) const;
     const InCoreGeometricSceneObject* getBaseObject() const { return m_baseObject.get(); }
 
+    size_t size() const override final;
+
 private:
     Transform m_worldTransform;
     std::shared_ptr<const InCoreGeometricSceneObject> m_baseObject;
@@ -39,16 +41,17 @@ class InstancedSceneObjectGeometry : public SceneObjectGeometry {
 public:
     InstancedSceneObjectGeometry(
         const serialization::InstancedSceneObjectGeometry* serialized,
-        std::unique_ptr<SceneObjectGeometry> handleToGeometryFunc);// Map handle to geometry pointer
+        std::unique_ptr<SceneObjectGeometry>&& baseObjectGeometry);// Map handle to geometry pointer
     flatbuffers::Offset<serialization::InstancedSceneObjectGeometry> serialize(
-        flatbuffers::FlatBufferBuilder& builder,
-        uint32_t baseGeometryHandle) const;
+        flatbuffers::FlatBufferBuilder& builder) const;
 
     Bounds worldBoundsPrimitive(unsigned primitiveID) const override final;
 
     unsigned numPrimitives() const override final;
     bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;
     SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const override final;
+
+    size_t size() const override final;
 
 private:
     friend class OOCInstancedSceneObject;
@@ -72,6 +75,7 @@ public:
     std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
     std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
 
+    Ray transformRayToInstanceSpace(const Ray& ray) const;
     const OOCGeometricSceneObject* getBaseObject() const { return m_baseObject.get(); }
 
 private:
