@@ -154,7 +154,7 @@ inline void WiVeBVH8Build8<LeafObj>::innerNodeSetBounds(void* p, const RTCBounds
 template <typename LeafObj>
 inline void* WiVeBVH8Build8<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
 {
-    assert(numPrims <= 4);
+    assert(numPrims > 0 && numPrims <= 4);
 
 	// Allocate node
 	auto* self = reinterpret_cast<WiVeBVH8Build8<LeafObj>*>(userPtr);

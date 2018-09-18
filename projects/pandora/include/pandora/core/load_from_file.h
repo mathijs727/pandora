@@ -1,14 +1,17 @@
 #pragma once
-#include <string_view>
-#include "pandora/core/scene.h"
 #include "pandora/core/perspective_camera.h"
+#include "pandora/core/scene.h"
 #include <glm/glm.hpp>
+#include <string_view>
 
-namespace pandora
-{
+namespace pandora {
 
-struct RenderConfig
-{
+struct RenderConfig {
+    RenderConfig() = default;
+    RenderConfig(size_t goemetryCacheSize)
+        : scene(goemetryCacheSize)
+    {
+    }
     std::unique_ptr<PerspectiveCamera> camera;
     glm::ivec2 resolution;
     Scene scene;

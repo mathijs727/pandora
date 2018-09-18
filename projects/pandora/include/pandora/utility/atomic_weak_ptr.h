@@ -40,7 +40,7 @@ void atomic_weak_ptr<T>::store(const std::shared_ptr<T>& sharedPtr)
 template<typename T>
 inline std::shared_ptr<T> atomic_weak_ptr<T>::lock()
 {
-    tbb::reader_writer_lock::scoped_lock lock(m_mutex);
+    tbb::reader_writer_lock::scoped_lock_read lock(m_mutex);
     std::atomic_thread_fence(std::memory_order_acquire);
     return m_ptr.lock();
 }

@@ -16,13 +16,11 @@ public:
 
     WiVeBVH8Build8<LeafObj>& operator=(WiVeBVH8Build8<LeafObj>&& other)
     {
-        this->m_leafObjects = std::move(other.m_leafObjects);
-        this->m_primitives = std::move(other.m_primitives);
         this->m_innerNodeAllocator = std::move(other.m_innerNodeAllocator);
-        this->m_leafNodeAllocator = std::move(other.m_leafNodeAllocator);
+        this->m_leafIndexAllocator = std::move(other.m_leafIndexAllocator);
+        this->m_leafObjects = std::move(other.m_leafObjects);
         this->m_compressedRootHandle = other.m_compressedRootHandle;
 
-        other.m_compressedRootHandle = 0;
         return *this;
     }
 

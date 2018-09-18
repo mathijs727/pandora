@@ -16,8 +16,11 @@ inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, gs
     m_leafIndexAllocator = std::make_unique<ContiguousAllocatorTS<uint32_t>>(serialized->leafIndexAllocator());
     m_compressedRootHandle = serialized->compressedRootHandle();
 
-    ALWAYS_ASSERT((uint32_t)objects.size() != serialized->numLeafObjects(), "Number of leaf objects does not match that of the serialized BVH");
-    ALWAYS_ASSERT(m_leafObjects.empty());
+    size_t numNodesGiven = objects.size();
+    size_t numNodesSerialized = serialized->numLeafObjects();
+    assert(numNodesGiven > 0);
+    assert(m_leafObjects.empty());
+    ALWAYS_ASSERT(numNodesGiven == numNodesSerialized, "Number of leaf objects does not match that of the serialized BVH");
 
     this->m_leafObjects.clear();
     /*this->m_leafObjects.insert(
@@ -33,12 +36,13 @@ inline flatbuffers::Offset<serialization::WiVeBVH8> WiVeBVH8<LeafObj>::serialize
 {
     auto serializedInnerNodeAllocator = m_innerNodeAllocator->serialize(builder);
     auto serializedLeafIndexAllocator = m_leafIndexAllocator->serialize(builder);
+    assert(!this->m_leafObjects.empty());
     return serialization::CreateWiVeBVH8(
         builder,
         serializedInnerNodeAllocator,
         serializedLeafIndexAllocator,
         m_compressedRootHandle,
-        static_cast<uint32_t>(this->m_leafObjects.size()));
+        this->m_leafObjects.size());
 }
 
 /*template <typename LeafObj>

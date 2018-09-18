@@ -242,7 +242,7 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
         file >> json;
     }
 
-    RenderConfig config;
+    RenderConfig config(1024*1024*1024);
     {
         auto configJson = json["config"];
 
@@ -384,7 +384,9 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
         // Create instanced base objects
         std::vector<std::shared_ptr<OOCGeometricSceneObject>> baseSceneObjects;
         for (const auto jsonSceneObject : sceneJson["instance_base_scene_objects"]) {
-            baseSceneObjects.emplace_back(makeGeomSceneObject(jsonSceneObject)); // Converts to shared_ptr
+            auto sceneObject = makeGeomSceneObject(jsonSceneObject);
+            if (sceneObject)
+                baseSceneObjects.emplace_back(std::move(sceneObject)); // Converts to shared_ptr
         }
 
         // Create scene objects
@@ -395,7 +397,9 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
                 auto instancedSceneObject = std::make_unique<OOCInstancedSceneObject>(transform, baseSceneObject);
                 config.scene.addSceneObject(std::move(instancedSceneObject));
             } else {
-                config.scene.addSceneObject(makeGeomSceneObject(jsonSceneObject));
+                auto sceneObject = makeGeomSceneObject(jsonSceneObject);
+                if (sceneObject)
+                    config.scene.addSceneObject(std::move(sceneObject));
             }
         }
 

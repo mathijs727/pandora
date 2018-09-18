@@ -223,7 +223,7 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::OOCBatchingAccele
     HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
     : m_geometryCache(geometryCacheSize)
     , m_batchAllocator()
-    , m_bvh(std::move(buildBVH("ooc_node_cache", m_geometryCache, sceneObjects, *this)))
+    , m_bvh(std::move(buildBVH("ooc_node_cache/", m_geometryCache, sceneObjects, *this)))
     , m_threadLocalPreallocatedRaybatch([&]() { return m_batchAllocator.allocate(); })
     , m_hitCallback(hitCallback)
     , m_anyHitCallback(anyHitCallback)
@@ -242,6 +242,7 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeInterse
 
     for (int i = 0; i < rays.size(); i++) {
         RayHit hitInfo;
+        hitInfo.sceneObjectVariant = RayHit::OutOfCore {};
         Ray ray = rays[i]; // Copy so we can mutate it
         UserState userState = perRayUserData[i];
 
@@ -314,6 +315,7 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
 
         tbb::enumerable_thread_specific<size_t> raysProcessedTL([]() -> size_t { return 0; });
         tbb::parallel_for_each(m_bvh.leafs(), [&](auto* topLevelLeafNode) {
+            //for (auto* topLevelLeafNode : m_bvh.leafs())
             raysProcessedTL.local() += topLevelLeafNode->flush();
         });
         size_t raysProcessed = std::accumulate(std::begin(raysProcessedTL), std::end(raysProcessedTL), (size_t)0, std::plus<size_t>());
@@ -412,6 +414,8 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
     std::vector<flatbuffers::Offset<serialization::GeometricSceneObjectGeometry>> serializedUniqueGeometry;
     std::vector<flatbuffers::Offset<serialization::InstancedSceneObjectGeometry>> serializedInstancedGeometry;
 
+    std::vector<std::unique_ptr<SceneObjectGeometry>> geometryOwningPointers; // Keep geometry alive until BVH build finished
+
     // Create leaf nodes for all instanced geometry and then for all non-instanced geometry. It is important to keep these
     // two separate so we can recreate the leafs in the exact same order when deserializing the BVH.
     std::vector<BotLevelLeafNode> leafs;
@@ -421,7 +425,7 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
     for (const auto* sceneObject : sceneObjects) {
         if (const auto* geometricSceneObject = dynamic_cast<const OOCGeometricSceneObject*>(sceneObject)) {
             // Serialize
-            const auto geometryOwningPointer = geometricSceneObject->getGeometryBlocking();
+            auto geometryOwningPointer = geometricSceneObject->getGeometryBlocking();
             const auto* geometry = dynamic_cast<const GeometricSceneObjectGeometry*>(geometryOwningPointer.get());
             serializedUniqueGeometry.push_back(
                 geometry->serialize(fbb));
@@ -431,12 +435,14 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
             for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
                 leafs.push_back(BotLevelLeafNode(*geometricSceneObject, *geometry, primitiveID));
             }
+
+            geometryOwningPointers.emplace_back(std::move(geometryOwningPointer)); // Keep geometry alive until BVH build finished
         }
     }
     for (const auto* sceneObject : sceneObjects) {
         if (const auto* instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(sceneObject)) {
             // Serialize
-            const auto geometryOwningPointer = instancedSceneObject->getGeometryBlocking();
+            auto geometryOwningPointer = instancedSceneObject->getGeometryBlocking();
             const auto* geometry = dynamic_cast<const InstancedSceneObjectGeometry*>(geometryOwningPointer.get());
             unsigned baseGeometryID = instanceBaseObjectIDs[instancedSceneObject->getBaseObject()];
             serializedInstancedSceneObjectBaseIDs.push_back(baseGeometryID);
@@ -447,6 +453,8 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
             // Create bot-level node
             auto bvh = instancedBVHs[instancedSceneObject->getBaseObject()];
             leafs.push_back(BotLevelLeafNode(*instancedSceneObject, *geometry, bvh));
+
+            geometryOwningPointers.emplace_back(std::move(geometryOwningPointer));
         }
     }
 
@@ -519,8 +527,7 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
             ret.geometry.emplace_back(std::move(geometry));
         }
 
-        //ret.leafBVH = WiVeBVH8Build8<BotLevelLeafNode>(serializedTopLevelLeafNode->bvh(), leafs);
-        WiVeBVH8Build8<BotLevelLeafNode> xxx(serializedTopLevelLeafNode->bvh(), leafs);
+        ret.leafBVH = WiVeBVH8Build8<BotLevelLeafNode>(serializedTopLevelLeafNode->bvh(), leafs);
         return ret;
     });
     return EvictableResourceHandle<GeometryData>(cache, resourceID);

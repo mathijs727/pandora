@@ -39,7 +39,7 @@ int main()
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-    auto renderConfig = loadFromFileOOC("D:/Pandora Scenes/pbrt_intermediate/buddha-fractal/pandora.json", false);
+    auto renderConfig = loadFromFileOOC("D:/Pandora Scenes/pbrt_intermediate/crown/pandora.json", false);
     //auto renderConfig = createStaticScene();
     Scene& scene = renderConfig.scene;
     PerspectiveCamera& camera = *renderConfig.camera;
@@ -102,7 +102,7 @@ void addCornellBox(Scene& scene);
 
 RenderConfig createStaticScene()
 {
-    RenderConfig config;
+    RenderConfig config(0);
     config.resolution = glm::ivec2(1280, 720);
     config.camera = std::make_unique<PerspectiveCamera>(config.resolution, 65.0f);
     //addCornellBox(config.scene);

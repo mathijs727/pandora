@@ -38,11 +38,11 @@ struct WiVeBVH8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool mutate_compressedRootHandle(uint32_t _compressedRootHandle) {
     return SetField<uint32_t>(VT_COMPRESSEDROOTHANDLE, _compressedRootHandle, 0);
   }
-  uint32_t numLeafObjects() const {
-    return GetField<uint32_t>(VT_NUMLEAFOBJECTS, 0);
+  uint64_t numLeafObjects() const {
+    return GetField<uint64_t>(VT_NUMLEAFOBJECTS, 0);
   }
-  bool mutate_numLeafObjects(uint32_t _numLeafObjects) {
-    return SetField<uint32_t>(VT_NUMLEAFOBJECTS, _numLeafObjects, 0);
+  bool mutate_numLeafObjects(uint64_t _numLeafObjects) {
+    return SetField<uint64_t>(VT_NUMLEAFOBJECTS, _numLeafObjects, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -51,7 +51,7 @@ struct WiVeBVH8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_LEAFINDEXALLOCATOR) &&
            verifier.VerifyTable(leafIndexAllocator()) &&
            VerifyField<uint32_t>(verifier, VT_COMPRESSEDROOTHANDLE) &&
-           VerifyField<uint32_t>(verifier, VT_NUMLEAFOBJECTS) &&
+           VerifyField<uint64_t>(verifier, VT_NUMLEAFOBJECTS) &&
            verifier.EndTable();
   }
 };
@@ -68,8 +68,8 @@ struct WiVeBVH8Builder {
   void add_compressedRootHandle(uint32_t compressedRootHandle) {
     fbb_.AddElement<uint32_t>(WiVeBVH8::VT_COMPRESSEDROOTHANDLE, compressedRootHandle, 0);
   }
-  void add_numLeafObjects(uint32_t numLeafObjects) {
-    fbb_.AddElement<uint32_t>(WiVeBVH8::VT_NUMLEAFOBJECTS, numLeafObjects, 0);
+  void add_numLeafObjects(uint64_t numLeafObjects) {
+    fbb_.AddElement<uint64_t>(WiVeBVH8::VT_NUMLEAFOBJECTS, numLeafObjects, 0);
   }
   explicit WiVeBVH8Builder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -88,7 +88,7 @@ inline flatbuffers::Offset<WiVeBVH8> CreateWiVeBVH8(
     flatbuffers::Offset<ContiguousAllocator> innerNodeAllocator = 0,
     flatbuffers::Offset<ContiguousAllocator> leafIndexAllocator = 0,
     uint32_t compressedRootHandle = 0,
-    uint32_t numLeafObjects = 0) {
+    uint64_t numLeafObjects = 0) {
   WiVeBVH8Builder builder_(_fbb);
   builder_.add_numLeafObjects(numLeafObjects);
   builder_.add_compressedRootHandle(compressedRootHandle);
