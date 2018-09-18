@@ -377,7 +377,7 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
                 //return std::make_unique<OOCGeometricSceneObject>(mesh, material, areaLight);
                 return std::unique_ptr<OOCGeometricSceneObject>(nullptr);
             } else {
-                return std::make_unique<OOCGeometricSceneObject>(worldBounds, geometry, material);
+                return std::make_unique<OOCGeometricSceneObject>(geometry, material);
             }
         };
 

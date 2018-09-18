@@ -89,7 +89,7 @@ private:
 class OOCInstancedSceneObject;
 class OOCGeometricSceneObject : public OOCSceneObject {
 public:
-    OOCGeometricSceneObject(const Bounds& worldBounds, const EvictableResourceHandle<TriangleMesh>& geometryHandle, const std::shared_ptr<const Material>& material);
+    OOCGeometricSceneObject(const EvictableResourceHandle<TriangleMesh>& geometryHandle, const std::shared_ptr<const Material>& material);
     //GeometricSceneObjectOOC(const Bounds& worldBounds, const EvictableResourceHandle<TriangleMesh>& meshHandle, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
     ~OOCGeometricSceneObject() override final = default;
 

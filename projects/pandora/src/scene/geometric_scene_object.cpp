@@ -143,12 +143,15 @@ const AreaLight* GeometricSceneObjectMaterial::getPrimitiveAreaLight(unsigned pr
 }
 
 OOCGeometricSceneObject::OOCGeometricSceneObject(
-    const Bounds& worldBounds,
     const EvictableResourceHandle<TriangleMesh>& geometryHandle,
     const std::shared_ptr<const Material>& material)
     : m_geometryHandle(geometryHandle)
     , m_materialProperties(material)
 {
+    auto geometry = getGeometryBlocking();
+    for (unsigned primID = 0; primID < geometry->numPrimitives(); primID++) {
+        m_worldBounds.extend(geometry->worldBoundsPrimitive(primID));
+    }
 }
 
 Bounds OOCGeometricSceneObject::worldBounds() const
@@ -159,8 +162,8 @@ Bounds OOCGeometricSceneObject::worldBounds() const
 
 std::unique_ptr<SceneObjectGeometry> OOCGeometricSceneObject::getGeometryBlocking() const
 {
+    // Can't use std::make_unique because GeometricSceneObjectGeometry constructor is private (OOCGeometricSceneObject is a friend)
     return std::unique_ptr<GeometricSceneObjectGeometry>(new GeometricSceneObjectGeometry(m_geometryHandle.getBlocking()));
-    //return std::make_unique<GeometricSceneObjectGeometry>(m_geometryHandle.getBlocking());
 }
 
 std::unique_ptr<SceneObjectMaterial> OOCGeometricSceneObject::getMaterialBlocking() const
