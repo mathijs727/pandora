@@ -18,7 +18,7 @@ template <typename LeafObj>
 class WiVeBVH8 : public BVH<LeafObj> {
 public:
 	WiVeBVH8() = default;
-    WiVeBVH8(const serialization::WiVeBVH8* serialized);
+    WiVeBVH8(const serialization::WiVeBVH8* serialized, gsl::span<LeafObj> objects);
 	WiVeBVH8(WiVeBVH8&&) = default;
     ~WiVeBVH8() = default;
 
@@ -30,10 +30,6 @@ public:
 
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
     bool intersectAny(Ray& ray) const override final;
-
-	//void loadFromFile(std::string_view filename, gsl::span<const LeafObj*> objects);
-	//void saveToFile(std::string_view filename);
-
 
 protected:
 	virtual void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) = 0;
@@ -63,8 +59,8 @@ private:
     struct SIMDRay;
     uint32_t intersectInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
     uint32_t intersectAnyInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
-    bool intersectLeaf(const LeafObj* leafObjects, uint32_t objectCount, Ray& ray, RayHit& hitInfo) const;
-    bool intersectAnyLeaf(const LeafObj* leafObjects, uint32_t objectCount, Ray& ray) const;
+    bool intersectLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray, RayHit& hitInfo) const;
+    bool intersectAnyLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray) const;
 
     struct TestBVHData {
         int numPrimitives = 0;
@@ -94,7 +90,9 @@ protected:
     const static uint32_t emptyHandle = 0xFFFFFFFF;
 
     std::unique_ptr<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>> m_innerNodeAllocator;
-    std::unique_ptr<ContiguousAllocatorTS<LeafObj>> m_leafNodeAllocator;
+    std::unique_ptr<ContiguousAllocatorTS<uint32_t>> m_leafIndexAllocator;
+    std::vector<LeafObj> m_leafObjects;
+
     uint32_t m_compressedRootHandle;
 
 private:

@@ -10,28 +10,33 @@
 namespace pandora {
 
 template <typename LeafObj>
-inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized)
+inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, gsl::span<LeafObj> objects)
 {
     m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(serialized->innerNodeAllocator());
-    m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>(serialized->leafNodeAllocator());
+    m_leafIndexAllocator = std::make_unique<ContiguousAllocatorTS<uint32_t>>(serialized->leafIndexAllocator());
     m_compressedRootHandle = serialized->compressedRootHandle();
 
-    /*if ((uint32_t)objects.size() != serialized->numLeafObjects())
-        THROW_ERROR("Number of leaf objects does not match that of the serialized BVH");
+    ALWAYS_ASSERT((uint32_t)objects.size() != serialized->numLeafObjects(), "Number of leaf objects does not match that of the serialized BVH");
+    ALWAYS_ASSERT(m_leafObjects.empty());
 
-    this->m_leafObjects.resize(objects.size());
-    std::copy(std::begin(objects), std::end(objects), std::begin(this->m_leafObjects));*/
+    this->m_leafObjects.clear();
+    /*this->m_leafObjects.insert(
+        std::end(this->m_leafObjects),
+        std::make_move_iterator(std::begin(objects)),
+        std::make_move_iterator(std::begin(objects)));*/
+    for (auto& obj : objects)
+        this->m_leafObjects.emplace_back(std::move(obj));
 }
 
 template <typename LeafObj>
 inline flatbuffers::Offset<serialization::WiVeBVH8> WiVeBVH8<LeafObj>::serialize(flatbuffers::FlatBufferBuilder& builder) const
 {
     auto serializedInnerNodeAllocator = m_innerNodeAllocator->serialize(builder);
-    auto serializedLeafNodeAllocator = m_leafNodeAllocator->serialize(builder);
+    auto serializedLeafIndexAllocator = m_leafIndexAllocator->serialize(builder);
     return serialization::CreateWiVeBVH8(
         builder,
         serializedInnerNodeAllocator,
-        serializedLeafNodeAllocator,
+        serializedLeafIndexAllocator,
         m_compressedRootHandle,
         static_cast<uint32_t>(this->m_leafObjects.size()));
 }
@@ -78,7 +83,7 @@ inline void WiVeBVH8<LeafObj>::saveToFile(std::string_view filename)
 template <typename LeafObj>
 inline size_t WiVeBVH8<LeafObj>::size() const
 {
-    return sizeof(decltype(*this)) + m_innerNodeAllocator->sizeBytes() + m_leafNodeAllocator->sizeBytes();
+    return sizeof(decltype(*this)) + m_innerNodeAllocator->sizeBytes() + m_leafIndexAllocator->sizeBytes();
 }
 
 template <typename LeafObj>
@@ -134,7 +139,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
             assert(isLeafNode(compressedNodeHandle));
 #endif
             // Leaf node
-            if (intersectLeaf(&m_leafNodeAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, hitInfo)) {
+            if (intersectLeaf(&m_leafIndexAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, hitInfo)) {
                 hit = true;
                 simdRay.tfar.broadcast(ray.tfar);
 
@@ -217,7 +222,7 @@ inline bool WiVeBVH8<LeafObj>::intersectAny(Ray& ray) const
             assert(isLeafNode(compressedNodeHandle));
 #endif
             // Leaf node
-            if (intersectAnyLeaf(&m_leafNodeAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray)) {
+            if (intersectAnyLeaf(&m_leafIndexAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray)) {
                 ray.tfar = -std::numeric_limits<float>::infinity();
                 return true;
             }
@@ -292,21 +297,21 @@ inline uint32_t WiVeBVH8<LeafObj>::intersectAnyInnerNode(const BVHNode* n, const
 
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersectLeaf(const LeafObj* leafObjects, uint32_t objectCount, Ray& ray, RayHit& hitInfo) const
+inline bool WiVeBVH8<LeafObj>::intersectLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray, RayHit& hitInfo) const
 {
     bool hit = false;
     for (uint32_t i = 0; i < objectCount; i++) {
-        hit |= leafObjects[i].intersect(ray, hitInfo);
+        hit |= m_leafObjects[leafObjectIndices[i]].intersect(ray, hitInfo);
     }
     return hit;
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersectAnyLeaf(const LeafObj* leafObjects, uint32_t objectCount, Ray& ray) const
+inline bool WiVeBVH8<LeafObj>::intersectAnyLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray) const
 {
     RayHit hitInfo = {};
     for (uint32_t i = 0; i < objectCount; i++) {
-        if (leafObjects[i].intersect(ray, hitInfo))
+        if (m_leafObjects[leafObjectIndices[i]].intersect(ray, hitInfo))
             return true;
     }
     return false;

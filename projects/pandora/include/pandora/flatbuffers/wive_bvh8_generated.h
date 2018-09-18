@@ -16,7 +16,7 @@ struct WiVeBVH8;
 struct WiVeBVH8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum {
     VT_INNERNODEALLOCATOR = 4,
-    VT_LEAFNODEALLOCATOR = 6,
+    VT_LEAFINDEXALLOCATOR = 6,
     VT_COMPRESSEDROOTHANDLE = 8,
     VT_NUMLEAFOBJECTS = 10
   };
@@ -26,11 +26,11 @@ struct WiVeBVH8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   ContiguousAllocator *mutable_innerNodeAllocator() {
     return GetPointer<ContiguousAllocator *>(VT_INNERNODEALLOCATOR);
   }
-  const ContiguousAllocator *leafNodeAllocator() const {
-    return GetPointer<const ContiguousAllocator *>(VT_LEAFNODEALLOCATOR);
+  const ContiguousAllocator *leafIndexAllocator() const {
+    return GetPointer<const ContiguousAllocator *>(VT_LEAFINDEXALLOCATOR);
   }
-  ContiguousAllocator *mutable_leafNodeAllocator() {
-    return GetPointer<ContiguousAllocator *>(VT_LEAFNODEALLOCATOR);
+  ContiguousAllocator *mutable_leafIndexAllocator() {
+    return GetPointer<ContiguousAllocator *>(VT_LEAFINDEXALLOCATOR);
   }
   uint32_t compressedRootHandle() const {
     return GetField<uint32_t>(VT_COMPRESSEDROOTHANDLE, 0);
@@ -48,8 +48,8 @@ struct WiVeBVH8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_INNERNODEALLOCATOR) &&
            verifier.VerifyTable(innerNodeAllocator()) &&
-           VerifyOffset(verifier, VT_LEAFNODEALLOCATOR) &&
-           verifier.VerifyTable(leafNodeAllocator()) &&
+           VerifyOffset(verifier, VT_LEAFINDEXALLOCATOR) &&
+           verifier.VerifyTable(leafIndexAllocator()) &&
            VerifyField<uint32_t>(verifier, VT_COMPRESSEDROOTHANDLE) &&
            VerifyField<uint32_t>(verifier, VT_NUMLEAFOBJECTS) &&
            verifier.EndTable();
@@ -62,8 +62,8 @@ struct WiVeBVH8Builder {
   void add_innerNodeAllocator(flatbuffers::Offset<ContiguousAllocator> innerNodeAllocator) {
     fbb_.AddOffset(WiVeBVH8::VT_INNERNODEALLOCATOR, innerNodeAllocator);
   }
-  void add_leafNodeAllocator(flatbuffers::Offset<ContiguousAllocator> leafNodeAllocator) {
-    fbb_.AddOffset(WiVeBVH8::VT_LEAFNODEALLOCATOR, leafNodeAllocator);
+  void add_leafIndexAllocator(flatbuffers::Offset<ContiguousAllocator> leafIndexAllocator) {
+    fbb_.AddOffset(WiVeBVH8::VT_LEAFINDEXALLOCATOR, leafIndexAllocator);
   }
   void add_compressedRootHandle(uint32_t compressedRootHandle) {
     fbb_.AddElement<uint32_t>(WiVeBVH8::VT_COMPRESSEDROOTHANDLE, compressedRootHandle, 0);
@@ -86,13 +86,13 @@ struct WiVeBVH8Builder {
 inline flatbuffers::Offset<WiVeBVH8> CreateWiVeBVH8(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<ContiguousAllocator> innerNodeAllocator = 0,
-    flatbuffers::Offset<ContiguousAllocator> leafNodeAllocator = 0,
+    flatbuffers::Offset<ContiguousAllocator> leafIndexAllocator = 0,
     uint32_t compressedRootHandle = 0,
     uint32_t numLeafObjects = 0) {
   WiVeBVH8Builder builder_(_fbb);
   builder_.add_numLeafObjects(numLeafObjects);
   builder_.add_compressedRootHandle(compressedRootHandle);
-  builder_.add_leafNodeAllocator(leafNodeAllocator);
+  builder_.add_leafIndexAllocator(leafIndexAllocator);
   builder_.add_innerNodeAllocator(innerNodeAllocator);
   return builder_.Finish();
 }

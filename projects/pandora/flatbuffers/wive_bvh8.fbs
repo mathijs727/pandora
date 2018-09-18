@@ -5,7 +5,7 @@ namespace pandora.serialization;
 table WiVeBVH8
 {
 	innerNodeAllocator: ContiguousAllocator;
-	leafNodeAllocator: ContiguousAllocator;
+	leafIndexAllocator: ContiguousAllocator;
 	compressedRootHandle: uint32;
 	numLeafObjects: uint32;
 }

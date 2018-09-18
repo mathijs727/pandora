@@ -21,10 +21,7 @@ public:
         this->m_innerNodeAllocator = std::move(other.m_innerNodeAllocator);
         this->m_leafNodeAllocator = std::move(other.m_leafNodeAllocator);
         this->m_compressedRootHandle = other.m_compressedRootHandle;
-        other.m_leafObjects.clear();
-        other.m_primitives.clear();
-        other.m_innerNodeAllocator = nullptr;
-        other.m_leafNodeAllocator = nullptr;
+
         other.m_compressedRootHandle = 0;
         return *this;
     }
@@ -33,8 +30,6 @@ protected:
     void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) override final;
 
 private:
-    LeafObj* m_tmpConstructionLeafObjects = nullptr;
-
     static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
     static void innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr);
     static void innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr);

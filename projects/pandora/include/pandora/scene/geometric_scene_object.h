@@ -6,7 +6,8 @@ namespace pandora {
 
 class GeometricSceneObjectGeometry : public SceneObjectGeometry {
 public:
-    GeometricSceneObjectGeometry(const pandora::serialization::TriangleMesh* serialized);
+    GeometricSceneObjectGeometry(const pandora::serialization::GeometricSceneObjectGeometry* serialized);
+    GeometricSceneObjectGeometry(const GeometricSceneObjectGeometry&) = default;
     ~GeometricSceneObjectGeometry() override final = default;
 
     flatbuffers::Offset<serialization::GeometricSceneObjectGeometry> serialize(flatbuffers::FlatBufferBuilder& builder) const;

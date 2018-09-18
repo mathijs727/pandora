@@ -513,7 +513,7 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
 
             auto geometry = std::make_unique<InstancedSceneObjectGeometry>(
                 serializedInstancedGeometry->Get(i),
-                std::make_unique<GeometricSceneObjectGeometry>(baseGeometry));
+                std::make_unique<GeometricSceneObjectGeometry>(*baseGeometry));
             leafs.push_back(BotLevelLeafNode(*instancedSceneObjects[i], *geometry, baseBVH));
 
             ret.geometry.emplace_back(std::move(geometry));

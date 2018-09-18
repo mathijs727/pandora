@@ -23,7 +23,7 @@ glm::vec3 deserialize(serialization::Vec3& v)
     return glm::vec3(v.x(), v.y(), v.z());
 }
 
-glm::mat4 deserialize(serialization::Mat4& m)
+glm::mat4 deserialize(const serialization::Mat4& m)
 {
     glm::mat4 ret;
     ret[0][0] = m.x0();

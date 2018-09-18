@@ -31,13 +31,17 @@ inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreeP
     this->m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(numPrimitives / 4, 16);
 
     // The allocator needs some extra space if we need it to allocate (small) arrays of leafs
-    unsigned allocMargin = static_cast<unsigned>(0.2f * numPrimitives);
-    this->m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<LeafObj>>(numPrimitives + allocMargin, 16);
+    unsigned allocMargin = numPrimitives * 2 / 10;;
+    this->m_leafIndexAllocator = std::make_unique<ContiguousAllocatorTS<uint32_t>>(numPrimitives + allocMargin, 16);
+    // Copy the leaf objects
+    /*this->m_leafObjects.insert(
+        std::end(this->m_leafObjects),
+        std::make_move_iterator(std::begin(objects)),
+        std::make_move_iterator(std::end(objects)));*/
+    for (auto& obj : objects)
+        this->m_leafObjects.emplace_back(std::move(obj));
 
-    m_tmpConstructionLeafObjects = objects.data();
     this->m_compressedRootHandle = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rtcBuildBVH(&arguments)));
-
-	//ALWAYS_ASSERT(this->isInnerNode(this->m_compressedRootHandle));
 
     // Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);
@@ -45,7 +49,7 @@ inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreeP
 
     // Shrink to fit BVH allocators
     this->m_innerNodeAllocator->compact();
-    this->m_leafNodeAllocator->compact();
+    this->m_leafIndexAllocator->compact();
 
     this->testBVH();
 }
@@ -154,8 +158,8 @@ inline void* WiVeBVH8Build8<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, 
 
 	// Allocate node
 	auto* self = reinterpret_cast<WiVeBVH8Build8<LeafObj>*>(userPtr);
-    auto[nodeHandle, nodePtr] = self->m_leafNodeAllocator->allocateNInitF((unsigned)numPrims, [&](int i) {
-        return std::move(self->m_tmpConstructionLeafObjects[prims[i].primID]);
+    auto[nodeHandle, nodePtr] = self->m_leafIndexAllocator->allocateNInitF((unsigned)numPrims, [&](int i) {
+        return prims[i].primID;
     });
 	/*auto[nodeHandle, nodePtr] = self->m_leafNodeAllocator->allocate();
 	for (size_t i = 0; i < numPrims; i++) {

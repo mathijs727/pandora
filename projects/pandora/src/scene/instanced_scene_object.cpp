@@ -130,7 +130,10 @@ Bounds OOCInstancedSceneObject::worldBounds() const
 
 std::unique_ptr<SceneObjectGeometry> OOCInstancedSceneObject::getGeometryBlocking() const
 {
-    return std::make_unique<InstancedSceneObjectGeometry>(m_baseObject->getGeometryBlocking());
+    // Cannot use std::make_unique on private constructor of friended class
+    return std::unique_ptr<InstancedSceneObjectGeometry>(
+        new InstancedSceneObjectGeometry(
+            m_transform, m_baseObject->getGeometryBlocking()));
 }
 
 std::unique_ptr<SceneObjectMaterial> OOCInstancedSceneObject::getMaterialBlocking() const

@@ -77,8 +77,8 @@ GeometricSceneObjectGeometry::GeometricSceneObjectGeometry(const std::shared_ptr
 {
 }
 
-GeometricSceneObjectGeometry::GeometricSceneObjectGeometry(const pandora::serialization::TriangleMesh* serialized)
-    : m_mesh(std::make_shared<TriangleMesh>(serialized))
+GeometricSceneObjectGeometry::GeometricSceneObjectGeometry(const serialization::GeometricSceneObjectGeometry* serialized)
+    : m_mesh(std::make_shared<TriangleMesh>(serialized->geometry()))
 {
 }
 

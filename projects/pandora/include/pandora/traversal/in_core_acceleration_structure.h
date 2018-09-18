@@ -14,6 +14,7 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <functional>
 
 namespace pandora {
 
@@ -55,13 +56,19 @@ private:
     public:
         LeafNode(const InCoreSceneObject& sceneObject, const std::shared_ptr<BVHType<InstanceLeafNode>>& bvh); // Instanced object in the top-level BVH
         LeafNode(const InCoreSceneObject& sceneObject, unsigned primitiveID); // Leaf of the top-level BVH
+        inline LeafNode(LeafNode&& other) :
+            m_sceneObject(std::move(other.m_sceneObject)),
+            m_primitiveID(std::move(other.m_primitiveID)),
+            m_bvh(std::move(other.m_bvh))
+        {
+        };
 
         Bounds getBounds() const;
         bool intersect(Ray& ray, RayHit& hitInfo) const;
 
     private:
         // Is a primitive
-        const InCoreSceneObject& m_sceneObject;
+        std::reference_wrapper<const InCoreSceneObject> m_sceneObject;
         const unsigned m_primitiveID;
 
         // Is an instance
@@ -224,9 +231,9 @@ template <typename UserState>
 inline Bounds InCoreAccelerationStructure<UserState>::LeafNode::getBounds() const
 {
     if (m_bvh) {
-        return m_sceneObject.worldBounds();
+        return m_sceneObject.get().worldBounds();
     } else {
-        return m_sceneObject.worldBoundsPrimitive(m_primitiveID);
+        return m_sceneObject.get().worldBoundsPrimitive(m_primitiveID);
     }
 }
 
@@ -234,18 +241,18 @@ template <typename UserState>
 inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersect(Ray& ray, RayHit& hitInfo) const
 {
     if (!m_bvh) {
-        bool hit = m_sceneObject.intersectPrimitive(ray, hitInfo, m_primitiveID);
+        bool hit = m_sceneObject.get().intersectPrimitive(ray, hitInfo, m_primitiveID);
         if (hit) {
-            std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant) = &m_sceneObject;
+            std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant) = &m_sceneObject.get();
         }
         return hit;
     } else {
-        const auto& instancedSceneObject = dynamic_cast<const InCoreInstancedSceneObject&>(m_sceneObject);
+        const auto& instancedSceneObject = dynamic_cast<const InCoreInstancedSceneObject&>(m_sceneObject.get());
         Ray localRay = instancedSceneObject.transformRayToInstanceSpace(ray);
 
         bool hit = m_bvh->intersect(localRay, hitInfo);
         if (hit) {
-            std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant) = &m_sceneObject;
+            std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant) = &m_sceneObject.get();
         }
 
         ray.tfar = localRay.tfar;
