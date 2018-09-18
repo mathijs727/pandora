@@ -220,10 +220,10 @@ class SceneParser:
             })
 
     def _create_geometric_scene_object(self, shape):
-        transform_matrix = np.reshape(shape.transform, (4, 4))
-        shape_bounds = None
+        #transform_matrix = np.reshape(shape.transform, (4, 4))
+        #shape_bounds = None
         if shape.type == "plymesh":
-            filename = shape.arguments["filename"]["value"]
+            """filename = shape.arguments["filename"]["value"]
             with open(filename, "rb") as f:
                 plydata = plyfile.PlyData.read(f)
                 num_vertices = plydata["vertex"].count
@@ -234,7 +234,7 @@ class SceneParser:
 
                 bounds_min = np.min(transformed_positions[:-1], axis=1)
                 bounds_max = np.max(transformed_positions[:-1], axis=1)
-                shape_bounds = (bounds_min.tolist(), bounds_max.tolist())
+                shape_bounds = (bounds_min.tolist(), bounds_max.tolist())"""
 
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
@@ -249,7 +249,7 @@ class SceneParser:
                 filename, start_byte, size_bytes = self._export_triangle_mesh(
                     triangle_mesh_data)
                 
-                # TODO: make sure that the multiplication axis are correct
+                """# TODO: make sure that the multiplication axis are correct
                 # Load the positions from a contiguous array into an array of 3D coordinates
                 positions = triangle_mesh_data["P"]["value"]
                 num_vertices = len(positions) // 3
@@ -262,7 +262,7 @@ class SceneParser:
                 # Bounds of transformed positions
                 bounds_min = np.min(transformed_positions[:-1], axis=1)
                 bounds_max = np.max(transformed_positions[:-1], axis=1)
-                shape_bounds = (bounds_min.tolist(), bounds_max.tolist())
+                shape_bounds = (bounds_min.tolist(), bounds_max.tolist())"""
 
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
@@ -289,14 +289,14 @@ class SceneParser:
                 "geometry_id": geometry_id,
                 "material_id": material_id,
                 "area_light": area_light,
-                "bounds": shape_bounds
+                #"bounds": shape_bounds
             }
         else:
             return {
                 "instancing": False,
                 "geometry_id": geometry_id,
                 "material_id": material_id,
-                "bounds": shape_bounds
+                #"bounds": shape_bounds
             }
 
     def _create_scene_objects(self, pbrt_scene):
