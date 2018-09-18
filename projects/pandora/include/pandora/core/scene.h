@@ -44,6 +44,7 @@ public:
         TransportMode mode,
         bool allowMultipleLobes) const = 0;
     virtual const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const = 0;
+    virtual gsl::span<const AreaLight> areaLights() const = 0;
 };
 
 class InCoreSceneObject : public SceneObjectGeometry, public SceneObjectMaterial {

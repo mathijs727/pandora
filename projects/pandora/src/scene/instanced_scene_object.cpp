@@ -28,6 +28,11 @@ const AreaLight* InCoreInstancedSceneObject::getPrimitiveAreaLight(unsigned prim
     return nullptr;
 }
 
+gsl::span<const AreaLight> InCoreInstancedSceneObject::areaLights() const
+{
+    return {};
+}
+
 unsigned InCoreInstancedSceneObject::numPrimitives() const
 {
     return m_baseObject->numPrimitives();

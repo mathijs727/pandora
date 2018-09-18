@@ -40,15 +40,18 @@ public:
         bool allowMultipleLobes) const override final;
 
     const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const override final;
+    gsl::span<const AreaLight> areaLights() const override final;
 private:
     friend class InCoreGeometricSceneObject;
     friend class OOCGeometricSceneObject;
     GeometricSceneObjectMaterial(const std::shared_ptr<const Material>& material);
-    GeometricSceneObjectMaterial(const std::shared_ptr<const Material>& material, std::vector<AreaLight>&& areaLights);
+    //GeometricSceneObjectMaterial(const std::shared_ptr<const Material>& material, std::vector<AreaLight>&& areaLights);
+    GeometricSceneObjectMaterial(const std::shared_ptr<const Material>& material, gsl::span<const AreaLight> areaLights);
 
 private:
     std::shared_ptr<const Material> m_material;
-    std::vector<AreaLight> m_areaLightPerPrimitive;
+    gsl::span<const AreaLight> m_areaLights;
+
 };
 
 class InCoreInstancedSceneObject;
@@ -62,6 +65,7 @@ public:
     Bounds worldBoundsPrimitive(unsigned primitiveID) const override final;
 
     const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const override final;
+    gsl::span<const AreaLight> areaLights() const override final;
 
     unsigned numPrimitives() const override final;
     bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;
@@ -84,13 +88,14 @@ private:
     // Contain instead of inherit to prevent the "dreaded diamond pattern" of inheritence
     GeometricSceneObjectGeometry m_geometricProperties;
     GeometricSceneObjectMaterial m_materialProperties;
+    std::vector<AreaLight> m_areaLights;
 };
 
 class OOCInstancedSceneObject;
 class OOCGeometricSceneObject : public OOCSceneObject {
 public:
     OOCGeometricSceneObject(const EvictableResourceHandle<TriangleMesh>& geometryHandle, const std::shared_ptr<const Material>& material);
-    //GeometricSceneObjectOOC(const Bounds& worldBounds, const EvictableResourceHandle<TriangleMesh>& meshHandle, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
+    OOCGeometricSceneObject(const EvictableResourceHandle<TriangleMesh>& geometryHandle, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
     ~OOCGeometricSceneObject() override final = default;
 
     Bounds worldBounds() const override final;
@@ -103,7 +108,11 @@ private:
 private:
     Bounds m_worldBounds;
     EvictableResourceHandle<TriangleMesh> m_geometryHandle;
-    GeometricSceneObjectMaterial m_materialProperties;
+
+    std::shared_ptr<const Material> m_material;
+
+    std::vector<AreaLight> m_areaLights;
+    std::shared_ptr<TriangleMesh> m_areaLightMeshOwner;
 };
 
 }

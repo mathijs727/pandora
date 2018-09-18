@@ -25,12 +25,11 @@ void Scene::addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneObject)
 
 void Scene::addSceneObject(std::unique_ptr<OOCSceneObject>&& sceneObject)
 {
-    std::cout << "(scene.cpp) addSceneObject cannot access area lights yet" << std::endl;
-    /*for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
-        if (const auto* light = sceneObject->getPrimitiveAreaLight(primitiveID); light) {
-            m_lights.push_back(light);
-        }
-    }*/
+    //std::cout << "(scene.cpp) addSceneObject cannot access area lights yet" << std::endl;
+    auto material = sceneObject->getMaterialBlocking();
+    for (const auto& light : material->areaLights()) {
+        m_lights.push_back(&light);
+    }
     m_oocSceneObjects.emplace_back(std::move(sceneObject));
 }
 

@@ -16,6 +16,7 @@ public:
     Bounds worldBoundsPrimitive(unsigned primitiveID) const override final;
 
     const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const override final;
+    gsl::span<const AreaLight> areaLights() const override final;
 
     unsigned numPrimitives() const override final;
     bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;

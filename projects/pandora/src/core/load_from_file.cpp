@@ -372,10 +372,8 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
                 material = defaultMaterial;
 
             if (jsonSceneObject.find("area_light") != jsonSceneObject.end()) {
-                std::cout << "(load_from_file.cpp) TODO: support area lights in out-of-core rendering context" << std::endl;
-                //auto areaLight = readVec3(jsonSceneObject["area_light"]["L"]);
-                //return std::make_unique<OOCGeometricSceneObject>(mesh, material, areaLight);
-                return std::unique_ptr<OOCGeometricSceneObject>(nullptr);
+                auto lightEmmited = readVec3(jsonSceneObject["area_light"]["L"]);
+                return std::make_unique<OOCGeometricSceneObject>(geometry, material, lightEmmited);
             } else {
                 return std::make_unique<OOCGeometricSceneObject>(geometry, material);
             }

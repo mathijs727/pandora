@@ -1,4 +1,3 @@
-#include "..\..\include\pandora\scene\geometric_scene_object.h"
 #include "pandora/scene/geometric_scene_object.h"
 
 namespace pandora {
@@ -35,6 +34,11 @@ const AreaLight* InCoreGeometricSceneObject::getPrimitiveAreaLight(unsigned prim
     return m_materialProperties.getPrimitiveAreaLight(primitiveID);
 }
 
+gsl::span<const AreaLight> InCoreGeometricSceneObject::areaLights() const
+{
+    return m_areaLights;
+}
+
 unsigned InCoreGeometricSceneObject::numPrimitives() const
 {
     return m_geometricProperties.numPrimitives();
@@ -52,7 +56,7 @@ SurfaceInteraction InCoreGeometricSceneObject::fillSurfaceInteraction(const Ray&
 
 size_t InCoreGeometricSceneObject::size() const
 {
-    return m_geometricProperties.size();// + m_materialProperties.size();
+    return m_geometricProperties.size(); // + m_materialProperties.size();
 }
 
 void InCoreGeometricSceneObject::computeScatteringFunctions(
@@ -119,9 +123,9 @@ GeometricSceneObjectMaterial::GeometricSceneObjectMaterial(const std::shared_ptr
 
 GeometricSceneObjectMaterial::GeometricSceneObjectMaterial(
     const std::shared_ptr<const Material>& material,
-    std::vector<AreaLight>&& areaLights)
+    gsl::span<const AreaLight> areaLights)
     : m_material(material)
-    , m_areaLightPerPrimitive(std::move(areaLights))
+    , m_areaLights(areaLights)
 {
 }
 
@@ -136,17 +140,22 @@ void GeometricSceneObjectMaterial::computeScatteringFunctions(
 
 const AreaLight* GeometricSceneObjectMaterial::getPrimitiveAreaLight(unsigned primitiveID) const
 {
-    if (m_areaLightPerPrimitive.empty())
+    if (m_areaLights.empty())
         return nullptr;
     else
-        return &m_areaLightPerPrimitive[primitiveID];
+        return &m_areaLights[primitiveID];
+}
+
+gsl::span<const AreaLight> GeometricSceneObjectMaterial::areaLights() const
+{
+    return m_areaLights;
 }
 
 OOCGeometricSceneObject::OOCGeometricSceneObject(
     const EvictableResourceHandle<TriangleMesh>& geometryHandle,
     const std::shared_ptr<const Material>& material)
     : m_geometryHandle(geometryHandle)
-    , m_materialProperties(material)
+    , m_material(material)
 {
     auto geometry = getGeometryBlocking();
     for (unsigned primID = 0; primID < geometry->numPrimitives(); primID++) {
@@ -154,11 +163,28 @@ OOCGeometricSceneObject::OOCGeometricSceneObject(
     }
 }
 
+OOCGeometricSceneObject::OOCGeometricSceneObject(
+    const EvictableResourceHandle<TriangleMesh>& geometryHandle,
+    const std::shared_ptr<const Material>& material,
+    const Spectrum& lightEmitted)
+    : m_geometryHandle(geometryHandle)
+    , m_material(material)
+{
+    auto geometry = getGeometryBlocking();
+    for (unsigned primID = 0; primID < geometry->numPrimitives(); primID++) {
+        m_worldBounds.extend(geometry->worldBoundsPrimitive(primID));
+    }
+
+    // Get the mesh (should already be in cache because of the above call) and keep it in
+    m_areaLightMeshOwner = geometryHandle.getBlocking();
+    for (unsigned primitiveID = 0; primitiveID < m_areaLightMeshOwner->numTriangles(); primitiveID++)
+        m_areaLights.push_back(AreaLight(lightEmitted, 1, *m_areaLightMeshOwner, primitiveID));
+}
+
 Bounds OOCGeometricSceneObject::worldBounds() const
 {
     return m_worldBounds;
 }
-
 
 std::unique_ptr<SceneObjectGeometry> OOCGeometricSceneObject::getGeometryBlocking() const
 {
@@ -168,7 +194,16 @@ std::unique_ptr<SceneObjectGeometry> OOCGeometricSceneObject::getGeometryBlockin
 
 std::unique_ptr<SceneObjectMaterial> OOCGeometricSceneObject::getMaterialBlocking() const
 {
-    return std::make_unique<GeometricSceneObjectMaterial>(m_materialProperties);
+    if (m_areaLightMeshOwner) {
+        return std::unique_ptr<GeometricSceneObjectMaterial>(
+            new GeometricSceneObjectMaterial(
+                m_material,
+                m_areaLights));
+    } else {
+        return std::unique_ptr<GeometricSceneObjectMaterial>(
+            new GeometricSceneObjectMaterial(
+                m_material));
+    }
 }
 
 }

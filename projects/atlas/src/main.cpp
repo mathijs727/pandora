@@ -49,16 +49,16 @@ int main()
 
     FpsCameraControls cameraControls(myWindow, camera);
 
-    // Skydome
+    /*// Skydome
     auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
     auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
-    scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(1.0f), 1, colorTexture));
+    scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(1.0f), 1, colorTexture));*/
 
     //scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
 
-    DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
+    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    //PathIntegrator integrator(10, scene, camera.getSensor(), 1);
+    PathIntegrator integrator(10, scene, camera.getSensor(), 1);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
     //SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
 
