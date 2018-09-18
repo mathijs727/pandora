@@ -117,20 +117,20 @@ private:
 
     class BotLevelLeafNodeInstanced {
     public:
-        BotLevelLeafNodeInstanced(const SceneObjectGeometry& baseSceneObjectGeometry, unsigned primitiveID);
+        BotLevelLeafNodeInstanced(const SceneObjectGeometry* baseSceneObjectGeometry, unsigned primitiveID);
 
         Bounds getBounds() const;
         bool intersect(Ray& ray, RayHit& hitInfo) const;
 
     private:
-        const SceneObjectGeometry& m_baseSceneObjectGeometry;
+        const SceneObjectGeometry* m_baseSceneObjectGeometry;
         const unsigned m_primitiveID;
     };
 
     class BotLevelLeafNode {
     public:
-        BotLevelLeafNode(const OOCGeometricSceneObject& sceneObject, const SceneObjectGeometry& sceneObjectGeometry, unsigned primitiveID);
-        BotLevelLeafNode(const OOCInstancedSceneObject& sceneObject, const SceneObjectGeometry& sceneObjectGeometry, const std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>& bvh);
+        BotLevelLeafNode(const OOCGeometricSceneObject* sceneObject, const SceneObjectGeometry* sceneObjectGeometry, unsigned primitiveID);
+        BotLevelLeafNode(const OOCInstancedSceneObject* sceneObject, const SceneObjectGeometry* sceneObjectGeometry, const std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>& bvh);
 
         Bounds getBounds() const;
         bool intersect(Ray& ray, RayHit& hitInfo) const;
@@ -138,14 +138,14 @@ private:
     private:
         struct Regular {
 
-            const OOCGeometricSceneObject& sceneObject;
-            const SceneObjectGeometry& sceneObjectGeometry;
+            const OOCGeometricSceneObject* sceneObject;
+            const SceneObjectGeometry* sceneObjectGeometry;
             const unsigned primitiveID;
         };
 
         struct Instance {
-            const OOCInstancedSceneObject& sceneObject;
-            const SceneObjectGeometry& sceneObjectGeometry;
+            const OOCInstancedSceneObject* sceneObject;
+            const SceneObjectGeometry* sceneObjectGeometry;
             std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>> bvh;
         };
         std::variant<Regular, Instance> m_data;
@@ -158,14 +158,13 @@ private:
             {
                 size_t size = sizeof(decltype(*this));
                 size += leafBVH.size();
-                for (const auto& geom : geometry) {
-                    size += geom->size();
-                }
+                size += geometrySize;
                 return size;
             }
 
+            size_t geometrySize = 0;// Simply iterating over geometryOwningPointers is incorrect because we would count instanced geometry multiple times
             WiVeBVH8Build8<BotLevelLeafNode> leafBVH;
-            std::vector<std::unique_ptr<SceneObjectGeometry>> geometry;
+            std::vector<std::unique_ptr<SceneObjectGeometry>> geometryOwningPointers;
         };
 
         TopLevelLeafNode(
@@ -229,7 +228,7 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::OOCBatchingAccele
     , m_anyHitCallback(anyHitCallback)
     , m_missCallback(missCallback)
 {
-    // Loading the meshes to compute their bounds. Now we don't need them anymore because 
+    // Loading the meshes to compute their bounds. Now we don't need them anymore because
     scene.geometryCache()->evictAll();
 }
 
@@ -336,7 +335,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
     gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
     OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
 {
-    auto sceneObjectGroups = groupSceneObjects(100000, sceneObjects);
+    auto sceneObjectGroups = groupSceneObjects(10000000, sceneObjects);
 
     std::vector<TopLevelLeafNode> leafs;
     for (size_t i = 0; i < sceneObjectGroups.size(); i++) {
@@ -402,7 +401,7 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
 
         auto geometry = instancedGeometricSceneObject->getGeometryBlocking();
         for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
-            leafs.push_back(BotLevelLeafNodeInstanced(*geometry, primitiveID));
+            leafs.push_back(BotLevelLeafNodeInstanced(geometry.get(), primitiveID));
         }
 
         // NOTE: the "geometry" variable ensures that the geometry pointed to stays in memory for the BVH build
@@ -439,7 +438,7 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
 
             // Create bot-level leaf node
             for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
-                leafs.push_back(BotLevelLeafNode(*geometricSceneObject, *geometry, primitiveID));
+                leafs.push_back(BotLevelLeafNode(geometricSceneObject, geometry, primitiveID));
             }
 
             geometryOwningPointers.emplace_back(std::move(geometryOwningPointer)); // Keep geometry alive until BVH build finished
@@ -458,7 +457,7 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
 
             // Create bot-level node
             auto bvh = instancedBVHs[instancedSceneObject->getBaseObject()];
-            leafs.push_back(BotLevelLeafNode(*instancedSceneObject, *geometry, bvh));
+            leafs.push_back(BotLevelLeafNode(instancedSceneObject, geometry, bvh));
 
             geometryOwningPointers.emplace_back(std::move(geometryOwningPointer));
         }
@@ -489,21 +488,26 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
         const auto* serializedInstanceBaseBVHs = serializedTopLevelLeafNode->instance_base_bvh();
         const auto* serializedInstanceBaseGeometry = serializedTopLevelLeafNode->instance_base_geometry();
 
+        GeometryData ret;
+
         // Load geometry/BVH of geometric nodes that are referenced by instancing nodes
-        std::vector<std::pair<std::unique_ptr<GeometricSceneObjectGeometry>, std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>>> instanceBaseObjects;
+        std::vector<std::pair<const GeometricSceneObjectGeometry*, std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>>> instanceBaseObjects;
         for (unsigned i = 0; i < serializedInstanceBaseBVHs->size(); i++) {
             auto geometry = std::make_unique<GeometricSceneObjectGeometry>(serializedInstanceBaseGeometry->Get(i));
 
             std::vector<BotLevelLeafNodeInstanced> leafs;
             for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
-                leafs.push_back(BotLevelLeafNodeInstanced(*geometry, primitiveID));
+                leafs.push_back(BotLevelLeafNodeInstanced(geometry.get(), primitiveID));
             }
 
             auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>(serializedInstanceBaseBVHs->Get(i), leafs);
-            instanceBaseObjects.push_back({ std::move(geometry), bvh });
+            instanceBaseObjects.push_back({ geometry.get(), bvh });
+
+            // The BVH leaf nodes point directly to geometry so we should keep them alive (they point to the same mesh though)
+            ret.geometrySize += geometry->size();
+            ret.geometryOwningPointers.emplace_back(std::move(geometry));
         }
 
-        GeometryData ret;
 
         // Load unique geometry
         const auto* serializedUniqueGeometry = serializedTopLevelLeafNode->unique_geometry();
@@ -513,10 +517,11 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
             auto geometry = std::make_unique<GeometricSceneObjectGeometry>(serializedUniqueGeometry->Get(i));
 
             for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
-                leafs.emplace_back(*geometricSceneObjects[i], *geometry, primitiveID);
+                leafs.emplace_back(geometricSceneObjects[i], geometry.get(), primitiveID);
             }
 
-            ret.geometry.emplace_back(std::move(geometry));
+            ret.geometrySize += geometry->size();
+            ret.geometryOwningPointers.emplace_back(std::move(geometry));
         }
 
         // Load instanced geometry
@@ -528,9 +533,9 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
             auto geometry = std::make_unique<InstancedSceneObjectGeometry>(
                 serializedInstancedGeometry->Get(i),
                 std::make_unique<GeometricSceneObjectGeometry>(*baseGeometry));
-            leafs.push_back(BotLevelLeafNode(*instancedSceneObjects[i], *geometry, baseBVH));
+            leafs.push_back(BotLevelLeafNode(instancedSceneObjects[i], geometry.get(), baseBVH));
 
-            ret.geometry.emplace_back(std::move(geometry));
+            ret.geometryOwningPointers.emplace_back(std::move(geometry));
         }
 
         ret.leafBVH = WiVeBVH8Build8<BotLevelLeafNode>(serializedTopLevelLeafNode->bvh(), leafs);
@@ -679,7 +684,7 @@ inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLe
 
 template <typename UserState, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNodeInstanced::BotLevelLeafNodeInstanced(
-    const SceneObjectGeometry& baseSceneObjectGeometry,
+    const SceneObjectGeometry* baseSceneObjectGeometry,
     unsigned primitiveID)
     : m_baseSceneObjectGeometry(baseSceneObjectGeometry)
     , m_primitiveID(primitiveID)
@@ -689,19 +694,20 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNodeI
 template <typename UserState, size_t BatchSize>
 inline Bounds OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNodeInstanced::getBounds() const
 {
-    return m_baseSceneObjectGeometry.worldBoundsPrimitive(m_primitiveID);
+    return m_baseSceneObjectGeometry->worldBoundsPrimitive(m_primitiveID);
 }
 
 template <typename UserState, size_t BatchSize>
 inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNodeInstanced::intersect(Ray& ray, RayHit& hitInfo) const
 {
-    return m_baseSceneObjectGeometry.intersectPrimitive(ray, hitInfo, m_primitiveID);
+    auto ret = m_baseSceneObjectGeometry->intersectPrimitive(ray, hitInfo, m_primitiveID);
+    return ret;
 }
 
 template <typename UserState, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::BotLevelLeafNode(
-    const OOCGeometricSceneObject& sceneObject,
-    const SceneObjectGeometry& sceneObjectGeometry,
+    const OOCGeometricSceneObject* sceneObject,
+    const SceneObjectGeometry* sceneObjectGeometry,
     unsigned primitiveID)
     : m_data(Regular { sceneObject, sceneObjectGeometry, primitiveID })
 {
@@ -709,8 +715,8 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode:
 
 template <typename UserState, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::BotLevelLeafNode(
-    const OOCInstancedSceneObject& sceneObject,
-    const SceneObjectGeometry& sceneObjectGeometry,
+    const OOCInstancedSceneObject* sceneObject,
+    const SceneObjectGeometry* sceneObjectGeometry,
     const std::shared_ptr<WiVeBVH8Build8<OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNodeInstanced>>& bvh)
     : m_data(Instance { sceneObject, sceneObjectGeometry, bvh })
 {
@@ -721,9 +727,9 @@ inline Bounds OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLe
 {
     if (std::holds_alternative<Regular>(m_data)) {
         const auto& data = std::get<Regular>(m_data);
-        return data.sceneObjectGeometry.worldBoundsPrimitive(data.primitiveID);
+        return data.sceneObjectGeometry->worldBoundsPrimitive(data.primitiveID);
     } else {
-        return std::get<Instance>(m_data).sceneObject.worldBounds();
+        return std::get<Instance>(m_data).sceneObject->worldBounds();
     }
 }
 
@@ -733,18 +739,18 @@ inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeaf
     if (std::holds_alternative<Regular>(m_data)) {
         const auto& data = std::get<Regular>(m_data);
 
-        bool hit = data.sceneObjectGeometry.intersectPrimitive(ray, hitInfo, data.primitiveID);
+        bool hit = data.sceneObjectGeometry->intersectPrimitive(ray, hitInfo, data.primitiveID);
         if (hit) {
-            hitInfo.sceneObjectVariant = RayHit::OutOfCore { &data.sceneObject, &data.sceneObjectGeometry };
+            hitInfo.sceneObjectVariant = RayHit::OutOfCore { data.sceneObject, data.sceneObjectGeometry };
         }
         return hit;
     } else {
         const auto& data = std::get<Instance>(m_data);
 
-        Ray localRay = data.sceneObject.transformRayToInstanceSpace(ray);
+        Ray localRay = data.sceneObject->transformRayToInstanceSpace(ray);
         bool hit = data.bvh->intersect(localRay, hitInfo);
         if (hit) {
-            hitInfo.sceneObjectVariant = RayHit::OutOfCore { &data.sceneObject, &data.sceneObjectGeometry };
+            hitInfo.sceneObjectVariant = RayHit::OutOfCore { data.sceneObject, data.sceneObjectGeometry };
         }
 
         ray.tfar = localRay.tfar;
