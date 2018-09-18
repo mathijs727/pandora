@@ -336,11 +336,14 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
     gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
     OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
 {
+    auto sceneObjectGroups = groupSceneObjects(100000, sceneObjects);
+
     std::vector<TopLevelLeafNode> leafs;
-    for (int i = 0; i < sceneObjects.size(); i++) {
+    for (size_t i = 0; i < sceneObjectGroups.size(); i++) {
         std::string cacheFilename = std::string(cacheFolder) + "node" + std::to_string(i) + ".bin";
-        std::vector<const OOCSceneObject*> nodeSceneObjects = { sceneObjects[i].get() };
-        leafs.emplace_back(cacheFilename, nodeSceneObjects, cache, accelerationStructurePtr);
+        auto& group = sceneObjectGroups[i];
+        std::cout << "Group of " << group.size() << " scene objects" << std::endl;
+        leafs.emplace_back(cacheFilename, group, cache, accelerationStructurePtr);
     }
 
     return PauseableBVH4<TopLevelLeafNode, UserState>(leafs);

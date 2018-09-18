@@ -8,8 +8,8 @@
 
 namespace pandora {
 
-Scene::Scene(size_t geometryCacheSize) :
-    m_geometryCache(std::make_unique<FifoCache<TriangleMesh>>(geometryCacheSize))
+Scene::Scene(size_t geometryCacheSize)
+    : m_geometryCache(std::make_unique<FifoCache<TriangleMesh>>(geometryCacheSize))
 {
 }
 
@@ -33,7 +33,6 @@ void Scene::addSceneObject(std::unique_ptr<OOCSceneObject>&& sceneObject)
     m_oocSceneObjects.emplace_back(std::move(sceneObject));
 }
 
-
 void Scene::addInfiniteLight(const std::shared_ptr<Light>& light)
 {
     m_lights.push_back(light.get());
@@ -51,7 +50,6 @@ gsl::span<const std::unique_ptr<OOCSceneObject>> Scene::getOOCSceneObjects() con
 {
     return m_oocSceneObjects;
 }
-
 
 gsl::span<const Light* const> Scene::getLights() const
 {
@@ -73,59 +71,154 @@ FifoCache<TriangleMesh>* Scene::geometryCache()
     return m_geometryCache.get();
 }
 
-}
-
-/*SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material)
-    : m_mesh(mesh)
-    , m_material(material)
+std::vector<std::vector<const OOCSceneObject*>> groupSceneObjects(
+    unsigned primitivesPerGroup,
+    gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects)
 {
-}
+    const auto embreeErrorFunc = [](void* userPtr, const RTCError code, const char* str) {
+        switch (code) {
+        case RTC_ERROR_NONE:
+            std::cout << "RTC_ERROR_NONE";
+            break;
+        case RTC_ERROR_UNKNOWN:
+            std::cout << "RTC_ERROR_UNKNOWN";
+            break;
+        case RTC_ERROR_INVALID_ARGUMENT:
+            std::cout << "RTC_ERROR_INVALID_ARGUMENT";
+            break;
+        case RTC_ERROR_INVALID_OPERATION:
+            std::cout << "RTC_ERROR_INVALID_OPERATION";
+            break;
+        case RTC_ERROR_OUT_OF_MEMORY:
+            std::cout << "RTC_ERROR_OUT_OF_MEMORY";
+            break;
+        case RTC_ERROR_UNSUPPORTED_CPU:
+            std::cout << "RTC_ERROR_UNSUPPORTED_CPU";
+            break;
+        case RTC_ERROR_CANCELLED:
+            std::cout << "RTC_ERROR_CANCELLED";
+            break;
+        }
 
-SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted)
-    : m_mesh(mesh)
-    , m_material(material)
-{
-    m_areaLightPerPrimitive.reserve(m_mesh->numTriangles());
-    for (unsigned i = 0; i < mesh->numTriangles(); i++) {
-        m_areaLightPerPrimitive.emplace_back(lightEmitted, 1, *mesh, i);
+        std::cout << ": " << str << std::endl;
+    };
+
+    struct BVHNode {
+        virtual std::pair<std::vector<const OOCSceneObject*>, uint32_t> group(
+            uint32_t minPrimsPerGroup, std::vector<std::vector<const OOCSceneObject*>>& out) const = 0;
+    };
+
+    struct BVHInnerNode : public BVHNode {
+        virtual std::pair<std::vector<const OOCSceneObject*>, uint32_t> group(
+            uint32_t minPrimsPerGroup, std::vector<std::vector<const OOCSceneObject*>>& out) const
+        {
+            auto [leftObjects, leftNumPrims] = leftChild->group(minPrimsPerGroup, out);
+            auto [rightObjects, rightNumPrims] = rightChild->group(minPrimsPerGroup, out);
+            if (leftNumPrims != 0 && rightNumPrims == 0) {
+                return { std::move(leftObjects), leftNumPrims };
+            } else if (leftNumPrims == 0 && rightNumPrims != 0) {
+                return { std::move(rightObjects), rightNumPrims };
+            } else if (leftNumPrims != 0 && rightNumPrims != 0) {
+                leftObjects.insert(std::end(leftObjects), std::begin(rightObjects), std::end(rightObjects));
+                if (leftNumPrims + rightNumPrims >= minPrimsPerGroup) {
+                    out.emplace_back(std::move(leftObjects));
+                    return { {}, 0 };
+                } else {
+                    return { std::move(leftObjects), leftNumPrims + rightNumPrims };
+                }
+            } else {
+                return { {}, 0 };
+            }
+        }
+
+        const BVHNode* leftChild;
+        const BVHNode* rightChild;
+    };
+
+    struct BVHLeafNode : public BVHNode {
+        virtual std::pair<std::vector<const OOCSceneObject*>, uint32_t> group(
+            uint32_t minPrimsPerGroup, std::vector<std::vector<const OOCSceneObject*>>& out) const
+        {
+            auto geometry = sceneObject->getGeometryBlocking();
+            return { { sceneObject }, geometry->numPrimitives() };
+        }
+
+        const OOCSceneObject* sceneObject;
+    };
+
+    std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
+    embreeBuildPrimitives.reserve(sceneObjects.size());
+    uint32_t sceneObjectID = 0;
+    for (const auto& sceneObject : sceneObjects) {
+        auto bounds = sceneObject->worldBounds();
+
+        RTCBuildPrimitive primitive;
+        primitive.lower_x = bounds.min.x;
+        primitive.lower_y = bounds.min.y;
+        primitive.lower_z = bounds.min.z;
+        primitive.upper_x = bounds.max.x;
+        primitive.upper_y = bounds.max.y;
+        primitive.upper_z = bounds.max.z;
+        primitive.geomID = 0;
+        primitive.primID = sceneObjectID++;
+        embreeBuildPrimitives.push_back(primitive);
     }
-}
 
-SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldMatrix, const std::shared_ptr<const Material>& material)
-    : m_mesh(mesh)
-    , m_transform(instanceToWorldMatrix)
-    , m_material(material)
-{
-}
+    // Build the BVH using the Embree BVH builder API
+    RTCDevice device = rtcNewDevice(nullptr);
+    rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);
+    RTCBVH bvh = rtcNewBVH(device);
 
-SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldMatrix, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted)
-    : m_mesh(mesh)
-    , m_transform(instanceToWorldMatrix)
-    , m_material(material)
-{
-    m_areaLightPerPrimitive.reserve(m_mesh->numTriangles());
-    for (unsigned i = 0; i < mesh->numTriangles(); i++) {
-        m_areaLightPerPrimitive.emplace_back(lightEmitted, 1, *mesh, i);
+    RTCBuildArguments arguments = rtcDefaultBuildArguments();
+    arguments.byteSize = sizeof(arguments);
+    arguments.buildFlags = RTC_BUILD_FLAG_NONE;
+    arguments.buildQuality = RTC_BUILD_QUALITY_MEDIUM;
+    arguments.maxBranchingFactor = 2;
+    arguments.minLeafSize = 1;
+    arguments.maxLeafSize = 1;
+    arguments.bvh = bvh;
+    arguments.primitives = embreeBuildPrimitives.data();
+    arguments.primitiveCount = embreeBuildPrimitives.size();
+    arguments.primitiveArrayCapacity = embreeBuildPrimitives.capacity();
+    arguments.userPtr = &sceneObjects;
+    arguments.createNode = [](RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr) -> void* {
+        auto* mem = rtcThreadLocalAlloc(alloc, sizeof(BVHInnerNode), 8);
+        return new (mem) BVHInnerNode();
+    };
+    arguments.setNodeChildren = [](void* voidNodePtr, void** childPtr, unsigned numChildren, void* userPtr) {
+        ALWAYS_ASSERT(numChildren == 2);
+        auto* nodePtr = reinterpret_cast<BVHInnerNode*>(voidNodePtr);
+
+        nodePtr->leftChild = reinterpret_cast<BVHNode*>(childPtr[0]);
+        nodePtr->rightChild = reinterpret_cast<BVHNode*>(childPtr[1]);
+    };
+    arguments.setNodeBounds = [](void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr) {};
+    arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
+        ALWAYS_ASSERT(numPrims == 1);
+
+        auto sceneObjects = *reinterpret_cast<gsl::span<const std::unique_ptr<OOCSceneObject>>*>(userPtr);
+
+        auto* mem = rtcThreadLocalAlloc(alloc, sizeof(BVHLeafNode), 8);
+        auto nodePtr = new (mem) BVHLeafNode();
+        nodePtr->sceneObject = sceneObjects[prims[0].primID].get();
+        return nodePtr;
+    };
+
+    const auto* rootNode = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
+
+    std::vector<std::vector<const OOCSceneObject*>> ret;
+    auto[leftOverObjects, leftOverNumPrims] = rootNode->group(primitivesPerGroup, ret);
+    if (!leftOverObjects.empty()) {
+        ret.emplace_back(std::move(leftOverObjects));
     }
+
+    // Free Embree memory (including memory allocated with rtcThreadLocalAlloc
+    rtcReleaseBVH(bvh);
+    rtcReleaseDevice(device);
+    return ret;
 }
 
-const AreaLight* SceneObject::getAreaLight(unsigned primID) const
-{
-    if (m_areaLightPerPrimitive.empty())
-        return nullptr;
-    else
-        return &m_areaLightPerPrimitive[primID];
-}
-
-std::optional<gsl::span<const AreaLight>> SceneObject::getAreaLights() const
-{
-    if (m_areaLightPerPrimitive.empty())
-        return {};
-    else
-        return m_areaLightPerPrimitive;
-}
-
-struct SplitSceneBVHNode {
+/*struct SplitSceneBVHNode {
     virtual std::vector<unsigned> outputSceneObjects(
         unsigned minPrimsPerPart,
         std::vector<std::vector<unsigned>>& partPrims) const = 0;
@@ -185,7 +278,7 @@ struct SplitSceneBVHLeafNode : public SplitSceneBVHNode {
     std::vector<unsigned> m_prims;
 };
 
-void Scene::splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject)
+void splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject)
 {
     std::vector<std::unique_ptr<SceneObject>> splitSceneObjects;
     for (size_t j = 0; j < m_sceneObjects.size(); j++) {
@@ -276,37 +369,56 @@ void Scene::splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject)
     m_sceneObjects = std::move(splitSceneObjects);
 
     std::cout << "NUM SCENE OBJECTS AFTER SPLIT: " << m_sceneObjects.size() << std::endl;
-}
-
-
+}*/
 
 }
 
-static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
+/*SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material)
+    : m_mesh(mesh)
+    , m_material(material)
 {
-    switch (code) {
-    case RTC_ERROR_NONE:
-        std::cout << "RTC_ERROR_NONE";
-        break;
-    case RTC_ERROR_UNKNOWN:
-        std::cout << "RTC_ERROR_UNKNOWN";
-        break;
-    case RTC_ERROR_INVALID_ARGUMENT:
-        std::cout << "RTC_ERROR_INVALID_ARGUMENT";
-        break;
-    case RTC_ERROR_INVALID_OPERATION:
-        std::cout << "RTC_ERROR_INVALID_OPERATION";
-        break;
-    case RTC_ERROR_OUT_OF_MEMORY:
-        std::cout << "RTC_ERROR_OUT_OF_MEMORY";
-        break;
-    case RTC_ERROR_UNSUPPORTED_CPU:
-        std::cout << "RTC_ERROR_UNSUPPORTED_CPU";
-        break;
-    case RTC_ERROR_CANCELLED:
-        std::cout << "RTC_ERROR_CANCELLED";
-        break;
-    }
+}
 
-    std::cout << ": " << str << std::endl;
+SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted)
+    : m_mesh(mesh)
+    , m_material(material)
+{
+    m_areaLightPerPrimitive.reserve(m_mesh->numTriangles());
+    for (unsigned i = 0; i < mesh->numTriangles(); i++) {
+        m_areaLightPerPrimitive.emplace_back(lightEmitted, 1, *mesh, i);
+    }
+}
+
+SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldMatrix, const std::shared_ptr<const Material>& material)
+    : m_mesh(mesh)
+    , m_transform(instanceToWorldMatrix)
+    , m_material(material)
+{
+}
+
+SceneObject::SceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const glm::mat4& instanceToWorldMatrix, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted)
+    : m_mesh(mesh)
+    , m_transform(instanceToWorldMatrix)
+    , m_material(material)
+{
+    m_areaLightPerPrimitive.reserve(m_mesh->numTriangles());
+    for (unsigned i = 0; i < mesh->numTriangles(); i++) {
+        m_areaLightPerPrimitive.emplace_back(lightEmitted, 1, *mesh, i);
+    }
+}
+
+const AreaLight* SceneObject::getAreaLight(unsigned primID) const
+{
+    if (m_areaLightPerPrimitive.empty())
+        return nullptr;
+    else
+        return &m_areaLightPerPrimitive[primID];
+}
+
+std::optional<gsl::span<const AreaLight>> SceneObject::getAreaLights() const
+{
+    if (m_areaLightPerPrimitive.empty())
+        return {};
+    else
+        return m_areaLightPerPrimitive;
 }*/

@@ -51,7 +51,7 @@ inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreeP
     this->m_innerNodeAllocator->compact();
     this->m_leafIndexAllocator->compact();
 
-    this->testBVH();
+    //this->testBVH();
 }
 
 template <typename LeafObj>

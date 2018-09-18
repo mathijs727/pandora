@@ -19,6 +19,10 @@
 
 namespace pandora {
 
+std::vector<std::vector<const OOCSceneObject*>> groupSceneObjects(
+    unsigned primitivesPerGroup,
+    gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects);
+
 class SceneObjectGeometry
 {
 public:
