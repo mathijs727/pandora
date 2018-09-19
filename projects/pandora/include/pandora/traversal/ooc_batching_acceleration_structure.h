@@ -511,7 +511,7 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
                 leafs.push_back(BotLevelLeafNodeInstanced(geometry.get(), primitiveID));
             }
 
-            auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>(serializedInstanceBaseBVHs->Get(i), leafs);
+            auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>(serializedInstanceBaseBVHs->Get(i), std::move(leafs));
             instanceBaseObjects.push_back({ geometry.get(), bvh });
 
             // The BVH leaf nodes point directly to geometry so we should keep them alive (they point to the same mesh though)
@@ -548,7 +548,7 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
             ret.geometryOwningPointers.emplace_back(std::move(geometry));
         }
 
-        ret.leafBVH = WiVeBVH8Build8<BotLevelLeafNode>(serializedTopLevelLeafNode->bvh(), leafs);
+        ret.leafBVH = WiVeBVH8Build8<BotLevelLeafNode>(serializedTopLevelLeafNode->bvh(), std::move(leafs));
         return ret;
     });
     return EvictableResourceHandle<GeometryData>(cache, resourceID);

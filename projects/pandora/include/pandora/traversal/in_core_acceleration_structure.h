@@ -95,8 +95,6 @@ inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::
 {
     //m_bvh.saveToFile("scene.bvh");
     //m_bvh.loadFromFile("scene.bvh", leafs);
-
-    g_stats.memory.botBVH += m_bvh.size();
 }
 
 template <typename UserState>

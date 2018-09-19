@@ -10,7 +10,7 @@
 namespace pandora {
 
 template <typename LeafObj>
-inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, gsl::span<LeafObj> objects)
+inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects)
 {
     m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(serialized->innerNodeAllocator());
     m_leafIndexAllocator = std::make_unique<ContiguousAllocatorTS<uint32_t>>(serialized->leafIndexAllocator());
@@ -22,13 +22,15 @@ inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, gs
     assert(m_leafObjects.empty());
     ALWAYS_ASSERT(numNodesGiven == numNodesSerialized, "Number of leaf objects does not match that of the serialized BVH");
 
-    this->m_leafObjects.clear();
+    this->m_leafObjects = std::move(objects);
     /*this->m_leafObjects.insert(
         std::end(this->m_leafObjects),
         std::make_move_iterator(std::begin(objects)),
         std::make_move_iterator(std::begin(objects)));*/
+    /*this->m_leafObjects.clear();
+    this->m_leafObjects.reserve(objects.size());
     for (auto& obj : objects)
-        this->m_leafObjects.emplace_back(std::move(obj));
+        this->m_leafObjects.emplace_back(std::move(obj));*/
 }
 
 template <typename LeafObj>

@@ -18,7 +18,7 @@ template <typename LeafObj>
 class WiVeBVH8 : public BVH<LeafObj> {
 public:
 	WiVeBVH8() = default;
-    WiVeBVH8(const serialization::WiVeBVH8* serialized, gsl::span<LeafObj> objects);
+    WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects);
 	WiVeBVH8(WiVeBVH8&&) = default;
     ~WiVeBVH8() = default;
 
@@ -81,11 +81,6 @@ protected:
         //simd::vec8_u32 permOffsetsAndFlags; // Per child: [child flags (1 byte) - permutation offsets (3 bytes)]
         simd::vec8_u32 permutationOffsets; // 3 bytes. Can use the other byte for flags but storing it on the stack during traversal is expensive.
     };
-
-    /*struct alignas(32) BVHLeaf {
-        uint32_t leafObjectIDs[4];
-        uint32_t primitiveIDs[4];
-    };*/
 
     const static uint32_t emptyHandle = 0xFFFFFFFF;
 
