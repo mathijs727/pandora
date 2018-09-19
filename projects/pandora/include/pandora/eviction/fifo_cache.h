@@ -5,10 +5,10 @@
 #include "pandora/utility/atomic_weak_ptr.h"
 #include "pandora/utility/memory_arena.h"
 #include <tbb/concurrent_queue.h>
+#include <tbb/concurrent_unordered_map.h>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
-#include <tbb/concurrent_unordered_map.h>
 #include <vector>
 
 namespace pandora {
@@ -19,13 +19,16 @@ template <typename T>
 class FifoCache {
 public:
     FifoCache(size_t maxSizeBytes);
+    FifoCache(size_t maxSizeBytes,
+        const std::function<void(size_t)> allocCallback,
+        const std::function<void(size_t)> evictCallback);
 
     // Hand of ownership of the resource to the cache
     EvictableResourceID emplaceFactoryUnsafe(std::function<T(void)> factoryFunc); // Not thread-safe
 
     std::shared_ptr<T> getBlocking(EvictableResourceID resourceID) const;
 
-    void evictAll() const;
+    void evictAllUnsafe() const;
 
 private:
     void evict(size_t bytes);
@@ -34,10 +37,12 @@ private:
     const size_t m_maxSizeBytes;
     std::atomic_size_t m_currentSizeBytes;
 
+    std::function<void(size_t)> m_allocCallback;
+    std::function<void(size_t)> m_evictCallback;
+
     // This will grow indefinitely: bad!
-    //tbb::concurrent_queue<std::shared_ptr<T>> m_cacheHistory;
-    
-    tbb::concurrent_unordered_map<EvictableResourceID, std::shared_ptr<T>> m_owningPointers;
+    tbb::concurrent_queue<std::shared_ptr<T>> m_cacheHistory;
+    //tbb::concurrent_unordered_map<EvictableResourceID, std::shared_ptr<T>> m_owningPointers;
 
     struct CacheMapItem {
         std::mutex loadMutex;
@@ -53,6 +58,19 @@ template <typename T>
 inline FifoCache<T>::FifoCache(size_t maxSizeBytes)
     : m_maxSizeBytes(maxSizeBytes)
     , m_currentSizeBytes(0)
+    , m_allocCallback([](size_t) {})
+    , m_evictCallback([](size_t) {})
+{
+}
+template <typename T>
+inline FifoCache<T>::FifoCache(
+    size_t maxSizeBytes,
+    const std::function<void(size_t)> allocCallback,
+    const std::function<void(size_t)> evictCallback)
+    : m_maxSizeBytes(maxSizeBytes)
+    , m_currentSizeBytes(0)
+    , m_allocCallback(allocCallback)
+    , m_evictCallback(evictCallback)
 {
 }
 
@@ -75,7 +93,6 @@ inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resource
 {
     auto* mutThis = const_cast<FifoCache<T>*>(this);
 
-    ALWAYS_ASSERT(m_cacheMap.find(resourceID) != m_cacheMap.end());
     auto& cacheItem = mutThis->m_cacheMap[resourceID];
     std::shared_ptr<T> sharedResourcePtr = cacheItem.itemPtr.lock();
     if (!sharedResourcePtr) {
@@ -87,12 +104,10 @@ inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resource
             // TODO: load data on a worker thread
             const auto& factoryFunc = m_resourceFactories[resourceID];
             sharedResourcePtr = std::make_shared<T>(factoryFunc());
-            size_t resourceSize = sharedResourcePtr->size();
+            size_t resourceSize = sharedResourcePtr->sizeBytes();
             cacheItem.itemPtr.store(sharedResourcePtr);
-            ALWAYS_ASSERT(m_owningPointers.find(resourceID) == m_owningPointers.end());
-            ALWAYS_ASSERT(mutThis->m_cacheMap[resourceID].itemPtr.lock() == sharedResourcePtr);
-            //m_cacheHistory.push(sharedResourcePtr);
-            mutThis->m_owningPointers[resourceID] = sharedResourcePtr;
+            mutThis->m_cacheHistory.push(sharedResourcePtr);
+            m_allocCallback(resourceSize);
 
             size_t oldCacheSize = mutThis->m_currentSizeBytes.fetch_add(resourceSize);
             size_t newCacheSize = oldCacheSize + resourceSize;
@@ -100,7 +115,6 @@ inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resource
                 // If another thread caused us to go over the memory limit that we only have to account
                 //  for our own contribution.
                 size_t overallocated = std::min(newCacheSize - m_maxSizeBytes, resourceSize);
-                //std::cout << "Current cache size: " << newCacheSize << std::endl;
                 mutThis->evict(overallocated);
             }
         }
@@ -110,25 +124,31 @@ inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resource
 }
 
 template <typename T>
-inline void FifoCache<T>::evictAll() const
+inline void FifoCache<T>::evictAllUnsafe() const
 {
+    for (auto iter = m_cacheHistory.unsafe_begin(); iter != m_cacheHistory.unsafe_end(); iter++) {
+        m_evictCallback((*iter)->sizeBytes());
+    }
+
     auto* mutThis = const_cast<FifoCache<T>*>(this);
-    //mutThis->m_cacheHistory.clear();
-    mutThis->m_owningPointers.clear();
+    mutThis->m_cacheHistory.clear();
+    //mutThis->m_owningPointers.clear();
 }
 
 template <typename T>
 inline void FifoCache<T>::evict(size_t bytesToEvict)
 {
-    /*size_t bytesEvicted = 0;
+
+    size_t bytesEvicted = 0;
     while (bytesEvicted < bytesToEvict) {
         std::shared_ptr<T> sharedResourcePtr;
-        m_cacheHistory.try_pop(sharedResourcePtr);
 
-        bytesEvicted += sharedResourcePtr->size();
+        if (m_cacheHistory.try_pop(sharedResourcePtr)) {
+            bytesEvicted += sharedResourcePtr->sizeBytes();
+        }
     }
-    m_currentSizeBytes.fetch_sub(bytesEvicted);*/
-    THROW_ERROR("Not implemented");
+    m_evictCallback(bytesEvicted);
+    m_currentSizeBytes.fetch_sub(bytesEvicted);
 }
 
 }

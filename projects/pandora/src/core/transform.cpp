@@ -83,9 +83,10 @@ SurfaceInteraction Transform::transform(const SurfaceInteraction& si) const
     result.shading.normal = faceForward(result.shading.normal, result.normal);
 
     result.bsdf = si.bsdf;
-    result.shape = si.shape;
+
+    result.sceneObject = si.sceneObject;
     result.primitiveID = si.primitiveID;
-    result.sceneObjectMaterial = si.sceneObjectMaterial;
+
     return result;
 }
 

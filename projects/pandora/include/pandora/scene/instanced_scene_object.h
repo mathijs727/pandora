@@ -31,7 +31,7 @@ public:
     Ray transformRayToInstanceSpace(const Ray& ray) const;
     const InCoreGeometricSceneObject* getBaseObject() const { return m_baseObject.get(); }
 
-    size_t size() const override final;
+    size_t sizeBytes() const override final;
 
 private:
     Transform m_worldTransform;
@@ -52,7 +52,7 @@ public:
     bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;
     SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const override final;
 
-    size_t size() const override final;
+    size_t sizeBytes() const override final;
 
 private:
     friend class OOCInstancedSceneObject;

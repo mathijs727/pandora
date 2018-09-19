@@ -24,7 +24,7 @@ EmbreeBVH<LeafObj>::~EmbreeBVH()
 }
 
 template <typename LeafObj>
-size_t EmbreeBVH<LeafObj>::size() const
+size_t EmbreeBVH<LeafObj>::sizeBytes() const
 {
     size_t sizeBytes = sizeof(decltype(*this));
     sizeBytes += s_intersectionDataRayHit.size() * sizeof(gsl::span<RayHit>);

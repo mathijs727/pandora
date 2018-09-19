@@ -14,9 +14,13 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
     nlohmann::json ret;
     ret["timings"]["total_render_time"] = timings.totalRenderTime;
 
-    ret["memory"]["geometry"] = memory.geometry;
+    ret["memory"]["geometry_loaded"] = memory.geometryLoaded;
+    ret["memory"]["geometry_evicted"] = memory.geometryEvicted;
+
+    ret["memory"]["bot_level_loaded"] = memory.botLevelLoaded;
+    ret["memory"]["bot_level_evicted"] = memory.botLevelEvicted;
+
     ret["memory"]["top_bvh"] = memory.topBVH;
-    ret["memory"]["bot_bvh"] = memory.botBVH;
 
     ret["num_top_leaf_nodes"] = numTopLevelLeafNodes;
 

@@ -85,7 +85,7 @@ inline void WiVeBVH8<LeafObj>::saveToFile(std::string_view filename)
 }*/
 
 template <typename LeafObj>
-inline size_t WiVeBVH8<LeafObj>::size() const
+inline size_t WiVeBVH8<LeafObj>::sizeBytes() const
 {
     return sizeof(decltype(*this)) + m_innerNodeAllocator->sizeBytes() + m_leafIndexAllocator->sizeBytes();
 }

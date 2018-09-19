@@ -19,10 +19,15 @@ struct RenderStats : public metrics::Stats {
     } timings;
 
     struct {
-        metrics::Counter<size_t> geometry { "bytes" };
-        metrics::Counter<size_t> topBVH{ "bytes" };
-        metrics::Counter<size_t> botBVH { "bytes" };
-        //Counter dag { "Bytes" };
+        // Memory used by actual geometry (TriangleMesh)
+        metrics::Counter<size_t> geometryLoaded { "bytes" };
+        metrics::Counter<size_t> geometryEvicted { "bytes" };
+
+        // Memory used by geometry & bot-level BVHs
+        metrics::Counter<size_t> botLevelLoaded{ "bytes" };
+        metrics::Counter<size_t> botLevelEvicted { "bytes" };
+
+        metrics::Counter<size_t> topBVH { "bytes" };
     } memory;
 
     metrics::Counter<> numTopLevelLeafNodes { "nodes" };
@@ -30,7 +35,7 @@ struct RenderStats : public metrics::Stats {
         metrics::Counter<size_t> leafsFlushed { "nodes" };
         metrics::Histogram batchesPerLeaf { "batches", 1, 10, 11 };
     };
-    std::list<FlushInfo> flushInfos;
+    std::vector<FlushInfo> flushInfos;
 
 protected:
     nlohmann::json getMetricsSnapshot() const override final;

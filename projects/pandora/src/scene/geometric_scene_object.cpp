@@ -54,9 +54,9 @@ SurfaceInteraction InCoreGeometricSceneObject::fillSurfaceInteraction(const Ray&
     return m_geometricProperties.fillSurfaceInteraction(ray, rayHit);
 }
 
-size_t InCoreGeometricSceneObject::size() const
+size_t InCoreGeometricSceneObject::sizeBytes() const
 {
-    return m_geometricProperties.size(); // + m_materialProperties.size();
+    return sizeof(decltype(*this)) + m_geometricProperties.sizeBytes(); // + m_materialProperties.size();
 }
 
 void InCoreGeometricSceneObject::computeScatteringFunctions(
@@ -106,9 +106,9 @@ SurfaceInteraction GeometricSceneObjectGeometry::fillSurfaceInteraction(const Ra
     return m_mesh->fillSurfaceInteraction(ray, rayHit);
 }
 
-size_t GeometricSceneObjectGeometry::size() const
+size_t GeometricSceneObjectGeometry::sizeBytes() const
 {
-    return m_mesh->size();
+    return sizeof(decltype(*this)) + m_mesh->sizeBytes();
 }
 
 flatbuffers::Offset<serialization::GeometricSceneObjectGeometry> GeometricSceneObjectGeometry::serialize(flatbuffers::FlatBufferBuilder& builder) const

@@ -34,7 +34,7 @@ public:
     virtual bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const = 0;
     virtual SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const = 0;
 
-    virtual size_t size() const = 0;
+    virtual size_t sizeBytes() const = 0;
 };
 
 class SceneObjectMaterial

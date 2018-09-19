@@ -73,7 +73,74 @@ TriangleMesh::TriangleMesh(
     for (unsigned v = 0; v < numVertices; v++)
         m_bounds.grow(m_positions[v]);
 
-    g_stats.memory.geometry += size();
+    g_stats.memory.geometryLoaded += sizeBytes();
+}
+
+TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh)
+{
+    m_numTriangles = serializedTriangleMesh->numTriangles();
+    m_numVertices = serializedTriangleMesh->numVertices();
+
+    m_triangles = std::make_unique<glm::ivec3[]>(m_numTriangles);
+    std::memcpy(m_triangles.get(), serializedTriangleMesh->triangles()->data(), serializedTriangleMesh->triangles()->size());
+
+    m_positions = std::make_unique<glm::vec3[]>(m_numVertices);
+    std::memcpy(m_positions.get(), serializedTriangleMesh->positions()->data(), serializedTriangleMesh->positions()->size());
+
+    if (serializedTriangleMesh->normals()) {
+        m_normals = std::make_unique<glm::vec3[]>(m_numVertices);
+        std::memcpy(m_normals.get(), serializedTriangleMesh->normals()->data(), serializedTriangleMesh->normals()->size());
+    }
+
+    if (serializedTriangleMesh->tangents()) {
+        m_tangents = std::make_unique<glm::vec3[]>(m_numVertices);
+        std::memcpy(m_tangents.get(), serializedTriangleMesh->tangents()->data(), serializedTriangleMesh->tangents()->size());
+    }
+
+    if (serializedTriangleMesh->uvCoords()) {
+        m_uvCoords = std::make_unique<glm::vec2[]>(m_numVertices);
+        std::memcpy(m_uvCoords.get(), serializedTriangleMesh->uvCoords()->data(), serializedTriangleMesh->uvCoords()->size());
+    }
+
+    g_stats.memory.geometryLoaded += sizeBytes();
+}
+
+TriangleMesh::~TriangleMesh()
+{
+    g_stats.memory.geometryEvicted += sizeBytes();
+}
+
+flatbuffers::Offset<serialization::TriangleMesh> TriangleMesh::serialize(flatbuffers::FlatBufferBuilder& builder) const
+{
+    size_t estimatedSize = 1024 + m_numTriangles * sizeof(glm::ivec3) + m_numVertices * sizeof(glm::vec3);
+    if (m_normals)
+        estimatedSize += m_numVertices * sizeof(glm::vec3);
+    if (m_tangents)
+        estimatedSize += m_numVertices * sizeof(glm::vec3);
+    if (m_uvCoords)
+        estimatedSize += m_numVertices * sizeof(glm::vec2);
+
+    auto triangles = builder.CreateVector(reinterpret_cast<const int8_t*>(m_triangles.get()), m_numTriangles * sizeof(glm::ivec3));
+    auto positions = builder.CreateVector(reinterpret_cast<const int8_t*>(m_positions.get()), m_numVertices * sizeof(glm::vec3));
+    flatbuffers::Offset<flatbuffers::Vector<int8_t>> normals = 0;
+    if (m_normals)
+        normals = builder.CreateVector(reinterpret_cast<const int8_t*>(m_normals.get()), m_numVertices * sizeof(glm::vec3));
+    flatbuffers::Offset<flatbuffers::Vector<int8_t>> tangents = 0;
+    if (m_tangents)
+        tangents = builder.CreateVector(reinterpret_cast<const int8_t*>(m_tangents.get()), m_numVertices * sizeof(glm::vec3));
+    flatbuffers::Offset<flatbuffers::Vector<int8_t>> uvCoords = 0;
+    if (m_uvCoords)
+        uvCoords = builder.CreateVector(reinterpret_cast<const int8_t*>(m_uvCoords.get()), m_numVertices * sizeof(glm::vec2));
+
+    return serialization::CreateTriangleMesh(
+        builder,
+        m_numTriangles,
+        m_numVertices,
+        triangles,
+        positions,
+        normals,
+        tangents,
+        uvCoords);
 }
 
 TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
@@ -349,69 +416,7 @@ std::vector<TriangleMesh> TriangleMesh::loadFromFile(const std::string_view file
     return result;
 }
 
-TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh)
-{
-    m_numTriangles = serializedTriangleMesh->numTriangles();
-    m_numVertices = serializedTriangleMesh->numVertices();
-
-    m_triangles = std::make_unique<glm::ivec3[]>(m_numTriangles);
-    std::memcpy(m_triangles.get(), serializedTriangleMesh->triangles()->data(), serializedTriangleMesh->triangles()->size());
-
-    m_positions = std::make_unique<glm::vec3[]>(m_numVertices);
-    std::memcpy(m_positions.get(), serializedTriangleMesh->positions()->data(), serializedTriangleMesh->positions()->size());
-
-    if (serializedTriangleMesh->normals()) {
-        m_normals = std::make_unique<glm::vec3[]>(m_numVertices);
-        std::memcpy(m_normals.get(), serializedTriangleMesh->normals()->data(), serializedTriangleMesh->normals()->size());
-    }
-
-    if (serializedTriangleMesh->tangents()) {
-        m_tangents = std::make_unique<glm::vec3[]>(m_numVertices);
-        std::memcpy(m_tangents.get(), serializedTriangleMesh->tangents()->data(), serializedTriangleMesh->tangents()->size());
-    }
-
-    if (serializedTriangleMesh->uvCoords()) {
-        m_uvCoords = std::make_unique<glm::vec2[]>(m_numVertices);
-        std::memcpy(m_uvCoords.get(), serializedTriangleMesh->uvCoords()->data(), serializedTriangleMesh->uvCoords()->size());
-    }
-
-
-}
-
-flatbuffers::Offset<serialization::TriangleMesh> TriangleMesh::serialize(flatbuffers::FlatBufferBuilder& builder) const
-{
-    size_t estimatedSize = 1024 + m_numTriangles * sizeof(glm::ivec3) + m_numVertices * sizeof(glm::vec3);
-    if (m_normals)
-        estimatedSize += m_numVertices * sizeof(glm::vec3);
-    if (m_tangents)
-        estimatedSize += m_numVertices * sizeof(glm::vec3);
-    if (m_uvCoords)
-        estimatedSize += m_numVertices * sizeof(glm::vec2);
-
-    auto triangles = builder.CreateVector(reinterpret_cast<const int8_t*>(m_triangles.get()), m_numTriangles * sizeof(glm::ivec3));
-    auto positions = builder.CreateVector(reinterpret_cast<const int8_t*>(m_positions.get()), m_numVertices * sizeof(glm::vec3));
-    flatbuffers::Offset<flatbuffers::Vector<int8_t>> normals = 0;
-    if (m_normals)
-        normals = builder.CreateVector(reinterpret_cast<const int8_t*>(m_normals.get()), m_numVertices * sizeof(glm::vec3));
-    flatbuffers::Offset<flatbuffers::Vector<int8_t>> tangents = 0;
-    if (m_tangents)
-        tangents = builder.CreateVector(reinterpret_cast<const int8_t*>(m_tangents.get()), m_numVertices * sizeof(glm::vec3));
-    flatbuffers::Offset<flatbuffers::Vector<int8_t>> uvCoords = 0;
-    if (m_uvCoords)
-        uvCoords = builder.CreateVector(reinterpret_cast<const int8_t*>(m_uvCoords.get()), m_numVertices * sizeof(glm::vec2));
-
-    return serialization::CreateTriangleMesh(
-        builder,
-        m_numTriangles,
-        m_numVertices,
-        triangles,
-        positions,
-        normals,
-        tangents,
-        uvCoords);
-}
-
-size_t TriangleMesh::size() const
+size_t TriangleMesh::sizeBytes() const
 {
     size_t size = sizeof(TriangleMesh);
     size += m_numTriangles * sizeof(glm::ivec3); // triangles

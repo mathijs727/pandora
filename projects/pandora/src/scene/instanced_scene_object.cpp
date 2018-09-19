@@ -62,9 +62,9 @@ Ray InCoreInstancedSceneObject::transformRayToInstanceSpace(const Ray& ray) cons
     return m_worldTransform.transform(ray);
 }
 
-size_t InCoreInstancedSceneObject::size() const
+size_t InCoreInstancedSceneObject::sizeBytes() const
 {
-    return sizeof(decltype(*this)) + m_baseObject->size();
+    return sizeof(decltype(*this)) + m_baseObject->sizeBytes();
 }
 
 InstancedSceneObjectGeometry::InstancedSceneObjectGeometry(
@@ -117,9 +117,9 @@ SurfaceInteraction InstancedSceneObjectGeometry::fillSurfaceInteraction(const Ra
     return m_worldTransform.transform(m_baseObjectGeometry->fillSurfaceInteraction(instanceSpaceRay, rayHit));
 }
 
-size_t InstancedSceneObjectGeometry::size() const
+size_t InstancedSceneObjectGeometry::sizeBytes() const
 {
-    return sizeof(decltype(*this)) + m_baseObjectGeometry->size();
+    return sizeof(decltype(*this)) + m_baseObjectGeometry->sizeBytes();
 }
 
 OOCInstancedSceneObject::OOCInstancedSceneObject(const glm::mat4& transformMatrix, const std::shared_ptr<const OOCGeometricSceneObject>& baseObject)

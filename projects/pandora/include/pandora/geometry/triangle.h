@@ -32,7 +32,7 @@ public:
         std::unique_ptr<glm::vec2[]>&& uvCoords);
     TriangleMesh(TriangleMesh&&) = default;
     TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh);
-    ~TriangleMesh() = default;
+    ~TriangleMesh();
 
     TriangleMesh subMesh(gsl::span<const unsigned> primitives) const;
 
@@ -44,7 +44,7 @@ public:
     //void saveToCacheFile(const std::string_view filename);
     flatbuffers::Offset<serialization::TriangleMesh> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
-    size_t size() const;
+    size_t sizeBytes() const;
 
     unsigned numTriangles() const;
     unsigned numVertices() const;
@@ -265,7 +265,7 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
     // TODO: test intersection against alpha texture, if present
 
     // Fill in  surface interaction from triangle hit
-    auto isect = SurfaceInteraction(pHit, uvHit, -ray.direction, dpdu, dpdv, glm::vec3(0.0f), glm::vec3(0.0f), this, hitInfo.primitiveID);
+    auto isect = SurfaceInteraction(pHit, uvHit, -ray.direction, dpdu, dpdv, glm::vec3(0.0f), glm::vec3(0.0f), hitInfo.primitiveID);
 
     // Override surface normal in isect for triangle
     isect.normal = isect.shading.normal = glm::normalize(glm::cross(dp02, dp12));

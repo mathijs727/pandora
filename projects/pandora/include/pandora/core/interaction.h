@@ -26,11 +26,12 @@ public:
 
 struct SurfaceInteraction : public Interaction {
 public:
-    // Warning: not an owning (shared) pointer because its not necessary for in-core rendering (no performance overhead)
-    const SceneObjectMaterial* sceneObjectMaterial;
-
+	const OOCSceneObject* sceneObject = nullptr;
     unsigned primitiveID;
-	const TriangleMesh* shape = nullptr;
+
+    // Assume someone else owns the material (and doesnt free it untill the SurfaceInteraction is destroyed).
+    // We cannot store an unique pointer here because that would require including "scene.h", creating a circular dependency.
+    const SceneObjectMaterial* sceneObjectMaterial;
 
     BSDF* bsdf = nullptr;
 
@@ -49,7 +50,7 @@ public:
 		: sceneObjectMaterial(nullptr)
 	{
 	}
-	SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, const TriangleMesh* shape, unsigned primitiveID);
+	SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, unsigned primitiveID);
 
     void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, const glm::vec3& dndvs, bool orientationIsAuthoritative);
 
@@ -58,11 +59,11 @@ public:
     glm::vec3 Le(const glm::vec3& w) const;
 };
 
-inline SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, const TriangleMesh* shape, unsigned primitiveID)
+inline SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, unsigned primitiveID)
 	: Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo)
     , sceneObjectMaterial(nullptr)
 	, primitiveID(primitiveID)
-    , shape(shape)
+    //, sceneObject(sceneObject)
     , bsdf(nullptr)
     , uv(uv)
     , dpdu(dpdu)

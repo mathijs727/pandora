@@ -24,7 +24,7 @@ public:
 
     flatbuffers::Offset<serialization::WiVeBVH8> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
-    size_t size() const override final;
+    size_t sizeBytes() const override final;
 
     void build(gsl::span<LeafObj> objects) override final;
 

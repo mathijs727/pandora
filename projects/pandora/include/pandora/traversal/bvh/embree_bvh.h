@@ -16,7 +16,7 @@ public:
     EmbreeBVH(EmbreeBVH&&);
     ~EmbreeBVH();
 
-    size_t size() const override final;
+    size_t sizeBytes() const override final;
 
     void build(gsl::span<LeafObj> objects) override final;
 

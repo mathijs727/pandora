@@ -17,7 +17,7 @@ public:
     NaiveSingleRayBVH2(NaiveSingleRayBVH2<LeafObj>&& other);
     ~NaiveSingleRayBVH2();
 
-    size_t size() const override final;
+    size_t sizeBytes() const override final;
 
     void build(gsl::span<LeafObj> objects) override final;
 
@@ -91,7 +91,7 @@ inline NaiveSingleRayBVH2<LeafObj>::~NaiveSingleRayBVH2()
 }
 
 template <typename LeafObj>
-inline size_t NaiveSingleRayBVH2<LeafObj>::size() const
+inline size_t NaiveSingleRayBVH2<LeafObj>::sizeBytes() const
 {
     return sizeof(decltype(*this)) + m_memoryUsed.load();
 }

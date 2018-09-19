@@ -18,10 +18,13 @@ public:
     PauseableBVH4(PauseableBVH4&&) = default;
     ~PauseableBVH4() = default;
 
-    size_t size() const override final;
+    size_t sizeBytes() const override final;
 
     std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState) const override final;
     std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
+
+    std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const override final;
+    std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
 
     std::optional<bool> intersectAny(Ray& ray, const UserState& userState) const override final;
     std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
@@ -29,8 +32,8 @@ public:
     gsl::span<LeafObj*> leafs() { return m_leafs; }
 
 private:
-    template <bool AnyHit>
-    std::optional<bool> intersectT(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const;
+    template <bool AnyHit, typename HitInfo>
+    std::optional<bool> intersectT(Ray& ray, HitInfo& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const;
 
     struct TestBVHData {
         int numPrimitives = 0;
@@ -171,7 +174,7 @@ inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> leafs
 }
 
 template <typename LeafObj, typename UserState>
-inline size_t PauseableBVH4<LeafObj, UserState>::size() const
+inline size_t PauseableBVH4<LeafObj, UserState>::sizeBytes() const
 {
     size_t size = sizeof(decltype(*this));
     size += m_innerNodeAllocator.sizeBytes();
@@ -180,15 +183,37 @@ inline size_t PauseableBVH4<LeafObj, UserState>::size() const
 }
 
 template <typename LeafObj, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitInfo, const UserState& userState) const
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& rayHit, const UserState& userState) const
 {
-    return intersect(ray, hitInfo, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
+    return intersect(ray, rayHit, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
 }
 
 template <typename LeafObj, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& rayHit, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
 {
-    return intersectT<false>(ray, hitInfo, userState, insertInfo);
+    // TODO: remove the whole function using SFINAE
+    if constexpr (is_pauseable_leaf_obj<LeafObj, UserState>::has_intersect_rayhit) {
+        return intersectT<false>(ray, rayHit, userState, insertInfo);
+    } else {
+        return false;
+    }
+}
+
+template <typename LeafObj, typename UserState>
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const
+{
+    return intersect(ray, si, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
+}
+
+template <typename LeafObj, typename UserState>
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+{
+    // TODO: remove the whole function using SFINAE
+    if constexpr (is_pauseable_leaf_obj<LeafObj, UserState>::has_intersect_si) {
+        return intersectT<false, SurfaceInteraction>(ray, si, userState, insertInfo);
+    } else {
+        return false;
+    }
 }
 
 template <typename LeafObj, typename UserState>
@@ -206,8 +231,8 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectAny(Ray& 
 }
 
 template <typename LeafObj, typename UserState>
-template <bool AnyHit>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectT(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+template <bool AnyHit, typename HitInfo>
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectT(Ray& ray, HitInfo& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
 {
     struct SIMDRay {
         simd::vec4_f32 originX;
