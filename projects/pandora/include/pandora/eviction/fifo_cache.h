@@ -31,6 +31,7 @@ public:
 
     // Output may be in a different order than the input so the node should also store any associated user data
 
+    struct CacheMapItem;
     template <typename S>
     struct SubFlowGraph {
     public:
@@ -38,6 +39,8 @@ public:
         using FlowGraphOutput = std::pair<S, std::shared_ptr<T>>;
 
     public:
+        SubFlowGraph(SubFlowGraph&&) = default;
+
         template <typename N>
         void connectInput(N& inputNode);
 
@@ -45,13 +48,17 @@ public:
         void connectOutput(N& outputNode);
 
     private:
-        using Node1 = tbb::flow::function_node<FlowGraphInput, FlowGraphOutput>;
+        // CacheMapItem pointer because using a reference 
+        using LoadRequestData = std::tuple<S, CacheMapItem*, EvictableResourceID>;
+        using AccessNode = tbb::flow::multifunction_node<FlowGraphInput, tbb::flow::tuple<FlowGraphOutput, LoadRequestData>>;
+        using LoadNode = tbb::flow::function_node<LoadRequestData, FlowGraphOutput>;
 
         friend class FifoCache<T>;
-        SubFlowGraph(Node1&& node1);
+        SubFlowGraph(AccessNode&& accessNode, LoadNode&& loadNode);
 
     private:
-        tbb::flow::function_node<FlowGraphInput, FlowGraphOutput> m_node1;
+        AccessNode m_accessNode;
+        LoadNode m_loadNode;
     };
     template <typename S>
     SubFlowGraph<S> getFlowGraphNode(tbb::flow::graph& g) const;
@@ -185,15 +192,54 @@ inline FifoCache<T>::SubFlowGraph<S> FifoCache<T>::getFlowGraphNode(tbb::flow::g
 {
     using Input = SubFlowGraph<S>::FlowGraphInput;
     using Output = SubFlowGraph<S>::FlowGraphOutput;
+    using LoadRequestData = SubFlowGraph<S>::LoadRequestData;
+    using AccessNode = SubFlowGraph<S>::AccessNode;
+    using LoadNode = SubFlowGraph<S>::LoadNode;
 
-    auto node1 = tbb::flow::function_node<Input, Output>(g, tbb::flow::unlimited, [this](Input input) { //, AsyncNode<S>::gateway_type& gateway) {
+    auto* mutThis = const_cast<FifoCache<T>*>(this);
+    AccessNode accessNode(g, tbb::flow::unlimited, [mutThis, this](Input input, AccessNode::output_ports_type& op) {
         EvictableResourceID resourceID = std::get<1>(input);
+
+        auto& cacheItem = mutThis->m_cacheMap[resourceID];
+        std::shared_ptr<T> sharedResourcePtr = cacheItem.itemPtr.lock();
+        if (sharedResourcePtr) {
+            std::get<0>(op).try_put(std::make_pair(std::get<0>(input), sharedResourcePtr));
+        } else {
+            std::get<1>(op).try_put({ std::get<0>(input), &cacheItem, resourceID });
+        }
+
         /*gateway.reserve_wait();
         gateway.try_put(std::make_pair(std::get<0>(input), getBlocking(resourceID)));
         gateway.release_wait();*/
-        return std::make_pair(std::get<0>(input), getBlocking(resourceID));
+        //return std::make_pair(std::get<0>(input), mutThis->getBlocking(resourceID));
     });
-    return SubFlowGraph<S>(std::move(node1));
+    LoadNode loadNode(g, tbb::flow::unlimited, [mutThis, this](const LoadRequestData& data) -> Output {
+        auto& cacheItem = *std::get<1>(data);
+        std::scoped_lock lock(cacheItem.loadMutex);
+
+        // Make sure that no other thread came in first and loaded the resource already
+        auto sharedResourcePtr = cacheItem.itemPtr.lock();
+        if (!sharedResourcePtr) {
+            // TODO: load data on a worker thread
+            const auto& factoryFunc = m_resourceFactories[std::get<2>(data)];
+            sharedResourcePtr = std::make_shared<T>(factoryFunc());
+            size_t resourceSize = sharedResourcePtr->sizeBytes();
+            cacheItem.itemPtr.store(sharedResourcePtr);
+            mutThis->m_cacheHistory.push(sharedResourcePtr);
+            m_allocCallback(resourceSize);
+
+            size_t oldCacheSize = mutThis->m_currentSizeBytes.fetch_add(resourceSize);
+            size_t newCacheSize = oldCacheSize + resourceSize;
+            if (newCacheSize > m_maxSizeBytes) {
+                // If another thread caused us to go over the memory limit that we only have to account
+                //  for our own contribution.
+                size_t overallocated = std::min(newCacheSize - m_maxSizeBytes, resourceSize);
+                mutThis->evict(overallocated);
+            }
+        }
+        return std::make_pair(std::get<0>(data), sharedResourcePtr);
+    });
+    return SubFlowGraph<S>(std::move(accessNode), std::move(loadNode));
 }
 
 template <typename T>
@@ -201,7 +247,7 @@ template <typename S>
 template <typename N>
 inline void FifoCache<T>::SubFlowGraph<S>::connectInput(N& inputNode)
 {
-    tbb::flow::make_edge(inputNode, m_node1);
+    tbb::flow::make_edge(inputNode, m_accessNode);
 }
 
 template <typename T>
@@ -209,13 +255,17 @@ template <typename S>
 template <typename N>
 inline void FifoCache<T>::SubFlowGraph<S>::connectOutput(N& outputNode)
 {
-    tbb::flow::make_edge(m_node1, outputNode);
+    tbb::flow::make_edge(tbb::flow::output_port<1>(m_accessNode), m_loadNode);
+
+    tbb::flow::make_edge(tbb::flow::output_port<0>(m_accessNode), outputNode);
+    tbb::flow::make_edge(m_loadNode, outputNode);
 }
 
 template <typename T>
 template <typename S>
-inline FifoCache<T>::SubFlowGraph<S>::SubFlowGraph(Node1&& node1)
-    : m_node1(std::move(node1))
+inline FifoCache<T>::SubFlowGraph<S>::SubFlowGraph(AccessNode&& accessNode, LoadNode&& loadNode)
+    : m_accessNode(std::move(accessNode))
+    , m_loadNode(std::move(loadNode))
 {
 }
 
