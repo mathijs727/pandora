@@ -6,6 +6,7 @@
 #include "pandora/utility/memory_arena.h"
 #include <tbb/concurrent_queue.h>
 #include <tbb/concurrent_unordered_map.h>
+#include <tbb/flow_graph.h>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
@@ -27,6 +28,13 @@ public:
     EvictableResourceID emplaceFactoryUnsafe(std::function<T(void)> factoryFunc); // Not thread-safe
 
     std::shared_ptr<T> getBlocking(EvictableResourceID resourceID) const;
+
+    // Output may be in a different order than the input so the node should also store any associated user data
+    template <typename S>
+    using AsyncNode = tbb::flow::async_node<std::pair<S, EvictableResourceID>, std::pair<S, std::shared_ptr<T>>>;
+
+    template <typename S>
+    AsyncNode<S> getFlowGraphNode(tbb::flow::graph& g) const;
 
     void evictAllUnsafe() const;
 
@@ -149,6 +157,18 @@ inline void FifoCache<T>::evict(size_t bytesToEvict)
     }
     m_evictCallback(bytesEvicted);
     m_currentSizeBytes.fetch_sub(bytesEvicted);
+}
+
+template <typename T>
+template <typename S>
+inline FifoCache<T>::AsyncNode<S> FifoCache<T>::getFlowGraphNode(tbb::flow::graph& g) const
+{
+    return AsyncNode<S>(g, tbb::flow::unlimited, [this](AsyncNode<S>::input_type input, AsyncNode<S>::gateway_type& gateway) {
+        EvictableResourceID resourceID = std::get<1>(input);
+        gateway.reserve_wait();
+        gateway.try_put(std::make_pair(std::get<0>(input), getBlocking(resourceID)));
+        gateway.release_wait();
+    });
 }
 
 }

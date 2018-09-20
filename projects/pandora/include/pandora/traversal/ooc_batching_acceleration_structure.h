@@ -21,6 +21,7 @@
 #include <tbb/concurrent_unordered_set.h>
 #include <tbb/concurrent_vector.h>
 #include <tbb/enumerable_thread_specific.h>
+#include <tbb/flow_graph.h>
 #include <tbb/parallel_for_each.h>
 #include <tbb/parallel_sort.h>
 #include <tbb/reader_writer_lock.h>
@@ -188,16 +189,23 @@ private:
         std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
 
         void prepareForFlushUnsafe(); // Adds the active batches to the list of immutable batches (even if they are not full)
-        size_t flush(); // Flushes the list of immutable batches (but not the active batches)
+
+        //size_t flush(); // Flushes the list of immutable batches (but not the active batches)
+
+        // Flush a whole range of nodes at a time as opposed to a non-static flush member function which would require a
+        // separate tbb flow graph for each node that is processed.
+        static size_t flushRange(
+            gsl::span<TopLevelLeafNode*> nodes,
+            OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
 
     private:
-        static EvictableResourceHandle<GeometryData> generateCachedBVH(
+        static EvictableResourceID generateCachedBVH(
             std::string_view filename,
             gsl::span<const OOCSceneObject*> sceneObjects,
             FifoCache<GeometryData>* cache);
 
     private:
-        EvictableResourceHandle<GeometryData> m_geometryDataHandle;
+        EvictableResourceID m_geometryDataCacheID;
         std::vector<const OOCSceneObject*> m_sceneObjects;
 
         tbb::enumerable_thread_specific<RayBatch*> m_threadLocalActiveBatch;
@@ -319,19 +327,18 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
             topLevelLeafNode->prepareForFlushUnsafe();
         });
 
-        /*tbb::concurrent_vector<TopLevelLeafNode*> leafsWithBatchedRays = std::move(m_leafsWithBatchedRays);
-        if (leafsWithBatchedRays.empty())
-            break;*/
-
         // Sort nodes so the ones with the most batches get processed first
         //tbb::parallel_sort(leafsWithBatchedRays, [](const TopLevelLeafNode* a, const TopLevelLeafNode* b) -> bool { return a->approximateBatchCount() < b->approximateBatchCount(); });
 
-        tbb::enumerable_thread_specific<size_t> raysProcessedTL([]() -> size_t { return 0; });
+        /*tbb::enumerable_thread_specific<size_t> raysProcessedTL([]() -> size_t { return 0; });
         tbb::parallel_for_each(m_bvh.leafs(), [&](auto* topLevelLeafNode) {
-            //for (auto* topLevelLeafNode : m_bvh.leafs())
             raysProcessedTL.local() += topLevelLeafNode->flush();
         });
         size_t raysProcessed = std::accumulate(std::begin(raysProcessedTL), std::end(raysProcessedTL), (size_t)0, std::plus<size_t>());
+        if (raysProcessed == 0)
+            break;*/
+
+        size_t raysProcessed = TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
         if (raysProcessed == 0)
             break;
 #endif
@@ -365,7 +372,7 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
     gsl::span<const OOCSceneObject*> sceneObjects,
     FifoCache<GeometryData>* geometryCache,
     OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructure)
-    : m_geometryDataHandle(generateCachedBVH(cacheFilename, sceneObjects, geometryCache))
+    : m_geometryDataCacheID(generateCachedBVH(cacheFilename, sceneObjects, geometryCache))
     //, m_sceneObjects()
     , m_threadLocalActiveBatch([]() { return nullptr; })
     , m_immutableRayBatchList(nullptr)
@@ -376,7 +383,7 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
 
 template <typename UserState, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(TopLevelLeafNode&& other)
-    : m_geometryDataHandle(std::move(other.m_geometryDataHandle))
+    : m_geometryDataCacheID(other.m_geometryDataCacheID)
     , m_sceneObjects(std::move(other.m_sceneObjects))
     , m_threadLocalActiveBatch(std::move(other.m_threadLocalActiveBatch))
     , m_immutableRayBatchList(other.m_immutableRayBatchList.load())
@@ -385,7 +392,7 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
 }
 
 template <typename UserState, size_t BatchSize>
-inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::GeometryData> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::generateCachedBVH(
+inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::generateCachedBVH(
     std::string_view filename,
     gsl::span<const OOCSceneObject*> sceneObjects,
     FifoCache<GeometryData>* cache)
@@ -551,7 +558,7 @@ inline EvictableResourceHandle<typename OOCBatchingAccelerationStructure<UserSta
         ret.leafBVH = WiVeBVH8Build8<BotLevelLeafNode>(serializedTopLevelLeafNode->bvh(), std::move(leafs));
         return ret;
     });
-    return EvictableResourceHandle<GeometryData>(cache, resourceID);
+    return resourceID;
 }
 
 template <typename UserState, size_t BatchSize>
@@ -633,6 +640,112 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeaf
 }
 
 template <typename UserState, size_t BatchSize>
+size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::flushRange(
+    gsl::span<TopLevelLeafNode*> nodes,
+    OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
+{
+    struct Message1 {
+        TopLevelLeafNode* node;
+        RayBatch* batch;
+    };
+
+    tbb::flow::graph g;
+
+    int i = 0;
+    tbb::flow::source_node<std::pair<Message1, EvictableResourceID>> sourceNode(
+        g,
+        [&](std::pair<Message1, EvictableResourceID>& out) -> bool {
+            while (i < nodes.size()) {
+                TopLevelLeafNode* node = nodes[i++];
+                RayBatch* batch = node->m_immutableRayBatchList.exchange(nullptr);
+                if (!batch)
+                    continue;
+
+                out = { { node, batch }, node->m_geometryDataCacheID };
+                return true;
+            }
+
+            return (i < nodes.size());
+        });
+
+    auto asyncCacheNode = std::move(accelerationStructurePtr->m_geometryCache.getFlowGraphNode<Message1>(g));
+
+    tbb::flow::function_node<std::pair<Message1, std::shared_ptr<GeometryData>>, size_t> traversalNode(
+        g,
+        tbb::flow::unlimited,
+        [&](std::pair<Message1, std::shared_ptr<GeometryData>> v) {
+            auto message = std::get<0>(v);
+            auto* batch = message.batch;
+            auto geometryData = std::get<1>(v);
+
+            size_t raysProcessed = 0;
+            while (batch) {
+                raysProcessed += batch->size();
+                for (auto& [ray, siOpt, userState, insertHandle] : *batch) {
+                    // Intersect with the bottom-level BVH
+                    if (siOpt) {
+                        RayHit rayHit;
+                        if (geometryData->leafBVH.intersect(ray, rayHit)) {
+                            const auto& hitSceneObjectInfo = std::get<RayHit::OutOfCore>(rayHit.sceneObjectVariant);
+                            siOpt = hitSceneObjectInfo.sceneObjectGeometry->fillSurfaceInteraction(ray, rayHit);
+                            siOpt->sceneObject = hitSceneObjectInfo.sceneObject;
+                        }
+                    } else {
+                        geometryData->leafBVH.intersectAny(ray);
+                    }
+                }
+
+                for (auto [ray, siOpt, userState, insertHandle] : *batch) {
+                    if (siOpt) {
+                        // Insert the ray back into the top-level  BVH
+                        auto optResult = accelerationStructurePtr->m_bvh.intersect(ray, *siOpt, userState, insertHandle);
+                        if (optResult && *optResult == false) {
+                            // Ray exited the system so we can run the hit/miss shaders
+                            if (siOpt->sceneObject) {
+                                auto materialOwning = siOpt->sceneObject->getMaterialBlocking(); // Keep alive during the callback
+                                siOpt->sceneObjectMaterial = materialOwning.get();
+                                accelerationStructurePtr->m_hitCallback(ray, *siOpt, userState, nullptr);
+                            } else {
+                                accelerationStructurePtr->m_missCallback(ray, userState);
+                            }
+                        }
+                    } else {
+                        // Intersect any
+                        if (ray.tfar == -std::numeric_limits<float>::infinity()) { // Ray hit something
+                            accelerationStructurePtr->m_anyHitCallback(ray, userState);
+                        } else {
+                            auto optResult = accelerationStructurePtr->m_bvh.intersectAny(ray, userState, insertHandle);
+                            if (optResult && *optResult == false) {
+                                // Ray exited system
+                                accelerationStructurePtr->m_missCallback(ray, userState);
+                            }
+                        }
+                    }
+                }
+                auto next = batch->next();
+                accelerationStructurePtr->m_batchAllocator.deallocate(batch);
+                batch = next;
+            }
+
+            return raysProcessed;
+        });
+
+    std::atomic_size_t totalRaysProcessed(0);
+    tbb::flow::function_node<size_t, size_t> sumNode(g, tbb::flow::unlimited, [&](size_t raysProcessed) {
+        return totalRaysProcessed.fetch_add(raysProcessed) + raysProcessed;
+    });
+
+    // NOTE: The source starts outputting as soon as an edge is connected.
+    //       So make sure it is the last edge that we connect.
+    tbb::flow::make_edge(traversalNode, sumNode);
+    tbb::flow::make_edge(asyncCacheNode, traversalNode);
+    tbb::flow::make_edge(sourceNode, asyncCacheNode);
+    g.wait_for_all();
+
+    return totalRaysProcessed;
+}
+
+/*template <typename UserState, size_t BatchSize>
 inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::flush()
 {
     RayBatch* batch = m_immutableRayBatchList.exchange(nullptr);
@@ -696,7 +809,7 @@ inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLe
     taskGroup.wait();
 
     return numRays;
-}
+}*/
 
 template <typename UserState, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNodeInstanced::BotLevelLeafNodeInstanced(

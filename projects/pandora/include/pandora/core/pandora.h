@@ -13,8 +13,6 @@ struct SurfaceInteraction;
 struct LightSample;
 class Transform;
 
-class EvictableResource;
-class EvictableGeometry;
 class InMemoryResource;
 template <typename T>
 class FifoCache;
