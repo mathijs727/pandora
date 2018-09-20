@@ -644,91 +644,94 @@ size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
     gsl::span<TopLevelLeafNode*> nodes,
     OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
 {
-    struct Message1 {
-        TopLevelLeafNode* node;
-        RayBatch* batch;
-    };
-
     tbb::flow::graph g;
 
+    // Generate a task for each top-level leaf node with at least one non-empty batch
     int i = 0;
-    tbb::flow::source_node<std::pair<Message1, EvictableResourceID>> sourceNode(
+    tbb::flow::source_node<std::pair<RayBatch*, EvictableResourceID>> sourceNode(
         g,
-        [&](std::pair<Message1, EvictableResourceID>& out) -> bool {
+        [&](std::pair<RayBatch*, EvictableResourceID>& out) -> bool {
             while (i < nodes.size()) {
                 TopLevelLeafNode* node = nodes[i++];
                 RayBatch* batch = node->m_immutableRayBatchList.exchange(nullptr);
                 if (!batch)
                     continue;
 
-                out = { { node, batch }, node->m_geometryDataCacheID };
+                out = { batch, node->m_geometryDataCacheID };
                 return true;
             }
 
             return (i < nodes.size());
         });
 
-    auto asyncCacheNode = std::move(accelerationStructurePtr->m_geometryCache.getFlowGraphNode<Message1>(g));
+    // For each of those leaf nodes, load the geometry (asynchronously)
+    auto asyncCacheNode = std::move(accelerationStructurePtr->m_geometryCache.getFlowGraphNode<RayBatch*>(g));
 
-    tbb::flow::function_node<std::pair<Message1, std::shared_ptr<GeometryData>>, size_t> traversalNode(
+    // Then create a task for each batch associated with that leaf node (for increased parallelism)
+    using BatchWithGeom = std::pair<RayBatch*, std::shared_ptr<GeometryData>>;
+    using BatchNodeType = tbb::flow::multifunction_node<BatchWithGeom, tbb::flow::tuple<BatchWithGeom>>;
+    BatchNodeType batchNode(
         g,
         tbb::flow::unlimited,
-        [&](std::pair<Message1, std::shared_ptr<GeometryData>> v) {
-            auto message = std::get<0>(v);
-            auto* batch = message.batch;
-            auto geometryData = std::get<1>(v);
+        [](const BatchWithGeom& v, BatchNodeType::output_ports_type& op) {
+            auto* batch = std::get<0>(v);
 
             size_t raysProcessed = 0;
             while (batch) {
-                raysProcessed += batch->size();
-                for (auto& [ray, siOpt, userState, insertHandle] : *batch) {
-                    // Intersect with the bottom-level BVH
-                    if (siOpt) {
-                        RayHit rayHit;
-                        if (geometryData->leafBVH.intersect(ray, rayHit)) {
-                            const auto& hitSceneObjectInfo = std::get<RayHit::OutOfCore>(rayHit.sceneObjectVariant);
-                            siOpt = hitSceneObjectInfo.sceneObjectGeometry->fillSurfaceInteraction(ray, rayHit);
-                            siOpt->sceneObject = hitSceneObjectInfo.sceneObject;
-                        }
-                    } else {
-                        geometryData->leafBVH.intersectAny(ray);
-                    }
-                }
-
-                for (auto [ray, siOpt, userState, insertHandle] : *batch) {
-                    if (siOpt) {
-                        // Insert the ray back into the top-level  BVH
-                        auto optResult = accelerationStructurePtr->m_bvh.intersect(ray, *siOpt, userState, insertHandle);
-                        if (optResult && *optResult == false) {
-                            // Ray exited the system so we can run the hit/miss shaders
-                            if (siOpt->sceneObject) {
-                                auto materialOwning = siOpt->sceneObject->getMaterialBlocking(); // Keep alive during the callback
-                                siOpt->sceneObjectMaterial = materialOwning.get();
-                                accelerationStructurePtr->m_hitCallback(ray, *siOpt, userState, nullptr);
-                            } else {
-                                accelerationStructurePtr->m_missCallback(ray, userState);
-                            }
-                        }
-                    } else {
-                        // Intersect any
-                        if (ray.tfar == -std::numeric_limits<float>::infinity()) { // Ray hit something
-                            accelerationStructurePtr->m_anyHitCallback(ray, userState);
-                        } else {
-                            auto optResult = accelerationStructurePtr->m_bvh.intersectAny(ray, userState, insertHandle);
-                            if (optResult && *optResult == false) {
-                                // Ray exited system
-                                accelerationStructurePtr->m_missCallback(ray, userState);
-                            }
-                        }
-                    }
-                }
-                auto next = batch->next();
-                accelerationStructurePtr->m_batchAllocator.deallocate(batch);
-                batch = next;
+                std::get<0>(op).try_put(std::make_pair(batch, std::get<1>(v)));
+                batch = batch->next();
             }
-
-            return raysProcessed;
         });
+
+    tbb::flow::function_node<BatchWithGeom, size_t> traversalNode(g, tbb::flow::unlimited, [&](const BatchWithGeom& v) {
+        auto* batch = std::get<0>(v);
+        auto geometryData = std::get<1>(v);
+
+        for (auto& [ray, siOpt, userState, insertHandle] : *batch) {
+            // Intersect with the bottom-level BVH
+            if (siOpt) {
+                RayHit rayHit;
+                if (geometryData->leafBVH.intersect(ray, rayHit)) {
+                    const auto& hitSceneObjectInfo = std::get<RayHit::OutOfCore>(rayHit.sceneObjectVariant);
+                    siOpt = hitSceneObjectInfo.sceneObjectGeometry->fillSurfaceInteraction(ray, rayHit);
+                    siOpt->sceneObject = hitSceneObjectInfo.sceneObject;
+                }
+            } else {
+                geometryData->leafBVH.intersectAny(ray);
+            }
+        }
+
+        for (auto [ray, siOpt, userState, insertHandle] : *batch) {
+            if (siOpt) {
+                // Insert the ray back into the top-level  BVH
+                auto optResult = accelerationStructurePtr->m_bvh.intersect(ray, *siOpt, userState, insertHandle);
+                if (optResult && *optResult == false) {
+                    // Ray exited the system so we can run the hit/miss shaders
+                    if (siOpt->sceneObject) {
+                        auto materialOwning = siOpt->sceneObject->getMaterialBlocking(); // Keep alive during the callback
+                        siOpt->sceneObjectMaterial = materialOwning.get();
+                        accelerationStructurePtr->m_hitCallback(ray, *siOpt, userState, nullptr);
+                    } else {
+                        accelerationStructurePtr->m_missCallback(ray, userState);
+                    }
+                }
+            } else {
+                // Intersect any
+                if (ray.tfar == -std::numeric_limits<float>::infinity()) { // Ray hit something
+                    accelerationStructurePtr->m_anyHitCallback(ray, userState);
+                } else {
+                    auto optResult = accelerationStructurePtr->m_bvh.intersectAny(ray, userState, insertHandle);
+                    if (optResult && *optResult == false) {
+                        // Ray exited system
+                        accelerationStructurePtr->m_missCallback(ray, userState);
+                    }
+                }
+            }
+        }
+        auto raysProcessed = batch->size();
+        accelerationStructurePtr->m_batchAllocator.deallocate(batch);
+        return raysProcessed;
+    });
 
     std::atomic_size_t totalRaysProcessed(0);
     tbb::flow::function_node<size_t, size_t> sumNode(g, tbb::flow::unlimited, [&](size_t raysProcessed) {
@@ -738,7 +741,8 @@ size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
     // NOTE: The source starts outputting as soon as an edge is connected.
     //       So make sure it is the last edge that we connect.
     tbb::flow::make_edge(traversalNode, sumNode);
-    tbb::flow::make_edge(asyncCacheNode, traversalNode);
+    tbb::flow::make_edge(batchNode, traversalNode);
+    tbb::flow::make_edge(asyncCacheNode, batchNode);
     tbb::flow::make_edge(sourceNode, asyncCacheNode);
     g.wait_for_all();
 
