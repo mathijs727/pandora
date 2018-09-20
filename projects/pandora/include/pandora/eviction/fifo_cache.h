@@ -30,11 +30,31 @@ public:
     std::shared_ptr<T> getBlocking(EvictableResourceID resourceID) const;
 
     // Output may be in a different order than the input so the node should also store any associated user data
-    template <typename S>
-    using AsyncNode = tbb::flow::async_node<std::pair<S, EvictableResourceID>, std::pair<S, std::shared_ptr<T>>>;
 
     template <typename S>
-    AsyncNode<S> getFlowGraphNode(tbb::flow::graph& g) const;
+    struct SubFlowGraph {
+    public:
+        using FlowGraphInput = std::pair<S, EvictableResourceID>;
+        using FlowGraphOutput = std::pair<S, std::shared_ptr<T>>;
+
+    public:
+        template <typename N>
+        void connectInput(N& inputNode);
+
+        template <typename N>
+        void connectOutput(N& outputNode);
+
+    private:
+        using Node1 = tbb::flow::function_node<FlowGraphInput, FlowGraphOutput>;
+
+        friend class FifoCache<T>;
+        SubFlowGraph(Node1&& node1);
+
+    private:
+        tbb::flow::function_node<FlowGraphInput, FlowGraphOutput> m_node1;
+    };
+    template <typename S>
+    SubFlowGraph<S> getFlowGraphNode(tbb::flow::graph& g) const;
 
     void evictAllUnsafe() const;
 
@@ -161,14 +181,42 @@ inline void FifoCache<T>::evict(size_t bytesToEvict)
 
 template <typename T>
 template <typename S>
-inline FifoCache<T>::AsyncNode<S> FifoCache<T>::getFlowGraphNode(tbb::flow::graph& g) const
+inline FifoCache<T>::SubFlowGraph<S> FifoCache<T>::getFlowGraphNode(tbb::flow::graph& g) const
 {
-    return AsyncNode<S>(g, tbb::flow::unlimited, [this](AsyncNode<S>::input_type input, AsyncNode<S>::gateway_type& gateway) {
+    using Input = SubFlowGraph<S>::FlowGraphInput;
+    using Output = SubFlowGraph<S>::FlowGraphOutput;
+
+    auto node1 = tbb::flow::function_node<Input, Output>(g, tbb::flow::unlimited, [this](Input input) { //, AsyncNode<S>::gateway_type& gateway) {
         EvictableResourceID resourceID = std::get<1>(input);
-        gateway.reserve_wait();
+        /*gateway.reserve_wait();
         gateway.try_put(std::make_pair(std::get<0>(input), getBlocking(resourceID)));
-        gateway.release_wait();
+        gateway.release_wait();*/
+        return std::make_pair(std::get<0>(input), getBlocking(resourceID));
     });
+    return SubFlowGraph<S>(std::move(node1));
+}
+
+template <typename T>
+template <typename S>
+template <typename N>
+inline void FifoCache<T>::SubFlowGraph<S>::connectInput(N& inputNode)
+{
+    tbb::flow::make_edge(inputNode, m_node1);
+}
+
+template <typename T>
+template <typename S>
+template <typename N>
+inline void FifoCache<T>::SubFlowGraph<S>::connectOutput(N& outputNode)
+{
+    tbb::flow::make_edge(m_node1, outputNode);
+}
+
+template <typename T>
+template <typename S>
+inline FifoCache<T>::SubFlowGraph<S>::SubFlowGraph(Node1&& node1)
+    : m_node1(std::move(node1))
+{
 }
 
 }

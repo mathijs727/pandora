@@ -665,7 +665,7 @@ size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
         });
 
     // For each of those leaf nodes, load the geometry (asynchronously)
-    auto asyncCacheNode = std::move(accelerationStructurePtr->m_geometryCache.getFlowGraphNode<RayBatch*>(g));
+    auto cacheSubGraph = std::move(accelerationStructurePtr->m_geometryCache.getFlowGraphNode<RayBatch*>(g));
 
     // Then create a task for each batch associated with that leaf node (for increased parallelism)
     using BatchWithGeom = std::pair<RayBatch*, std::shared_ptr<GeometryData>>;
@@ -742,8 +742,10 @@ size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
     //       So make sure it is the last edge that we connect.
     tbb::flow::make_edge(traversalNode, sumNode);
     tbb::flow::make_edge(batchNode, traversalNode);
-    tbb::flow::make_edge(asyncCacheNode, batchNode);
-    tbb::flow::make_edge(sourceNode, asyncCacheNode);
+    cacheSubGraph.connectOutput(batchNode);
+    cacheSubGraph.connectInput(sourceNode);
+    //tbb::flow::make_edge(asyncCacheNode, batchNode);
+    //tbb::flow::make_edge(sourceNode, asyncCacheNode);
     g.wait_for_all();
 
     return totalRaysProcessed;
