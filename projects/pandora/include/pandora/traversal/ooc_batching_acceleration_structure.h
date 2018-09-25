@@ -33,7 +33,7 @@
 
 namespace pandora {
 
-static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 1024;
+static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 25000;
 static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = true;
 
 template <typename UserState, size_t BatchSize = 64>
@@ -209,7 +209,11 @@ private:
             gsl::span<const OOCSceneObject*> sceneObjects,
             FifoCache<GeometryData>* cache);
 
-        static std::pair<SparseVoxelDAG, glm::mat4> computeSVDAG(gsl::span<const OOCSceneObject*> sceneObjects);
+        struct SVDAGRayOffset {
+            glm::vec3 gridBoundsMin;
+            glm::vec3 invGridBoundsExtent;
+        };
+        static std::pair<SparseVoxelDAG, SVDAGRayOffset> computeSVDAG(gsl::span<const OOCSceneObject*> sceneObjects);
 
     private:
         EvictableResourceID m_geometryDataCacheID;
@@ -219,7 +223,7 @@ private:
         std::atomic<RayBatch*> m_immutableRayBatchList;
         OOCBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
 
-        std::pair<SparseVoxelDAG, glm::mat4> m_svdagAndTransform;
+        std::pair<SparseVoxelDAG, SVDAGRayOffset> m_svdagAndTransform;
     };
 
     static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(
@@ -355,7 +359,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
     gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
     OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
 {
-    auto sceneObjectGroups = groupSceneObjects(25000, sceneObjects);
+    auto sceneObjectGroups = groupSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF, sceneObjects);
 
     std::mutex m;
     std::vector<TopLevelLeafNode> leafs;
@@ -586,7 +590,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
 }
 
 template <typename UserState, size_t BatchSize>
-inline std::pair<SparseVoxelDAG, glm::mat4> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::computeSVDAG(gsl::span<const OOCSceneObject*> sceneObjects)
+inline std::pair<SparseVoxelDAG, typename OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::SVDAGRayOffset> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::computeSVDAG(gsl::span<const OOCSceneObject*> sceneObjects)
 {
     Bounds gridBounds;
     for (const auto* sceneObject : sceneObjects) {
@@ -612,7 +616,7 @@ inline std::pair<SparseVoxelDAG, glm::mat4> OOCBatchingAccelerationStructure<Use
         std::vector svdags = { &svdag };
         compressDAGs(svdags);
     }
-    return { std::move(svdag), worldToSVO };
+    return { std::move(svdag), SVDAGRayOffset { gridBounds.min, glm::vec3(1.0f / maxDim) } };
 }
 
 template <typename UserState, size_t BatchSize>
@@ -633,9 +637,9 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
     PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
-        auto& [svdag, originTransform] = m_svdagAndTransform;
+        auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
         auto svdagRay = ray;
-        svdagRay.origin = originTransform * glm::vec4(ray.origin, 1.0f);
+        svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
         if (!svdag.intersectScalar(svdagRay))
             return false; // Missed, continue traversal
     }
@@ -667,9 +671,9 @@ template <typename UserState, size_t BatchSize>
 inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
-        auto& [svdag, originTransform] = m_svdagAndTransform;
+        auto&[svdag, svdagRayOffset] = m_svdagAndTransform;
         auto svdagRay = ray;
-        svdagRay.origin = originTransform * glm::vec4(ray.origin, 1.0f);
+        svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
         if (!svdag.intersectScalar(svdagRay))
             return false; // Missed, continue traversal
     }
