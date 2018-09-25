@@ -26,6 +26,7 @@
 #include <tbb/parallel_sort.h>
 #include <tbb/reader_writer_lock.h>
 #include <tbb/task_group.h>
+#include <mutex>
 
 namespace pandora {
 
@@ -305,7 +306,7 @@ template <typename UserState, size_t BatchSize>
 inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
 {
     while (true) {
-/*#ifndef NDEBUG
+        /*#ifndef NDEBUG
         for (auto* topLevelLeafNode : m_bvh.leafs())
             topLevelLeafNode->prepareForFlushUnsafe();
 
@@ -330,18 +331,10 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
         // Sort nodes so the ones with the most batches get processed first
         //tbb::parallel_sort(leafsWithBatchedRays, [](const TopLevelLeafNode* a, const TopLevelLeafNode* b) -> bool { return a->approximateBatchCount() < b->approximateBatchCount(); });
 
-        /*tbb::enumerable_thread_specific<size_t> raysProcessedTL([]() -> size_t { return 0; });
-        tbb::parallel_for_each(m_bvh.leafs(), [&](auto* topLevelLeafNode) {
-            raysProcessedTL.local() += topLevelLeafNode->flush();
-        });
-        size_t raysProcessed = std::accumulate(std::begin(raysProcessedTL), std::end(raysProcessedTL), (size_t)0, std::plus<size_t>());
-        if (raysProcessed == 0)
-            break;*/
-
         size_t raysProcessed = TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
         if (raysProcessed == 0)
             break;
-//#endif
+        //#endif
     }
 
     std::cout << "FLUSH COMPLETE" << std::endl;
@@ -356,15 +349,26 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
 {
     auto sceneObjectGroups = groupSceneObjects(25000, sceneObjects);
 
-
+    std::mutex m;
     std::vector<TopLevelLeafNode> leafs;
+    tbb::parallel_for(tbb::blocked_range<size_t>(0llu, sceneObjectGroups.size()), [&](tbb::blocked_range<size_t> localRange) {
+        for (size_t i = localRange.begin(); i < localRange.end(); i++) {
+            std::string cacheFilename = std::string(cacheFolder) + "node" + std::to_string(i) + ".bin";
+            TopLevelLeafNode leaf(cacheFilename, sceneObjectGroups[i], cache, accelerationStructurePtr);
+            {
+                std::scoped_lock<std::mutex> l(m);
+                leafs.push_back(std::move(leaf));
+            }
+        }
+    });
+
+    /*std::vector<TopLevelLeafNode> leafs;
     for (size_t i = 0; i < sceneObjectGroups.size(); i++) {
         std::string cacheFilename = std::string(cacheFolder) + "node" + std::to_string(i) + ".bin";
         auto& group = sceneObjectGroups[i];
         leafs.emplace_back(cacheFilename, group, cache, accelerationStructurePtr);
-    }
+    }*/
 
-    std::cout << "Creating PauseableBVH4" << std::endl;
     return PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
 }
 
@@ -375,7 +379,6 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
     FifoCache<GeometryData>* geometryCache,
     OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructure)
     : m_geometryDataCacheID(generateCachedBVH(cacheFilename, sceneObjects, geometryCache))
-    //, m_sceneObjects()
     , m_threadLocalActiveBatch([]() { return nullptr; })
     , m_immutableRayBatchList(nullptr)
     , m_accelerationStructurePtr(accelerationStructure)
@@ -424,7 +427,6 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
             leafs.push_back(BotLevelLeafNodeInstanced(geometry.get(), primitiveID));
         }
-        std::cout << "leafs size: " << leafs.size() << std::endl;
 
         // NOTE: the "geometry" variable ensures that the geometry pointed to stays in memory for the BVH build
         //       (which requires the geometry to determine the leaf node bounds).
@@ -485,8 +487,6 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         }
     }
 
-    std::cout << "TopLevelLeafNode with " << sceneObjects.size() << " objects" << std::endl;
-
     WiVeBVH8Build8<BotLevelLeafNode> bvh;
     bvh.build(leafs);
     auto serializedBVH = bvh.serialize(fbb);
@@ -506,7 +506,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
     file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
     file.close();
 
-    auto resourceID = cache->emplaceFactoryUnsafe([filename = std::string(filename), geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects=std::move(instancedSceneObjects)]() -> GeometryData {
+    auto resourceID = cache->emplaceFactoryThreadSafe([filename = std::string(filename), geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects)]() -> GeometryData {
         auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
         auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(mmapFile.data());
 

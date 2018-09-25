@@ -21,13 +21,11 @@ static RTCBVH WiVeBVH8Build8_embreeBVH()
 template <typename LeafObj>
 inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects)
 {
-    std::cout << "start commit" << std::endl;
     /*RTCDevice device = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);
     std::cout << "create embree BVH class" << std::endl;
     RTCBVH bvh = rtcNewBVH(device);*/
-    RTCBVH bvh = WiVeBVH8Build8_embreeBVH();
-    std::cout << "created embree classes" << std::endl;
+    RTCBVH bvh = WiVeBVH8Build8_embreeBVH();// Prevent crashes when creating & deleting large numbers of Embree devices
 
     RTCBuildArguments arguments = rtcDefaultBuildArguments();
     arguments.byteSize = sizeof(arguments);
@@ -52,20 +50,12 @@ inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreeP
     // The allocator needs some extra space if we need it to allocate (small) arrays of leafs
     unsigned allocMargin = numPrimitives * 2 / 10;;
     this->m_leafIndexAllocator = std::make_unique<ContiguousAllocatorTS<uint32_t>>(numPrimitives + allocMargin, 16);
-    // Copy the leaf objects
-    /*this->m_leafObjects.insert(
-        std::end(this->m_leafObjects),
-        std::make_move_iterator(std::begin(objects)),
-        std::make_move_iterator(std::end(objects)));*/
+    // Move the leaf objects
     this->m_leafObjects.reserve(objects.size());
     for (auto& obj : objects)
         this->m_leafObjects.emplace_back(std::move(obj));
 
-    std::cout << "Moved leaf nodes" << std::endl;
-
     this->m_compressedRootHandle = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rtcBuildBVH(&arguments)));
-
-    std::cout << "Created BVH" << std::endl;
 
     // Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);

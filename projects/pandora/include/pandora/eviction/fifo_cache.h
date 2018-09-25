@@ -3,12 +3,12 @@
 #include "pandora/eviction/evictable.h"
 #include "pandora/utility/atomic_weak_ptr.h"
 #include "pandora/utility/thread_pool.h"
+#include <mutex>
 #include <tbb/concurrent_queue.h>
 #include <tbb/flow_graph.h>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
-
 
 namespace pandora {
 
@@ -24,6 +24,7 @@ public:
 
     // Hand of ownership of the resource to the cache
     EvictableResourceID emplaceFactoryUnsafe(std::function<T(void)> factoryFunc); // Not thread-safe
+    EvictableResourceID emplaceFactoryThreadSafe(std::function<T(void)> factoryFunc); // Not thread-safe
 
     std::shared_ptr<T> getBlocking(EvictableResourceID resourceID) const;
 
@@ -83,9 +84,11 @@ public:
         std::mutex loadMutex;
         pandora::atomic_weak_ptr<T> itemPtr;
     };
+
 private:
     std::unordered_map<EvictableResourceID, CacheMapItem> m_cacheMap; // Read-only in the resource access function
 
+    std::mutex m_factoryInsertMutex;
     std::vector<std::function<T(void)>> m_resourceFactories;
     ThreadPool m_factoryThreadPool;
 };
@@ -125,6 +128,23 @@ inline EvictableResourceID FifoCache<T>::emplaceFactoryUnsafe(std::function<T(vo
 
     return resourceID;
 }
+
+template <typename T>
+inline EvictableResourceID FifoCache<T>::emplaceFactoryThreadSafe(std::function<T(void)> factoryFunc)
+{
+    std::scoped_lock<std::mutex> l(m_factoryInsertMutex);
+
+    auto resourceID = static_cast<EvictableResourceID>(m_resourceFactories.size());
+    m_resourceFactories.push_back(factoryFunc);
+
+    // Insert the key into the hashmap so that any "get" operations are read-only (and thus thread safe)
+    m_cacheMap.emplace(std::piecewise_construct,
+        std::forward_as_tuple(resourceID),
+        std::forward_as_tuple());
+
+    return resourceID;
+}
+
 
 template <typename T>
 inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resourceID) const
@@ -212,7 +232,7 @@ inline typename FifoCache<T>::template SubFlowGraph<S> FifoCache<T>::getFlowGrap
         }
     });
     LoadNode loadNode(g, tbb::flow::unlimited, [mutThis, this](const LoadRequestData& data, typename LoadNode::gateway_type& gatewayRef) {
-        auto* gatewayPtr = &gatewayRef;// Work around for MSVC internal compiler error (when trying to capture gateway)
+        auto* gatewayPtr = &gatewayRef; // Work around for MSVC internal compiler error (when trying to capture gateway)
         gatewayPtr->reserve_wait();
         mutThis->m_factoryThreadPool.emplace([=]() {
             auto& cacheItem = *std::get<1>(data);

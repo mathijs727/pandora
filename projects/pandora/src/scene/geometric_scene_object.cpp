@@ -177,7 +177,7 @@ OOCGeometricSceneObject::OOCGeometricSceneObject(
     }
     m_numPrimitives = geometry->numPrimitives();
 
-    // Get the mesh (should already be in cache because of the above call) and keep it in
+    // Get the mesh (should already be in cache because of the above call)
     m_areaLightMeshOwner = geometryHandle.getBlocking();
     for (unsigned primitiveID = 0; primitiveID < m_areaLightMeshOwner->numTriangles(); primitiveID++)
         m_areaLights.push_back(AreaLight(lightEmitted, 1, *m_areaLightMeshOwner, primitiveID));

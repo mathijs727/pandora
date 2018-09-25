@@ -3,17 +3,20 @@
 #include "pandora/lights/distant_light.h"
 #include "pandora/lights/environment_light.h"
 #include "pandora/materials/matte_material.h"
+#include "pandora/scene/geometric_scene_object.h"
+#include "pandora/scene/instanced_scene_object.h"
 #include "pandora/textures/constant_texture.h"
 #include "pandora/textures/image_texture.h"
 #include "pandora/utility/error_handling.h"
-#include "pandora/scene/geometric_scene_object.h"
-#include "pandora/scene/instanced_scene_object.h"
 #include <array>
+#include <atomic>
 #include <fstream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <tbb/concurrent_vector.h>
+#include <tbb/task_group.h>
 #include <tuple>
 #include <vector>
 
@@ -227,9 +230,6 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
     return std::move(config);
 }
 
-
-
-
 RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
 {
     // Read file and parse json
@@ -242,7 +242,7 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
         file >> json;
     }
 
-    RenderConfig config(512*1024*1024);// ~512MB
+    RenderConfig config(512 * 1024 * 1024); // ~512MB
     {
         auto configJson = json["config"];
 
@@ -361,10 +361,13 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
             }
         }
 
-        auto makeGeomSceneObject = [&](nlohmann::json jsonSceneObject) {
+        // Note returns a factory function. This ensures that the json isn't touched from multiple threads which
+        // might not be thread-safe:
+        // https://github.com/nlohmann/json/issues/800
+        auto geomSceneObjectFactoryFunc = [&](nlohmann::json jsonSceneObject) -> std::function<std::unique_ptr<OOCGeometricSceneObject>(void)> {
             auto geometryResourceID = geometry[jsonSceneObject["geometry_id"].get<int>()];
             auto geometry = EvictableResourceHandle<TriangleMesh>(geometryCache, geometryResourceID);
-            //auto worldBounds = Bounds(readVec3(jsonSceneObject["bounds"][0]), readVec3(jsonSceneObject["bounds"][1]));
+
             std::shared_ptr<Material> material;
             if (loadMaterials)
                 material = materials[jsonSceneObject["material_id"].get<int>()];
@@ -372,34 +375,55 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
                 material = defaultMaterial;
 
             if (jsonSceneObject.find("area_light") != jsonSceneObject.end()) {
-                auto lightEmmited = readVec3(jsonSceneObject["area_light"]["L"]);
-                return std::make_unique<OOCGeometricSceneObject>(geometry, material, lightEmmited);
+                glm::vec3 lightEmitted = readVec3(jsonSceneObject["area_light"]["L"]);
+
+                return [=]() {
+                    return std::make_unique<OOCGeometricSceneObject>(geometry, material, lightEmitted);
+                };
             } else {
-                return std::make_unique<OOCGeometricSceneObject>(geometry, material);
+                return [=]() {
+                    return std::make_unique<OOCGeometricSceneObject>(geometry, material);
+                };
             }
         };
 
         // Create instanced base objects
-        std::vector<std::shared_ptr<OOCGeometricSceneObject>> baseSceneObjects;
-        for (const auto jsonSceneObject : sceneJson["instance_base_scene_objects"]) {
-            auto sceneObject = makeGeomSceneObject(jsonSceneObject);
-            if (sceneObject)
-                baseSceneObjects.emplace_back(std::move(sceneObject)); // Converts to shared_ptr
+        auto jsonBaseSceneObjects = sceneJson["instance_base_scene_objects"];
+        tbb::task_group taskGroup;
+        std::vector<std::shared_ptr<OOCGeometricSceneObject>> baseSceneObjects(jsonBaseSceneObjects.size());
+        for (size_t i = 0; i < jsonBaseSceneObjects.size(); i++) {
+            auto geomSceneObjectFactory = geomSceneObjectFactoryFunc(jsonBaseSceneObjects[i]);
+            taskGroup.run([i, geomSceneObjectFactory, &baseSceneObjects]() {
+                auto sceneObject = geomSceneObjectFactory();
+                ALWAYS_ASSERT(sceneObject != nullptr);
+                baseSceneObjects[i] = std::move(sceneObject); // Converts to shared_ptr
+            });
         }
+        taskGroup.wait();
 
         // Create scene objects
+        std::mutex sceneMutex;
         for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
             if (jsonSceneObject["instancing"].get<bool>()) {
                 glm::mat4 transform = readMat4(jsonSceneObject["transform"]);
                 auto baseSceneObject = baseSceneObjects[jsonSceneObject["base_scene_object_id"].get<int>()];
                 auto instancedSceneObject = std::make_unique<OOCInstancedSceneObject>(transform, baseSceneObject);
-                config.scene.addSceneObject(std::move(instancedSceneObject));
+                {
+                    std::scoped_lock<std::mutex> l(sceneMutex);
+                    config.scene.addSceneObject(std::move(instancedSceneObject));
+                }
             } else {
-                auto sceneObject = makeGeomSceneObject(jsonSceneObject);
-                if (sceneObject)
-                    config.scene.addSceneObject(std::move(sceneObject));
+                auto sceneObjectFactory = geomSceneObjectFactoryFunc(jsonSceneObject);
+                taskGroup.run([&sceneMutex, &config, sceneObjectFactory]() {
+                    auto sceneObject = sceneObjectFactory();
+                    if (sceneObject) {
+                        std::scoped_lock<std::mutex> l(sceneMutex);
+                        config.scene.addSceneObject(std::move(sceneObject));
+                    }
+                });
             }
         }
+        taskGroup.wait();
 
         // Load lights
         for (const auto jsonLight : sceneJson["lights"]) {
