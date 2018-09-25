@@ -1,5 +1,6 @@
-#include "pandora/scene/instanced_scene_object.h"
+#include "..\..\include\pandora\scene\instanced_scene_object.h"
 #include "pandora/flatbuffers/data_conversion.h"
+#include "pandora/scene/instanced_scene_object.h"
 
 namespace pandora {
 
@@ -62,6 +63,11 @@ Ray InCoreInstancedSceneObject::transformRayToInstanceSpace(const Ray& ray) cons
     return m_worldTransform.transform(ray);
 }
 
+void InCoreInstancedSceneObject::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const
+{
+    return m_baseObject->voxelize(grid, gridBounds, m_worldTransform * transform);
+}
+
 size_t InCoreInstancedSceneObject::sizeBytes() const
 {
     return sizeof(decltype(*this)) + m_baseObject->sizeBytes();
@@ -117,6 +123,11 @@ SurfaceInteraction InstancedSceneObjectGeometry::fillSurfaceInteraction(const Ra
     return m_worldTransform.transform(m_baseObjectGeometry->fillSurfaceInteraction(instanceSpaceRay, rayHit));
 }
 
+void InstancedSceneObjectGeometry::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const
+{
+    return m_baseObjectGeometry->voxelize(grid, gridBounds, m_worldTransform * transform);
+}
+
 size_t InstancedSceneObjectGeometry::sizeBytes() const
 {
     return sizeof(decltype(*this)) + m_baseObjectGeometry->sizeBytes();
@@ -155,6 +166,5 @@ unsigned pandora::OOCInstancedSceneObject::numPrimitives() const
 {
     return m_baseObject->numPrimitives();
 }
-
 
 }

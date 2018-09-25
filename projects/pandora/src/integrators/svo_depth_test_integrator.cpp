@@ -10,7 +10,7 @@ SVODepthTestIntegrator::SVODepthTestIntegrator(const Scene& scene, Sensor& senso
     , m_svo(buildSVO(scene))
 {
     Bounds gridBounds;
-    for (const auto& sceneObject : scene.getSceneObjects()) {
+    for (const auto& sceneObject : scene.getInCoreSceneObjects()) {
         gridBounds.extend(sceneObject->worldBounds());
     }
 
@@ -67,13 +67,13 @@ void SVODepthTestIntegrator::rayMiss(const Ray& ray, const RayState& s)
 SparseVoxelOctree SVODepthTestIntegrator::buildSVO(const Scene& scene)
 {
     Bounds gridBounds;
-    for (const auto& sceneObject : scene.getSceneObjects()) {
+    for (const auto& sceneObject : scene.getInCoreSceneObjects()) {
         gridBounds.extend(sceneObject->worldBounds());
     }
 
     VoxelGrid voxelGrid(64);
-    for (const auto& sceneObject : scene.getSceneObjects()) {
-        sceneObjectToVoxelGrid(voxelGrid, gridBounds, *sceneObject);
+    for (const auto& sceneObject : scene.getInCoreSceneObjects()) {
+        sceneObject->voxelize(voxelGrid, gridBounds);
     }
 
     return SparseVoxelOctree(voxelGrid);

@@ -34,6 +34,8 @@ public:
     virtual bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const = 0;
     virtual SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const = 0;
 
+    virtual void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform = Transform(glm::mat4(1.0f))) const = 0;
+
     virtual size_t sizeBytes() const = 0;
 };
 
@@ -57,9 +59,6 @@ public:
 
     virtual Bounds worldBounds() const = 0;
 
-    //protected:
-    //    friend void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const SceneObject& sceneObject);
-    //    virtual const TriangleMesh& mesh() const = 0;
 };
 
 class OOCSceneObject {
@@ -72,9 +71,6 @@ public:
     virtual std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const = 0;
     virtual std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const = 0;
 
-//protected:
-//    friend void sceneObjectToVoxelGrid(VoxelGrid& voxelGrid, const Bounds& gridBounds, const SceneObject& sceneObject);
-//    virtual const TriangleMesh& mesh() const = 0;
 };
 
 class Scene {

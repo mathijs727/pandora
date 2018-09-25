@@ -18,6 +18,8 @@ public:
     bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;
     SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const override final;
 
+    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const override final;
+
     size_t sizeBytes() const override final;
 
 private:
@@ -76,6 +78,8 @@ public:
         ShadingMemoryArena& memoryArena,
         TransportMode mode,
         bool allowMultipleLobes) const override final;
+
+    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const override final;
 
     size_t sizeBytes() const override final;
 

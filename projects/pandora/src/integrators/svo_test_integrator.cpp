@@ -4,6 +4,7 @@
 #include "pandora/svo/voxel_grid.h"
 #include <tbb/blocked_range2d.h>
 #include <tbb/parallel_for.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 #undef PANDORA_ISPC_SUPPORT
 
@@ -13,13 +14,13 @@ template <typename OctreeType>
 OctreeType buildSVO(const Scene& scene)
 {
     Bounds gridBounds;
-    for (const auto& sceneObject : scene.getSceneObjects()) {
+    for (const auto& sceneObject : scene.getInCoreSceneObjects()) {
         gridBounds.extend(sceneObject->worldBounds());
     }
 
-    VoxelGrid voxelGrid(64);
-    for (const auto& sceneObject : scene.getSceneObjects()) {
-        sceneObjectToVoxelGrid(voxelGrid, gridBounds, *sceneObject);
+    VoxelGrid voxelGrid(1024);
+    for (const auto& sceneObject : scene.getInCoreSceneObjects()) {
+        sceneObject->voxelize(voxelGrid, gridBounds);
     }
 
     auto result =  OctreeType(voxelGrid);
@@ -32,6 +33,19 @@ SVOTestIntegrator::SVOTestIntegrator(const Scene& scene, Sensor& sensor, int spp
     : Integrator(scene, sensor, spp)
     , m_sparseVoxelOctree(std::move(buildSVO<OctreeType>(scene)))
 {
+    Bounds gridBounds;
+    for (const auto& sceneObject : scene.getInCoreSceneObjects()) {
+        gridBounds.extend(sceneObject->worldBounds());
+    }
+
+    // SVO is at (1, 1, 1) to (2, 2, 2)
+    float maxDim = maxComponent(gridBounds.extent());
+    m_worldToSVO = glm::mat4(1.0f);
+    m_worldToSVO = glm::translate(m_worldToSVO, glm::vec3(1.0f));
+    m_worldToSVO = glm::scale(m_worldToSVO, glm::vec3(1.0f / maxDim));
+    m_worldToSVO = glm::translate(m_worldToSVO, glm::vec3(-gridBounds.min));
+
+    m_svoToWorldScale = maxDim;
 }
 
 void SVOTestIntegrator::render(const PerspectiveCamera& camera)
@@ -41,7 +55,7 @@ void SVOTestIntegrator::render(const PerspectiveCamera& camera)
     // Generate camera rays
     glm::ivec2 resolution = m_sensor.getResolution();
 
-#ifdef _DEBUG
+#ifndef NDEBUG
 	for (int y = 0; y < resolution.y; y++) {
 		for (int x = 0; x < resolution.x; x++) {
 			auto pixel = glm::ivec2(x, y);
@@ -73,7 +87,8 @@ void SVOTestIntegrator::render(const PerspectiveCamera& camera)
 			for (int xi = threadBlockStartX; xi < threadBlockEndX; xi++) {
 				auto pixel = glm::ivec2(xi, yi);
 				CameraSample cameraSample = { pixel };
-				Ray ray = camera.generateRay(cameraSample);
+                Ray ray = camera.generateRay(cameraSample);
+                ray.origin = m_worldToSVO * glm::vec4(ray.origin, 1.0f);
 
 				auto distanceOpt = m_sparseVoxelOctree.intersectScalar(ray);
 				if (distanceOpt) {

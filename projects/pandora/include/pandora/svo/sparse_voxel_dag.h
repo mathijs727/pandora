@@ -31,7 +31,7 @@ public:
 
     std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 
-	size_t size() const { return m_allocator.size() * sizeof(decltype(m_allocator)::value_type) + m_leafAllocator.size() * sizeof(decltype(m_leafAllocator)::value_type); }
+    size_t size() const;
 
 private:
 	using RelativeNodeOffset = uint16_t; // Either uint32_t or uint16_t
@@ -66,7 +66,7 @@ private:
 	uint64_t getLeaf(const Descriptor* descriptor, int idx) const;
 
 private:
-    int m_resolution;
+    unsigned m_resolution;
     
 	std::vector<std::pair<size_t, size_t>> m_treeLevels;
 	AbsoluteNodeOffset m_rootNodeOffset;

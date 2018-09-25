@@ -1,12 +1,13 @@
 #include "pandora/svo/voxel_grid.h"
+#include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
-#include <morton.h>
 #include <array>
 #include <iostream>
+#include <morton.h>
 
 namespace pandora {
 
-VoxelGrid::VoxelGrid(int resolution)
+VoxelGrid::VoxelGrid(unsigned resolution)
     : m_resolution(resolution)
     , m_extent(resolution, resolution, resolution)
     , m_values(createValues(m_extent))
@@ -14,9 +15,9 @@ VoxelGrid::VoxelGrid(int resolution)
 {
 }
 
-int VoxelGrid::resolution() const
+unsigned VoxelGrid::resolution() const
 {
-	return m_resolution;
+    return m_resolution;
 }
 
 std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> VoxelGrid::generateSurfaceMesh() const
@@ -93,13 +94,13 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> VoxelGrid::generateSu
 
 void VoxelGrid::fillSphere()
 {
-    glm::ivec3 halfExtent = m_extent / 2;
+    glm::u64vec3 halfExtent = m_extent / 2llu;
     int minDim = minDimension(halfExtent);
     int radius2 = halfExtent[minDim] * halfExtent[minDim];
 
-    for (int z = 0; z < (int)m_extent.z; z++) {
-        for (int y = 0; y < (int)m_extent.y; y++) {
-            for (int x = 0; x < (int)m_extent.x; x++) {
+    for (uint64_t z = 0; z < m_extent.z; z++) {
+        for (uint64_t y = 0; y < m_extent.y; y++) {
+            for (uint64_t x = 0; x < m_extent.x; x++) {
                 int xi = x - halfExtent.x;
                 int yi = y - halfExtent.y;
                 int zi = z - halfExtent.z;
@@ -111,47 +112,47 @@ void VoxelGrid::fillSphere()
 
 void VoxelGrid::fillCube()
 {
-	for (int z = 0; z < (int)m_extent.z; z++) {
-		for (int y = 3; y < (int)m_extent.y; y++) {
-			for (int x = 0; x < (int)m_extent.x; x++) {
-				set(x, y, z, true);
-			}
-		}
-	}
+    for (uint64_t z = 0; z < m_extent.z; z++) {
+        for (uint64_t y = 3; y < m_extent.y; y++) {
+            for (uint64_t x = 0; x < m_extent.x; x++) {
+                set(x, y, z, true);
+            }
+        }
+    }
 }
 
-bool VoxelGrid::get(int x, int y, int z) const
+bool VoxelGrid::get(uint64_t x, uint64_t y, uint64_t z) const
 {
-	const auto [pBlock, bit] = index(x, y, z);
+    const auto [pBlock, bit] = index(x, y, z);
     return *pBlock & (1 << bit);
 }
 
 bool VoxelGrid::getMorton(uint_fast32_t mortonCode) const
 {
-	uint_fast16_t x, y, z;
-	libmorton::morton3D_32_decode(mortonCode, x, y, z);
-	return get(x, y, z);
+    uint_fast16_t x, y, z;
+    libmorton::morton3D_32_decode(mortonCode, x, y, z);
+    return get(x, y, z);
 }
 
-void VoxelGrid::set(int x, int y, int z, bool value)
+void VoxelGrid::set(uint64_t x, uint64_t y, uint64_t z, bool value)
 {
-	const auto[pBlock, bit] = index(x, y, z);
-	if (value)
-		*pBlock |= (1 << bit);
-	else
-		*pBlock &= ~(1 << bit);
+    const auto [pBlock, bit] = index(x, y, z);
+    if (value)
+        *pBlock |= (1 << bit);
+    else
+        *pBlock &= ~(1 << bit);
 }
 
-std::pair<uint32_t*, int> VoxelGrid::index(int x, int y, int z) const
+std::pair<uint32_t*, uint32_t> VoxelGrid::index(uint64_t x, uint64_t y, uint64_t z) const
 {
-    assert(x >= 0 && x < m_extent.x);
-    assert(y >= 0 && y < m_extent.y);
-    assert(z >= 0 && z < m_extent.z);
-    int bitPosition = z * m_extent.x * m_extent.y + y * m_extent.x + x;
+    ALWAYS_ASSERT(x >= 0 && x < m_extent.x);
+    ALWAYS_ASSERT(y >= 0 && y < m_extent.y);
+    ALWAYS_ASSERT(z >= 0 && z < m_extent.z);
+    uint64_t bitPosition = z * m_extent.x * m_extent.y + y * m_extent.x + x;
 
-	int block = bitPosition >> 5;// = bitPosition / 32
-	int bitInBlock = bitPosition & ((1 << 5) - 1);// = bitPosition % 32
-	return { m_values.get() + block, bitInBlock };
+    uint64_t block = bitPosition >> 5; // = bitPosition / 32
+    uint32_t bitInBlock = static_cast<uint32_t>(bitPosition & ((1 << 5) - 1)); // = bitPosition % 32
+    return { m_values.get() + block, bitInBlock };
 }
 
 /*std::vector<bool> VoxelGrid::createValues(const glm::uvec3& extent)
@@ -160,13 +161,13 @@ std::pair<uint32_t*, int> VoxelGrid::index(int x, int y, int z) const
     return std::vector<bool>(size, false);
 }*/
 
-std::unique_ptr<uint32_t[]> VoxelGrid::createValues(const glm::uvec3& extent)
+std::unique_ptr<uint32_t[]> VoxelGrid::createValues(const glm::u64vec3& extent)
 {
-	int sizeInBits = extent.x * extent.y * extent.z;
-	int sizeInBlocks = (sizeInBits + 31) / 32;
-	auto result = std::make_unique<uint32_t[]>(sizeInBlocks);
-	std::fill(result.get(), result.get() + sizeInBlocks, 0);
-	return result;
+    uint64_t sizeInBits = extent.x * extent.y * extent.z;
+    uint64_t sizeInBlocks = (sizeInBits + 31) / 32;
+    auto result = std::make_unique<uint32_t[]>(sizeInBlocks);
+    std::fill(result.get(), result.get() + sizeInBlocks, 0);
+    return result;
 }
 
 }

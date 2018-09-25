@@ -31,6 +31,8 @@ public:
     Ray transformRayToInstanceSpace(const Ray& ray) const;
     const InCoreGeometricSceneObject* getBaseObject() const { return m_baseObject.get(); }
 
+    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const override final;
+
     size_t sizeBytes() const override final;
 
 private:
@@ -51,6 +53,8 @@ public:
     unsigned numPrimitives() const override final;
     bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;
     SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const override final;
+
+    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const override final;
 
     size_t sizeBytes() const override final;
 

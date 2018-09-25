@@ -10,8 +10,8 @@
 #include <cstddef>
 #include <cstring>
 #include <immintrin.h>
-#include <morton.h>
 #include <limits>
+#include <morton.h>
 
 namespace pandora {
 
@@ -310,6 +310,8 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
 
     svos[0].m_allocator = std::move(allocator);
     svos[0].m_leafAllocator = std::move(leafAllocator);
+
+    std::cout << "Combined SVDAG size after compression: " << svos[0].size() << " bytes" << std::endl;
 }
 
 SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
@@ -581,21 +583,21 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
 
     struct StackItem {
         const Descriptor* descriptor;
-        glm::ivec3 start;
-        int extent;
+        glm::uvec3 start;
+        unsigned extent;
     };
-    std::vector<StackItem> stack = { { reinterpret_cast<const Descriptor*>(m_data + m_rootNodeOffset), glm::ivec3(0), m_resolution } };
+    std::vector<StackItem> stack = { { reinterpret_cast<const Descriptor*>(m_data + m_rootNodeOffset), glm::uvec3(0), m_resolution } };
     while (!stack.empty()) {
         auto stackItem = stack.back();
         stack.pop_back();
 
         // Loop visit in morton order?
-        int halfExtent = stackItem.extent / 2;
+        unsigned halfExtent = stackItem.extent / 2;
 
         for (uint_fast32_t childIdx = 0; childIdx < 8; childIdx++) {
             uint_fast16_t x, y, z;
             libmorton::morton3D_32_decode(childIdx, x, y, z);
-            glm::ivec3 cubeStart = stackItem.start + glm::ivec3(x * halfExtent, y * halfExtent, z * halfExtent);
+            glm::uvec3 cubeStart = stackItem.start + glm::uvec3(x * halfExtent, y * halfExtent, z * halfExtent);
 
             if (stackItem.descriptor->isValid(childIdx)) {
                 if (!stackItem.descriptor->isLeaf(childIdx)) {
@@ -615,7 +617,7 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
                     };
                     std::array quads = { glm::ivec4 { 0, 1, 2, 3 }, glm::ivec4 { 4, 5, 6, 7 }, glm::ivec4 { 8, 9, 10, 11 }, glm::ivec4 { 12, 13, 14, 15 }, glm::ivec4 { 16, 17, 18, 19 }, glm::ivec4 { 20, 21, 22, 23 } };
 
-                    int voxelExtent = halfExtent / 4;
+                    unsigned voxelExtent = halfExtent / 4;
                     uint64_t leafNode = getLeaf(stackItem.descriptor, childIdx);
                     for (int v = 0; v < 64; v++) {
                         if (leafNode & (1llu << v)) {
@@ -627,7 +629,7 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
 
                             uint_fast16_t vX, vY, vZ;
                             libmorton::morton3D_32_decode(v, vX, vY, vZ);
-                            glm::ivec3 voxelPos(vX, vY, vZ);
+                            glm::uvec3 voxelPos(vX, vY, vZ);
                             for (int t = 0; t < 24; ++t) {
                                 positions.push_back(glm::vec3(cubeStart + voxelPos * voxelExtent) + static_cast<float>(voxelExtent) * cubePositions[t]);
                             }
@@ -639,4 +641,13 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
     }
     return { std::move(positions), std::move(triangles) };
 }
+
+size_t SparseVoxelDAG::size() const
+{
+    size_t size = sizeof(decltype(*this));
+    size += m_allocator.size() * sizeof(decltype(m_allocator)::value_type);
+    size += m_leafAllocator.size() * sizeof(decltype(m_leafAllocator)::value_type);
+    return size;
+}
+
 }

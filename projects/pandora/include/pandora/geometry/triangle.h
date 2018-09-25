@@ -2,9 +2,10 @@
 #include "pandora/core/interaction.h"
 #include "pandora/core/material.h"
 #include "pandora/core/ray.h"
-#include "pandora/geometry/bounds.h"
-#include "pandora/utility/math.h"
 #include "pandora/flatbuffers/triangle_mesh_generated.h"
+#include "pandora/geometry/bounds.h"
+#include "pandora/svo/voxel_grid.h"
+#include "pandora/utility/math.h"
 #include <glm/glm.hpp>
 #include <gsl/span>
 #include <memory>
@@ -65,6 +66,8 @@ public:
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const;
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const;
 
+    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const;
+
 private:
     static std::optional<TriangleMesh> loadFromFileSingleMesh(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals);
     static TriangleMesh createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
@@ -75,7 +78,6 @@ private:
 
     void getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const;
     void getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
-
 
 private:
     unsigned m_numTriangles, m_numVertices;

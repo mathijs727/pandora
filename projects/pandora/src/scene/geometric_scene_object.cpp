@@ -68,6 +68,11 @@ void InCoreGeometricSceneObject::computeScatteringFunctions(
     m_materialProperties.computeScatteringFunctions(si, memoryArena, mode, allowMultipleLobes);
 }
 
+void InCoreGeometricSceneObject::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const
+{
+    return m_geometricProperties.voxelize(grid, gridBounds, transform);
+}
+
 std::vector<AreaLight> InCoreGeometricSceneObject::createAreaLights(const Spectrum& lightEmitted, const TriangleMesh& mesh)
 {
     std::vector<AreaLight> lights;
@@ -104,6 +109,11 @@ bool GeometricSceneObjectGeometry::intersectPrimitive(Ray& ray, RayHit& rayHit, 
 SurfaceInteraction GeometricSceneObjectGeometry::fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const
 {
     return m_mesh->fillSurfaceInteraction(ray, rayHit);
+}
+
+void GeometricSceneObjectGeometry::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const
+{
+    return m_mesh->voxelize(grid, gridBounds, transform);
 }
 
 size_t GeometricSceneObjectGeometry::sizeBytes() const

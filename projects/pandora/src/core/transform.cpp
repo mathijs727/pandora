@@ -1,6 +1,6 @@
 #include "pandora/core/transform.h"
-#include "pandora/utility/math.h"
 #include "pandora/flatbuffers/data_conversion.h"
+#include "pandora/utility/math.h"
 
 namespace pandora {
 
@@ -11,10 +11,15 @@ Transform::Transform(const glm::mat4& matrix)
 {
 }
 
-Transform::Transform(const serialization::Transform* serializedTransform) :
-    m_matrix(deserialize(serializedTransform->matrix())),
-    m_inverseMatrix(deserialize(serializedTransform->inverseMatrix()))
+Transform::Transform(const serialization::Transform* serializedTransform)
+    : m_matrix(deserialize(serializedTransform->matrix()))
+    , m_inverseMatrix(deserialize(serializedTransform->inverseMatrix()))
 {
+}
+
+Transform Transform::operator*(const Transform& other) const
+{
+    return Transform(m_matrix * other.m_matrix);
 }
 
 serialization::Transform Transform::serialize() const

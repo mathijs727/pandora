@@ -13,6 +13,8 @@ public:
     Transform(const glm::mat4& matrix);
     Transform(const serialization::Transform* serializedTransform);
 
+    Transform operator*(const Transform& other) const;
+
     serialization::Transform serialize() const;
 
     glm::vec3 transformPoint(const glm::vec3& p) const;
