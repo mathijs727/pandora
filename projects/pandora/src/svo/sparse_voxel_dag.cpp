@@ -139,16 +139,16 @@ SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(cons
     return rootNodeOffset;
 }
 
-void compressDAGs(gsl::span<SparseVoxelDAG> svos)
+void compressDAGs(gsl::span<SparseVoxelDAG*> svos)
 {
     using Descriptor = SparseVoxelDAG::Descriptor;
     using RelativeNodeOffset = SparseVoxelDAG::RelativeNodeOffset;
     using AbsoluteNodeOffset = size_t; // Absolute offsets may be larger than relative offsets so use more bits
 
     size_t maxTreeDepth = 0;
-    maxTreeDepth = svos[0].m_treeLevels.size();
-    for (const auto& svo : svos)
-        assert(svo.m_treeLevels.size() == maxTreeDepth);
+    maxTreeDepth = svos[0]->m_treeLevels.size();
+    for (const auto* svo : svos)
+        assert(svo->m_treeLevels.size() == maxTreeDepth);
 
     struct FullDescriptor {
         Descriptor descriptor;
@@ -236,14 +236,14 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
     std::unordered_map<FullDescriptor, AbsoluteNodeOffset, FullDescriptorHasher> descriptorLUT; // Look-up table from descriptors (pointing into DAG allocator array) to nodes in the DAG allocator array
     std::unordered_map<uint64_t, AbsoluteNodeOffset> leafLUT; // Look-up table from 64-bit leaf to offset in the DAG leaf allocator array
 
-    for (auto& svo : svos) {
+    for (auto* svo : svos) {
         std::unordered_map<AbsoluteNodeOffset, AbsoluteNodeOffset> childDescriptorOffsetLUT; // Maps absolute offsets into encoded (NodeOffset*) array to offsets into the childDescriptors array
         std::unordered_map<AbsoluteNodeOffset, AbsoluteNodeOffset> descriptorOffsetLUT; // Maps absolute offsets into encoded (NodeOffset*) array to offsets into the descriptors array
         std::vector<FullDescriptor> childDescriptors; // Previous level descriptors pointing into DAG allocator array
         std::vector<FullDescriptor> descriptors; // Descriptors at the currrent level pointing into the children array
 
         for (size_t d = 0; d < maxTreeDepth; d++) {
-            auto [start, end] = svo.m_treeLevels[d];
+            auto [start, end] = svo->m_treeLevels[d];
 
             std::swap(descriptorOffsetLUT, childDescriptorOffsetLUT);
             std::swap(descriptors, childDescriptors);
@@ -255,7 +255,7 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
                 size_t descriptorOffset = start;
 
                 while (descriptorOffset < end) {
-                    const auto* dataPtr = svo.m_data + descriptorOffset;
+                    const auto* dataPtr = svo->m_data + descriptorOffset;
                     const auto* descriptorPtr = reinterpret_cast<const Descriptor*>(dataPtr);
 
                     descriptorOffsetLUT[descriptorOffset] = descriptors.size(); // M
@@ -280,7 +280,7 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
                             mutChild.offset = iter->second;
                         }
                     } else {
-                        uint64_t leaf = svo.m_leafData[mutChild.offset];
+                        uint64_t leaf = svo->m_leafData[mutChild.offset];
                         AbsoluteNodeOffset newLeafAbsoluteOffset = leafAllocator.size();
                         if (auto [iter, succeeded] = leafLUT.try_emplace(leaf, newLeafAbsoluteOffset); succeeded) {
                             AbsoluteNodeOffset offset = storeLeaf(leaf);
@@ -296,22 +296,22 @@ void compressDAGs(gsl::span<SparseVoxelDAG> svos)
         }
 
         assert(descriptors.size() == 1);
-        svo.m_rootNodeOffset = storeDescriptor(descriptors[0]);
-        svo.m_allocator.clear();
-        svo.m_allocator.shrink_to_fit();
-        svo.m_leafAllocator.clear();
-        svo.m_allocator.shrink_to_fit();
+        svo->m_rootNodeOffset = storeDescriptor(descriptors[0]);
+        svo->m_allocator.clear();
+        svo->m_allocator.shrink_to_fit();
+        svo->m_leafAllocator.clear();
+        svo->m_allocator.shrink_to_fit();
     }
 
     for (auto& svo : svos) {
-        svo.m_data = allocator.data(); // Set this after all work on the allocator is done (and the pointer cant change because of reallocations)
-        svo.m_leafData = leafAllocator.data(); // Set this after all work on the allocator is done (and the pointer cant change because of reallocations)
+        svo->m_data = allocator.data(); // Set this after all work on the allocator is done (and the pointer cant change because of reallocations)
+        svo->m_leafData = leafAllocator.data(); // Set this after all work on the allocator is done (and the pointer cant change because of reallocations)
     }
 
-    svos[0].m_allocator = std::move(allocator);
-    svos[0].m_leafAllocator = std::move(leafAllocator);
+    svos[0]->m_allocator = std::move(allocator);
+    svos[0]->m_leafAllocator = std::move(leafAllocator);
 
-    std::cout << "Combined SVDAG size after compression: " << svos[0].size() << " bytes" << std::endl;
+    std::cout << "Combined SVDAG size after compression: " << svos[0]->size() << " bytes" << std::endl;
 }
 
 SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)

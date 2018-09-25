@@ -22,7 +22,7 @@ public:
 	SparseVoxelDAG(SparseVoxelDAG&&) = default;
     ~SparseVoxelDAG() = default;
 
-	friend void compressDAGs(gsl::span<SparseVoxelDAG> svos);
+	friend void compressDAGs(gsl::span<SparseVoxelDAG*> svos);
 
 #ifdef PANDORA_ISPC_SUPPORT
     void intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const;

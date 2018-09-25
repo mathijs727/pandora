@@ -19,7 +19,6 @@ private:
     SparseVoxelOctree m_svo;
 
     glm::mat4 m_worldToSVO;
-    float m_svoToWorldScale;
 };
 
 }

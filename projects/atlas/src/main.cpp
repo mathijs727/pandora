@@ -19,10 +19,10 @@
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
 
-#include <iostream>
-#include <chrono>
-#include <xmmintrin.h>
 #include "pandora/core/load_from_file.h"
+#include <chrono>
+#include <iostream>
+#include <xmmintrin.h>
 
 using namespace pandora;
 using namespace atlas;
@@ -39,7 +39,7 @@ int main()
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-    auto renderConfig = loadFromFile("D:/Pandora Scenes/pbrt_intermediate/buddha-fractal/pandora.json", false);
+    auto renderConfig = loadFromFileOOC("D:/Pandora Scenes/pbrt_intermediate/bmw-m6/pandora.json", false);
     //auto renderConfig = createStaticScene();
     Scene& scene = renderConfig.scene;
     PerspectiveCamera& camera = *renderConfig.camera;
@@ -58,9 +58,9 @@ int main()
 
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1);
-    //PathIntegrator integrator(10, scene, camera.getSensor(), 1);
+    PathIntegrator integrator(10, scene, camera.getSensor(), 1);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
-    SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
+    //SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
@@ -113,7 +113,7 @@ RenderConfig createStaticScene()
     // Sponza
     glm::mat4 cameraTransform = glm::translate(glm::mat4(1.0f), glm::vec3(-0.718526125f, 0.0f, 0.263607413f));
     cameraTransform *= glm::mat4_cast(glm::quat(0.182672247f, -0.692262709f, 0.178126544f, 0.675036848f));
-    
+
     //glm::mat4 cameraTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.25f, 0.8f, -1.5f)); // Bunny / Dragon
 
     config.camera->setTransform(cameraTransform);
@@ -130,8 +130,7 @@ void addCrytekSponza(Scene& scene)
     transform = glm::scale(transform, glm::vec3(0.005f));
 
     static constexpr bool loadAsSingleMesh = true;
-    if constexpr (loadAsSingleMesh)
-    {
+    if constexpr (loadAsSingleMesh) {
         auto meshOpt = TriangleMesh::loadFromFileSingleMesh(projectBasePath + "assets/3dmodels/sponza-crytek/sponza.obj", transform, false);
         if (meshOpt) {
             scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(*meshOpt)), material));

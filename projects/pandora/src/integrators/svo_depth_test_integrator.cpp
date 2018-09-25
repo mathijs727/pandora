@@ -20,8 +20,6 @@ SVODepthTestIntegrator::SVODepthTestIntegrator(const Scene& scene, Sensor& senso
     m_worldToSVO = glm::translate(m_worldToSVO, glm::vec3(1.0f));
     m_worldToSVO = glm::scale(m_worldToSVO, glm::vec3(1.0f / maxDim));
     m_worldToSVO = glm::translate(m_worldToSVO, glm::vec3(-gridBounds.min));
-
-    m_svoToWorldScale = maxDim;
 }
 
 void SVODepthTestIntegrator::rayHit(const Ray& ray, SurfaceInteraction si, const RayState& s, const InsertHandle& h)

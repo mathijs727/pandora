@@ -8,12 +8,15 @@
 #include "pandora/geometry/triangle.h"
 #include "pandora/scene/geometric_scene_object.h"
 #include "pandora/scene/instanced_scene_object.h"
+#include "pandora/svo/sparse_voxel_dag.h"
+#include "pandora/svo/voxel_grid.h"
 #include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/growing_free_list_ts.h"
 #include <array>
 #include <atomic>
 #include <bitset>
+#include <glm/gtc/matrix_transform.hpp>
 #include <gsl/gsl>
 #include <memory>
 #include <mutex>
@@ -31,6 +34,7 @@
 namespace pandora {
 
 static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 1024;
+static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = true;
 
 template <typename UserState, size_t BatchSize = 64>
 class OOCBatchingAccelerationStructure {
@@ -205,6 +209,8 @@ private:
             gsl::span<const OOCSceneObject*> sceneObjects,
             FifoCache<GeometryData>* cache);
 
+        static std::pair<SparseVoxelDAG, glm::mat4> computeSVDAG(gsl::span<const OOCSceneObject*> sceneObjects);
+
     private:
         EvictableResourceID m_geometryDataCacheID;
         std::vector<const OOCSceneObject*> m_sceneObjects;
@@ -212,6 +218,8 @@ private:
         tbb::enumerable_thread_specific<RayBatch*> m_threadLocalActiveBatch;
         std::atomic<RayBatch*> m_immutableRayBatchList;
         OOCBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
+
+        std::pair<SparseVoxelDAG, glm::mat4> m_svdagAndTransform;
     };
 
     static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(
@@ -362,13 +370,6 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
         }
     });
 
-    /*std::vector<TopLevelLeafNode> leafs;
-    for (size_t i = 0; i < sceneObjectGroups.size(); i++) {
-        std::string cacheFilename = std::string(cacheFolder) + "node" + std::to_string(i) + ".bin";
-        auto& group = sceneObjectGroups[i];
-        leafs.emplace_back(cacheFilename, group, cache, accelerationStructurePtr);
-    }*/
-
     return PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
 }
 
@@ -382,6 +383,7 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
     , m_threadLocalActiveBatch([]() { return nullptr; })
     , m_immutableRayBatchList(nullptr)
     , m_accelerationStructurePtr(accelerationStructure)
+    , m_svdagAndTransform(computeSVDAG(sceneObjects))
 {
     m_sceneObjects.insert(std::end(m_sceneObjects), std::begin(sceneObjects), std::end(sceneObjects));
 }
@@ -393,6 +395,7 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
     , m_threadLocalActiveBatch(std::move(other.m_threadLocalActiveBatch))
     , m_immutableRayBatchList(other.m_immutableRayBatchList.load())
     , m_accelerationStructurePtr(other.m_accelerationStructurePtr)
+    , m_svdagAndTransform(std::move(other.m_svdagAndTransform))
 {
 }
 
@@ -583,6 +586,36 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
 }
 
 template <typename UserState, size_t BatchSize>
+inline std::pair<SparseVoxelDAG, glm::mat4> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::computeSVDAG(gsl::span<const OOCSceneObject*> sceneObjects)
+{
+    Bounds gridBounds;
+    for (const auto* sceneObject : sceneObjects) {
+        gridBounds.extend(sceneObject->worldBounds());
+    }
+
+    VoxelGrid voxelGrid(64);
+    for (const auto* sceneObject : sceneObjects) {
+        auto geometry = sceneObject->getGeometryBlocking();
+        geometry->voxelize(voxelGrid, gridBounds);
+    }
+
+    // SVO is at (1, 1, 1) to (2, 2, 2)
+    float maxDim = maxComponent(gridBounds.extent());
+    glm::mat4 worldToSVO(1.0f);
+    worldToSVO = glm::translate(worldToSVO, glm::vec3(1.0f));
+    worldToSVO = glm::scale(worldToSVO, glm::vec3(1.0f / maxDim));
+    worldToSVO = glm::translate(worldToSVO, glm::vec3(-gridBounds.min));
+
+    SparseVoxelDAG svdag(voxelGrid);
+    {
+        // TODO: compress all top level leaf nodes together
+        std::vector svdags = { &svdag };
+        compressDAGs(svdags);
+    }
+    return { std::move(svdag), worldToSVO };
+}
+
+template <typename UserState, size_t BatchSize>
 inline Bounds OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::getBounds() const
 {
     Bounds ret;
@@ -599,6 +632,14 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
     const UserState& userState,
     PauseableBVHInsertHandle insertHandle) const
 {
+    if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
+        auto& [svdag, originTransform] = m_svdagAndTransform;
+        auto svdagRay = ray;
+        svdagRay.origin = originTransform * glm::vec4(ray.origin, 1.0f);
+        if (!svdag.intersectScalar(svdagRay))
+            return false; // Missed, continue traversal
+    }
+
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
     RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
@@ -619,12 +660,20 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
     bool success = batch->tryPush(ray, si, userState, insertHandle);
     assert(success);
 
-    return {}; // Paused*/
+    return {}; // Paused
 }
 
 template <typename UserState, size_t BatchSize>
 inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
 {
+    if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
+        auto& [svdag, originTransform] = m_svdagAndTransform;
+        auto svdagRay = ray;
+        svdagRay.origin = originTransform * glm::vec4(ray.origin, 1.0f);
+        if (!svdag.intersectScalar(svdagRay))
+            return false; // Missed, continue traversal
+    }
+
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
     RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
