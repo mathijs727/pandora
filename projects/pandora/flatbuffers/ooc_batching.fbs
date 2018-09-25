@@ -12,6 +12,8 @@ table OOCBatchingTopLevelLeafNode
 	instanced_ids: [uint]; // Index into the instance_base_geometry&instance_base_bvh arrays
 	instanced_geometry: [InstancedSceneObjectGeometry]; // Associated transforms
 	bvh: WiVeBVH8;
+
+	num_bot_level_leafs: uint;
 }
 
 root_type OOCBatchingTopLevelLeafNode;

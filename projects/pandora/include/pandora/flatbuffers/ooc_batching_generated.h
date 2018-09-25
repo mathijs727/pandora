@@ -24,7 +24,8 @@ struct OOCBatchingTopLevelLeafNode FLATBUFFERS_FINAL_CLASS : private flatbuffers
     VT_INSTANCE_BASE_BVH = 8,
     VT_INSTANCED_IDS = 10,
     VT_INSTANCED_GEOMETRY = 12,
-    VT_BVH = 14
+    VT_BVH = 14,
+    VT_NUM_BOT_LEVEL_LEAFS = 16
   };
   const flatbuffers::Vector<flatbuffers::Offset<GeometricSceneObjectGeometry>> *unique_geometry() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<GeometricSceneObjectGeometry>> *>(VT_UNIQUE_GEOMETRY);
@@ -62,6 +63,12 @@ struct OOCBatchingTopLevelLeafNode FLATBUFFERS_FINAL_CLASS : private flatbuffers
   WiVeBVH8 *mutable_bvh() {
     return GetPointer<WiVeBVH8 *>(VT_BVH);
   }
+  uint32_t num_bot_level_leafs() const {
+    return GetField<uint32_t>(VT_NUM_BOT_LEVEL_LEAFS, 0);
+  }
+  bool mutate_num_bot_level_leafs(uint32_t _num_bot_level_leafs) {
+    return SetField<uint32_t>(VT_NUM_BOT_LEVEL_LEAFS, _num_bot_level_leafs, 0);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_UNIQUE_GEOMETRY) &&
@@ -80,6 +87,7 @@ struct OOCBatchingTopLevelLeafNode FLATBUFFERS_FINAL_CLASS : private flatbuffers
            verifier.VerifyVectorOfTables(instanced_geometry()) &&
            VerifyOffset(verifier, VT_BVH) &&
            verifier.VerifyTable(bvh()) &&
+           VerifyField<uint32_t>(verifier, VT_NUM_BOT_LEVEL_LEAFS) &&
            verifier.EndTable();
   }
 };
@@ -105,6 +113,9 @@ struct OOCBatchingTopLevelLeafNodeBuilder {
   void add_bvh(flatbuffers::Offset<WiVeBVH8> bvh) {
     fbb_.AddOffset(OOCBatchingTopLevelLeafNode::VT_BVH, bvh);
   }
+  void add_num_bot_level_leafs(uint32_t num_bot_level_leafs) {
+    fbb_.AddElement<uint32_t>(OOCBatchingTopLevelLeafNode::VT_NUM_BOT_LEVEL_LEAFS, num_bot_level_leafs, 0);
+  }
   explicit OOCBatchingTopLevelLeafNodeBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -124,8 +135,10 @@ inline flatbuffers::Offset<OOCBatchingTopLevelLeafNode> CreateOOCBatchingTopLeve
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<WiVeBVH8>>> instance_base_bvh = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint32_t>> instanced_ids = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<InstancedSceneObjectGeometry>>> instanced_geometry = 0,
-    flatbuffers::Offset<WiVeBVH8> bvh = 0) {
+    flatbuffers::Offset<WiVeBVH8> bvh = 0,
+    uint32_t num_bot_level_leafs = 0) {
   OOCBatchingTopLevelLeafNodeBuilder builder_(_fbb);
+  builder_.add_num_bot_level_leafs(num_bot_level_leafs);
   builder_.add_bvh(bvh);
   builder_.add_instanced_geometry(instanced_geometry);
   builder_.add_instanced_ids(instanced_ids);
@@ -142,7 +155,8 @@ inline flatbuffers::Offset<OOCBatchingTopLevelLeafNode> CreateOOCBatchingTopLeve
     const std::vector<flatbuffers::Offset<WiVeBVH8>> *instance_base_bvh = nullptr,
     const std::vector<uint32_t> *instanced_ids = nullptr,
     const std::vector<flatbuffers::Offset<InstancedSceneObjectGeometry>> *instanced_geometry = nullptr,
-    flatbuffers::Offset<WiVeBVH8> bvh = 0) {
+    flatbuffers::Offset<WiVeBVH8> bvh = 0,
+    uint32_t num_bot_level_leafs = 0) {
   return pandora::serialization::CreateOOCBatchingTopLevelLeafNode(
       _fbb,
       unique_geometry ? _fbb.CreateVector<flatbuffers::Offset<GeometricSceneObjectGeometry>>(*unique_geometry) : 0,
@@ -150,7 +164,8 @@ inline flatbuffers::Offset<OOCBatchingTopLevelLeafNode> CreateOOCBatchingTopLeve
       instance_base_bvh ? _fbb.CreateVector<flatbuffers::Offset<WiVeBVH8>>(*instance_base_bvh) : 0,
       instanced_ids ? _fbb.CreateVector<uint32_t>(*instanced_ids) : 0,
       instanced_geometry ? _fbb.CreateVector<flatbuffers::Offset<InstancedSceneObjectGeometry>>(*instanced_geometry) : 0,
-      bvh);
+      bvh,
+      num_bot_level_leafs);
 }
 
 inline const pandora::serialization::OOCBatchingTopLevelLeafNode *GetOOCBatchingTopLevelLeafNode(const void *buf) {

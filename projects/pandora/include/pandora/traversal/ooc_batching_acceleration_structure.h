@@ -16,6 +16,7 @@
 #include <bitset>
 #include <gsl/gsl>
 #include <memory>
+#include <mutex>
 #include <numeric>
 #include <optional>
 #include <tbb/concurrent_unordered_set.h>
@@ -26,7 +27,6 @@
 #include <tbb/parallel_sort.h>
 #include <tbb/reader_writer_lock.h>
 #include <tbb/task_group.h>
-#include <mutex>
 
 namespace pandora {
 
@@ -498,7 +498,8 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         fbb.CreateVector(serializedInstanceBaseBVHs),
         fbb.CreateVector(serializedInstancedSceneObjectBaseIDs),
         fbb.CreateVector(serializedInstancedGeometry),
-        serializedBVH);
+        serializedBVH,
+        static_cast<uint32_t>(leafs.size()));
     fbb.Finish(serializedTopLevelLeafNode);
 
     std::ofstream file;
@@ -532,6 +533,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
             auto geometry = std::make_unique<GeometricSceneObjectGeometry>(serializedInstanceBaseGeometry->Get(i));
 
             std::vector<BotLevelLeafNodeInstanced> leafs;
+            leafs.reserve(geometry->numPrimitives());
             for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
                 leafs.push_back(BotLevelLeafNodeInstanced(geometry.get(), primitiveID));
             }
@@ -548,6 +550,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         const auto* serializedUniqueGeometry = serializedTopLevelLeafNode->unique_geometry();
         const auto* serializedInstancedGeometry = serializedTopLevelLeafNode->instanced_geometry();
         std::vector<BotLevelLeafNode> leafs;
+        leafs.reserve(serializedTopLevelLeafNode->num_bot_level_leafs());
         for (unsigned i = 0; i < geometricSceneObjects.size(); i++) {
             auto geometry = std::make_unique<GeometricSceneObjectGeometry>(serializedUniqueGeometry->Get(i));
 
