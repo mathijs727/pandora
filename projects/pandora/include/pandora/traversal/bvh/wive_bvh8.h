@@ -20,10 +20,7 @@ public:
 	WiVeBVH8() = default;
     WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects);
 	WiVeBVH8(WiVeBVH8&&) = default;
-    ~WiVeBVH8()
-    {
-        std::cout << "WiVeBVH8 destructor" << std::endl;
-    }
+    ~WiVeBVH8() = default;
 
     flatbuffers::Offset<serialization::WiVeBVH8> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 

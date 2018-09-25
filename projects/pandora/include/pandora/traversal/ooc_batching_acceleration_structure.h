@@ -305,7 +305,7 @@ template <typename UserState, size_t BatchSize>
 inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
 {
     while (true) {
-#ifndef NDEBUG
+/*#ifndef NDEBUG
         for (auto* topLevelLeafNode : m_bvh.leafs())
             topLevelLeafNode->prepareForFlushUnsafe();
 
@@ -322,7 +322,7 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
         } else {
             std::cout << raysProcessed << " rays processed" << std::endl;
         }
-#else
+#else*/
         tbb::parallel_for_each(m_bvh.leafs(), [](auto* topLevelLeafNode) {
             topLevelLeafNode->prepareForFlushUnsafe();
         });
@@ -341,7 +341,7 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
         size_t raysProcessed = TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
         if (raysProcessed == 0)
             break;
-#endif
+//#endif
     }
 
     std::cout << "FLUSH COMPLETE" << std::endl;

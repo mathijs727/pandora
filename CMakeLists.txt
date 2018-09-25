@@ -54,8 +54,11 @@ target_include_directories(tinyply PUBLIC "${CMAKE_CURRENT_LIST_DIR}/third_party
 
 
 find_package(Flatbuffers REQUIRED)
-#get_property(FLATBUFFERS_FLATC_EXECUTABLE TARGET flatbuffers::flatc PROPERTY IMPORTED_LOCATION_RELEASE)
-set(FLATBUFFERS_FLATC_EXECUTABLE "/home/mathijs/development/tools/flatbuffers/build/flatc")
+if (TARGET flatbuffers::flatc)
+	get_property(FLATBUFFERS_FLATC_EXECUTABLE TARGET flatbuffers::flatc PROPERTY IMPORTED_LOCATION_RELEASE)
+elseif (NOT DEFINED FLATBUFFERS_FLATC_EXECUTABLE)
+	message(FATAL_ERROR "Please define FLATBUFFERS_FLATC_EXECUTABLE as the path to the flatbuffer executable")
+endif()
 include("cmake/BuildFlatBuffers.cmake") # Include cmake script that defines the flatc compile function
 
 if (PANDORA_BUILD_TESTS)

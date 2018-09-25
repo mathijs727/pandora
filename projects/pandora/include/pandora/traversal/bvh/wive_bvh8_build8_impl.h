@@ -47,7 +47,7 @@ inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreeP
     arguments.userPtr = this;
 
     unsigned numPrimitives = (unsigned)objects.size();
-    this->m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(numPrimitives / 4, 16);
+    this->m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(std::max(8u, numPrimitives / 4), 16);
 
     // The allocator needs some extra space if we need it to allocate (small) arrays of leafs
     unsigned allocMargin = numPrimitives * 2 / 10;;
