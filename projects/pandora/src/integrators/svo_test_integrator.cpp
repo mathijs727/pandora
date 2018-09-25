@@ -18,7 +18,7 @@ OctreeType buildSVO(const Scene& scene)
         gridBounds.extend(sceneObject->worldBounds());
     }
 
-    VoxelGrid voxelGrid(1024);
+    VoxelGrid voxelGrid(128);
     for (const auto& sceneObject : scene.getInCoreSceneObjects()) {
         sceneObject->voxelize(voxelGrid, gridBounds);
     }

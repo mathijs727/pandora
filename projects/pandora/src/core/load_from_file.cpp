@@ -201,7 +201,7 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
                 auto instancedSceneObject = std::make_unique<InCoreInstancedSceneObject>(transform, baseSceneObject);
                 config.scene.addSceneObject(std::move(instancedSceneObject));
             } else {
-                config.scene.addSceneObject(makeGeomSceneObject(jsonSceneObject));
+                //config.scene.addSceneObject(makeGeomSceneObject(jsonSceneObject));
             }
         }
 
