@@ -145,7 +145,7 @@ inline bool EmbreeBVH<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
     s_intersectionDataRayHit.local() = gsl::make_span(&hitInfo, 1);
     rtcIntersect1(m_scene, &context, &embreeRayHit);
 
-    return hitInfo.sceneObject != nullptr;
+    return hitInfo.primitiveID != (unsigned)-1;
 }
 
 template <typename LeafObj>

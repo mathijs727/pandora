@@ -26,11 +26,16 @@ target_link_libraries(pandora_py PRIVATE
     Boost::python37
     Boost::numpy37
     Python3::Python
+    GSL
     #libPandora
     #tinyply
     glm)
 
-set_target_properties(pandora_py PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+if (MSVC)
+    set_target_properties(pandora_py PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+else()
+    set_target_properties(pandora_py PROPERTIES COMPILE_FLAGS "-mavx2")
+endif()
 
 add_custom_command(
     TARGET pandora_py

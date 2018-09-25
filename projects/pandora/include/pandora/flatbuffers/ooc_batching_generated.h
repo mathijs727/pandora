@@ -65,18 +65,18 @@ struct OOCBatchingTopLevelLeafNode FLATBUFFERS_FINAL_CLASS : private flatbuffers
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_UNIQUE_GEOMETRY) &&
-           verifier.Verify(unique_geometry()) &&
+           verifier.VerifyVector(unique_geometry()) &&
            verifier.VerifyVectorOfTables(unique_geometry()) &&
            VerifyOffset(verifier, VT_INSTANCE_BASE_GEOMETRY) &&
-           verifier.Verify(instance_base_geometry()) &&
+           verifier.VerifyVector(instance_base_geometry()) &&
            verifier.VerifyVectorOfTables(instance_base_geometry()) &&
            VerifyOffset(verifier, VT_INSTANCE_BASE_BVH) &&
-           verifier.Verify(instance_base_bvh()) &&
+           verifier.VerifyVector(instance_base_bvh()) &&
            verifier.VerifyVectorOfTables(instance_base_bvh()) &&
            VerifyOffset(verifier, VT_INSTANCED_IDS) &&
-           verifier.Verify(instanced_ids()) &&
+           verifier.VerifyVector(instanced_ids()) &&
            VerifyOffset(verifier, VT_INSTANCED_GEOMETRY) &&
-           verifier.Verify(instanced_geometry()) &&
+           verifier.VerifyVector(instanced_geometry()) &&
            verifier.VerifyVectorOfTables(instanced_geometry()) &&
            VerifyOffset(verifier, VT_BVH) &&
            verifier.VerifyTable(bvh()) &&

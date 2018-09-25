@@ -98,7 +98,7 @@ inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::
 }
 
 template <typename UserState>
-inline InCoreAccelerationStructure<UserState>::BVHType<typename InCoreAccelerationStructure<UserState>::LeafNode>
+inline typename InCoreAccelerationStructure<UserState>::template BVHType<typename InCoreAccelerationStructure<UserState>::LeafNode>
 InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const std::unique_ptr<InCoreSceneObject>> sceneObjects)
 {
     // Instancing: find base scene objects

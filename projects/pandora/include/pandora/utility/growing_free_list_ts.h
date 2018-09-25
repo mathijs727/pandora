@@ -8,6 +8,7 @@
 #include <type_traits>
 #include <vector>
 #include <tbb/concurrent_queue.h>
+#include <memory>
 
 namespace pandora {
 

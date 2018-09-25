@@ -2,6 +2,7 @@
 #include <atomic>
 #include <tbb/concurrent_queue.h>
 #include <thread>
+#include <functional>
 
 namespace pandora {
 

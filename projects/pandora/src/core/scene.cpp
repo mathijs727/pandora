@@ -6,8 +6,10 @@
 #include <iostream>
 #include <tbb/concurrent_vector.h>
 #include <unordered_set>
+#include <numeric>
 
 //static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
+
 
 namespace pandora {
 
@@ -128,6 +130,7 @@ std::vector<std::vector<const OOCSceneObject*>> groupSceneObjects(
                 std::unordered_set<const OOCSceneObject*> uniqueAndBaseObjects = std::move(leftUniqueAndBaseObjects);
                 uniqueAndBaseObjects.insert(std::begin(rightUniqueAndBaseObjects), std::end(rightUniqueAndBaseObjects));
 
+#ifdef _MSC_VER
                 uint32_t numUniqueAndBasePrims = std::transform_reduce(
                     std::begin(uniqueAndBaseObjects),
                     std::end(uniqueAndBaseObjects),
@@ -138,6 +141,11 @@ std::vector<std::vector<const OOCSceneObject*>> groupSceneObjects(
                     [](const OOCSceneObject* object) {
                         return object->numPrimitives();
                     });
+#else // GCC 8.2.1 stdlib does not support the standardization of parallelism TS
+                int32_t numUniqueAndBasePrims = 0;
+                for (const auto* object : uniqueAndBaseObjects)
+                    numUniqueAndBasePrims += object->numPrimitives();
+#endif
                 if (numUniqueAndBasePrims >= minPrimsPerGroup) {
                     out.emplace_back(std::move(objects));
                     return { {}, {} };

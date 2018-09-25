@@ -54,7 +54,8 @@ target_include_directories(tinyply PUBLIC "${CMAKE_CURRENT_LIST_DIR}/third_party
 
 
 find_package(Flatbuffers REQUIRED)
-get_property(FLATBUFFERS_FLATC_EXECUTABLE TARGET flatbuffers::flatc PROPERTY IMPORTED_LOCATION_RELEASE)
+#get_property(FLATBUFFERS_FLATC_EXECUTABLE TARGET flatbuffers::flatc PROPERTY IMPORTED_LOCATION_RELEASE)
+set(FLATBUFFERS_FLATC_EXECUTABLE "/home/mathijs/development/tools/flatbuffers/build/flatc")
 include("cmake/BuildFlatBuffers.cmake") # Include cmake script that defines the flatc compile function
 
 if (PANDORA_BUILD_TESTS)

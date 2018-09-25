@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
+
 namespace pandora {
 
 using EvictableResourceID = uint32_t;
@@ -76,10 +77,13 @@ private:
     tbb::concurrent_queue<std::shared_ptr<T>> m_cacheHistory;
     //tbb::concurrent_unordered_map<EvictableResourceID, std::shared_ptr<T>> m_owningPointers;
 
+public:
+    // Has to be private because SubFlowGraph requires it as template parameter
     struct CacheMapItem {
         std::mutex loadMutex;
         pandora::atomic_weak_ptr<T> itemPtr;
     };
+private:
     std::unordered_map<EvictableResourceID, CacheMapItem> m_cacheMap; // Read-only in the resource access function
 
     std::vector<std::function<T(void)>> m_resourceFactories;
@@ -187,16 +191,16 @@ inline void FifoCache<T>::evict(size_t bytesToEvict)
 
 template <typename T>
 template <typename S>
-inline FifoCache<T>::SubFlowGraph<S> FifoCache<T>::getFlowGraphNode(tbb::flow::graph& g) const
+inline typename FifoCache<T>::template SubFlowGraph<S> FifoCache<T>::getFlowGraphNode(tbb::flow::graph& g) const
 {
-    using Input = SubFlowGraph<S>::FlowGraphInput;
-    using Output = SubFlowGraph<S>::FlowGraphOutput;
-    using LoadRequestData = SubFlowGraph<S>::LoadRequestData;
-    using AccessNode = SubFlowGraph<S>::AccessNode;
-    using LoadNode = SubFlowGraph<S>::LoadNode;
+    using Input = typename SubFlowGraph<S>::FlowGraphInput;
+    using Output = typename SubFlowGraph<S>::FlowGraphOutput;
+    using LoadRequestData = typename SubFlowGraph<S>::LoadRequestData;
+    using AccessNode = typename SubFlowGraph<S>::AccessNode;
+    using LoadNode = typename SubFlowGraph<S>::LoadNode;
 
     auto* mutThis = const_cast<FifoCache<T>*>(this);
-    AccessNode accessNode(g, tbb::flow::unlimited, [mutThis, this](Input input, AccessNode::output_ports_type& op) {
+    AccessNode accessNode(g, tbb::flow::unlimited, [mutThis, this](Input input, typename AccessNode::output_ports_type& op) {
         EvictableResourceID resourceID = std::get<1>(input);
 
         auto& cacheItem = mutThis->m_cacheMap[resourceID];
@@ -207,10 +211,10 @@ inline FifoCache<T>::SubFlowGraph<S> FifoCache<T>::getFlowGraphNode(tbb::flow::g
             std::get<1>(op).try_put({ std::get<0>(input), &cacheItem, resourceID });
         }
     });
-    LoadNode loadNode(g, tbb::flow::unlimited, [mutThis, this](const LoadRequestData& data, LoadNode::gateway_type& gatewayRef) {
+    LoadNode loadNode(g, tbb::flow::unlimited, [mutThis, this](const LoadRequestData& data, typename LoadNode::gateway_type& gatewayRef) {
         auto* gatewayPtr = &gatewayRef;// Work around for MSVC internal compiler error (when trying to capture gateway)
         gatewayPtr->reserve_wait();
-        mutThis->m_factoryThreadPool.emplace([=, this]() {
+        mutThis->m_factoryThreadPool.emplace([=]() {
             auto& cacheItem = *std::get<1>(data);
             std::scoped_lock lock(cacheItem.loadMutex);
 

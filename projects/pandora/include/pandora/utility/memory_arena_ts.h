@@ -120,7 +120,8 @@ inline T& MemoryArenaTS::HandleN<T>::get(MemoryArenaTS& arena)
 template <typename T>
 inline const T& MemoryArenaTS::HandleN<T>::get(const MemoryArenaTS& arena)
 {
-    std::lock_guard<std::mutex> lock(arena.m_mutex);
+    auto* mutArenaPtr = const_cast<MemoryArenaTS*>(&arena);
+    std::lock_guard<std::mutex> lock(mutArenaPtr->m_mutex);
     return reinterpret_cast<const T&>(arena.m_memoryBlocks[block][byteInBlock]);
 }
 

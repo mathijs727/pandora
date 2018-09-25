@@ -683,7 +683,7 @@ size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
         });
 
     // For each of those leaf nodes, load the geometry (asynchronously)
-    auto cacheSubGraph = std::move(accelerationStructurePtr->m_geometryCache.getFlowGraphNode<RayBatch*>(g));
+    auto cacheSubGraph = std::move(accelerationStructurePtr->m_geometryCache.template getFlowGraphNode<RayBatch*>(g));
 
     // Then create a task for each batch associated with that leaf node (for increased parallelism)
     using BatchWithGeom = std::pair<RayBatch*, std::shared_ptr<GeometryData>>;
@@ -691,7 +691,7 @@ size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
     BatchNodeType batchNode(
         g,
         tbb::flow::unlimited,
-        [](const BatchWithGeom& v, BatchNodeType::output_ports_type& op) {
+        [](const BatchWithGeom& v, typename BatchNodeType::output_ports_type& op) {
             auto* batch = std::get<0>(v);
 
             size_t raysProcessed = 0;
@@ -705,7 +705,7 @@ size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
         auto* batch = std::get<0>(v);
         auto geometryData = std::get<1>(v);
 
-        for (auto& [ray, siOpt, userState, insertHandle] : *batch) {
+        for (auto [ray, siOpt, userState, insertHandle] : *batch) {
             // Intersect with the bottom-level BVH
             if (siOpt) {
                 RayHit rayHit;
