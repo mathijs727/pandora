@@ -242,7 +242,7 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
         file >> json;
     }
 
-    RenderConfig config(1024*1024*1024);// ~1GB
+    RenderConfig config(512*1024*1024);// ~512MB
     {
         auto configJson = json["config"];
 

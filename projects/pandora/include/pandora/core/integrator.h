@@ -48,7 +48,7 @@ template <typename IntegratorState>
 inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& sensor, int sppPerCall)
     : m_scene(scene)
     , m_accelerationStructure(
-          1024llu * 1024llu * 25, // ~25MB
+          1024llu * 1024llu * 100, // ~100MB
           scene,
           //scene.getInCoreSceneObjects(),
           [this](const Ray& r, const SurfaceInteraction& si, const IntegratorState& s, const InsertHandle& h) {

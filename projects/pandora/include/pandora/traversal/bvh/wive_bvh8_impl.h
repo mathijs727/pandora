@@ -368,6 +368,7 @@ template <typename LeafObj>
 inline void WiVeBVH8<LeafObj>::build(gsl::span<LeafObj> objects)
 {
     std::vector<RTCBuildPrimitive> embreePrimitives;
+    embreePrimitives.reserve(static_cast<unsigned>(objects.size()));
 
     for (unsigned leafID = 0; leafID < static_cast<unsigned>(objects.size()); leafID++) {
         auto bounds = objects[leafID].getBounds();

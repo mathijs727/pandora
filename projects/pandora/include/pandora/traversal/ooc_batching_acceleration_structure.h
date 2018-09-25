@@ -356,6 +356,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
 {
     auto sceneObjectGroups = groupSceneObjects(25000, sceneObjects);
 
+
     std::vector<TopLevelLeafNode> leafs;
     for (size_t i = 0; i < sceneObjectGroups.size(); i++) {
         std::string cacheFilename = std::string(cacheFolder) + "node" + std::to_string(i) + ".bin";
@@ -363,6 +364,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
         leafs.emplace_back(cacheFilename, group, cache, accelerationStructurePtr);
     }
 
+    std::cout << "Creating PauseableBVH4" << std::endl;
     return PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
 }
 
@@ -415,12 +417,14 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
     // Build BVHs for instanced scene objects
     std::unordered_map<const OOCGeometricSceneObject*, std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>> instancedBVHs;
     for (const auto* instancedGeometricSceneObject : instancedBaseObjects) {
-        std::vector<BotLevelLeafNodeInstanced> leafs;
-
         auto geometry = instancedGeometricSceneObject->getGeometryBlocking();
+
+        std::vector<BotLevelLeafNodeInstanced> leafs;
+        leafs.reserve(geometry->numPrimitives());
         for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
             leafs.push_back(BotLevelLeafNodeInstanced(geometry.get(), primitiveID));
         }
+        std::cout << "leafs size: " << leafs.size() << std::endl;
 
         // NOTE: the "geometry" variable ensures that the geometry pointed to stays in memory for the BVH build
         //       (which requires the geometry to determine the leaf node bounds).
@@ -481,6 +485,8 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         }
     }
 
+    std::cout << "TopLevelLeafNode with " << sceneObjects.size() << " objects" << std::endl;
+
     WiVeBVH8Build8<BotLevelLeafNode> bvh;
     bvh.build(leafs);
     auto serializedBVH = bvh.serialize(fbb);
@@ -500,9 +506,21 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
     file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
     file.close();
 
-    auto resourceID = cache->emplaceFactoryUnsafe([filename = std::string(filename), geometricSceneObjects, instancedSceneObjects]() -> GeometryData {
+    auto resourceID = cache->emplaceFactoryUnsafe([filename = std::string(filename), geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects=std::move(instancedSceneObjects)]() -> GeometryData {
         auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
         auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(mmapFile.data());
+
+        /*std::ifstream file(filename, std::ios::binary | std::ios::ate);
+        assert(file.is_open());
+        auto pos = file.tellg();
+        
+        auto chars = std::make_unique<char[]>(pos);
+        file.seekg(0, std::ios::beg);
+        file.read(chars.get(), pos);
+        file.close();
+
+        auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(chars.get());*/
+
         const auto* serializedInstanceBaseBVHs = serializedTopLevelLeafNode->instance_base_bvh();
         const auto* serializedInstanceBaseGeometry = serializedTopLevelLeafNode->instance_base_geometry();
 

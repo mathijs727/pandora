@@ -65,6 +65,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/utility/eastl_malloc.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena_ts.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/utility/thread_pool.cpp"
 )
 
 if (PANDORA_ISPC_SUPPORT)

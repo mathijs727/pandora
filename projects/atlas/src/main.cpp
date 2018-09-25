@@ -39,7 +39,7 @@ int main()
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-    auto renderConfig = loadFromFileOOC("D:/Pandora Scenes/pbrt_intermediate/bmw-m6/pandora.json", false);
+    auto renderConfig = loadFromFileOOC("D:/Pandora Scenes/pbrt_intermediate/sanmiguel/pandora.json", false);
     //auto renderConfig = createStaticScene();
     Scene& scene = renderConfig.scene;
     PerspectiveCamera& camera = *renderConfig.camera;

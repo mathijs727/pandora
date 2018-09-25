@@ -1,14 +1,33 @@
 #include "pandora/utility/error_handling.h"
-
+#include <mutex>
 
 namespace pandora
 {
+
+static RTCBVH WiVeBVH8Build8_embreeBVH()
+{
+    static std::mutex m;
+    std::scoped_lock<std::mutex> l(m);
+
+    static RTCDevice device = nullptr;
+    if (!device) {
+        device = rtcNewDevice(nullptr);
+        rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);
+    }
+
+    return rtcNewBVH(device);
+}
+
 template <typename LeafObj>
 inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects)
 {
-    RTCDevice device = rtcNewDevice(nullptr);
+    std::cout << "start commit" << std::endl;
+    /*RTCDevice device = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);
-    RTCBVH bvh = rtcNewBVH(device);
+    std::cout << "create embree BVH class" << std::endl;
+    RTCBVH bvh = rtcNewBVH(device);*/
+    RTCBVH bvh = WiVeBVH8Build8_embreeBVH();
+    std::cout << "created embree classes" << std::endl;
 
     RTCBuildArguments arguments = rtcDefaultBuildArguments();
     arguments.byteSize = sizeof(arguments);
@@ -38,14 +57,19 @@ inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreeP
         std::end(this->m_leafObjects),
         std::make_move_iterator(std::begin(objects)),
         std::make_move_iterator(std::end(objects)));*/
+    this->m_leafObjects.reserve(objects.size());
     for (auto& obj : objects)
         this->m_leafObjects.emplace_back(std::move(obj));
 
+    std::cout << "Moved leaf nodes" << std::endl;
+
     this->m_compressedRootHandle = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rtcBuildBVH(&arguments)));
+
+    std::cout << "Created BVH" << std::endl;
 
     // Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);
-    rtcReleaseDevice(device);
+    //rtcReleaseDevice(device);
 
     // Shrink to fit BVH allocators
     this->m_innerNodeAllocator->compact();

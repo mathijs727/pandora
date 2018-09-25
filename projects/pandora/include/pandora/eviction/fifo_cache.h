@@ -1,14 +1,11 @@
 #pragma once
 #include "pandora/core/pandora.h"
 #include "pandora/eviction/evictable.h"
-#include "pandora/geometry/triangle.h"
 #include "pandora/utility/atomic_weak_ptr.h"
-#include "pandora/utility/memory_arena.h"
+#include "pandora/utility/thread_pool.h"
 #include <tbb/concurrent_queue.h>
-#include <tbb/concurrent_unordered_map.h>
 #include <tbb/flow_graph.h>
 #include <tuple>
-#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -48,10 +45,10 @@ public:
         void connectOutput(N& outputNode);
 
     private:
-        // CacheMapItem pointer because using a reference 
+        // CacheMapItem pointer because using a reference
         using LoadRequestData = std::tuple<S, CacheMapItem*, EvictableResourceID>;
         using AccessNode = tbb::flow::multifunction_node<FlowGraphInput, tbb::flow::tuple<FlowGraphOutput, LoadRequestData>>;
-        using LoadNode = tbb::flow::function_node<LoadRequestData, FlowGraphOutput>;
+        using LoadNode = tbb::flow::async_node<LoadRequestData, FlowGraphOutput>;
 
         friend class FifoCache<T>;
         SubFlowGraph(AccessNode&& accessNode, LoadNode&& loadNode);
@@ -86,7 +83,7 @@ private:
     std::unordered_map<EvictableResourceID, CacheMapItem> m_cacheMap; // Read-only in the resource access function
 
     std::vector<std::function<T(void)>> m_resourceFactories;
-    MemoryArena m_resourceFactoryAllocator;
+    ThreadPool m_factoryThreadPool;
 };
 
 template <typename T>
@@ -95,6 +92,7 @@ inline FifoCache<T>::FifoCache(size_t maxSizeBytes)
     , m_currentSizeBytes(0)
     , m_allocCallback([](size_t) {})
     , m_evictCallback([](size_t) {})
+    , m_factoryThreadPool(16)
 {
 }
 template <typename T>
@@ -106,6 +104,7 @@ inline FifoCache<T>::FifoCache(
     , m_currentSizeBytes(0)
     , m_allocCallback(allocCallback)
     , m_evictCallback(evictCallback)
+    , m_factoryThreadPool(16)
 {
 }
 
@@ -207,37 +206,38 @@ inline FifoCache<T>::SubFlowGraph<S> FifoCache<T>::getFlowGraphNode(tbb::flow::g
         } else {
             std::get<1>(op).try_put({ std::get<0>(input), &cacheItem, resourceID });
         }
-
-        /*gateway.reserve_wait();
-        gateway.try_put(std::make_pair(std::get<0>(input), getBlocking(resourceID)));
-        gateway.release_wait();*/
-        //return std::make_pair(std::get<0>(input), mutThis->getBlocking(resourceID));
     });
-    LoadNode loadNode(g, tbb::flow::unlimited, [mutThis, this](const LoadRequestData& data) -> Output {
-        auto& cacheItem = *std::get<1>(data);
-        std::scoped_lock lock(cacheItem.loadMutex);
+    LoadNode loadNode(g, tbb::flow::unlimited, [mutThis, this](const LoadRequestData& data, LoadNode::gateway_type& gatewayRef) {
+        auto* gatewayPtr = &gatewayRef;// Work around for MSVC internal compiler error (when trying to capture gateway)
+        gatewayPtr->reserve_wait();
+        mutThis->m_factoryThreadPool.emplace([=, this]() {
+            auto& cacheItem = *std::get<1>(data);
+            std::scoped_lock lock(cacheItem.loadMutex);
 
-        // Make sure that no other thread came in first and loaded the resource already
-        auto sharedResourcePtr = cacheItem.itemPtr.lock();
-        if (!sharedResourcePtr) {
-            // TODO: load data on a worker thread
-            const auto& factoryFunc = m_resourceFactories[std::get<2>(data)];
-            sharedResourcePtr = std::make_shared<T>(factoryFunc());
-            size_t resourceSize = sharedResourcePtr->sizeBytes();
-            cacheItem.itemPtr.store(sharedResourcePtr);
-            mutThis->m_cacheHistory.push(sharedResourcePtr);
-            m_allocCallback(resourceSize);
+            // Make sure that no other thread came in first and loaded the resource already
+            auto sharedResourcePtr = cacheItem.itemPtr.lock();
+            if (!sharedResourcePtr) {
+                // Not mutating but having a hard time capturing this
+                const auto& factoryFunc = m_resourceFactories[std::get<2>(data)];
+                sharedResourcePtr = std::make_shared<T>(factoryFunc());
+                size_t resourceSize = sharedResourcePtr->sizeBytes();
+                cacheItem.itemPtr.store(sharedResourcePtr);
+                mutThis->m_cacheHistory.push(sharedResourcePtr);
+                m_allocCallback(resourceSize);
 
-            size_t oldCacheSize = mutThis->m_currentSizeBytes.fetch_add(resourceSize);
-            size_t newCacheSize = oldCacheSize + resourceSize;
-            if (newCacheSize > m_maxSizeBytes) {
-                // If another thread caused us to go over the memory limit that we only have to account
-                //  for our own contribution.
-                size_t overallocated = std::min(newCacheSize - m_maxSizeBytes, resourceSize);
-                mutThis->evict(overallocated);
+                size_t oldCacheSize = mutThis->m_currentSizeBytes.fetch_add(resourceSize);
+                size_t newCacheSize = oldCacheSize + resourceSize;
+                if (newCacheSize > m_maxSizeBytes) {
+                    // If another thread caused us to go over the memory limit that we only have to account
+                    //  for our own contribution.
+                    size_t overallocated = std::min(newCacheSize - m_maxSizeBytes, resourceSize);
+                    mutThis->evict(overallocated);
+                }
             }
-        }
-        return std::make_pair(std::get<0>(data), sharedResourcePtr);
+
+            gatewayPtr->try_put(std::make_pair(std::get<0>(data), sharedResourcePtr));
+            gatewayPtr->release_wait();
+        });
     });
     return SubFlowGraph<S>(std::move(accessNode), std::move(loadNode));
 }

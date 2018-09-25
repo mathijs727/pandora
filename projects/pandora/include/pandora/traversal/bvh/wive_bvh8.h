@@ -20,7 +20,10 @@ public:
 	WiVeBVH8() = default;
     WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects);
 	WiVeBVH8(WiVeBVH8&&) = default;
-    ~WiVeBVH8() = default;
+    ~WiVeBVH8()
+    {
+        std::cout << "WiVeBVH8 destructor" << std::endl;
+    }
 
     flatbuffers::Offset<serialization::WiVeBVH8> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
@@ -82,13 +85,13 @@ protected:
         simd::vec8_u32 permutationOffsets; // 3 bytes. Can use the other byte for flags but storing it on the stack during traversal is expensive.
     };
 
-    const static uint32_t emptyHandle = 0xFFFFFFFF;
+    constexpr static uint32_t emptyHandle = 0xFFFFFFFF;
 
-    std::unique_ptr<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>> m_innerNodeAllocator;
-    std::unique_ptr<ContiguousAllocatorTS<uint32_t>> m_leafIndexAllocator;
+    std::unique_ptr<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>> m_innerNodeAllocator = nullptr;
+    std::unique_ptr<ContiguousAllocatorTS<uint32_t>> m_leafIndexAllocator = nullptr;
     std::vector<LeafObj> m_leafObjects;
 
-    uint32_t m_compressedRootHandle;
+    uint32_t m_compressedRootHandle = 0;
 
 private:
     struct SIMDRay {
