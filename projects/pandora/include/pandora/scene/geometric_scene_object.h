@@ -90,9 +90,9 @@ private:
 
 private:
     // Contain instead of inherit to prevent the "dreaded diamond pattern" of inheritence
+    std::vector<AreaLight> m_areaLights; 
     GeometricSceneObjectGeometry m_geometricProperties;
     GeometricSceneObjectMaterial m_materialProperties;
-    std::vector<AreaLight> m_areaLights;
 };
 
 class OOCInstancedSceneObject;

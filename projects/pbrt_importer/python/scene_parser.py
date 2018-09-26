@@ -5,6 +5,7 @@ import pickle
 import os
 import plyfile
 from pandora_mesh_exporter import PandoraMeshExporter
+import sys
 
 
 def constant_texture(v):
@@ -50,10 +51,7 @@ def image_texture(mapname):
 def get_argument_with_default(arguments, name, default):
     if name in arguments:
         ret = arguments[name]["value"]
-        if isinstance(ret, np.ndarray):
-            return list(ret)
-        else:
-            return ret
+        return ret
     else:
         return default
 
@@ -67,14 +65,42 @@ def _replace_black_body(v):
         return list(v)
 
 
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
+
+
 class SceneParser:
     def __init__(self, pbrt_scene, out_mesh_folder):
-        self._geometry = UniqueCollection()
-        self._scene_objects = UniqueCollection()
-        self._instance_base_scene_objects = UniqueCollection()
-        self._materials = UniqueCollection()
-        self._float_textures = UniqueCollection()
-        self._color_textures = UniqueCollection()
+        tmp_folder = os.path.join(out_mesh_folder, "tmp_lists")
+
+        self._geometry = UniqueCollection(os.path.join(tmp_folder, "geometry"))
+        self._scene_objects = UniqueCollection(
+            os.path.join(tmp_folder, "scene_objects"))
+        self._instance_base_scene_objects = UniqueCollection(
+            os.path.join(tmp_folder, "instance_base_scene_objects"))
+        self._materials = UniqueCollection(
+            os.path.join(tmp_folder, "materials"))
+        self._float_textures = UniqueCollection(
+            os.path.join(tmp_folder, "float_textures"))
+        self._color_textures = UniqueCollection(
+            os.path.join(tmp_folder, "color_textures"))
         self._light_sources = []
 
         self._out_mesh_exporter = PandoraMeshExporter(out_mesh_folder)
@@ -84,6 +110,17 @@ class SceneParser:
         self._create_light_sources(pbrt_scene)
         self._create_scene_objects(pbrt_scene)
         self._create_scene_objects_instancing(pbrt_scene)
+
+    def _dump_mem_info(self):
+        print("=== Memory size info ===")
+        print("self._geometry:          ", get_size(self._geometry))
+        print("self._scene_objects:     ", get_size(self._scene_objects))
+        print("self._instance_base_scene_objects: ",
+              get_size(self._instance_base_scene_objects))
+        print("self._materials:         ", get_size(self._materials))
+        print("self._float_textures:    ", get_size(self._float_textures))
+        print("self._color_textures:    ", get_size(self._color_textures))
+        print("self._light_sources:    ", get_size(self._light_sources))
 
     def _create_light_sources(self, pbrt_scene):
         # print(pbrt_scene["light_sources"])
@@ -143,8 +180,6 @@ class SceneParser:
         arguments = {}
         for key, value in texture.arguments.items():
             v = value["value"]
-            if isinstance(v, np.ndarray):
-                v = list(v)
             arguments[key] = v
 
         texture_type = None
@@ -223,19 +258,6 @@ class SceneParser:
         #transform_matrix = np.reshape(shape.transform, (4, 4))
         #shape_bounds = None
         if shape.type == "plymesh":
-            """filename = shape.arguments["filename"]["value"]
-            with open(filename, "rb") as f:
-                plydata = plyfile.PlyData.read(f)
-                num_vertices = plydata["vertex"].count
-                # TODO: make sure that the multiplication axis are correct
-                positions = np.vstack(
-                    (plydata["vertex"]["x"], plydata["vertex"]["y"], plydata["vertex"]["z"], np.ones((num_vertices))))
-                transformed_positions = np.matmul(transform_matrix, positions)
-
-                bounds_min = np.min(transformed_positions[:-1], axis=1)
-                bounds_max = np.max(transformed_positions[:-1], axis=1)
-                shape_bounds = (bounds_min.tolist(), bounds_max.tolist())"""
-
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": shape.arguments["filename"]["value"],
@@ -248,21 +270,6 @@ class SceneParser:
                 triangle_mesh_data = pickle.loads(string)
                 filename, start_byte, size_bytes = self._export_triangle_mesh(
                     triangle_mesh_data)
-                
-                """# TODO: make sure that the multiplication axis are correct
-                # Load the positions from a contiguous array into an array of 3D coordinates
-                positions = triangle_mesh_data["P"]["value"]
-                num_vertices = len(positions) // 3
-                positions = positions.reshape((num_vertices, 3)).T
-
-                # Convert to homogeneous coordinates and transform
-                positions = np.row_stack((positions, np.ones(num_vertices)))
-                transformed_positions = np.matmul(transform_matrix, positions)
-
-                # Bounds of transformed positions
-                bounds_min = np.min(transformed_positions[:-1], axis=1)
-                bounds_max = np.max(transformed_positions[:-1], axis=1)
-                shape_bounds = (bounds_min.tolist(), bounds_max.tolist())"""
 
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
@@ -272,7 +279,7 @@ class SceneParser:
                 "transform": shape.transform
             })
         else:
-            print(f"Ignoring shape of unsupported type {shape.type}")
+            #print(f"Ignoring shape of unsupported type {shape.type}")
             return None
 
         material_id = self._create_material_id(shape.material)
@@ -289,23 +296,27 @@ class SceneParser:
                 "geometry_id": geometry_id,
                 "material_id": material_id,
                 "area_light": area_light,
-                #"bounds": shape_bounds
+                # "bounds": shape_bounds
             }
         else:
             return {
                 "instancing": False,
                 "geometry_id": geometry_id,
                 "material_id": material_id,
-                #"bounds": shape_bounds
+                # "bounds": shape_bounds
             }
 
     def _create_scene_objects(self, pbrt_scene):
+        print("Unique scene objects")
+
         for json_shape in pbrt_scene["non_instanced_shapes"]:
             scene_object = self._create_geometric_scene_object(json_shape)
             if scene_object is not None:
                 self._scene_objects.add_item(scene_object)
 
     def _create_scene_objects_instancing(self, pbrt_scene):
+        print("Instanced scene objects")
+
         named_base_scene_objects = {}
         for instance_template in pbrt_scene["instance_templates"].values():
             base_scene_objects = [self._create_geometric_scene_object(shape)
@@ -343,19 +354,23 @@ class SceneParser:
             uv_coords = geometry["uv"]["value"]
         else:
             uv_coords = np.empty((0))
-
-        #mesh_file = os.path.join(self._out_mesh_folder, f"mesh{mesh_id}.obj")
-        # pandora_py.export_triangle_mesh(
-        #    mesh_file, triangles, positions, normals, tangents, uv_coords)
+        
         return self._out_mesh_exporter.add_triangle_mesh(triangles, positions, normals, tangents, uv_coords)
 
     def data(self):
+        self._geometry.finish()
+        self._scene_objects.finish()
+        self._instance_base_scene_objects.finish()
+        self._materials.finish()
+        self._float_textures.finish()
+        self._color_textures.finish()
+
         return {
             "lights": self._light_sources,
-            "geometry": self._geometry.get_list(),
-            "scene_objects": self._scene_objects.get_list(),
-            "instance_base_scene_objects": self._instance_base_scene_objects.get_list(),
-            "materials": self._materials.get_list(),
-            "float_textures": self._float_textures.get_list(),
-            "color_textures": self._color_textures.get_list()
+            "geometry": self._geometry,
+            "scene_objects": self._scene_objects,
+            "instance_base_scene_objects": self._instance_base_scene_objects,
+            "materials": self._materials,
+            "float_textures": self._float_textures,
+            "color_textures": self._color_textures
         }

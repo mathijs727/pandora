@@ -28,11 +28,15 @@ class FileBackedList:
         self._current_chunk = []
         self._current_chunk_id += 1
 
-    def destructor(self):
+    def finish_chunk(self):
         if len(self._current_chunk) > 0:
             self._write_chunk()
 
+    def destructor(self):
+        self.finish_chunk()
+
     def __iter__(self):
+        self.finish_chunk()
         return FileBackedList_iter(self._folder)
 
 
@@ -45,8 +49,8 @@ class FileBackedList_iter:
 
         # self._read_next_chunk()
 
-    # def __iter__(self):
-    #   return self
+    def __iter__(self):
+        return self
 
     def _read_next_chunk(self):
         filename = os.path.join(

@@ -25,7 +25,7 @@ SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
     m_data = m_allocator.data();
     m_leafData = m_leafAllocator.data();
 
-    std::cout << "Size of SparseVoxelDAG before compression: " << this->size() << " bytes" << std::endl;
+    //std::cout << "Size of SparseVoxelDAG before compression: " << this->size() << " bytes" << std::endl;
 }
 
 SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelGrid& grid)
@@ -311,7 +311,7 @@ void compressDAGs(gsl::span<SparseVoxelDAG*> svos)
     svos[0]->m_allocator = std::move(allocator);
     svos[0]->m_leafAllocator = std::move(leafAllocator);
 
-    std::cout << "Combined SVDAG size after compression: " << svos[0]->size() << " bytes" << std::endl;
+    //std::cout << "Combined SVDAG size after compression: " << svos[0]->size() << " bytes" << std::endl;
 }
 
 SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)

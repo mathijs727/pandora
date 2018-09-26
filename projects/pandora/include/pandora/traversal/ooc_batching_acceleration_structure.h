@@ -34,7 +34,7 @@
 namespace pandora {
 
 static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 25000;
-static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = true;
+static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = false;
 
 template <typename UserState, size_t BatchSize = 64>
 class OOCBatchingAccelerationStructure {
