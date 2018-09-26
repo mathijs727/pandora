@@ -14,8 +14,9 @@ InCoreGeometricSceneObject::InCoreGeometricSceneObject(
     const std::shared_ptr<const TriangleMesh>& mesh,
     const std::shared_ptr<const Material>& material,
     const Spectrum& lightEmitted)
-    : m_geometricProperties(mesh)
-    , m_materialProperties(material, createAreaLights(lightEmitted, *mesh))
+    : m_areaLights(createAreaLights(lightEmitted, *mesh))
+    , m_geometricProperties(mesh)
+    , m_materialProperties(material, m_areaLights)
 {
 }
 
