@@ -144,3 +144,8 @@ Waiting for multiple operations to finish can be achieved with callbacks (that s
 The artist-defined scene objects create a natural grouping of primitives that prevents us from having to create an acceleration structure over all primitives (which wouldnt fit in memory). However they are often too small to be a top-level leaf node. So scene objects are grouped into top-level leaf nodes. The Embree BVH builder is used to create a BVH2 over the scene objects, subtrees are then collapsed untill they contain enough primitives. TODO: don't count instanced primitives if they already occured in the collapsed treelet. 
 
 NOTE: instancing right now is supported by creating duplicates for each top-level leaf node so all data (geometry + BVH) associated with a top-level leaf node can be stored in a single file on disk. Multiple occurences within a top-level leaf node are instanced as usual.
+
+
+
+==== MULTIPLE SAMPLES PER PIXEL IN-FLIGHT ====
+The sampler structure was set up to follow PBRT which relies heavily on a sequential access pattern. In Pandora all rayHit/miss invocations may be in random order so even the order in which samples finish is non-deterministic. It would make sense to allocate a new sampler for each path (assuming the allocation overhead is negligible). Allocating all samplers ahead of time (num pixels * spp) might use too much memory. Preferibly we control how many samples can be in-flight at a time seperately from the total spp. So the samplers need to be allocated on-the-fly using the pixel location + sample number as seed for the RNG.

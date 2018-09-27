@@ -24,16 +24,7 @@ SVODepthTestIntegrator::SVODepthTestIntegrator(const Scene& scene, Sensor& senso
 
 void SVODepthTestIntegrator::rayHit(const Ray& ray, SurfaceInteraction si, const RayState& s, const InsertHandle& h)
 {
-    glm::ivec2 pixel = { 0, 0 };
-    if (std::holds_alternative<ContinuationRayState>(s)) {
-        const auto& rayState = std::get<ContinuationRayState>(s);
-        pixel = rayState.pixel;
-    } else if (std::holds_alternative<ShadowRayState>(s)) {
-        const auto& rayState = std::get<ShadowRayState>(s);
-        pixel = rayState.pixel;
-    }
-
-    m_sensor.addPixelContribution(pixel, glm::abs(si.normal));
+    m_sensor.addPixelContribution(s.pixel, glm::abs(si.normal));
 
     /*Ray svoRay = ray;
 	svoRay.origin = m_worldToSVO * glm::vec4(ray.origin, 1.0f);
@@ -46,19 +37,10 @@ void SVODepthTestIntegrator::rayHit(const Ray& ray, SurfaceInteraction si, const
 
 void SVODepthTestIntegrator::rayMiss(const Ray& ray, const RayState& s)
 {
-    glm::ivec2 pixel = { 0, 0 };
-    if (std::holds_alternative<ContinuationRayState>(s)) {
-        const auto& rayState = std::get<ContinuationRayState>(s);
-        pixel = rayState.pixel;
-    } else if (std::holds_alternative<ShadowRayState>(s)) {
-        const auto& rayState = std::get<ShadowRayState>(s);
-        pixel = rayState.pixel;
-    }
-
     Ray svoRay = ray;
     svoRay.origin = m_worldToSVO * glm::vec4(ray.origin, 1.0f);
     if (m_svo.intersectScalar(svoRay)) {
-        m_sensor.addPixelContribution(pixel, glm::vec3(0, 0, 1));
+        m_sensor.addPixelContribution(s.pixel, glm::vec3(0, 0, 1));
     }
 }
 

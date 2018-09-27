@@ -52,8 +52,6 @@ SVOTestIntegrator::SVOTestIntegrator(const Scene& scene, Sensor& sensor, int spp
 
 void SVOTestIntegrator::render(const PerspectiveCamera& camera)
 {
-    resetSamplers();
-
     // Generate camera rays
     glm::ivec2 resolution = m_sensor.getResolution();
 
@@ -175,8 +173,6 @@ void SVOTestIntegrator::render(const PerspectiveCamera& camera)
     });
 
 #endif // Debug / release
-
-    m_sppThisFrame += m_sppPerCall;
 }
 
 }

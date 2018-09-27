@@ -23,18 +23,15 @@ PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor,
 }
 
 // PBRTv3 page 877
-void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h)
+void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& rayState, const InsertHandle& h)
 {
     ShadingMemoryArena memoryArena(s_freeList);
 
-    if (std::holds_alternative<ContinuationRayState>(s)) {
-        const auto& rayState = std::get<ContinuationRayState>(s);
-
-        // TODO
-        auto& sampler = getSampler(rayState.pixel);
+    if (std::holds_alternative<ContinuationRayState>(rayState.data)) {
+        const auto& contRayState = std::get<ContinuationRayState>(rayState.data);
 
         // Possibly add emitted light at intersection
-        if (rayState.bounces == 0 || rayState.specularBounce) {
+        if (contRayState.bounces == 0 || contRayState.specularBounce) {
             // Add emitted light at path vertex or environment
             m_sensor.addPixelContribution(rayState.pixel, si.Le(-r.direction));
         }
@@ -45,37 +42,41 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
         //TODO: skip over medium boundaries (volume rendering)
 
         // Terminate path if maxDepth was reached
-        if (rayState.bounces >= m_maxDepth) {
+        if (contRayState.bounces >= m_maxDepth) {
             spawnNextSample(rayState.pixel);
             return;
         }
 
         // Sample illumination from lights to find path contribution
-        uniformSampleOneLight(rayState, si, sampler);
+        uniformSampleOneLight(rayState, si, *rayState.sampler);
 
         // Sample BSDF to get new path direction
         glm::vec3 wo = -r.direction;
-        if (auto bsdfSampleOpt = si.bsdf->sampleF(wo, sampler.get2D(), BSDF_ALL); bsdfSampleOpt && !isBlack(bsdfSampleOpt->f) && bsdfSampleOpt->pdf > 0.0f) {
+        if (auto bsdfSampleOpt = si.bsdf->sampleF(wo, rayState.sampler->get2D(), BSDF_ALL); bsdfSampleOpt && !isBlack(bsdfSampleOpt->f) && bsdfSampleOpt->pdf > 0.0f) {
             const auto& bsdfSample = *bsdfSampleOpt;
 
-            ContinuationRayState newRayState = rayState;
-            newRayState.weight *= bsdfSample.f * absDot(bsdfSample.wi, si.shading.normal) / bsdfSample.pdf;
-            newRayState.bounces++;
-            newRayState.specularBounce = (bsdfSample.sampledType & BSDF_SPECULAR) != 0;
+            ContinuationRayState newContRayState = contRayState;
+            newContRayState.weight *= bsdfSample.f * absDot(bsdfSample.wi, si.shading.normal) / bsdfSample.pdf;
+            newContRayState.bounces++;
+            newContRayState.specularBounce = (bsdfSample.sampledType & BSDF_SPECULAR) != 0;
             Ray newRay = si.spawnRay(bsdfSample.wi);
 
             // Possibly terminate the path with Russian roulette
-            if (newRayState.bounces > 3) {
-                float q = std::max(0.05f, 1 - newRayState.weight.y);
-                if (sampler.get1D() < q) {
+            if (newContRayState.bounces > 3) {
+                float q = std::max(0.05f, 1 - newContRayState.weight.y);
+                if (rayState.sampler->get1D() < q) {
                     spawnNextSample(rayState.pixel);
                     return;
                 }
-                newRayState.weight /= 1.0f - q;
+                newContRayState.weight /= 1.0f - q;
             }
 
-            RayState rayStateVariant = newRayState;
-            m_accelerationStructure.placeIntersectRequests(gsl::make_span(&newRay, 1), gsl::make_span(&rayStateVariant, 1));
+            RayState newRayState = {
+                newContRayState,
+                rayState.pixel,
+                rayState.sampler
+            };
+            m_accelerationStructure.placeIntersectRequests(gsl::make_span(&newRay, 1), gsl::make_span(&newRayState, 1));
         } else {
             spawnNextSample(rayState.pixel);
             return;
@@ -83,14 +84,14 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
 
         //TODO: Account for subsurface scattering, if applicable
 
-    } else if (std::holds_alternative<ShadowRayState>(s)) {
-        const auto& rayState = std::get<ShadowRayState>(s);
+    } else if (std::holds_alternative<ShadowRayState>(rayState.data)) {
+        const auto& shadowRayState = std::get<ShadowRayState>(rayState.data);
 
-        assert(rayState.light);
-        if (si.sceneObjectMaterial->getPrimitiveAreaLight(si.primitiveID) == rayState.light) {
+        assert(shadowRayState.light);
+        if (si.sceneObjectMaterial->getPrimitiveAreaLight(si.primitiveID) == shadowRayState.light) {
             // Ray created by BSDF sampling (PBRTv3 page 861) - contains weight
             Spectrum li = si.Le(-r.direction);
-            m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * li);
+            m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight * li);
         }
     }
 }
@@ -99,41 +100,41 @@ void PathIntegrator::rayAnyHit(const Ray& r, const RayState& s)
 {
     // Shadow ray spawned by light sampling => occluded so no contribution
 #ifndef NDEBUG
-    if (std::holds_alternative<ShadowRayState>(s)) {
-        const auto& rayState = std::get<ShadowRayState>(s);
+    if (std::holds_alternative<ShadowRayState>(s.data)) {
+        const auto& rayState = std::get<ShadowRayState>(s.data);
         assert(rayState.light == nullptr);
     }
 #endif
 }
 
-void PathIntegrator::rayMiss(const Ray& r, const RayState& s)
+void PathIntegrator::rayMiss(const Ray& r, const RayState& rayState)
 {
-    if (std::holds_alternative<ContinuationRayState>(s)) {
-        const auto& rayState = std::get<ContinuationRayState>(s);
+    if (std::holds_alternative<ContinuationRayState>(rayState.data)) {
+        const auto& contRayState = std::get<ContinuationRayState>(rayState.data);
 
         // Possibly add emitted light at intersection
-        if (rayState.bounces == 0 || rayState.specularBounce) {
+        if (contRayState.bounces == 0 || contRayState.specularBounce) {
             // Add emitted light at path vertex or environment
             for (const auto& light : m_scene.getInfiniteLights())
-                m_sensor.addPixelContribution(rayState.pixel, rayState.weight * light->Le(r));
+                m_sensor.addPixelContribution(rayState.pixel, contRayState.weight * light->Le(r));
         }
 
         // Terminate path if ray escaped
         spawnNextSample(rayState.pixel);
-    } else if (std::holds_alternative<ShadowRayState>(s)) {
-        const auto& rayState = std::get<ShadowRayState>(s);
+    } else if (std::holds_alternative<ShadowRayState>(rayState.data)) {
+        const auto& shadowRayState = std::get<ShadowRayState>(rayState.data);
 
-        if (rayState.light != nullptr) {
+        if (shadowRayState.light != nullptr) {
             // Ray created by BSDF sampling (PBRTv3 page 861) - contains weight
-            m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * rayState.light->Le(r));
+            m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight * shadowRayState.light->Le(r));
         } else {
             // Ray created by light sampling (PBRTv3 page 858) - contains radiance
-            m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight);
+            m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight);
         }
     }
 }
 
-void PathIntegrator::uniformSampleOneLight(const ContinuationRayState& r, const SurfaceInteraction& si, Sampler& sampler)
+void PathIntegrator::uniformSampleOneLight(const RayState& rayState, const SurfaceInteraction& si, Sampler& sampler)
 {
     // Randomly choose a single light to sample
     int numLights = (int)m_scene.getLights().size();
@@ -144,11 +145,11 @@ void PathIntegrator::uniformSampleOneLight(const ContinuationRayState& r, const 
 
     glm::vec2 uLight = sampler.get2D();
     glm::vec2 uScattering = sampler.get2D();
-    estimateDirect((float)numLights, r, si, uScattering, *light, uLight);
+    estimateDirect((float)numLights, rayState, si, uScattering, *light, uLight);
 }
 
 // PBRTv3 page 858
-void PathIntegrator::estimateDirect(float multiplier, const ContinuationRayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular)
+void PathIntegrator::estimateDirect(float multiplier, const RayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular)
 {
     BxDFType bsdfFlags = specular ? BSDF_ALL : BxDFType(BSDF_ALL | ~BSDF_SPECULAR);
 

@@ -15,15 +15,12 @@ DirectLightingIntegrator::DirectLightingIntegrator(int maxDepth, const Scene& sc
 {
 }
 
-void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h)
+void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& rayState, const InsertHandle& h)
 {
     ShadingMemoryArena memoryArena(s_freeList);
 
-    if (std::holds_alternative<ContinuationRayState>(s)) {
-        const auto& rayState = std::get<ContinuationRayState>(s);
-
-        // TODO
-        auto& sampler = getSampler(rayState.pixel);
+    if (std::holds_alternative<ContinuationRayState>(rayState.data)) {
+        const auto& contRayState = std::get<ContinuationRayState>(rayState.data);
 
         // Initialize common variables for Whitted integrator
         glm::vec3 wo = si.wo;
@@ -34,33 +31,33 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
         // Compute emitted light if ray hit an area light source
         Spectrum emitted = si.Le(wo);
         if (!isBlack(emitted)) {
-            m_sensor.addPixelContribution(rayState.pixel, rayState.weight * emitted);
+            m_sensor.addPixelContribution(rayState.pixel, contRayState.weight * emitted);
 			spawnNextSample(rayState.pixel);
 			return;
         }
 
         // Compute direct lighting for DirectLightingIntegrator
         if (m_strategy == LightStrategy::UniformSampleAll) {
-            uniformSampleAllLights(rayState, si, sampler);
+            uniformSampleAllLights(rayState, si, *rayState.sampler);
         } else if (m_strategy == LightStrategy::UniformSampleOne) {
-            uniformSampleOneLight(rayState, si, sampler);
+            uniformSampleOneLight(rayState, si, *rayState.sampler);
         } else {
             THROW_ERROR("Unknown light strategy");
         }
 
-        if (rayState.bounces + 1 < m_maxDepth) {
+        if (contRayState.bounces + 1 < m_maxDepth) {
             // Trace rays for specular reflection and refraction
-            specularReflect(si, sampler, memoryArena, rayState);
-            specularTransmit(si, sampler, memoryArena, rayState);
+            specularReflect(si, *rayState.sampler, memoryArena, rayState);
+            specularTransmit(si, *rayState.sampler, memoryArena, rayState);
         }
-    } else if (std::holds_alternative<ShadowRayState>(s)) {
-        const auto& rayState = std::get<ShadowRayState>(s);
+    } else if (std::holds_alternative<ShadowRayState>(rayState.data)) {
+        const auto& shadowRayState = std::get<ShadowRayState>(rayState.data);
 
-        assert(rayState.light);
-        if (si.sceneObjectMaterial->getPrimitiveAreaLight(si.primitiveID) == rayState.light) {
+        assert(shadowRayState.light);
+        if (si.sceneObjectMaterial->getPrimitiveAreaLight(si.primitiveID) == shadowRayState.light) {
             // Ray created by BSDF sampling (PBRTv3 page 861) - contains weight
             Spectrum li = si.Le(-r.direction);
-            m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * li);
+            m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight * li);
         }
 		
         spawnNextSample(rayState.pixel);
@@ -71,29 +68,29 @@ void DirectLightingIntegrator::rayAnyHit(const Ray& r, const RayState& s)
 {
     // Shadow ray spawned by light sampling => occluded so no contribution
 #ifndef NDEBUG
-    if (std::holds_alternative<ShadowRayState>(s)) {
-        const auto& rayState = std::get<ShadowRayState>(s);
+    if (std::holds_alternative<ShadowRayState>(s.data)) {
+        const auto& rayState = std::get<ShadowRayState>(s.data);
         assert(rayState.light == nullptr);
     }
 #endif
 }
 
-void DirectLightingIntegrator::rayMiss(const Ray& r, const RayState& s)
+void DirectLightingIntegrator::rayMiss(const Ray& r, const RayState& rayState)
 {
-    if (std::holds_alternative<ShadowRayState>(s)) {
-        const auto& rayState = std::get<ShadowRayState>(s);
+    if (std::holds_alternative<ShadowRayState>(rayState.data)) {
+        const auto& shadowRayState = std::get<ShadowRayState>(rayState.data);
 
-        if (rayState.light != nullptr) {
+        if (shadowRayState.light != nullptr) {
             // Ray created by BSDF sampling (PBRTv3 page 861) - contains weight
-            m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * rayState.light->Le(r));
+            m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight * shadowRayState.light->Le(r));
         } else {
             // Ray created by light sampling (PBRTv3 page 858) - contains radiance
-			m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight);
+			m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight);
         }
 
         spawnNextSample(rayState.pixel);
-    } else if (std::holds_alternative<ContinuationRayState>(s)) {
-        const auto& rayState = std::get<ContinuationRayState>(s);
+    } else if (std::holds_alternative<ContinuationRayState>(rayState.data)) {
+        const auto& shadowRayState = std::get<ContinuationRayState>(rayState.data);
 
         // End of path: received radiance
         glm::vec3 radiance = glm::vec3(0.0f);
@@ -103,24 +100,24 @@ void DirectLightingIntegrator::rayMiss(const Ray& r, const RayState& s)
             radiance += light->Le(r);
         }
 
-        assert(!std::isnan(glm::dot(rayState.weight, rayState.weight)) && glm::dot(rayState.weight, rayState.weight) > 0.0f);
-        m_sensor.addPixelContribution(rayState.pixel, rayState.weight * radiance);
+        assert(!std::isnan(glm::dot(shadowRayState.weight, shadowRayState.weight)) && glm::dot(shadowRayState.weight, shadowRayState.weight) > 0.0f);
+        m_sensor.addPixelContribution(rayState.pixel, shadowRayState.weight * radiance);
 
         spawnNextSample(rayState.pixel);
     }
 }
 
 // PBRTv3 page 854
-void DirectLightingIntegrator::uniformSampleAllLights(const ContinuationRayState& r, const SurfaceInteraction& si, Sampler& sampler)
+void DirectLightingIntegrator::uniformSampleAllLights(const RayState& rayState, const SurfaceInteraction& si, Sampler& sampler)
 {
     for (const auto& light : m_scene.getLights()) {
         glm::vec2 uLight = sampler.get2D();
         glm::vec2 uScattering = sampler.get2D();
-        estimateDirect(1.0f, r, si, uScattering, *light, uLight);
+        estimateDirect(1.0f, rayState, si, uScattering, *light, uLight);
     }
 }
 
-void DirectLightingIntegrator::uniformSampleOneLight(const ContinuationRayState& r, const SurfaceInteraction& si, Sampler& sampler)
+void DirectLightingIntegrator::uniformSampleOneLight(const RayState& rayState, const SurfaceInteraction& si, Sampler& sampler)
 {
     // Randomly choose a single light to sample
     int numLights = (int)m_scene.getLights().size();
@@ -131,11 +128,11 @@ void DirectLightingIntegrator::uniformSampleOneLight(const ContinuationRayState&
 
     glm::vec2 uLight = sampler.get2D();
     glm::vec2 uScattering = sampler.get2D();
-    estimateDirect((float)numLights, r, si, uScattering, *light, uLight);
+    estimateDirect((float)numLights, rayState, si, uScattering, *light, uLight);
 }
 
 // PBRTv3 page 858
-void DirectLightingIntegrator::estimateDirect(float multiplier, const ContinuationRayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular)
+void DirectLightingIntegrator::estimateDirect(float multiplier, const RayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular)
 {
     BxDFType bsdfFlags = specular ? BSDF_ALL : BxDFType(BSDF_ALL | ~BSDF_SPECULAR);
 

@@ -39,7 +39,7 @@ int main()
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-    auto renderConfig = loadFromFileOOC("D:/Pandora Scenes/pbrt_intermediate/crown/pandora.json", false);
+    auto renderConfig = loadFromFile("D:/Pandora Scenes/pbrt_intermediate/bmw-m6/pandora.json", false);
     //auto renderConfig = createStaticScene();
     Scene& scene = renderConfig.scene;
     PerspectiveCamera& camera = *renderConfig.camera;
@@ -74,9 +74,12 @@ int main()
         myWindow.updateInput();
         cameraControls.tick();
 
-        if (cameraControls.cameraChanged())
-            integrator.startNewFrame();
+        if (cameraControls.cameraChanged()) {
+            samples = 0;
+            camera.getSensor().clear(glm::vec3(0.0f));
+        }
 
+        integrator.reset();
         integrator.render(camera);
         samples++;
 
@@ -87,7 +90,7 @@ int main()
             previousTimestamp = now;
         }
 
-        float mult = 1.0f / integrator.getCurrentFrameSpp();
+        float mult = 1.0f / samples;
         frameBuffer.update(camera.getSensor(), mult);
         myWindow.swapBuffers();
     }

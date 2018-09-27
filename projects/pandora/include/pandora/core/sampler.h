@@ -10,28 +10,12 @@ struct CameraSample {
 
 class Sampler {
 public:
-    Sampler(unsigned samplesPerPixel);
+    virtual ~Sampler() {}
 
     virtual float get1D() = 0;
     virtual glm::vec2 get2D() = 0;
 
-    void reset();
-    virtual bool startNextSample();
-
-    virtual int roundCount(int n) const
-    {
-        return n;
-    }
-    void request1DArray(int n);
-    void request2DArray(int n);
-    void fill1DArray(gsl::span<float> samples);
-    void fill2DArray(gsl::span<glm::vec2> samples);
-
     CameraSample getCameraSample(const glm::ivec2& rasterPixel);
-
-protected:
-    const unsigned m_samplesPerPixel;
-    unsigned m_currentSampleIndex;
 };
 
 }

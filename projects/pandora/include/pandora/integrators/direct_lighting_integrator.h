@@ -13,10 +13,10 @@ private:
     void rayAnyHit(const Ray& r, const RayState& s) override final;
 	void rayMiss(const Ray& r, const RayState& s) override final;
 
-	void uniformSampleAllLights(const ContinuationRayState& r, const SurfaceInteraction& si, Sampler& sampler);
-	void uniformSampleOneLight(const ContinuationRayState& r, const SurfaceInteraction& si, Sampler& sampler);
+	void uniformSampleAllLights(const RayState& r, const SurfaceInteraction& si, Sampler& sampler);
+	void uniformSampleOneLight(const RayState& r, const SurfaceInteraction& si, Sampler& sampler);
 
-	void estimateDirect(float multiplier, const ContinuationRayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular = false);
+	void estimateDirect(float multiplier, const RayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular = false);
 private:
 	const LightStrategy m_strategy;
 };
