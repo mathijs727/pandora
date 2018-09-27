@@ -13,12 +13,18 @@ class OfflineLUT:
         self._filename = filename
         self._conn = sqlite3.connect(filename)
         self._conn.execute("CREATE TABLE lut (key TEXT PRIMARY KEY, id INTEGER)")
+        self._inserts_since_last_commit = 0
 
     def __contains__(self, key):
         return self._conn.execute("SELECT * FROM lut WHERE key=?", (key,)).fetchone() is not None
         
     def __setitem__(self, key, value):
         self._conn.execute("INSERT INTO lut VALUES (?, ?)", (key,value))
+
+        self._inserts_since_last_commit += 1
+        if self._inserts_since_last_commit > 1000:
+            self._inserts_since_last_commit = 0
+            self._conn.commit()
 
     def __getitem__(self, key):
         try:
@@ -31,6 +37,7 @@ class OfflineLUT:
 
     def clear(self):
         if self._conn is not None:
+            self._conn.commit()
             self._conn.close()
             self._conn = None
 
@@ -75,7 +82,7 @@ class UniqueCollection:
         return [i for i in self._list]
 
     def __iter__(self):
-        self._list.finish_chunk()
+        self.finish()
         return self._list.__iter__()
 
 

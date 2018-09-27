@@ -32,9 +32,9 @@ protected:
 
 protected:
     const Scene& m_scene;
-    InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
+    //InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
     //InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
-    //OOCBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
+    OOCBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
 
     Sensor& m_sensor;
     const int m_sppPerCall;
@@ -48,9 +48,9 @@ template <typename IntegratorState>
 inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& sensor, int sppPerCall)
     : m_scene(scene)
     , m_accelerationStructure(
-          //1024llu * 1024llu * 25, // Geometry memory limit
-          //scene,
-          scene.getInCoreSceneObjects(),
+          1024llu * 1024llu * 50, // Geometry memory limit
+          scene,
+          //scene.getInCoreSceneObjects(),
           [this](const Ray& r, const SurfaceInteraction& si, const IntegratorState& s, const InsertHandle& h) {
               rayHit(r, si, s, h);
           },

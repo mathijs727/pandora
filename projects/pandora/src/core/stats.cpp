@@ -21,6 +21,8 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
     ret["memory"]["bot_level_evicted"] = memory.botLevelEvicted;
 
     ret["memory"]["top_bvh"] = memory.topBVH;
+    ret["memory"]["top_bvh_leafs"] = memory.topBVHLeafs;
+    ret["memory"]["svdags"] = memory.svdags;
 
     ret["num_top_leaf_nodes"] = numTopLevelLeafNodes;
 

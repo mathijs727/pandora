@@ -22,7 +22,7 @@ public:
 	SparseVoxelDAG(SparseVoxelDAG&&) = default;
     ~SparseVoxelDAG() = default;
 
-	friend void compressDAGs(gsl::span<SparseVoxelDAG*> svos);
+	static void compressDAGs(gsl::span<SparseVoxelDAG*> svos);
 
 #ifdef PANDORA_ISPC_SUPPORT
     void intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const;
@@ -31,7 +31,7 @@ public:
 
     std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 
-    size_t size() const;
+    size_t sizeBytes() const;
 
 private:
 	using RelativeNodeOffset = uint16_t; // Either uint32_t or uint16_t

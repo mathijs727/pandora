@@ -34,7 +34,7 @@
 namespace pandora {
 
 static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 25000;
-static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = false;
+static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = true;
 
 template <typename UserState, size_t BatchSize = 64>
 class OOCBatchingAccelerationStructure {
@@ -75,6 +75,11 @@ private:
         size_t size() const
         {
             return m_data.size();
+        }
+
+        size_t sizeBytes() const
+        {
+            return sizeof(decltype(*this));
         }
 
         // https://www.fluentcpp.com/2018/05/08/std-iterator-deprecated/
@@ -195,13 +200,15 @@ private:
 
         void prepareForFlushUnsafe(); // Adds the active batches to the list of immutable batches (even if they are not full)
 
-        //size_t flush(); // Flushes the list of immutable batches (but not the active batches)
-
         // Flush a whole range of nodes at a time as opposed to a non-static flush member function which would require a
         // separate tbb flow graph for each node that is processed.
         static size_t flushRange(
             gsl::span<TopLevelLeafNode*> nodes,
             OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
+
+        static void compressSVDAGs(gsl::span<TopLevelLeafNode*> nodes);
+
+        size_t sizeBytes() const;
 
     private:
         static EvictableResourceID generateCachedBVH(
@@ -265,6 +272,9 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::OOCBatchingAccele
     scene.geometryCache()->evictAllUnsafe();
 
     g_stats.memory.topBVH += m_bvh.sizeBytes();
+    for (const auto* leaf : m_bvh.leafs()) {
+        g_stats.memory.topBVHLeafs += leaf->sizeBytes();
+    }
 }
 
 template <typename UserState, size_t BatchSize>
@@ -374,7 +384,9 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
         }
     });
 
-    return PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
+    auto ret = PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
+    TopLevelLeafNode::compressSVDAGs(ret.leafs());
+    return std::move(ret);
 }
 
 template <typename UserState, size_t BatchSize>
@@ -611,11 +623,11 @@ inline std::pair<SparseVoxelDAG, typename OOCBatchingAccelerationStructure<UserS
     worldToSVO = glm::translate(worldToSVO, glm::vec3(-gridBounds.min));
 
     SparseVoxelDAG svdag(voxelGrid);
-    {
-        // TODO: compress all top level leaf nodes together
+    // NOTE: the svdags are already being compressed together. Compressing here too will cost more compute power but will reduce memory usage.
+    /*{
         std::vector svdags = { &svdag };
         compressDAGs(svdags);
-    }
+    }*/
     return { std::move(svdag), SVDAGRayOffset { gridBounds.min, glm::vec3(1.0f / maxDim) } };
 }
 
@@ -659,6 +671,7 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
         // Allocate a new batch and set it as the new active batch
         batch = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
         mutThisPtr->m_threadLocalActiveBatch.local() = batch;
+        g_stats.memory.batches += batch->sizeBytes();
     }
 
     bool success = batch->tryPush(ray, si, userState, insertHandle);
@@ -671,7 +684,7 @@ template <typename UserState, size_t BatchSize>
 inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
-        auto&[svdag, svdagRayOffset] = m_svdagAndTransform;
+        auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
         auto svdagRay = ray;
         svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
         if (!svdag.intersectScalar(svdagRay))
@@ -818,78 +831,35 @@ size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
     tbb::flow::make_edge(batchNode, traversalNode);
     cacheSubGraph.connectOutput(batchNode);
     cacheSubGraph.connectInput(sourceNode);
-    //tbb::flow::make_edge(asyncCacheNode, batchNode);
-    //tbb::flow::make_edge(sourceNode, asyncCacheNode);
     g.wait_for_all();
 
     return totalRaysProcessed;
 }
 
-/*template <typename UserState, size_t BatchSize>
-inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::flush()
+template <typename UserState, size_t BatchSize>
+inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::compressSVDAGs(gsl::span<TopLevelLeafNode*> nodes)
 {
-    RayBatch* batch = m_immutableRayBatchList.exchange(nullptr);
-    if (!batch)
-        return false;
-
-    std::shared_ptr<GeometryData> data = m_geometryDataHandle.getBlocking();
-
-    size_t numRays = 0;
-    tbb::task_group taskGroup;
-    while (batch) {
-        numRays += batch->size();
-        auto next = batch->next();
-
-        taskGroup.run([=]() {
-            for (auto& [ray, siOpt, userState, insertHandle] : *batch) {
-                // Intersect with the bottom-level BVH
-                if (siOpt) {
-                    RayHit rayHit;
-                    if (data->leafBVH.intersect(ray, rayHit)) {
-                        const auto& hitSceneObjectInfo = std::get<RayHit::OutOfCore>(rayHit.sceneObjectVariant);
-                        siOpt = hitSceneObjectInfo.sceneObjectGeometry->fillSurfaceInteraction(ray, rayHit);
-                        siOpt->sceneObject = hitSceneObjectInfo.sceneObject;
-                    }
-                } else {
-                    data->leafBVH.intersectAny(ray);
-                }
-            }
-
-            for (auto [ray, siOpt, userState, insertHandle] : *batch) {
-                if (siOpt) {
-                    // Insert the ray back into the top-level  BVH
-                    auto optResult = m_accelerationStructurePtr->m_bvh.intersect(ray, *siOpt, userState, insertHandle);
-                    if (optResult && *optResult == false) {
-                        // Ray exited the system so we can run the hit/miss shaders
-                        if (siOpt->sceneObject) {
-                            auto materialOwning = siOpt->sceneObject->getMaterialBlocking(); // Keep alive during the callback
-                            siOpt->sceneObjectMaterial = materialOwning.get();
-                            m_accelerationStructurePtr->m_hitCallback(ray, *siOpt, userState, nullptr);
-                        } else {
-                            m_accelerationStructurePtr->m_missCallback(ray, userState);
-                        }
-                    }
-                } else {
-                    // Intersect any
-                    if (ray.tfar == -std::numeric_limits<float>::infinity()) { // Ray hit something
-                        m_accelerationStructurePtr->m_anyHitCallback(ray, userState);
-                    } else {
-                        auto optResult = m_accelerationStructurePtr->m_bvh.intersectAny(ray, userState, insertHandle);
-                        if (optResult && *optResult == false) {
-                            // Ray exited system
-                            m_accelerationStructurePtr->m_missCallback(ray, userState);
-                        }
-                    }
-                }
-            }
-            m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
-        });
-        batch = next;
+    std::vector<SparseVoxelDAG*> dags;
+    for (auto* node : nodes) {
+        dags.push_back(&std::get<0>(node->m_svdagAndTransform));
     }
-    taskGroup.wait();
+    SparseVoxelDAG::compressDAGs(dags);
 
-    return numRays;
-}*/
+    for (const auto* dag : dags)
+    {
+        g_stats.memory.svdags += dag->sizeBytes();
+    }
+}
+
+template<typename UserState, size_t BatchSize>
+inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::sizeBytes() const
+{
+    size_t size = sizeof(decltype(*this));
+    size += m_sceneObjects.capacity() * sizeof(const OOCSceneObject*);
+    size += m_threadLocalActiveBatch.size() * sizeof(RayBatch*);
+    size += std::get<0>(m_svdagAndTransform).sizeBytes();
+    return size;
+}
 
 template <typename UserState, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNodeInstanced::BotLevelLeafNodeInstanced(

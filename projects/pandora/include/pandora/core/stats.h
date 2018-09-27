@@ -27,7 +27,11 @@ struct RenderStats : public metrics::Stats {
         metrics::Counter<size_t> botLevelLoaded{ "bytes" };
         metrics::Counter<size_t> botLevelEvicted { "bytes" };
 
-        metrics::Counter<size_t> topBVH { "bytes" };
+        // Memory used by the top-level BVH and the svdags associated with the top-level leaf nodes
+        metrics::Counter<size_t> topBVH{ "bytes" };// BVH excluding leafs
+        metrics::Counter<size_t> topBVHLeafs{ "bytes" };// BVH excluding leafs
+        metrics::Counter<size_t> batches{ "bytes" };
+        metrics::Counter<size_t> svdags { "bytes" };
     } memory;
 
     metrics::Counter<> numTopLevelLeafNodes { "nodes" };

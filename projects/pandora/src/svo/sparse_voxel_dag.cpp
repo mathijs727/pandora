@@ -139,7 +139,7 @@ SparseVoxelDAG::AbsoluteNodeOffset SparseVoxelDAG::constructSVOBreadthFirst(cons
     return rootNodeOffset;
 }
 
-void compressDAGs(gsl::span<SparseVoxelDAG*> svos)
+void SparseVoxelDAG::compressDAGs(gsl::span<SparseVoxelDAG*> svos)
 {
     using Descriptor = SparseVoxelDAG::Descriptor;
     using RelativeNodeOffset = SparseVoxelDAG::RelativeNodeOffset;
@@ -642,7 +642,7 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
     return { std::move(positions), std::move(triangles) };
 }
 
-size_t SparseVoxelDAG::size() const
+size_t SparseVoxelDAG::sizeBytes() const
 {
     size_t size = sizeof(decltype(*this));
     size += m_allocator.size() * sizeof(decltype(m_allocator)::value_type);
