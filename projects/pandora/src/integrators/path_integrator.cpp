@@ -17,8 +17,8 @@ namespace pandora {
 
 static thread_local GrowingFreeListTS<ShadingMemoryArena::MemoryBlock> s_freeList;
 
-PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp)
-    : SamplerIntegrator(maxDepth, scene, sensor, spp)
+PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples)
+    : SamplerIntegrator(maxDepth, scene, sensor, spp, parallelSamples)
 {
 }
 

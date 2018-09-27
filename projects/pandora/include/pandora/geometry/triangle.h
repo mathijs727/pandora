@@ -31,6 +31,7 @@ public:
         std::unique_ptr<glm::vec3[]>&& normals,
         std::unique_ptr<glm::vec3[]>&& tangents,
         std::unique_ptr<glm::vec2[]>&& uvCoords);
+    TriangleMesh(const TriangleMesh&) = delete;
     TriangleMesh(TriangleMesh&&) = default;
     TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh);
     ~TriangleMesh();

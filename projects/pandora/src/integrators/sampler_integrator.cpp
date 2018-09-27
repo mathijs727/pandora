@@ -15,13 +15,14 @@ using namespace pandora::sampler_integrator;
 
 namespace pandora {
 
-SamplerIntegrator::SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp)
+SamplerIntegrator::SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples)
     : Integrator(scene, sensor, spp)
     , m_maxDepth(maxDepth)
     , m_cameraThisFrame(nullptr)
     , m_resolution(sensor.getResolution())
     , m_pixelSampleCount(m_resolution.x * m_resolution.y)
     , m_maxSampleCount(spp)
+    , m_parallelSamples(parallelSamples)
 {
     std::fill(std::begin(m_pixelSampleCount), std::end(m_pixelSampleCount), 0);
 }
@@ -43,13 +44,11 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     //#if 1
     for (int y = 0; y < m_resolution.y; y++) {
         for (int x = 0; x < m_resolution.x; x++) {
-
-            if (y == 660 && x == 380)
-                continue;
-
-            // Initialize camera sample for current sample
-            auto pixel = glm::ivec2(x, y);
-            spawnNextSample(pixel);
+            for (int s = 0; s < m_parallelSamples; s++) {
+                // Initialize camera sample for current sample
+                auto pixel = glm::ivec2(x, y);
+                spawnNextSample(pixel);
+            }
         }
     }
 #else
@@ -59,8 +58,10 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
         auto cols = localRange.cols();
         for (int y = rows.begin(); y < rows.end(); y++) {
             for (int x = cols.begin(); x < cols.end(); x++) {
-                // Initialize camera sample for current sample
-                spawnNextSample(glm::ivec2(x, y));
+                // Allow for multiple samples (of the same pixel) to be in-flight
+                for (int s = 0; s < m_parallelSamples; s++) {
+                    spawnNextSample(glm::ivec2(x, y));
+                }
             }
         }
     });

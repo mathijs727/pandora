@@ -57,7 +57,7 @@ int main(int argc, char** argv)
     std::cout << "  integrator    " << vm["integrator"].as<std::string>() << "\n";
     std::cout << "  spp           " << vm["spp"].as<int>() << std::endl;
 
-    auto renderConfig = loadFromFile(vm["file"].as<std::string>(), false);
+    auto renderConfig = loadFromFileOOC(vm["file"].as<std::string>(), false);
 
     /*// Skydome
     auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
@@ -69,10 +69,10 @@ int main(int argc, char** argv)
     auto integratorType = vm["integrator"].as<std::string>();
     int spp = vm["spp"].as<int>();
     if (integratorType == "direct") {
-        DirectLightingIntegrator integrator(8, renderConfig.scene, renderConfig.camera->getSensor(), spp, LightStrategy::UniformSampleOne);
+        DirectLightingIntegrator integrator(8, renderConfig.scene, renderConfig.camera->getSensor(), spp, 4, LightStrategy::UniformSampleOne);
         integrator.render(*renderConfig.camera);
     } else if (integratorType == "path") {
-        PathIntegrator integrator(10, renderConfig.scene, renderConfig.camera->getSensor(), spp);
+        PathIntegrator integrator(10, renderConfig.scene, renderConfig.camera->getSensor(), spp, 4);
         integrator.render(*renderConfig.camera);
     }
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), spp);

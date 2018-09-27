@@ -34,7 +34,7 @@ class SamplerIntegrator : public Integrator<sampler_integrator::RayState> {
     static constexpr bool RANDOM_SEEDS = false;
 public:
     // WARNING: do not modify the scene in any way while the integrator is alive
-    SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp);
+    SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples = 1);
     SamplerIntegrator(const SamplerIntegrator&) = delete;
 
     void reset() override final;
@@ -70,6 +70,7 @@ private:
     const glm::ivec2 m_resolution;
     std::vector<std::atomic_int> m_pixelSampleCount;
     const int m_maxSampleCount;
+    const int m_parallelSamples;
 };
 
 }

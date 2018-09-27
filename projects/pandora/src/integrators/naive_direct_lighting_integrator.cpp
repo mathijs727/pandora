@@ -8,8 +8,8 @@ namespace pandora {
 
 static GrowingFreeListTS<ShadingMemoryArena::MemoryBlock> s_freeList;
 
-NaiveDirectLightingIntegrator::NaiveDirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp)
-    : SamplerIntegrator(maxDepth, scene, sensor, spp)
+NaiveDirectLightingIntegrator::NaiveDirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples)
+    : SamplerIntegrator(maxDepth, scene, sensor, spp, parallelSamples)
 {
 }
 

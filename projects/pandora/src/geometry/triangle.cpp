@@ -73,7 +73,8 @@ TriangleMesh::TriangleMesh(
     for (unsigned v = 0; v < numVertices; v++)
         m_bounds.grow(m_positions[v]);
 
-    g_stats.memory.geometryLoaded += sizeBytes();
+    // Ignore memory required by the class itself
+    g_stats.memory.geometryLoaded += sizeBytes() - sizeof(decltype(*this));
 }
 
 TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh)
@@ -102,12 +103,12 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
         std::memcpy(m_uvCoords.get(), serializedTriangleMesh->uvCoords()->data(), serializedTriangleMesh->uvCoords()->size());
     }
 
-    g_stats.memory.geometryLoaded += sizeBytes();
+    g_stats.memory.geometryLoaded += sizeBytes() - sizeof(decltype(*this));
 }
 
 TriangleMesh::~TriangleMesh()
 {
-    g_stats.memory.geometryEvicted += sizeBytes();
+    g_stats.memory.geometryEvicted += sizeBytes() - sizeof(decltype(*this));
 }
 
 flatbuffers::Offset<serialization::TriangleMesh> TriangleMesh::serialize(flatbuffers::FlatBufferBuilder& builder) const
@@ -419,8 +420,10 @@ std::vector<TriangleMesh> TriangleMesh::loadFromFile(const std::string_view file
 size_t TriangleMesh::sizeBytes() const
 {
     size_t size = sizeof(TriangleMesh);
-    size += m_numTriangles * sizeof(glm::ivec3); // triangles
-    size += m_numVertices * sizeof(glm::vec3); // positions
+    if (m_triangles)// nullptr if moved
+        size += m_numTriangles * sizeof(glm::ivec3); // triangles
+    if (m_positions)// nullptr if moved
+        size += m_numVertices * sizeof(glm::vec3); // positions
     if (m_normals)
         size += m_numVertices * sizeof(glm::vec3); // normals
     if (m_tangents)
