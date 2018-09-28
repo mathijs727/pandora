@@ -70,8 +70,9 @@ TriangleMesh::TriangleMesh(
     , m_tangents(std::move(tangents))
     , m_uvCoords(std::move(uvCoords))
 {
-    for (unsigned v = 0; v < numVertices; v++)
+    for (unsigned v = 0; v < numVertices; v++) {
         m_bounds.grow(m_positions[v]);
+    }
 
     // Ignore memory required by the class itself
     g_stats.memory.geometryLoaded += sizeBytes() - sizeof(decltype(*this));
@@ -103,6 +104,8 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
         std::memcpy(m_uvCoords.get(), serializedTriangleMesh->uvCoords()->data(), serializedTriangleMesh->uvCoords()->size());
     }
 
+    m_bounds = Bounds(*serializedTriangleMesh->bounds());
+
     g_stats.memory.geometryLoaded += sizeBytes() - sizeof(decltype(*this));
 }
 
@@ -133,6 +136,7 @@ flatbuffers::Offset<serialization::TriangleMesh> TriangleMesh::serialize(flatbuf
     if (m_uvCoords)
         uvCoords = builder.CreateVector(reinterpret_cast<const int8_t*>(m_uvCoords.get()), m_numVertices * sizeof(glm::vec2));
 
+    auto bounds = m_bounds.serialize();
     return serialization::CreateTriangleMesh(
         builder,
         m_numTriangles,
@@ -141,7 +145,8 @@ flatbuffers::Offset<serialization::TriangleMesh> TriangleMesh::serialize(flatbuf
         positions,
         normals,
         tangents,
-        uvCoords);
+        uvCoords,
+        &bounds);
 }
 
 TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
@@ -591,6 +596,9 @@ void TriangleMesh::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Tra
             transform.transformPoint(m_positions[triangle[1]]),
             transform.transformPoint(m_positions[triangle[2]])
         };
+        ALWAYS_ASSERT(m_bounds.contains(v[0]));
+        ALWAYS_ASSERT(m_bounds.contains(v[1]));
+        ALWAYS_ASSERT(m_bounds.contains(v[2]));
         glm::vec3 e[3] = { v[1] - v[0], v[2] - v[1], v[0] - v[2] };
         glm::vec3 n = glm::cross(e[0], e[1]);
 

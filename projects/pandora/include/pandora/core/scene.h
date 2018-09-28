@@ -84,7 +84,7 @@ public:
     void addSceneObject(std::unique_ptr<OOCSceneObject>&& sceneNode);
     void addInfiniteLight(const std::shared_ptr<Light>& light);
 
-    //void splitLargeSceneObjects(unsigned maxPrimitivesPerSceneObject);
+    void splitLargeOOCSceneObjects(unsigned maxPrimitivesPerSceneObject);
 
     gsl::span<const std::unique_ptr<InCoreSceneObject>> getInCoreSceneObjects() const;
     gsl::span<const std::unique_ptr<OOCSceneObject>> getOOCSceneObjects() const;

@@ -64,7 +64,7 @@ int main(int argc, char** argv)
     auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));*/
 
-    //scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
+    //renderConfig.scene.splitLargeOOCSceneObjects(10000);
 
     auto integratorType = vm["integrator"].as<std::string>();
     int spp = vm["spp"].as<int>();

@@ -1,4 +1,6 @@
 #include "pandora/scene/geometric_scene_object.h"
+#include <fstream>
+#include <mio/mmap.hpp>
 
 namespace pandora {
 
@@ -97,6 +99,11 @@ Bounds GeometricSceneObjectGeometry::worldBoundsPrimitive(unsigned primitiveID) 
     return m_mesh->getPrimitiveBounds(primitiveID);
 }
 
+Bounds GeometricSceneObjectGeometry::worldBounds() const
+{
+    return m_mesh->getBounds();
+}
+
 unsigned GeometricSceneObjectGeometry::numPrimitives() const
 {
     return m_mesh->numTriangles();
@@ -114,6 +121,7 @@ SurfaceInteraction GeometricSceneObjectGeometry::fillSurfaceInteraction(const Ra
 
 void GeometricSceneObjectGeometry::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const
 {
+    assert(gridBounds.contains(m_mesh->getBounds()));
     return m_mesh->voxelize(grid, gridBounds, transform);
 }
 
@@ -169,9 +177,7 @@ OOCGeometricSceneObject::OOCGeometricSceneObject(
     , m_material(material)
 {
     auto geometry = getGeometryBlocking();
-    for (unsigned primID = 0; primID < geometry->numPrimitives(); primID++) {
-        m_worldBounds.extend(geometry->worldBoundsPrimitive(primID));
-    }
+    m_worldBounds = dynamic_cast<const GeometricSceneObjectGeometry*>(geometry.get())->worldBounds();
     m_numPrimitives = geometry->numPrimitives();
 }
 
@@ -183,9 +189,7 @@ OOCGeometricSceneObject::OOCGeometricSceneObject(
     , m_material(material)
 {
     auto geometry = getGeometryBlocking();
-    for (unsigned primID = 0; primID < geometry->numPrimitives(); primID++) {
-        m_worldBounds.extend(geometry->worldBoundsPrimitive(primID));
-    }
+    m_worldBounds = dynamic_cast<const GeometricSceneObjectGeometry*>(geometry.get())->worldBounds();
     m_numPrimitives = geometry->numPrimitives();
 
     // Get the mesh (should already be in cache because of the above call)
@@ -207,7 +211,8 @@ unsigned OOCGeometricSceneObject::numPrimitives() const
 std::unique_ptr<SceneObjectGeometry> OOCGeometricSceneObject::getGeometryBlocking() const
 {
     // Can't use std::make_unique because GeometricSceneObjectGeometry constructor is private (OOCGeometricSceneObject is a friend)
-    return std::unique_ptr<GeometricSceneObjectGeometry>(new GeometricSceneObjectGeometry(m_geometryHandle.getBlocking()));
+    return std::unique_ptr<GeometricSceneObjectGeometry>(
+        new GeometricSceneObjectGeometry(m_geometryHandle.getBlocking()));
 }
 
 std::unique_ptr<SceneObjectMaterial> OOCGeometricSceneObject::getMaterialBlocking() const
@@ -222,6 +227,46 @@ std::unique_ptr<SceneObjectMaterial> OOCGeometricSceneObject::getMaterialBlockin
             new GeometricSceneObjectMaterial(
                 m_material));
     }
+}
+
+OOCGeometricSceneObject OOCGeometricSceneObject::geometricSplit(FifoCache<TriangleMesh>* cache, std::string_view filename, gsl::span<unsigned> primitiveIDs)
+{
+    // Splitting of area light meshes is not supported yet (requires some work / refactoring)
+    ALWAYS_ASSERT(m_areaLights.empty() && !m_areaLightMeshOwner);
+
+    auto geometry = m_geometryHandle.getBlocking();
+    auto subGeometry = geometry->subMesh(primitiveIDs);
+
+    auto subBounds = subGeometry.getBounds();
+    auto subNumPrimitives = subGeometry.numTriangles();
+
+    flatbuffers::FlatBufferBuilder fbb;
+    auto serializedSubMesh = subGeometry.serialize(fbb);
+    fbb.Finish(serializedSubMesh);
+
+    std::ofstream file;
+    file.open(filename.data(), std::ios::out | std::ios::binary | std::ios::trunc);
+    file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
+    file.close();
+
+    std::cout << filename << ": " << subGeometry.numTriangles() << " - " << primitiveIDs.size() << std::endl;
+
+    auto resourceID = cache->emplaceFactoryUnsafe([filename = std::string(filename), numPrims = primitiveIDs.size()]() {
+        auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
+        auto serializedMesh = serialization::GetTriangleMesh(mmapFile.data());
+        return TriangleMesh(serializedMesh);
+    });
+    EvictableResourceHandle<TriangleMesh> subGeometryHandle(cache, resourceID);
+
+    return OOCGeometricSceneObject(subBounds, subNumPrimitives, subGeometryHandle, m_material);
+}
+
+OOCGeometricSceneObject::OOCGeometricSceneObject(const Bounds& bounds, unsigned numPrimitives, const EvictableResourceHandle<TriangleMesh>& geometryHandle, const std::shared_ptr<const Material>& material)
+    : m_worldBounds(bounds)
+    , m_numPrimitives(numPrimitives)
+    , m_geometryHandle(geometryHandle)
+    , m_material(material)
+{
 }
 
 }

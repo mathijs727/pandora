@@ -1,4 +1,5 @@
 #include "pandora/geometry/bounds.h"
+#include "pandora/flatbuffers/data_conversion.h"
 #include <algorithm>
 
 namespace pandora {
@@ -13,6 +14,17 @@ Bounds::Bounds(glm::vec3 lower, glm::vec3 upper)
     : min(lower)
     , max(upper)
 {
+}
+
+Bounds::Bounds(const serialization::Bounds& serialized)
+    : min(deserialize(serialized.min()))
+    , max(deserialize(serialized.max()))
+{
+}
+
+bool Bounds::operator==(const Bounds& other) const
+{
+    return min == other.min && max == other.max;
 }
 
 void Bounds::reset()
@@ -100,6 +112,21 @@ bool Bounds::intersect(const Ray& ray, float& tmin, float& tmax) const
     // See the comment section at:
     //  https://tavianator.com/fast-branchless-raybounding-box-intersections/
     return tmax >= tmin && tmax >= 0.0f;
+}
+
+bool Bounds::contains(const glm::vec3& point) const
+{
+    return glm::all(glm::greaterThanEqual(point, min)) && glm::all(glm::lessThanEqual(point, max));
+}
+
+bool Bounds::contains(const Bounds& other) const
+{
+    return contains(other.min) && contains(other.max);
+}
+
+serialization::Bounds Bounds::serialize() const
+{
+    return serialization::Bounds(pandora::serialize(min), pandora::serialize(max));
 }
 
 }

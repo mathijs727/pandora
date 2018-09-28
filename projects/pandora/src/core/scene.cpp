@@ -4,12 +4,11 @@
 #include "pandora/scene/instanced_scene_object.h"
 #include <embree3/rtcore.h>
 #include <iostream>
+#include <numeric>
 #include <tbb/concurrent_vector.h>
 #include <unordered_set>
-#include <numeric>
 
 //static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
-
 
 namespace pandora {
 
@@ -254,6 +253,132 @@ std::vector<std::vector<const OOCSceneObject*>> groupSceneObjects(
     rtcReleaseBVH(bvh);
     rtcReleaseDevice(device);
     return ret;
+}
+
+void Scene::splitLargeOOCSceneObjects(unsigned approximatePrimsPerObject)
+{
+    const auto embreeErrorFunc = [](void* userPtr, const RTCError code, const char* str) {
+        switch (code) {
+        case RTC_ERROR_NONE:
+            std::cout << "RTC_ERROR_NONE";
+            break;
+        case RTC_ERROR_UNKNOWN:
+            std::cout << "RTC_ERROR_UNKNOWN";
+            break;
+        case RTC_ERROR_INVALID_ARGUMENT:
+            std::cout << "RTC_ERROR_INVALID_ARGUMENT";
+            break;
+        case RTC_ERROR_INVALID_OPERATION:
+            std::cout << "RTC_ERROR_INVALID_OPERATION";
+            break;
+        case RTC_ERROR_OUT_OF_MEMORY:
+            std::cout << "RTC_ERROR_OUT_OF_MEMORY";
+            break;
+        case RTC_ERROR_UNSUPPORTED_CPU:
+            std::cout << "RTC_ERROR_UNSUPPORTED_CPU";
+            break;
+        case RTC_ERROR_CANCELLED:
+            std::cout << "RTC_ERROR_CANCELLED";
+            break;
+        }
+
+        std::cout << ": " << str << std::endl;
+    };
+
+    RTCDevice device = rtcNewDevice(nullptr);
+    rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);
+
+    int outFileCount = 0;
+    std::vector<std::unique_ptr<OOCSceneObject>> outSceneObjects;
+    for (auto& sceneObject : m_oocSceneObjects) {
+        if (sceneObject->numPrimitives() < approximatePrimsPerObject) {
+            outSceneObjects.push_back(std::move(sceneObject));
+            continue;
+        }
+
+        auto* geometricSceneObject = dynamic_cast<OOCGeometricSceneObject*>(sceneObject.get());
+        if (!geometricSceneObject) {
+            outSceneObjects.push_back(std::move(sceneObject));
+            continue; // Instanced scene objects are not split
+        }
+
+        // NOTE: if we want to support splitting area lights than the old lights should be removed from the
+        // lights array. We should than also make sure that the new lights are always added in the same order
+        // to prevent race conditions.
+        ALWAYS_ASSERT(sceneObject->getMaterialBlocking()->areaLights().empty());
+
+        auto sceneObjectGeometry = sceneObject->getGeometryBlocking();
+
+        std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
+        embreeBuildPrimitives.reserve(sceneObject->numPrimitives());
+        for (unsigned primID = 0; primID < sceneObject->numPrimitives(); primID++) {
+            auto bounds = sceneObjectGeometry->worldBoundsPrimitive(primID);
+
+            RTCBuildPrimitive primitive;
+            primitive.lower_x = bounds.min.x;
+            primitive.lower_y = bounds.min.y;
+            primitive.lower_z = bounds.min.z;
+            primitive.upper_x = bounds.max.x;
+            primitive.upper_y = bounds.max.y;
+            primitive.upper_z = bounds.max.z;
+            primitive.geomID = 0;
+            primitive.primID = primID;
+            embreeBuildPrimitives.push_back(primitive);
+        }
+
+        // Build the BVH using the Embree BVH builder API
+        RTCBVH bvh = rtcNewBVH(device);
+
+        tbb::concurrent_vector<gsl::span<unsigned>> primitiveGroups;
+        RTCBuildArguments arguments = rtcDefaultBuildArguments();
+        arguments.byteSize = sizeof(arguments);
+        arguments.buildFlags = RTC_BUILD_FLAG_NONE;
+        arguments.buildQuality = RTC_BUILD_QUALITY_MEDIUM;
+        arguments.maxBranchingFactor = 2;
+        arguments.minLeafSize = approximatePrimsPerObject; // Stop splitting when number of prims is below minLeafSize
+        arguments.maxLeafSize = approximatePrimsPerObject; // This is a hard constraint (always split when number of prims is larger than maxLeafSize)
+        arguments.bvh = bvh;
+        arguments.primitives = embreeBuildPrimitives.data();
+        arguments.primitiveCount = embreeBuildPrimitives.size();
+        arguments.primitiveArrayCapacity = embreeBuildPrimitives.capacity();
+        arguments.userPtr = &primitiveGroups;
+        arguments.createNode = [](RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr) -> void* {
+            return nullptr;
+        };
+        arguments.setNodeChildren = [](void* voidNodePtr, void** childPtr, unsigned numChildren, void* userPtr) {};
+        arguments.setNodeBounds = [](void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr) {};
+        arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
+            auto* primsMem = rtcThreadLocalAlloc(alloc, numPrims * sizeof(unsigned), 8);
+            unsigned* primitiveIDs = reinterpret_cast<unsigned*>(primsMem);
+
+            for (size_t i = 0; i < numPrims; i++) {
+                primitiveIDs[i] = prims[i].primID;
+            }
+
+            auto primitiveGroups = reinterpret_cast<tbb::concurrent_vector<gsl::span<unsigned>>*>(userPtr);
+            primitiveGroups->push_back(gsl::make_span(primitiveIDs, numPrims));
+            return nullptr;
+        };
+
+        rtcBuildBVH(&arguments); // Fill primitiveGroups vector
+
+        for (auto primitiveGroup : primitiveGroups) {
+            std::string filename = "tmp/submesh";
+            filename += std::to_string(outFileCount++);
+            filename += ".bin";
+
+            auto splitSceneObject = geometricSceneObject->geometricSplit(m_geometryCache.get(), filename, primitiveGroup);
+            outSceneObjects.emplace_back(new OOCGeometricSceneObject(std::move(splitSceneObject)));
+        }
+
+        // Free Embree memory (including memory allocated with rtcThreadLocalAlloc)
+        rtcReleaseBVH(bvh);
+    }
+
+    // Free Embree memory
+    rtcReleaseDevice(device);
+
+    m_oocSceneObjects = std::move(outSceneObjects);
 }
 
 /*struct SplitSceneBVHNode {

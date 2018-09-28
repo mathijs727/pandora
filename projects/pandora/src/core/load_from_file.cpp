@@ -402,28 +402,29 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
         taskGroup.wait();
 
         // Create scene objects
-        std::mutex sceneMutex;
-        for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
+        // NOTE: create in parallel but make sure to add them to the scene in a fixed order. This ensures that the
+        //       area lights are added in the same order, thus light sampling is deterministic between runs.
+        std::vector<std::unique_ptr<OOCSceneObject>> sceneObjects(sceneJson["scene_objects"].size());
+        for (size_t i = 0; i < sceneJson["scene_objects"].size() - 1; i++) {
+            const auto jsonSceneObject = sceneJson["scene_objects"][i];
             if (jsonSceneObject["instancing"].get<bool>()) {
                 glm::mat4 transform = readMat4(jsonSceneObject["transform"]);
                 auto baseSceneObject = baseSceneObjects[jsonSceneObject["base_scene_object_id"].get<int>()];
                 auto instancedSceneObject = std::make_unique<OOCInstancedSceneObject>(transform, baseSceneObject);
-                {
-                    std::scoped_lock<std::mutex> l(sceneMutex);
-                    config.scene.addSceneObject(std::move(instancedSceneObject));
-                }
+                sceneObjects[i] = std::move(instancedSceneObject);
             } else {
                 auto sceneObjectFactory = geomSceneObjectFactoryFunc(jsonSceneObject);
-                taskGroup.run([&sceneMutex, &config, sceneObjectFactory]() {
-                    auto sceneObject = sceneObjectFactory();
-                    if (sceneObject) {
-                        std::scoped_lock<std::mutex> l(sceneMutex);
-                        config.scene.addSceneObject(std::move(sceneObject));
-                    }
+                taskGroup.run([&sceneObjects, i, sceneObjectFactory]() {
+                    sceneObjects[i] = sceneObjectFactory();
                 });
             }
         }
         taskGroup.wait();
+        for (auto& sceneObject : sceneObjects) {
+            if (sceneObject) {
+                config.scene.addSceneObject(std::move(sceneObject));
+            }
+        }
 
         // Load lights
         for (const auto jsonLight : sceneJson["lights"]) {

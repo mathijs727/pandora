@@ -18,7 +18,7 @@ serialization::Mat4 serialize(const glm::mat4& m)
         m[3][0], m[3][1], m[3][2], m[3][3]);
 }
 
-glm::vec3 deserialize(serialization::Vec3& v)
+glm::vec3 deserialize(const serialization::Vec3& v)
 {
     return glm::vec3(v.x(), v.y(), v.z());
 }

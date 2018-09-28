@@ -12,6 +12,7 @@ public:
 
     flatbuffers::Offset<serialization::GeometricSceneObjectGeometry> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
+    Bounds worldBounds() const;
     Bounds worldBoundsPrimitive(unsigned primitiveID) const override final;
 
     unsigned numPrimitives() const override final;
@@ -108,12 +109,20 @@ public:
     std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
     std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
 
+    OOCGeometricSceneObject geometricSplit(FifoCache<TriangleMesh>* cache, std::string_view filename, gsl::span<unsigned> primitiveIDs);
+
 private:
     friend class OOCInstancedSceneObject;
+
+    OOCGeometricSceneObject(
+        const Bounds& bounds,
+        unsigned numPrimitives,
+        const EvictableResourceHandle<TriangleMesh>& geometryHandle,
+        const std::shared_ptr<const Material>& material);
 private:
     Bounds m_worldBounds;
-    unsigned m_numPrimitives;
-    EvictableResourceHandle<TriangleMesh> m_geometryHandle;
+    unsigned m_numPrimitives = 0;
+    const EvictableResourceHandle<TriangleMesh> m_geometryHandle;
 
     std::shared_ptr<const Material> m_material;
 

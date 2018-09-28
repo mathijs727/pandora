@@ -203,6 +203,9 @@ inline void FifoCache<T>::evict(size_t bytesToEvict)
 
         if (m_cacheHistory.try_pop(sharedResourcePtr)) {
             bytesEvicted += sharedResourcePtr->sizeBytes();
+        } else {
+            // Cache empty, stop evicting to prevent a deadlock.
+            break;
         }
     }
     m_evictCallback(bytesEvicted);
