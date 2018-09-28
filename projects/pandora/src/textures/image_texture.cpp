@@ -13,11 +13,11 @@ using namespace std::string_literals;
 namespace pandora {
 
 template <class T>
-ImageTexture<T>::ImageTexture(std::string_view filename)
+ImageTexture<T>::ImageTexture(std::filesystem::path filePath)
 {
-    auto in = OIIO::ImageInput::open(std::string(filename));
+    auto in = OIIO::ImageInput::open(filePath.string());
     if (!in) {
-        THROW_ERROR("Could not open texture file "s + std::string(filename));
+        THROW_ERROR("Could not open texture file "s + filePath.string());
     }
 
     const auto& spec = in->spec();

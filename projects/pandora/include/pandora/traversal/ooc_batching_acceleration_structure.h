@@ -13,23 +13,22 @@
 #include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/growing_free_list_ts.h"
-#include <array>
 #include <atomic>
-#include <bitset>
-#include <glm/gtc/matrix_transform.hpp>
+#include <filesystem>
 #include <gsl/gsl>
 #include <memory>
 #include <mutex>
 #include <numeric>
 #include <optional>
-#include <tbb/concurrent_unordered_set.h>
+#include <string>
 #include <tbb/concurrent_vector.h>
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/flow_graph.h>
 #include <tbb/parallel_for_each.h>
 #include <tbb/parallel_sort.h>
-#include <tbb/reader_writer_lock.h>
 #include <tbb/task_group.h>
+
+using namespace std::string_literals;
 
 namespace pandora {
 
@@ -47,6 +46,7 @@ public:
 public:
     OOCBatchingAccelerationStructure(
         size_t geometryCacheSize,
+        std::filesystem::path scratchFolder,
         const Scene& scene,
         HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
     ~OOCBatchingAccelerationStructure() = default;
@@ -187,7 +187,7 @@ private:
         };
 
         TopLevelLeafNode(
-            std::string_view cacheFilename,
+            std::filesystem::path cacheFile,
             gsl::span<const OOCSceneObject*> sceneObjects,
             FifoCache<GeometryData>* geometryCache,
             OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
@@ -212,7 +212,7 @@ private:
 
     private:
         static EvictableResourceID generateCachedBVH(
-            std::string_view filename,
+            std::filesystem::path cacheFile,
             gsl::span<const OOCSceneObject*> sceneObjects,
             FifoCache<GeometryData>* cache);
 
@@ -234,7 +234,7 @@ private:
     };
 
     static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(
-        std::string_view cacheFolder,
+        std::filesystem::path scratchFolder,
         FifoCache<typename TopLevelLeafNode::GeometryData>* cache,
         gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
         OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
@@ -254,6 +254,7 @@ private:
 template <typename UserState, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, BatchSize>::OOCBatchingAccelerationStructure(
     size_t geometryCacheSize,
+    std::filesystem::path scratchFolder,
     const Scene& scene,
     HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
     : m_geometryCache(
@@ -261,7 +262,7 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::OOCBatchingAccele
           [](size_t bytes) { g_stats.memory.botLevelLoaded += bytes; },
           [](size_t bytes) { g_stats.memory.botLevelEvicted += bytes; })
     , m_batchAllocator()
-    , m_bvh(std::move(buildBVH("ooc_node_cache/", &m_geometryCache, scene.getOOCSceneObjects(), this)))
+    , m_bvh(std::move(buildBVH(scratchFolder, &m_geometryCache, scene.getOOCSceneObjects(), this)))
     , m_threadLocalPreallocatedRaybatch([&]() { return m_batchAllocator.allocate(); })
     , m_hitCallback(hitCallback)
     , m_anyHitCallback(anyHitCallback)
@@ -364,19 +365,24 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
 
 template <typename UserState, size_t BatchSize>
 inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode, UserState> OOCBatchingAccelerationStructure<UserState, BatchSize>::buildBVH(
-    std::string_view cacheFolder,
+    std::filesystem::path scratchFolder,
     FifoCache<typename TopLevelLeafNode::GeometryData>* cache,
     gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
     OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
 {
+    if (!std::filesystem::exists(scratchFolder)) {
+        std::filesystem::create_directories(scratchFolder);
+    }
+    ALWAYS_ASSERT(std::filesystem::is_directory(scratchFolder));
+
     auto sceneObjectGroups = groupSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF, sceneObjects);
 
     std::mutex m;
     std::vector<TopLevelLeafNode> leafs;
     tbb::parallel_for(tbb::blocked_range<size_t>(0llu, sceneObjectGroups.size()), [&](tbb::blocked_range<size_t> localRange) {
         for (size_t i = localRange.begin(); i < localRange.end(); i++) {
-            std::string cacheFilename = std::string(cacheFolder) + "node" + std::to_string(i) + ".bin";
-            TopLevelLeafNode leaf(cacheFilename, sceneObjectGroups[i], cache, accelerationStructurePtr);
+            std::filesystem::path cacheFile = scratchFolder / ("node"s + std::to_string(i) + ".bin"s);
+            TopLevelLeafNode leaf(cacheFile, sceneObjectGroups[i], cache, accelerationStructurePtr);
             {
                 std::scoped_lock<std::mutex> l(m);
                 leafs.push_back(std::move(leaf));
@@ -391,11 +397,11 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
 
 template <typename UserState, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(
-    std::string_view cacheFilename,
+    std::filesystem::path cacheFile,
     gsl::span<const OOCSceneObject*> sceneObjects,
     FifoCache<GeometryData>* geometryCache,
     OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructure)
-    : m_geometryDataCacheID(generateCachedBVH(cacheFilename, sceneObjects, geometryCache))
+    : m_geometryDataCacheID(generateCachedBVH(cacheFile, sceneObjects, geometryCache))
     , m_threadLocalActiveBatch([]() { return nullptr; })
     , m_immutableRayBatchList(nullptr)
     , m_accelerationStructurePtr(accelerationStructure)
@@ -417,7 +423,7 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
 
 template <typename UserState, size_t BatchSize>
 inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::generateCachedBVH(
-    std::string_view filename,
+    std::filesystem::path cacheFilePath,
     gsl::span<const OOCSceneObject*> sceneObjects,
     FifoCache<GeometryData>* cache)
 {
@@ -522,12 +528,12 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
     fbb.Finish(serializedTopLevelLeafNode);
 
     std::ofstream file;
-    file.open(filename.data(), std::ios::out | std::ios::binary | std::ios::trunc);
+    file.open(cacheFilePath, std::ios::out | std::ios::binary | std::ios::trunc);
     file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
     file.close();
 
-    auto resourceID = cache->emplaceFactoryThreadSafe([filename = std::string(filename), geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects)]() -> GeometryData {
-        auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
+    auto resourceID = cache->emplaceFactoryThreadSafe([cacheFilePath, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects)]() -> GeometryData {
+        auto mmapFile = mio::mmap_source(cacheFilePath.string(), 0, mio::map_entire_file);
         auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(mmapFile.data());
 
         /*std::ifstream file(filename, std::ios::binary | std::ios::ate);
@@ -617,10 +623,6 @@ inline std::pair<SparseVoxelDAG, typename OOCBatchingAccelerationStructure<UserS
 
     // SVO is at (1, 1, 1) to (2, 2, 2)
     float maxDim = maxComponent(gridBounds.extent());
-    glm::mat4 worldToSVO(1.0f);
-    worldToSVO = glm::translate(worldToSVO, glm::vec3(1.0f));
-    worldToSVO = glm::scale(worldToSVO, glm::vec3(1.0f / maxDim));
-    worldToSVO = glm::translate(worldToSVO, glm::vec3(-gridBounds.min));
 
     SparseVoxelDAG svdag(voxelGrid);
     // NOTE: the svdags are already being compressed together. Compressing here too will cost more compute power but will reduce memory usage.
@@ -845,13 +847,12 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeaf
     }
     SparseVoxelDAG::compressDAGs(dags);
 
-    for (const auto* dag : dags)
-    {
+    for (const auto* dag : dags) {
         g_stats.memory.svdags += dag->sizeBytes();
     }
 }
 
-template<typename UserState, size_t BatchSize>
+template <typename UserState, size_t BatchSize>
 inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::sizeBytes() const
 {
     size_t size = sizeof(decltype(*this));

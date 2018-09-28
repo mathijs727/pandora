@@ -7,8 +7,10 @@
 #include <numeric>
 #include <tbb/concurrent_vector.h>
 #include <unordered_set>
+#include <filesystem>
+#include <string>
 
-//static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
+using namespace std::string_literals;
 
 namespace pandora {
 
@@ -257,6 +259,11 @@ std::vector<std::vector<const OOCSceneObject*>> groupSceneObjects(
 
 void Scene::splitLargeOOCSceneObjects(unsigned approximatePrimsPerObject)
 {
+    std::filesystem::path outFolder("./split_scene_objects/");
+    if (!std::filesystem::exists(outFolder)) {
+        std::filesystem::create_directories(outFolder);
+    }
+
     const auto embreeErrorFunc = [](void* userPtr, const RTCError code, const char* str) {
         switch (code) {
         case RTC_ERROR_NONE:
@@ -363,11 +370,9 @@ void Scene::splitLargeOOCSceneObjects(unsigned approximatePrimsPerObject)
         rtcBuildBVH(&arguments); // Fill primitiveGroups vector
 
         for (auto primitiveGroup : primitiveGroups) {
-            std::string filename = "tmp/submesh";
-            filename += std::to_string(outFileCount++);
-            filename += ".bin";
+            std::filesystem::path outFile = outFolder / ("submesh"s + std::to_string(outFileCount++) + ".bin"s);
 
-            auto splitSceneObject = geometricSceneObject->geometricSplit(m_geometryCache.get(), filename, primitiveGroup);
+            auto splitSceneObject = geometricSceneObject->geometricSplit(m_geometryCache.get(), outFile, primitiveGroup);
             outSceneObjects.emplace_back(new OOCGeometricSceneObject(std::move(splitSceneObject)));
         }
 

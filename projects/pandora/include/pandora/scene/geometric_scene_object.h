@@ -1,6 +1,7 @@
 #pragma once
 #include "pandora/core/scene.h"
 #include "pandora/flatbuffers/scene_generated.h"
+#include <filesystem>
 
 namespace pandora {
 
@@ -109,7 +110,7 @@ public:
     std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
     std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
 
-    OOCGeometricSceneObject geometricSplit(FifoCache<TriangleMesh>* cache, std::string_view filename, gsl::span<unsigned> primitiveIDs);
+    OOCGeometricSceneObject geometricSplit(FifoCache<TriangleMesh>* cache, std::filesystem::path filePath, gsl::span<unsigned> primitiveIDs);
 
 private:
     friend class OOCInstancedSceneObject;

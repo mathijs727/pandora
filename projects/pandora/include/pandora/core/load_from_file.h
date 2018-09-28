@@ -3,6 +3,7 @@
 #include "pandora/core/scene.h"
 #include <glm/glm.hpp>
 #include <string_view>
+#include <filesystem>
 
 namespace pandora {
 
@@ -17,7 +18,7 @@ struct RenderConfig {
     Scene scene;
 };
 
-RenderConfig loadFromFile(std::string_view filename, bool loadMaterials = true);
-RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials = true);
+RenderConfig loadFromFile(std::filesystem::path filePath , bool loadMaterials = true);
+RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials = true);
 
 }

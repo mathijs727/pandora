@@ -59,7 +59,7 @@ SurfaceInteraction InCoreGeometricSceneObject::fillSurfaceInteraction(const Ray&
 
 size_t InCoreGeometricSceneObject::sizeBytes() const
 {
-    return sizeof(decltype(*this)) + m_geometricProperties.sizeBytes(); // + m_materialProperties.size();
+    return sizeof(decltype(*this)) + m_geometricProperties.sizeBytes();
 }
 
 void InCoreGeometricSceneObject::computeScatteringFunctions(
@@ -229,7 +229,7 @@ std::unique_ptr<SceneObjectMaterial> OOCGeometricSceneObject::getMaterialBlockin
     }
 }
 
-OOCGeometricSceneObject OOCGeometricSceneObject::geometricSplit(FifoCache<TriangleMesh>* cache, std::string_view filename, gsl::span<unsigned> primitiveIDs)
+OOCGeometricSceneObject OOCGeometricSceneObject::geometricSplit(FifoCache<TriangleMesh>* cache, std::filesystem::path filePath, gsl::span<unsigned> primitiveIDs)
 {
     // Splitting of area light meshes is not supported yet (requires some work / refactoring)
     ALWAYS_ASSERT(m_areaLights.empty() && !m_areaLightMeshOwner);
@@ -245,14 +245,14 @@ OOCGeometricSceneObject OOCGeometricSceneObject::geometricSplit(FifoCache<Triang
     fbb.Finish(serializedSubMesh);
 
     std::ofstream file;
-    file.open(filename.data(), std::ios::out | std::ios::binary | std::ios::trunc);
+    file.open(filePath, std::ios::out | std::ios::binary | std::ios::trunc);
     file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
     file.close();
 
-    std::cout << filename << ": " << subGeometry.numTriangles() << " - " << primitiveIDs.size() << std::endl;
+    std::cout << filePath << ": " << subGeometry.numTriangles() << " - " << primitiveIDs.size() << std::endl;
 
-    auto resourceID = cache->emplaceFactoryUnsafe([filename = std::string(filename), numPrims = primitiveIDs.size()]() {
-        auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
+    auto resourceID = cache->emplaceFactoryUnsafe([filePath, numPrims = primitiveIDs.size()]() {
+        auto mmapFile = mio::mmap_source(filePath.string(), 0, mio::map_entire_file);
         auto serializedMesh = serialization::GetTriangleMesh(mmapFile.data());
         return TriangleMesh(serializedMesh);
     });

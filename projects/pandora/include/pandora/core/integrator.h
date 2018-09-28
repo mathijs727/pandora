@@ -39,6 +39,7 @@ inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& senso
     : m_scene(scene)
     , m_accelerationStructure(
           1024llu * 1024llu * 1000, // Geometry memory limit
+          std::filesystem::path("./ooc_node_cache/"),
           scene,
           //scene.getInCoreSceneObjects(),
           [this](const Ray& r, const SurfaceInteraction& si, const IntegratorState& s, const InsertHandle& h) {

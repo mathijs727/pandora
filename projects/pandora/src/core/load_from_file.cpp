@@ -19,6 +19,9 @@
 #include <tbb/task_group.h>
 #include <tuple>
 #include <vector>
+#include <string>
+
+using namespace std::string_literals;
 
 namespace pandora {
 
@@ -47,12 +50,12 @@ static glm::vec3 readVec3(nlohmann::json json)
     return glm::vec3 { json[0].get<float>(), json[1].get<float>(), json[2].get<float>() };
 }
 
-RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
+RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 {
     // Read file and parse json
     nlohmann::json json;
     {
-        std::ifstream file(filename.data());
+        std::ifstream file(filePath);
         if (!file.is_open())
             THROW_ERROR("Could not open scene file");
 
@@ -95,8 +98,8 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
                     float value = arguments["value"].get<float>();
                     _floatTextures[texID] = std::make_shared<ConstantTexture<float>>(value);
                 } else if (textureClass == "imagemap") {
-                    auto filename = arguments["filename"].get<std::string>();
-                    _floatTextures[texID] = std::make_shared<ImageTexture<float>>(filename);
+                    auto textureFile = std::filesystem::path(arguments["filename"].get<std::string>());
+                    _floatTextures[texID] = std::make_shared<ImageTexture<float>>(textureFile);
                 } else {
                     std::cout << "Unknown texture class \"" << textureClass << "\"! Substituting with placeholder..." << std::endl;
                     _floatTextures[texID] = dummyFloatTexture;
@@ -117,8 +120,8 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
                     glm::vec3 value = readVec3(arguments["value"]);
                     _colorTextures[texID] = std::make_shared<ConstantTexture<glm::vec3>>(value);
                 } else if (textureClass == "imagemap") {
-                    auto filename = arguments["filename"].get<std::string>();
-                    _colorTextures[texID] = std::make_shared<ImageTexture<glm::vec3>>(filename);
+                    auto textureFile = std::filesystem::path(arguments["filename"].get<std::string>());
+                    _colorTextures[texID] = std::make_shared<ImageTexture<glm::vec3>>(textureFile);
                 } else {
                     std::cout << "Unknown texture class \"" << textureClass << "\"! Substituting with placeholder..." << std::endl;
                     _colorTextures[texID] = dummyColorTexture;
@@ -153,19 +156,19 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
         std::vector<std::shared_ptr<TriangleMesh>> geometry;
         for (const auto jsonGeometry : sceneJson["geometry"]) {
             auto geometryType = jsonGeometry["type"].get<std::string>();
-            auto filename = jsonGeometry["filename"].get<std::string>();
+            auto geometryFile = std::filesystem::path(jsonGeometry["filename"].get<std::string>());
 
-            if (filename.substr(filename.size() - 3, 3) == "bin") {
+            if (geometryFile.extension() == ".bin"s) {
                 glm::mat4 transform = readMat4(jsonGeometry["transform"]);
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
 
-                std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(filename, startByte, sizeBytes, transform);
+                std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, startByte, sizeBytes, transform);
                 ALWAYS_ASSERT(meshOpt.has_value());
                 geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
             } else {
                 glm::mat4 transform = readMat4(jsonGeometry["transform"]);
-                std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(filename, transform);
+                std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, transform);
                 ALWAYS_ASSERT(meshOpt.has_value());
                 geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
             }
@@ -230,12 +233,12 @@ RenderConfig loadFromFile(std::string_view filename, bool loadMaterials)
     return std::move(config);
 }
 
-RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
+RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
 {
     // Read file and parse json
     nlohmann::json json;
     {
-        std::ifstream file(filename.data());
+        std::ifstream file(filePath);
         if (!file.is_open())
             THROW_ERROR("Could not open scene file");
 
@@ -255,8 +258,6 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
         float cameraFov = cameraJson["fov"].get<float>();
 
         glm::mat4 cameraToWorldTransform = readMat4(cameraJson["camera_to_world_transform"]);
-        //glm::vec4 position = cameraTransform * glm::vec4(0, 0, 0, 1);
-        //std::cout << "Camera pos: [" << position.x << ", " << position.y << ", " << position.z << ", " << position.w << "]" << std::endl;
         config.camera = std::make_unique<PerspectiveCamera>(resolution, cameraFov, cameraToWorldTransform);
         config.resolution = resolution;
     }
@@ -278,8 +279,8 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
                     float value = arguments["value"].get<float>();
                     _floatTextures[texID] = std::make_shared<ConstantTexture<float>>(value);
                 } else if (textureClass == "imagemap") {
-                    auto filename = arguments["filename"].get<std::string>();
-                    _floatTextures[texID] = std::make_shared<ImageTexture<float>>(filename);
+                    auto textureFile = std::filesystem::path(arguments["filename"].get<std::string>());
+                    _floatTextures[texID] = std::make_shared<ImageTexture<float>>(textureFile);
                 } else {
                     std::cout << "Unknown texture class \"" << textureClass << "\"! Substituting with placeholder..." << std::endl;
                     _floatTextures[texID] = dummyFloatTexture;
@@ -300,8 +301,8 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
                     glm::vec3 value = readVec3(arguments["value"]);
                     _colorTextures[texID] = std::make_shared<ConstantTexture<glm::vec3>>(value);
                 } else if (textureClass == "imagemap") {
-                    auto filename = arguments["filename"].get<std::string>();
-                    _colorTextures[texID] = std::make_shared<ImageTexture<glm::vec3>>(filename);
+                    auto textureFile = std::filesystem::path(arguments["filename"].get<std::string>());
+                    _colorTextures[texID] = std::make_shared<ImageTexture<glm::vec3>>(textureFile);
                 } else {
                     std::cout << "Unknown texture class \"" << textureClass << "\"! Substituting with placeholder..." << std::endl;
                     _colorTextures[texID] = dummyColorTexture;
@@ -337,15 +338,15 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
         std::vector<EvictableResourceID> geometry;
         for (const auto jsonGeometry : sceneJson["geometry"]) {
             auto geometryType = jsonGeometry["type"].get<std::string>();
-            auto filename = jsonGeometry["filename"].get<std::string>();
+            auto geometryFile = std::filesystem::path(jsonGeometry["filename"].get<std::string>());
 
-            if (filename.substr(filename.size() - 3, 3) == "bin") {
+            if (geometryFile.extension() == ".bin"s) {
                 glm::mat4 transform = readMat4(jsonGeometry["transform"]);
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
 
                 auto resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
-                    std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(filename, startByte, sizeBytes, transform);
+                    std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, startByte, sizeBytes, transform);
                     ALWAYS_ASSERT(meshOpt.has_value());
                     return std::move(*meshOpt);
                 });
@@ -353,7 +354,7 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
             } else {
                 glm::mat4 transform = readMat4(jsonGeometry["transform"]);
                 auto resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
-                    std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(filename, transform);
+                    std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, transform);
                     ALWAYS_ASSERT(meshOpt.has_value());
                     return std::move(*meshOpt);
                 });

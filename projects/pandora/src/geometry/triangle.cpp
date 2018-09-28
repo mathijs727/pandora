@@ -259,14 +259,14 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
         std::move(uvCoords));
 }
 
-std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::string_view filename, size_t start, size_t length, glm::mat4 objTransform, bool ignoreVertexNormals)
+std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem::path filePath, size_t start, size_t length, glm::mat4 objTransform, bool ignoreVertexNormals)
 {
-    if (!fileExists(filename)) {
-        LOG_WARNING("Could not find mesh file: "s + std::string(filename));
+    if (!std::filesystem::exists(filePath)) {
+        LOG_WARNING("Could not find mesh file: "s + filePath.string());
         return {};
     }
 
-    auto mmapFile = mio::mmap_source(filename, start, length);
+    auto mmapFile = mio::mmap_source(filePath.string(), start, length);
 
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFileFromMemory(mmapFile.data(), length,
@@ -274,26 +274,26 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::stri
         "obj");
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
-        LOG_WARNING("Failed to load mesh file: "s + std::string(filename));
+        LOG_WARNING("Failed to load mesh file: "s + filePath.string());
         return {};
     }
 
     return loadFromFileSingleMesh(scene, objTransform, ignoreVertexNormals);
 }
 
-std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const std::string_view filename, glm::mat4 objTransform, bool ignoreVertexNormals)
+std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem::path filePath, glm::mat4 objTransform, bool ignoreVertexNormals)
 {
-    if (!fileExists(filename)) {
-        LOG_WARNING("Could not find mesh file: "s + std::string(filename));
+    if (!std::filesystem::exists(filePath)) {
+        LOG_WARNING("Could not find mesh file: "s + filePath.string());
         return {};
     }
 
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(filename.data(),
+    const aiScene* scene = importer.ReadFile(filePath.string().data(),
         aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
-        LOG_WARNING("Failed to load mesh file: "s + std::string(filename));
+        LOG_WARNING("Failed to load mesh file: "s + filePath.string());
         return {};
     }
 
@@ -382,20 +382,20 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const aiScene* 
         std::move(pUvCoords));
 }
 
-std::vector<TriangleMesh> TriangleMesh::loadFromFile(const std::string_view filename, glm::mat4 modelTransform, bool ignoreVertexNormals)
+std::vector<TriangleMesh> TriangleMesh::loadFromFile(std::filesystem::path filePath, glm::mat4 modelTransform, bool ignoreVertexNormals)
 {
-    if (!fileExists(filename)) {
-        LOG_WARNING("Could not find mesh file: "s + std::string(filename));
+    if (!std::filesystem::exists(filePath)) {
+        LOG_WARNING("Could not find mesh file: "s + filePath.string());
         return {};
     }
 
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(filename.data(),
+    const aiScene* scene = importer.ReadFile(filePath.string().data(),
         aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
     //importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
-        LOG_WARNING("Failed to load mesh file: "s + std::string(filename));
+        LOG_WARNING("Failed to load mesh file: "s + filePath.string());
         return {};
     }
 

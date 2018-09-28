@@ -1,13 +1,14 @@
 #pragma once
 #include "pandora/core/texture.h"
 #include <memory>
+#include <filesystem>
 
 namespace pandora {
 
 template <typename T>
 class ImageTexture : public Texture<T> {
 public:
-    ImageTexture(std::string_view filename);
+    ImageTexture(std::filesystem::path filePath);
     ~ImageTexture() = default;
 
     T evaluate(const glm::vec2& point) const;
