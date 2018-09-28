@@ -405,7 +405,7 @@ RenderConfig loadFromFileOOC(std::string_view filename, bool loadMaterials)
         // NOTE: create in parallel but make sure to add them to the scene in a fixed order. This ensures that the
         //       area lights are added in the same order, thus light sampling is deterministic between runs.
         std::vector<std::unique_ptr<OOCSceneObject>> sceneObjects(sceneJson["scene_objects"].size());
-        for (size_t i = 0; i < sceneJson["scene_objects"].size() - 1; i++) {
+        for (size_t i = 0; i < sceneJson["scene_objects"].size(); i++) {
             const auto jsonSceneObject = sceneJson["scene_objects"][i];
             if (jsonSceneObject["instancing"].get<bool>()) {
                 glm::mat4 transform = readMat4(jsonSceneObject["transform"]);
