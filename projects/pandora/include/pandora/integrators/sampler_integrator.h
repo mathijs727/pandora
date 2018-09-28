@@ -54,8 +54,8 @@ protected:
     void specularReflect(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const RayState& rayState);
     void specularTransmit(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const RayState& rayState);
 
-    void spawnShadowRay(const Ray& ray, const RayState& s, const Spectrum& weight);
-    void spawnShadowRay(const Ray& ray, const RayState& s, const Spectrum& weight, const Light& light);
+    void spawnShadowRay(const Ray& ray, bool anyHit, const RayState& s, const Spectrum& weight);
+    void spawnShadowRay(const Ray& ray, bool anyHit, const RayState& s, const Spectrum& weight, const Light& light);
 
 private:
     int pixelToIndex(const glm::ivec2& pixel) const;

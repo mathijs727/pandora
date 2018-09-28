@@ -40,7 +40,7 @@ void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, 
         if (bsdfSample && !isBlack(bsdfSample->f)) {
             Spectrum radiance = bsdfSample->f * glm::abs(glm::dot(bsdfSample->wi, n)) / bsdfSample->pdf;
             Ray visibilityRay = si.spawnRay(bsdfSample->wi);
-            spawnShadowRay(visibilityRay, rayState, radiance);
+            spawnShadowRay(visibilityRay, false, rayState, radiance);
         }
 
         if (contRayState.bounces + 1 < m_maxDepth) {
@@ -50,7 +50,6 @@ void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, 
         }
     } else if (std::holds_alternative<ShadowRayState>(rayState.data)) {
         const auto& shadowRayState = std::get<ShadowRayState>(rayState.data);
-        // Do nothing, in shadow
         m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight * si.Le(-r.direction));
     }
 }

@@ -1,15 +1,15 @@
+#include "pandora/integrators/sampler_integrator.h"
 #include "pandora/core/perspective_camera.h"
 #include "pandora/core/sampler.h"
 #include "pandora/core/sensor.h"
 #include "pandora/core/stats.h"
-#include "pandora/integrators/sampler_integrator.h"
 #include "pandora/utility/memory_arena.h"
 #include "utility/fix_visitor.h"
 #include <gsl/gsl>
+#include <random>
 #include <tbb/blocked_range2d.h>
 #include <tbb/parallel_for.h>
 #include <tbb/tbb.h>
-#include <random>
 
 using namespace pandora::sampler_integrator;
 
@@ -168,7 +168,7 @@ void SamplerIntegrator::specularTransmit(const SurfaceInteraction& si, Sampler& 
     }
 }
 
-void SamplerIntegrator::spawnShadowRay(const Ray& ray, const RayState& prevRayState, const Spectrum& radiance)
+void SamplerIntegrator::spawnShadowRay(const Ray& ray, bool anyHit, const RayState& prevRayState, const Spectrum& radiance)
 {
     const auto& prevConstRayState = std::get<ContinuationRayState>(prevRayState.data);
     ShadowRayState shadowRayState;
@@ -181,10 +181,14 @@ void SamplerIntegrator::spawnShadowRay(const Ray& ray, const RayState& prevRaySt
         prevRayState.pixel,
         prevRayState.sampler
     };
-    m_accelerationStructure.placeIntersectAnyRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));
+    if (anyHit) {
+        m_accelerationStructure.placeIntersectAnyRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));
+    } else {
+        m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));
+    }
 }
 
-void SamplerIntegrator::spawnShadowRay(const Ray& ray, const RayState& prevRayState, const Spectrum& weight, const Light& light)
+void SamplerIntegrator::spawnShadowRay(const Ray& ray, bool anyHit, const RayState& prevRayState, const Spectrum& weight, const Light& light)
 {
     const auto& prevConstRayState = std::get<ContinuationRayState>(prevRayState.data);
     ShadowRayState shadowRayState;
@@ -197,7 +201,12 @@ void SamplerIntegrator::spawnShadowRay(const Ray& ray, const RayState& prevRaySt
         prevRayState.pixel,
         prevRayState.sampler
     };
-    m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));
+
+    if (anyHit) {
+        m_accelerationStructure.placeIntersectAnyRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));
+    } else {
+        m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));
+    }
 }
 
 int SamplerIntegrator::pixelToIndex(const glm::ivec2& pixel) const

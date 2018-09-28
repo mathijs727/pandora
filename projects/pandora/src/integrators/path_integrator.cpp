@@ -167,10 +167,10 @@ void PathIntegrator::estimateDirect(float multiplier, const RayState& rayState, 
             // Add light's contribution to reflected radiance
             if (!isBlack(lightSample.radiance)) {
                 if (light.isDeltaLight()) {
-                    spawnShadowRay(lightSample.visibilityRay, rayState, multiplier * f * lightSample.radiance / lightPdf);
+                    spawnShadowRay(lightSample.visibilityRay, true, rayState, multiplier * f * lightSample.radiance / lightPdf);
                 } else {
                     float weight = powerHeuristic(1, lightPdf, 1, scatteringPdf);
-                    spawnShadowRay(lightSample.visibilityRay, rayState, multiplier * f * lightSample.radiance * weight / lightPdf);
+                    spawnShadowRay(lightSample.visibilityRay, true, rayState, multiplier * f * lightSample.radiance * weight / lightPdf);
                 }
             }
         }
@@ -200,7 +200,7 @@ void PathIntegrator::estimateDirect(float multiplier, const RayState& rayState, 
 
                 // Find intersection and compute transmittance
                 Ray ray = si.spawnRay(bsdfSample.wi);
-                spawnShadowRay(ray, rayState, multiplier * f * weight / scatteringPdf, light);
+                spawnShadowRay(ray, false, rayState, multiplier * f * weight / scatteringPdf, light);
             }
         }
     }

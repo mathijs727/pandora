@@ -32,8 +32,8 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
         Spectrum emitted = si.Le(wo);
         if (!isBlack(emitted)) {
             m_sensor.addPixelContribution(rayState.pixel, contRayState.weight * emitted);
-			spawnNextSample(rayState.pixel);
-			return;
+            spawnNextSample(rayState.pixel);
+            return;
         }
 
         // Compute direct lighting for DirectLightingIntegrator
@@ -59,7 +59,7 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
             Spectrum li = si.Le(-r.direction);
             m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight * li);
         }
-		
+
         spawnNextSample(rayState.pixel);
     }
 }
@@ -85,7 +85,7 @@ void DirectLightingIntegrator::rayMiss(const Ray& r, const RayState& rayState)
             m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight * shadowRayState.light->Le(r));
         } else {
             // Ray created by light sampling (PBRTv3 page 858) - contains radiance
-			m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight);
+            m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight);
         }
 
         spawnNextSample(rayState.pixel);
@@ -150,16 +150,16 @@ void DirectLightingIntegrator::estimateDirect(float multiplier, const RayState& 
             // Add light's contribution to reflected radiance
             if (!isBlack(lightSample.radiance)) {
                 if (light.isDeltaLight()) {
-                    spawnShadowRay(lightSample.visibilityRay, rayState, multiplier * f * lightSample.radiance / lightPdf);
+                    spawnShadowRay(lightSample.visibilityRay, true, rayState, multiplier * f * lightSample.radiance / lightPdf);
                 } else {
                     float weight = powerHeuristic(1, lightPdf, 1, scatteringPdf);
-                    spawnShadowRay(lightSample.visibilityRay, rayState, multiplier * f * lightSample.radiance * weight / lightPdf);
+                    spawnShadowRay(lightSample.visibilityRay, true, rayState, multiplier * f * lightSample.radiance * weight / lightPdf);
                 }
             }
         }
     }
-	
-	// Sample BSDF with multiple importance sampling
+
+    // Sample BSDF with multiple importance sampling
     // ...
     if (!light.isDeltaLight()) {
         // Sample scattered direction for surface interaction
@@ -183,7 +183,7 @@ void DirectLightingIntegrator::estimateDirect(float multiplier, const RayState& 
 
                 // Find intersection and compute transmittance
                 Ray ray = si.spawnRay(bsdfSample.wi);
-                spawnShadowRay(ray, rayState, multiplier * f * weight / scatteringPdf, light);
+                spawnShadowRay(ray, false, rayState, multiplier * f * weight / scatteringPdf, light);
             }
         }
     }
