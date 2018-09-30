@@ -596,9 +596,6 @@ void TriangleMesh::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Tra
             transform.transformPoint(m_positions[triangle[1]]),
             transform.transformPoint(m_positions[triangle[2]])
         };
-        ALWAYS_ASSERT(m_bounds.contains(v[0]));
-        ALWAYS_ASSERT(m_bounds.contains(v[1]));
-        ALWAYS_ASSERT(m_bounds.contains(v[2]));
         glm::vec3 e[3] = { v[1] - v[0], v[2] - v[1], v[0] - v[2] };
         glm::vec3 n = glm::cross(e[0], e[1]);
 

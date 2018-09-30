@@ -121,7 +121,6 @@ SurfaceInteraction GeometricSceneObjectGeometry::fillSurfaceInteraction(const Ra
 
 void GeometricSceneObjectGeometry::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const
 {
-    assert(gridBounds.contains(m_mesh->getBounds()));
     return m_mesh->voxelize(grid, gridBounds, transform);
 }
 

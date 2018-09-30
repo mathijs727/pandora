@@ -215,11 +215,11 @@ void SparseVoxelDAG::compressDAGs(gsl::span<SparseVoxelDAG*> svos)
         allocator.push_back(static_cast<RelativeNodeOffset>(fullDescriptor.descriptor));
         for (auto [isleaf, absoluteOffset] : fullDescriptor.children) {
             if (!isleaf) {
-                assert(absoluteDescriptorOffset - absoluteOffset < std::numeric_limits<RelativeNodeOffset>::max());
+                ALWAYS_ASSERT(absoluteDescriptorOffset - absoluteOffset < std::numeric_limits<RelativeNodeOffset>::max());
                 RelativeNodeOffset relativeChildOffset = static_cast<RelativeNodeOffset>(absoluteDescriptorOffset - absoluteOffset);
                 allocator.push_back(relativeChildOffset);
             } else {
-                assert(absoluteOffset < std::numeric_limits<RelativeNodeOffset>::max());
+                ALWAYS_ASSERT(absoluteOffset < std::numeric_limits<RelativeNodeOffset>::max());
                 allocator.push_back(static_cast<RelativeNodeOffset>(absoluteOffset));
             }
         }

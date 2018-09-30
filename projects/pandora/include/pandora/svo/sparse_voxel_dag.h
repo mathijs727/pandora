@@ -34,7 +34,7 @@ public:
     size_t sizeBytes() const;
 
 private:
-	using RelativeNodeOffset = uint16_t; // Either uint32_t or uint16_t
+	using RelativeNodeOffset = uint32_t; // Either uint32_t or uint16_t
 	using AbsoluteNodeOffset = size_t;
 
     // NOTE: child pointers are stored directly after the descriptor
