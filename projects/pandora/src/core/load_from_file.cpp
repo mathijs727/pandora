@@ -153,13 +153,17 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
             std::make_shared<ConstantTexture<float>>(1.0f));
 
         // Load geometry
+        auto getTransform = [&](int id) {
+            return readMat4(sceneJson["transforms"][id]);
+        };
+
         std::vector<std::shared_ptr<TriangleMesh>> geometry;
         for (const auto jsonGeometry : sceneJson["geometry"]) {
             auto geometryType = jsonGeometry["type"].get<std::string>();
             auto geometryFile = std::filesystem::path(jsonGeometry["filename"].get<std::string>());
 
             if (geometryFile.extension() == ".bin"s) {
-                glm::mat4 transform = readMat4(jsonGeometry["transform"]);
+                glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
 
@@ -167,7 +171,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 ALWAYS_ASSERT(meshOpt.has_value());
                 geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
             } else {
-                glm::mat4 transform = readMat4(jsonGeometry["transform"]);
+                glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                 std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, transform);
                 ALWAYS_ASSERT(meshOpt.has_value());
                 geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
@@ -199,7 +203,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         // Create scene objects
         for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
             if (jsonSceneObject["instancing"].get<bool>()) {
-                glm::mat4 transform = readMat4(jsonSceneObject["transform"]);
+                glm::mat4 transform = getTransform(jsonSceneObject["transform"]);
                 auto baseSceneObject = baseSceneObjects[jsonSceneObject["base_scene_object_id"].get<int>()];
                 auto instancedSceneObject = std::make_unique<InCoreInstancedSceneObject>(transform, baseSceneObject);
                 config.scene.addSceneObject(std::move(instancedSceneObject));
@@ -212,14 +216,14 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         for (const auto jsonLight : sceneJson["lights"]) {
             std::string type = jsonLight["type"].get<std::string>();
             if (type == "infinite") {
-                auto transform = readMat4(jsonLight["transform"]);
+                auto transform = getTransform(jsonLight["transform"]);
                 auto scale = readVec3(jsonLight["scale"]);
                 auto numSamples = jsonLight["num_samples"].get<int>();
                 auto texture = getColorTexture(jsonLight["texture"].get<int>());
 
                 config.scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, scale, numSamples, texture));
             } else if (type == "distant") {
-                auto transform = readMat4(jsonLight["transform"]);
+                auto transform = getTransform(jsonLight["transform"]);
                 auto L = readVec3(jsonLight["L"]);
                 auto dir = readVec3(jsonLight["direction"]);
 
@@ -333,7 +337,12 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
             std::make_shared<ConstantTexture<glm::vec3>>(glm::vec3(1.0f)),
             std::make_shared<ConstantTexture<float>>(1.0f));
 
+
         // Load geometry
+        auto getTransform = [&](int id) {
+            return readMat4(sceneJson["transforms"][id]);
+        };
+
         auto* geometryCache = config.scene.geometryCache();
         std::vector<EvictableResourceID> geometry;
         for (const auto jsonGeometry : sceneJson["geometry"]) {
@@ -341,7 +350,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
             auto geometryFile = std::filesystem::path(jsonGeometry["filename"].get<std::string>());
 
             if (geometryFile.extension() == ".bin"s) {
-                glm::mat4 transform = readMat4(jsonGeometry["transform"]);
+                glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
 
@@ -352,7 +361,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 });
                 geometry.push_back(resourceID);
             } else {
-                glm::mat4 transform = readMat4(jsonGeometry["transform"]);
+                glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                 auto resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
                     std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, transform);
                     ALWAYS_ASSERT(meshOpt.has_value());
@@ -409,7 +418,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         for (size_t i = 0; i < sceneJson["scene_objects"].size(); i++) {
             const auto jsonSceneObject = sceneJson["scene_objects"][i];
             if (jsonSceneObject["instancing"].get<bool>()) {
-                glm::mat4 transform = readMat4(jsonSceneObject["transform"]);
+                glm::mat4 transform = getTransform(jsonSceneObject["transform"]);
                 auto baseSceneObject = baseSceneObjects[jsonSceneObject["base_scene_object_id"].get<int>()];
                 auto instancedSceneObject = std::make_unique<OOCInstancedSceneObject>(transform, baseSceneObject);
                 sceneObjects[i] = std::move(instancedSceneObject);
@@ -431,14 +440,14 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         for (const auto jsonLight : sceneJson["lights"]) {
             std::string type = jsonLight["type"].get<std::string>();
             if (type == "infinite") {
-                auto transform = readMat4(jsonLight["transform"]);
+                auto transform = getTransform(jsonLight["transform"]);
                 auto scale = readVec3(jsonLight["scale"]);
                 auto numSamples = jsonLight["num_samples"].get<int>();
                 auto texture = getColorTexture(jsonLight["texture"].get<int>());
 
                 config.scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, scale, numSamples, texture));
             } else if (type == "distant") {
-                auto transform = readMat4(jsonLight["transform"]);
+                auto transform = getTransform(jsonLight["transform"]);
                 auto L = readVec3(jsonLight["L"]);
                 auto dir = readVec3(jsonLight["direction"]);
 

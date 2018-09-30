@@ -49,18 +49,18 @@ class UniqueCollection:
         if not os.path.exists(tmp_folder):
             os.makedirs(tmp_folder)
 
-        self._list = FileBackedList(tmp_folder)
+        #self._list = FileBackedList(tmp_folder)
+        self._list = []
         self._dict = OfflineLUT(os.path.join(tmp_folder, "lut.db"))
         self._current_index = 0
 
     def add_item(self, item):
         if isinstance(item, dict):
-            try:
-                #key = json.dumps(item, cls=NumpyEncoder)
-                key = ujson.dumps(item)
-            except TypeError as e:
-                print(e)
-                print(item)
+            key = ujson.dumps(item)
+        elif isinstance(item, list):
+            key = ujson.dumps(item)
+        elif isinstance(item, np.ndarray):
+            key = ujson.dumps(item)
         else:
             key = item
 
@@ -75,11 +75,11 @@ class UniqueCollection:
 
     def finish(self):
         self._dict.clear()# Save a ton of memory when we're done with adding items
-        self._list.finish_chunk()
+        #self._list.finish_chunk()
 
-    def get_list(self):
-        self._list.destructor()
-        return [i for i in self._list]
+    def to_list(self):
+        #self._list.destructor()
+        return self._list
 
     def __iter__(self):
         self.finish()

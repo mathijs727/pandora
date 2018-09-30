@@ -4,12 +4,13 @@ import pickle
 import parsing
 from config_parser import ConfigParser
 from scene_parser import SceneParser
-#import ujson  # ujson is fast but does not support np.float32 types
 import json
+import ujson  # Faster than regular json module
 from unique_collection import UniqueCollection
 import numpy as np
 import itertools
 import collections.abc
+
 
 def extract_pandora_data(pbrt_data, out_mesh_folder):
     if not os.path.exists(out_mesh_folder):
@@ -21,6 +22,7 @@ def extract_pandora_data(pbrt_data, out_mesh_folder):
         "config": config_data.data(),
         "scene": scene_data.data()
     }
+
 
 class MyJSONEncoder(json.JSONEncoder):
     # Iterable encoder to save memory
@@ -56,6 +58,7 @@ class MyJSONEncoder(json.JSONEncoder):
         elif isinstance(obj, np.ndarray):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -108,7 +111,9 @@ if __name__ == "__main__":
     print("==== WRITING PANDORA SCENE FILE ====")
     with open(args.out, "w") as f:
         print(f"Out file: {args.out}")
-        json.dump(pandora_data, f, indent=2, cls=MyJSONEncoder)
+        #json.dump(pandora_data, f, indent=2, cls=MyJSONEncoder)
+        ujson.dump(pandora_data, f, indent=2)
+        #ujson.dump(pandora_data, f)# No formatting saves a lot of disk space
 
     # Remove the temporary list files created for the json export
     #import shutil

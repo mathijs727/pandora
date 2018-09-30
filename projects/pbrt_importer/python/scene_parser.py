@@ -90,6 +90,7 @@ class SceneParser:
     def __init__(self, pbrt_scene, out_mesh_folder):
         tmp_folder = os.path.join(out_mesh_folder, "tmp_lists")
 
+        self._transforms = UniqueCollection(os.path.join(tmp_folder, "transforms"))
         self._geometry = UniqueCollection(os.path.join(tmp_folder, "geometry"))
         self._scene_objects = UniqueCollection(
             os.path.join(tmp_folder, "scene_objects"))
@@ -113,6 +114,7 @@ class SceneParser:
 
     def _dump_mem_info(self):
         print("=== Memory size info ===")
+        print("self._transforms:          ", get_size(self._transforms))
         print("self._geometry:          ", get_size(self._geometry))
         print("self._scene_objects:     ", get_size(self._scene_objects))
         print("self._instance_base_scene_objects: ",
@@ -122,8 +124,10 @@ class SceneParser:
         print("self._color_textures:    ", get_size(self._color_textures))
         print("self._light_sources:    ", get_size(self._light_sources))
 
+    def _create_transform(self, transform):
+        return self._transforms.add_item(transform)
+
     def _create_light_sources(self, pbrt_scene):
-        # print(pbrt_scene["light_sources"])
         for light_source in pbrt_scene["light_sources"]:
             if light_source.type == "infinite":
                 if "samples" in light_source.arguments:
@@ -150,7 +154,7 @@ class SceneParser:
                     "texture": texture_id,
                     "scale": L,
                     "num_samples": num_samples,
-                    "transform": light_source.transform
+                    "transform": self._create_transform(light_source.transform)
                 })
             elif light_source.type == "distant":
                 if "from" in light_source.arguments and "to" in light_source.arguments:
@@ -169,7 +173,7 @@ class SceneParser:
                     "type": "distant",
                     "L": L,
                     "direction": list(direction),
-                    "transform": light_source.transform
+                    "transform": self._create_transform(light_source.transform)
                 })
             else:
                 print(
@@ -261,7 +265,7 @@ class SceneParser:
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": shape.arguments["filename"]["value"],
-                "transform": shape.transform
+                "transform": self._create_transform(shape.transform)
             })
         elif shape.type == "trianglemesh":
             with open(shape.arguments["filename"], "rb") as f:
@@ -276,7 +280,7 @@ class SceneParser:
                 "filename": filename,
                 "start_byte": start_byte,
                 "size_bytes": size_bytes,
-                "transform": shape.transform
+                "transform": self._create_transform(shape.transform)
             })
         else:
             #print(f"Ignoring shape of unsupported type {shape.type}")
@@ -333,7 +337,7 @@ class SceneParser:
                 self._scene_objects.add_item({
                     "instancing": True,
                     "base_scene_object_id": base_scene_object_id,
-                    "transform": instance.transform
+                    "transform": self._create_transform(instance.transform)
                 })
 
     def _export_triangle_mesh(self, geometry):
@@ -358,6 +362,7 @@ class SceneParser:
         return self._out_mesh_exporter.add_triangle_mesh(triangles, positions, normals, tangents, uv_coords)
 
     def data(self):
+        self._transforms.finish()
         self._geometry.finish()
         self._scene_objects.finish()
         self._instance_base_scene_objects.finish()
@@ -366,11 +371,12 @@ class SceneParser:
         self._color_textures.finish()
 
         return {
+            "transforms": self._transforms.to_list(),
             "lights": self._light_sources,
-            "geometry": self._geometry,
-            "scene_objects": self._scene_objects,
-            "instance_base_scene_objects": self._instance_base_scene_objects,
-            "materials": self._materials,
-            "float_textures": self._float_textures,
-            "color_textures": self._color_textures
+            "geometry": self._geometry.to_list(),
+            "scene_objects": self._scene_objects.to_list(),
+            "instance_base_scene_objects": self._instance_base_scene_objects.to_list(),
+            "materials": self._materials.to_list(),
+            "float_textures": self._float_textures.to_list(),
+            "color_textures": self._color_textures.to_list()
         }
