@@ -165,3 +165,6 @@ UPDATE:
 Experimented wtih continuously picking the best node to process such as suggested in "Out-of-core Data Management for Path Tracing on Hybrid Resources". Locking was required to contiuously select the best node from the list of nodes with full batches. Work stopped once there are no more nodes to select, even if there is still work in flight (which might result in new nodes with work). Thread local batches could not be traversed directly. After each iteration, the system would check if there was any work left (either unprocessed full batches or partial batches) and start a new flush again. Partial batches got delayed so much that most of the processing time (on a 1spp image) was spent on flushing partial batches, which would spawn whole paths of rays. Also, this scheduling algorithm requires a lot of locking which is bad for scalability.
 
 Small change: when forwarding partial batches, merge them together into as little batches as possible.
+
+NOTE:
+Small change, big impact: only flush nodes that have at least 1/8th the amount of batches as that of the node with the most amount of batches. This prefers flushing nodes with many batches while still being easy to multi thread.

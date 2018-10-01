@@ -34,7 +34,7 @@ using namespace std::string_literals;
 namespace pandora {
 
 static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 25000;
-static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = true;
+static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = false;
 
 template <typename UserState, size_t BatchSize = 32>
 class OOCBatchingAccelerationStructure {
@@ -697,6 +697,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeaf
                     auto* newBatch = m_accelerationStructurePtr->m_batchAllocator.allocate();
                     newBatch->setNext(outBatch);
                     outBatch = newBatch;
+                    m_numFullBatches.fetch_add(1);
                 }
 
                 if (siOpt) {
@@ -745,6 +746,9 @@ void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::f
         return node1->m_numFullBatches.load() > node2->m_numFullBatches.load(); // Sort from big to small
     });
 
+    // Only flush nodes that have a lot of flushed batches, wait for other nodes for their batches to fill up.
+    const auto batchesThreshold = nodes[0]->m_numFullBatches.load() / 8;
+
     // Generate a task for each top-level leaf node with at least one non-empty batch
     std::atomic_int leafID = 0;
     using BatchWithoutGeom = std::pair<RayBatch*, EvictableResourceID>;
@@ -756,6 +760,9 @@ void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::f
                 auto id = leafID.fetch_add(1);
                 if (id == nodes.size())
                     return false;
+
+                if (nodes[id]->m_numFullBatches.load() < batchesThreshold)
+                    continue;
 
                 if (nodes[id]->hasFullBatches()) {
                     node = nodes[id];
