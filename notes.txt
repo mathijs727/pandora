@@ -160,3 +160,6 @@ This scheme requires continuously flushing batches after the initial rays are in
 
 IDEA:
 Keep the idea of processing in waves so we can safely process non-empty batches. But before processing sort based on cost/profit function (like with Jacco's paper). BUT: don't process all nodes, but only the ones that have at least a certain percentage of rays compared to the node with the most rays. NOTE: have to be carefull that we do not add to many "sync" points (where we wait for all tasks to finish).
+
+UPDATE:
+Experimented wtih continuously picking the best node to process such as suggested in "Out-of-core Data Management for Path Tracing on Hybrid Resources". Locking was required to contiuously select the best node from the list of nodes with full batches. Work stopped once there are no more nodes to select, even if there is still work in flight (which might result in new nodes with work). Thread local batches could not be traversed directly. After each iteration, the system would check if there was any work left (either unprocessed full batches or partial batches) and start a new flush again. Partial batches got delayed so much that most of the processing time (on a 1spp image) was spent on flushing partial batches, which would spawn whole paths of rays. Also, this scheduling algorithm requires a lot of locking which is bad for scalability.

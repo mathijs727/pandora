@@ -24,9 +24,9 @@
 #include <tbb/concurrent_vector.h>
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/flow_graph.h>
+#include <tbb/mutex.h>
 #include <tbb/parallel_for_each.h>
 #include <tbb/parallel_sort.h>
-#include <tbb/reader_writer_lock.h>
 #include <tbb/task_group.h>
 
 using namespace std::string_literals;
@@ -34,7 +34,7 @@ using namespace std::string_literals;
 namespace pandora {
 
 static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 25000;
-static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = false;
+static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = true;
 
 template <typename UserState, size_t BatchSize = 32>
 class OOCBatchingAccelerationStructure {
@@ -200,6 +200,7 @@ private:
         std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
         std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
 
+        bool hasFullBatches() { return m_immutableRayBatchList.load() != nullptr; }
         bool forwardPartiallyFilledBatches(); // Adds the active batches to the list of immutable batches (even if they are not full)
         // Flush a whole range of nodes at a time as opposed to a non-static flush member function which would require a
         // separate tbb flow graph for each node that is processed.
@@ -243,9 +244,6 @@ private:
 
 private:
     FifoCache<typename TopLevelLeafNode::GeometryData> m_geometryCache;
-
-    tbb::reader_writer_lock m_nodesListMutex;
-    std::vector<TopLevelLeafNode*> m_nodesWithFullBatches;
 
     GrowingFreeListTS<RayBatch> m_batchAllocator;
     PauseableBVH4<TopLevelLeafNode, UserState> m_bvh;
@@ -328,24 +326,6 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeInterse
             }
         }
     }
-}
-
-template <typename UserState, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
-{
-    while (true) {
-        TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
-
-        bool forwardedBatch = false;
-        for (auto* node : m_bvh.leafs()) {
-            forwardedBatch = forwardedBatch || node->forwardPartiallyFilledBatches();
-        }
-
-        if (!forwardedBatch)
-            break;
-    }
-
-    std::cout << "FLUSH COMPLETE" << std::endl;
 }
 
 template <typename UserState, size_t BatchSize>
@@ -654,17 +634,12 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
                 batch->setNext(oldHead);
             } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
 
-            if (!oldHead) {
-                tbb::reader_writer_lock::scoped_lock l(mutThisPtr->m_accelerationStructurePtr->m_nodesListMutex);
-                mutThisPtr->m_accelerationStructurePtr->m_nodesWithFullBatches.push_back(mutThisPtr);
-            }
             mutThisPtr->m_numFullBatches.fetch_add(1);
         }
 
         // Allocate a new batch and set it as the new active batch
         batch = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
         mutThisPtr->m_threadLocalActiveBatch.local() = batch;
-        g_stats.memory.batches += batch->sizeBytes();
     }
 
     bool success = batch->tryPush(ray, si, userState, insertHandle);
@@ -695,10 +670,6 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
                 batch->setNext(oldHead);
             } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
 
-            if (!oldHead) {
-                tbb::reader_writer_lock::scoped_lock l(mutThisPtr->m_accelerationStructurePtr->m_nodesListMutex);
-                mutThisPtr->m_accelerationStructurePtr->m_nodesWithFullBatches.push_back(mutThisPtr);
-            }
             mutThisPtr->m_numFullBatches.fetch_add(1);
         }
 
@@ -716,23 +687,37 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
 template <typename UserState, size_t BatchSize>
 inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::forwardPartiallyFilledBatches()
 {
-    bool forwardedBatch = false;
+    bool forwardedBatches = false;
 
     for (auto& batch : m_threadLocalActiveBatch) {
         if (batch) {
             batch->setNext(m_immutableRayBatchList);
             m_immutableRayBatchList = batch;
-            forwardedBatch = true;
+            forwardedBatches = true;
         }
         batch = nullptr;
     }
 
-    if (forwardedBatch) {
-        tbb::reader_writer_lock::scoped_lock l(m_accelerationStructurePtr->m_nodesListMutex);
-        m_accelerationStructurePtr->m_nodesWithFullBatches.push_back(this);
+    return forwardedBatches;
+}
+
+template <typename UserState, size_t BatchSize>
+inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
+{
+    while (true) {
+        TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
+
+        bool done = true;
+        for (auto* node : m_bvh.leafs()) {
+            done = done && !node->hasFullBatches();
+            done = done && !node->forwardPartiallyFilledBatches();
+        }
+
+        if (done)
+            break;
     }
 
-    return forwardedBatch;
+    std::cout << "FLUSH COMPLETE" << std::endl;
 }
 
 template <typename UserState, size_t BatchSize>
@@ -742,44 +727,29 @@ void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::f
 {
     tbb::flow::graph g;
 
+    std::sort(std::begin(nodes), std::end(nodes), [](const auto* node1, const auto* node2) {
+        return node1->m_numFullBatches.load() > node2->m_numFullBatches.load(); // Sort from big to small
+    });
+
     // Generate a task for each top-level leaf node with at least one non-empty batch
+    std::atomic_int leafID = 0;
     using BatchWithoutGeom = std::pair<RayBatch*, EvictableResourceID>;
     tbb::flow::source_node<BatchWithoutGeom> sourceNode(
         g,
         [&](BatchWithoutGeom& out) -> bool {
-            auto& nodesWithFullBatches = accelerationStructurePtr->m_nodesWithFullBatches;
-
-            size_t nodeIndex = -1;
             TopLevelLeafNode* node = nullptr;
-            {
-                tbb::reader_writer_lock::scoped_lock_read l(accelerationStructurePtr->m_nodesListMutex);
-                auto nodeIter = std::max_element(
-                    std::begin(nodesWithFullBatches),
-                    std::end(nodesWithFullBatches),
-                    [](const auto* node1, const auto* node2) {
-                        // These values might change while new batches are added, but thats not important here because
-                        // its just a heuristic
-                        return node1->m_numFullBatches.load() < node2->m_numFullBatches.load();
-                    });
+            while (true) {
+                auto id = leafID.fetch_add(1);
+                if (id == nodes.size())
+                    return false;
 
-                if (nodeIter != std::end(nodesWithFullBatches)) {
-                    nodeIndex = nodeIter - std::begin(nodesWithFullBatches); // Iterators are invalidated when vector changes, index is not
-                    node = *nodeIter;
+                if (nodes[id]->hasFullBatches()) {
+                    node = nodes[id];
+                    break;
                 }
-            }
-
-            if (!node)
-                return false;
-
-            // Get a write lock and remove the node from the list
-            {
-                tbb::reader_writer_lock::scoped_lock l(accelerationStructurePtr->m_nodesListMutex);
-                std::swap(std::begin(nodesWithFullBatches) + nodeIndex, std::end(nodesWithFullBatches) - 1);
-                nodesWithFullBatches.pop_back();
             }
             RayBatch* batch = node->m_immutableRayBatchList.exchange(nullptr);
             node->m_numFullBatches.store(0);
-
             out = { batch, node->m_geometryDataCacheID };
             return true;
         });
@@ -800,8 +770,8 @@ void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::f
         [&](const BatchWithGeom& v, typename BatchNodeType::output_ports_type& op) {
             auto [firstBatch, geometry] = v;
 
+            // Count the number of batches
             int numBatches = 0;
-
             const auto* tmpBatch = firstBatch;
             while (tmpBatch) {
                 numBatches++;
@@ -811,11 +781,12 @@ void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::f
                 return;
             }
 
-            auto unprocessedBatchesCount = std::make_shared<std::atomic_int>(numBatches);
+            // Flow limitter
+            auto unprocessedBatchesCounter = std::make_shared<std::atomic_int>(numBatches);
             size_t raysProcessed = 0;
             auto* batch = firstBatch;
             while (batch) {
-                ALWAYS_ASSERT(std::get<0>(op).try_put({ { unprocessedBatchesCount, batch }, geometry }));
+                ALWAYS_ASSERT(std::get<0>(op).try_put({ { unprocessedBatchesCounter, batch }, geometry }));
                 batch = batch->next();
             }
         });
