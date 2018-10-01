@@ -67,6 +67,7 @@ private:
         }
         void setNext(RayBatch* nextPtr) { m_nextPtr = nextPtr; }
         RayBatch* next() { return m_nextPtr; }
+        const RayBatch* next() const { return m_nextPtr; }
         bool full() const { return m_data.full(); }
 
         bool tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
@@ -226,6 +227,7 @@ private:
         EvictableResourceID m_geometryDataCacheID;
         std::vector<const OOCSceneObject*> m_sceneObjects;
 
+        std::atomic_int m_numFullBatches;
         tbb::enumerable_thread_specific<RayBatch*> m_threadLocalActiveBatch;
         std::atomic<RayBatch*> m_immutableRayBatchList;
         OOCBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
@@ -668,6 +670,7 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
             do {
                 batch->setNext(oldHead);
             } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
+            mutThisPtr->m_numFullBatches.fetch_add(1);
         }
 
         // Allocate a new batch and set it as the new active batch
@@ -703,6 +706,7 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
             do {
                 batch->setNext(oldHead);
             } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
+            mutThisPtr->m_numFullBatches.fetch_add(1);
         }
 
         // Allocate a new batch and set it as the new active batch
@@ -733,13 +737,22 @@ size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
     gsl::span<TopLevelLeafNode*> nodes,
     OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
 {
+    std::cout << std::endl;
+    std::sort(std::begin(nodes), std::end(nodes), [](const TopLevelLeafNode* node1, const TopLevelLeafNode* node2) {
+        return node1->m_numFullBatches.load() < node2->m_numFullBatches.load();
+    });
+    std::for_each(std::begin(nodes), std::end(nodes), [](TopLevelLeafNode* node) {
+        node->m_numFullBatches.store(0);
+    });
+
     tbb::flow::graph g;
 
     // Generate a task for each top-level leaf node with at least one non-empty batch
     int i = 0;
-    tbb::flow::source_node<std::pair<RayBatch*, EvictableResourceID>> sourceNode(
+    using BatchWithoutGeom = std::pair<RayBatch*, EvictableResourceID>;
+    tbb::flow::source_node<BatchWithoutGeom> sourceNode(
         g,
-        [&](std::pair<RayBatch*, EvictableResourceID>& out) -> bool {
+        [&](BatchWithoutGeom& out) -> bool {
             while (i < nodes.size()) {
                 TopLevelLeafNode* node = nodes[i++];
                 RayBatch* batch = node->m_immutableRayBatchList.exchange(nullptr);
@@ -753,28 +766,49 @@ size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
             return (i < nodes.size());
         });
 
+    // Prevent TBB from loading all items from the cache before starting traversal
+    tbb::flow::limiter_node<BatchWithoutGeom> flowLimiterNode(g, std::thread::hardware_concurrency());
+
     // For each of those leaf nodes, load the geometry (asynchronously)
     auto cacheSubGraph = std::move(accelerationStructurePtr->m_geometryCache.template getFlowGraphNode<RayBatch*>(g));
 
-    // Then create a task for each batch associated with that leaf node (for increased parallelism)
+    // Create a task for each batch associated with that leaf node (for increased parallelism)
     using BatchWithGeom = std::pair<RayBatch*, std::shared_ptr<GeometryData>>;
-    using BatchNodeType = tbb::flow::multifunction_node<BatchWithGeom, tbb::flow::tuple<BatchWithGeom>>;
+    using BatchWithGeomLimited = std::pair<std::pair<std::shared_ptr<std::atomic_int>, RayBatch*>, std::shared_ptr<GeometryData>>;
+    using BatchNodeType = tbb::flow::multifunction_node<BatchWithGeom, tbb::flow::tuple<BatchWithGeomLimited>>;
     BatchNodeType batchNode(
         g,
         tbb::flow::unlimited,
-        [](const BatchWithGeom& v, typename BatchNodeType::output_ports_type& op) {
-            auto* batch = std::get<0>(v);
+        [&](const BatchWithGeom& v, typename BatchNodeType::output_ports_type& op) {
+            auto [firstBatch, geometry] = v;
 
+            int numBatches = 0;
+
+            const auto* tmpBatch = firstBatch;
+            while (tmpBatch) {
+                numBatches++;
+                tmpBatch = tmpBatch->next();
+            }
+            if (numBatches == 0) {
+                return;
+            }
+
+            auto unprocessedBatchesCount = std::make_shared<std::atomic_int>(numBatches);
             size_t raysProcessed = 0;
+            auto* batch = firstBatch;
             while (batch) {
-                std::get<0>(op).try_put(std::make_pair(batch, std::get<1>(v)));
+                ALWAYS_ASSERT(std::get<0>(op).try_put({ { unprocessedBatchesCount, batch }, geometry }));
                 batch = batch->next();
             }
         });
 
-    tbb::flow::function_node<BatchWithGeom, size_t> traversalNode(g, tbb::flow::unlimited, [&](const BatchWithGeom& v) {
-        auto* batch = std::get<0>(v);
-        auto geometryData = std::get<1>(v);
+    using TraverseNodeType = tbb::flow::multifunction_node<BatchWithGeomLimited, tbb::flow::tuple<size_t, tbb::flow::continue_msg>>;
+    TraverseNodeType traversalNode(
+        g,
+        tbb::flow::unlimited,
+        [&](const BatchWithGeomLimited& v, typename TraverseNodeType::output_ports_type& op) {
+        auto [batchInfo, geometryData] = v;
+        auto [unprocessedBatchCounter, batch] = batchInfo;
 
         for (auto [ray, siOpt, userState, insertHandle] : *batch) {
             // Intersect with the bottom-level BVH
@@ -817,9 +851,14 @@ size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
                 }
             }
         }
+
+        if (unprocessedBatchCounter->fetch_sub(1) == 1) {
+            ALWAYS_ASSERT(std::get<1>(op).try_put(tbb::flow::continue_msg()));
+        }
+
         auto raysProcessed = batch->size();
         accelerationStructurePtr->m_batchAllocator.deallocate(batch);
-        return raysProcessed;
+        ALWAYS_ASSERT(std::get<0>(op).try_put(raysProcessed));
     });
 
     std::atomic_size_t totalRaysProcessed(0);
@@ -829,10 +868,12 @@ size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
 
     // NOTE: The source starts outputting as soon as an edge is connected.
     //       So make sure it is the last edge that we connect.
-    tbb::flow::make_edge(traversalNode, sumNode);
-    tbb::flow::make_edge(batchNode, traversalNode);
+    cacheSubGraph.connectInput(flowLimiterNode);
     cacheSubGraph.connectOutput(batchNode);
-    cacheSubGraph.connectInput(sourceNode);
+    tbb::flow::make_edge(batchNode, traversalNode);
+    tbb::flow::make_edge(tbb::flow::output_port<0>(traversalNode), sumNode);
+    tbb::flow::make_edge(tbb::flow::output_port<1>(traversalNode), flowLimiterNode.decrement);
+    tbb::flow::make_edge(sourceNode, flowLimiterNode);
     g.wait_for_all();
 
     return totalRaysProcessed;

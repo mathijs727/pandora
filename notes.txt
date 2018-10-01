@@ -149,3 +149,14 @@ NOTE: instancing right now is supported by creating duplicates for each top-leve
 
 ==== MULTIPLE SAMPLES PER PIXEL IN-FLIGHT ====
 The sampler structure was set up to follow PBRT which relies heavily on a sequential access pattern. In Pandora all rayHit/miss invocations may be in random order so even the order in which samples finish is non-deterministic. It would make sense to allocate a new sampler for each path (assuming the allocation overhead is negligible). Allocating all samplers ahead of time (num pixels * spp) might use too much memory. Preferibly we control how many samples can be in-flight at a time seperately from the total spp. So the samplers need to be allocated on-the-fly using the pixel location + sample number as seed for the RNG.
+
+
+==== SCHEDULING ====
+The initial scheduling technique performed the acceleration structure traversal in waves. Each wave all top-level leaf nodes with one or more rays was flushed. This meant that objects were loaded, even if they only had a single ray queued. A better scheduling algorithm must improve on this by finding better times to flush nodes, while guaranteering progress.
+
+The original batched traversal paper [Rendering complex scenes with memory-coherent ray tracing] used a cost-benefit value with each voxel (top-level leaf node). The benefit function estimates how much progress will be made towards completion of the computation as a result of processing the voxel. This function was based on the number of rays as well as the weight associated with them (large weights are more likely to spawn new rays (because of russian roulette)). The cost function is based on the amount of geometry, whether it, or a part of it, is in memory.
+
+This scheme requires continuously flushing batches after the initial rays are inserted. The problem with integrating this in our scheme is that we cannot access thread-local batches that are not filled yet. Also, keeping a list of nodes with the highest score is hard in a multithreaded environment (especially when guaranteeing scalability).
+
+IDEA:
+Keep the idea of processing in waves so we can safely process non-empty batches. But before processing sort based on cost/profit function (like with Jacco's paper). BUT: don't process all nodes, but only the ones that have at least a certain percentage of rays compared to the node with the most rays. NOTE: have to be carefull that we do not add to many "sync" points (where we wait for all tasks to finish).
