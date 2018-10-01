@@ -689,14 +689,28 @@ inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeaf
 {
     bool forwardedBatches = false;
 
+    OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch* outBatch = m_immutableRayBatchList;
     for (auto& batch : m_threadLocalActiveBatch) {
         if (batch) {
-            batch->setNext(m_immutableRayBatchList);
-            m_immutableRayBatchList = batch;
+            for (const auto& [ray, siOpt, userState, insertHandle] : *batch) {
+                if (!outBatch || outBatch->full()) {
+                    auto* newBatch = m_accelerationStructurePtr->m_batchAllocator.allocate();
+                    newBatch->setNext(outBatch);
+                    outBatch = newBatch;
+                }
+
+                if (siOpt) {
+                    outBatch->tryPush(ray, *siOpt, userState, insertHandle);
+                } else {
+                    outBatch->tryPush(ray, userState, insertHandle);
+                }
+            }
+
             forwardedBatches = true;
         }
-        batch = nullptr;
+        batch = nullptr;// Reset thread-local batch
     }
+    m_immutableRayBatchList = outBatch;
 
     return forwardedBatches;
 }
