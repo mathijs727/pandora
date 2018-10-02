@@ -28,6 +28,7 @@
 #include <tbb/parallel_for_each.h>
 #include <tbb/parallel_sort.h>
 #include <tbb/task_group.h>
+#include <tbb/scalable_allocator.h>
 #include <thread>
 
 using namespace std::string_literals;
@@ -247,8 +248,9 @@ private:
     Cache<typename TopLevelLeafNode::GeometryData> m_geometryCache;
 
     GrowingFreeListTS<RayBatch> m_batchAllocator;
+    //tbb::scalable_allocator<RayBatch> m_batchAllocator;
+
     PauseableBVH4<TopLevelLeafNode, UserState> m_bvh;
-    tbb::enumerable_thread_specific<RayBatch*> m_threadLocalPreallocatedRaybatch;
 
     HitCallback m_hitCallback;
     AnyHitCallback m_anyHitCallback;
@@ -268,7 +270,6 @@ inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::OOCBatchin
           [](size_t bytes) { g_stats.memory.botLevelEvicted += bytes; })
     , m_batchAllocator()
     , m_bvh(std::move(buildBVH(scratchFolder, &m_geometryCache, scene.getOOCSceneObjects(), this)))
-    , m_threadLocalPreallocatedRaybatch([&]() { return m_batchAllocator.allocate(); })
     , m_hitCallback(hitCallback)
     , m_anyHitCallback(anyHitCallback)
     , m_missCallback(missCallback)
@@ -644,7 +645,8 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, Ba
         }
 
         // Allocate a new batch and set it as the new active batch
-        batch = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
+        auto* mem = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
+        batch = new (mem) RayBatch();
         mutThisPtr->m_threadLocalActiveBatch.local() = batch;
     }
 
@@ -680,7 +682,8 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, Ba
         }
 
         // Allocate a new batch and set it as the new active batch
-        batch = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
+        auto* mem = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
+        batch = new (mem) RayBatch();
         mutThisPtr->m_threadLocalActiveBatch.local() = batch;
     }
 
@@ -700,7 +703,9 @@ inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLe
         if (batch) {
             for (const auto& [ray, siOpt, userState, insertHandle] : *batch) {
                 if (!outBatch || outBatch->full()) {
-                    auto* newBatch = m_accelerationStructurePtr->m_batchAllocator.allocate();
+                    auto* mem = m_accelerationStructurePtr->m_batchAllocator.allocate();
+                    auto* newBatch = new (mem) RayBatch();
+
                     newBatch->setNext(outBatch);
                     outBatch = newBatch;
                     m_numFullBatches.fetch_add(1);
@@ -713,6 +718,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLe
                 }
             }
 
+            m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
             forwardedBatches = true;
         }
         batch = nullptr; // Reset thread-local batch

@@ -278,7 +278,9 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem
         return {};
     }
 
-    return loadFromFileSingleMesh(scene, objTransform, ignoreVertexNormals);
+    auto ret = loadFromFileSingleMesh(scene, objTransform, ignoreVertexNormals);
+    importer.FreeScene();
+    return std::move(ret);
 }
 
 std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem::path filePath, glm::mat4 objTransform, bool ignoreVertexNormals)
@@ -297,7 +299,9 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem
         return {};
     }
 
-    return loadFromFileSingleMesh(scene, objTransform, ignoreVertexNormals);
+    auto ret = loadFromFileSingleMesh(scene, objTransform, ignoreVertexNormals);
+    importer.FreeScene();
+    return std::move(ret);
 }
 
 std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals)
@@ -419,6 +423,7 @@ std::vector<TriangleMesh> TriangleMesh::loadFromFile(std::filesystem::path fileP
         }
     }
 
+    importer.FreeScene();
     return result;
 }
 
