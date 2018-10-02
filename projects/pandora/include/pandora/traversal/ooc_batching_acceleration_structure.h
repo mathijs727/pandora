@@ -36,7 +36,7 @@ namespace pandora {
 static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 25000;
 static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = false;
 
-template <typename UserState, size_t BatchSize = 32>
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize = 32>
 class OOCBatchingAccelerationStructure {
 public:
     using InsertHandle = void*;
@@ -191,8 +191,8 @@ private:
         TopLevelLeafNode(
             std::filesystem::path cacheFile,
             gsl::span<const OOCSceneObject*> sceneObjects,
-            FifoCache<GeometryData>* geometryCache,
-            OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
+            Cache<GeometryData>* geometryCache,
+            OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr);
         TopLevelLeafNode(TopLevelLeafNode&& other);
 
         Bounds getBounds() const;
@@ -206,7 +206,7 @@ private:
         // separate tbb flow graph for each node that is processed.
         static void flushRange(
             gsl::span<TopLevelLeafNode*> nodes,
-            OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
+            OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr);
 
         static void compressSVDAGs(gsl::span<TopLevelLeafNode*> nodes);
 
@@ -216,7 +216,7 @@ private:
         static EvictableResourceID generateCachedBVH(
             std::filesystem::path cacheFile,
             gsl::span<const OOCSceneObject*> sceneObjects,
-            FifoCache<GeometryData>* cache);
+            Cache<GeometryData>* cache);
 
         struct SVDAGRayOffset {
             glm::vec3 gridBoundsMin;
@@ -231,19 +231,19 @@ private:
         std::atomic_int m_numFullBatches;
         tbb::enumerable_thread_specific<RayBatch*> m_threadLocalActiveBatch;
         std::atomic<RayBatch*> m_immutableRayBatchList;
-        OOCBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
+        OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* m_accelerationStructurePtr;
 
         std::pair<SparseVoxelDAG, SVDAGRayOffset> m_svdagAndTransform;
     };
 
     static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(
         std::filesystem::path scratchFolder,
-        FifoCache<typename TopLevelLeafNode::GeometryData>* cache,
+        Cache<typename TopLevelLeafNode::GeometryData>* cache,
         gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
-        OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
+        OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr);
 
 private:
-    FifoCache<typename TopLevelLeafNode::GeometryData> m_geometryCache;
+    Cache<typename TopLevelLeafNode::GeometryData> m_geometryCache;
 
     GrowingFreeListTS<RayBatch> m_batchAllocator;
     PauseableBVH4<TopLevelLeafNode, UserState> m_bvh;
@@ -254,8 +254,8 @@ private:
     MissCallback m_missCallback;
 };
 
-template <typename UserState, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, BatchSize>::OOCBatchingAccelerationStructure(
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::OOCBatchingAccelerationStructure(
     size_t geometryCacheSize,
     std::filesystem::path scratchFolder,
     const Scene& scene,
@@ -281,8 +281,8 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::OOCBatchingAccele
     }
 }
 
-template <typename UserState, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeIntersectRequests(
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::placeIntersectRequests(
     gsl::span<const Ray> rays,
     gsl::span<const UserState> perRayUserData,
     const InsertHandle& insertHandle)
@@ -303,8 +303,8 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeInterse
     }
 }
 
-template <typename UserState, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeIntersectAnyRequests(
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::placeIntersectAnyRequests(
     gsl::span<const Ray> rays,
     gsl::span<const UserState> perRayUserData,
     const InsertHandle& insertHandle)
@@ -328,12 +328,12 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeInterse
     }
 }
 
-template <typename UserState, size_t BatchSize>
-inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode, UserState> OOCBatchingAccelerationStructure<UserState, BatchSize>::buildBVH(
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode, UserState> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::buildBVH(
     std::filesystem::path scratchFolder,
-    FifoCache<typename TopLevelLeafNode::GeometryData>* cache,
+    Cache<typename TopLevelLeafNode::GeometryData>* cache,
     gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
-    OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
+    OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr)
 {
     if (!std::filesystem::exists(scratchFolder)) {
         std::filesystem::create_directories(scratchFolder);
@@ -360,12 +360,12 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
     return std::move(ret);
 }
 
-template <typename UserState, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(
     std::filesystem::path cacheFile,
     gsl::span<const OOCSceneObject*> sceneObjects,
-    FifoCache<GeometryData>* geometryCache,
-    OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructure)
+    Cache<GeometryData>* geometryCache,
+    OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructure)
     : m_geometryDataCacheID(generateCachedBVH(cacheFile, sceneObjects, geometryCache))
     , m_threadLocalActiveBatch([]() { return nullptr; })
     , m_immutableRayBatchList(nullptr)
@@ -375,8 +375,8 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
     m_sceneObjects.insert(std::end(m_sceneObjects), std::begin(sceneObjects), std::end(sceneObjects));
 }
 
-template <typename UserState, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(TopLevelLeafNode&& other)
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(TopLevelLeafNode&& other)
     : m_geometryDataCacheID(other.m_geometryDataCacheID)
     , m_sceneObjects(std::move(other.m_sceneObjects))
     , m_threadLocalActiveBatch(std::move(other.m_threadLocalActiveBatch))
@@ -386,11 +386,11 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode:
 {
 }
 
-template <typename UserState, size_t BatchSize>
-inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::generateCachedBVH(
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::generateCachedBVH(
     std::filesystem::path cacheFilePath,
     gsl::span<const OOCSceneObject*> sceneObjects,
-    FifoCache<GeometryData>* cache)
+    Cache<GeometryData>* cache)
 {
     // Collect the list of [unique] geometric scene objects that are referenced by instanced scene objects
     std::set<const OOCGeometricSceneObject*> instancedBaseObjects;
@@ -572,8 +572,8 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
     return resourceID;
 }
 
-template <typename UserState, size_t BatchSize>
-inline std::pair<SparseVoxelDAG, typename OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::SVDAGRayOffset> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::computeSVDAG(gsl::span<const OOCSceneObject*> sceneObjects)
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline std::pair<SparseVoxelDAG, typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::SVDAGRayOffset> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::computeSVDAG(gsl::span<const OOCSceneObject*> sceneObjects)
 {
     Bounds gridBounds;
     for (const auto* sceneObject : sceneObjects) {
@@ -598,8 +598,8 @@ inline std::pair<SparseVoxelDAG, typename OOCBatchingAccelerationStructure<UserS
     return { std::move(svdag), SVDAGRayOffset { gridBounds.min, glm::vec3(1.0f / maxDim) } };
 }
 
-template <typename UserState, size_t BatchSize>
-inline Bounds OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::getBounds() const
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline Bounds OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::getBounds() const
 {
     Bounds ret;
     for (const auto* sceneObject : m_sceneObjects) {
@@ -608,8 +608,8 @@ inline Bounds OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLe
     return ret;
 }
 
-template <typename UserState, size_t BatchSize>
-inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersect(
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::intersect(
     Ray& ray,
     SurfaceInteraction& si,
     const UserState& userState,
@@ -648,8 +648,8 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
     return {}; // Paused
 }
 
-template <typename UserState, size_t BatchSize>
-inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
         auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
@@ -684,12 +684,12 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BatchSize
     return {}; // Paused
 }
 
-template <typename UserState, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::forwardPartiallyFilledBatches()
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::forwardPartiallyFilledBatches()
 {
     bool forwardedBatches = false;
 
-    OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch* outBatch = m_immutableRayBatchList;
+    OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch* outBatch = m_immutableRayBatchList;
     for (auto& batch : m_threadLocalActiveBatch) {
         if (batch) {
             for (const auto& [ray, siOpt, userState, insertHandle] : *batch) {
@@ -716,8 +716,8 @@ inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeaf
     return forwardedBatches;
 }
 
-template <typename UserState, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::flush()
 {
     while (true) {
         TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
@@ -735,10 +735,10 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::flush()
     std::cout << "FLUSH COMPLETE" << std::endl;
 }
 
-template <typename UserState, size_t BatchSize>
-void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::flushRange(
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::flushRange(
     gsl::span<TopLevelLeafNode*> nodes,
-    OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
+    OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr)
 {
     tbb::flow::graph g;
 
@@ -879,8 +879,8 @@ void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::f
     g.wait_for_all();
 }
 
-template <typename UserState, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::compressSVDAGs(gsl::span<TopLevelLeafNode*> nodes)
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::compressSVDAGs(gsl::span<TopLevelLeafNode*> nodes)
 {
     std::vector<SparseVoxelDAG*> dags;
     for (auto* node : nodes) {
@@ -893,8 +893,8 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeaf
     }
 }
 
-template <typename UserState, size_t BatchSize>
-inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::sizeBytes() const
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline size_t OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::sizeBytes() const
 {
     size_t size = sizeof(decltype(*this));
     size += m_sceneObjects.capacity() * sizeof(const OOCSceneObject*);
@@ -903,8 +903,8 @@ inline size_t OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLe
     return size;
 }
 
-template <typename UserState, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNodeInstanced::BotLevelLeafNodeInstanced(
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNodeInstanced::BotLevelLeafNodeInstanced(
     const SceneObjectGeometry* baseSceneObjectGeometry,
     unsigned primitiveID)
     : m_baseSceneObjectGeometry(baseSceneObjectGeometry)
@@ -912,21 +912,21 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNodeI
 {
 }
 
-template <typename UserState, size_t BatchSize>
-inline Bounds OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNodeInstanced::getBounds() const
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline Bounds OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNodeInstanced::getBounds() const
 {
     return m_baseSceneObjectGeometry->worldBoundsPrimitive(m_primitiveID);
 }
 
-template <typename UserState, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNodeInstanced::intersect(Ray& ray, RayHit& hitInfo) const
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNodeInstanced::intersect(Ray& ray, RayHit& hitInfo) const
 {
     auto ret = m_baseSceneObjectGeometry->intersectPrimitive(ray, hitInfo, m_primitiveID);
     return ret;
 }
 
-template <typename UserState, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::BotLevelLeafNode(
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNode::BotLevelLeafNode(
     const OOCGeometricSceneObject* sceneObject,
     const SceneObjectGeometry* sceneObjectGeometry,
     unsigned primitiveID)
@@ -934,17 +934,17 @@ inline OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode:
 {
 }
 
-template <typename UserState, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::BotLevelLeafNode(
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNode::BotLevelLeafNode(
     const OOCInstancedSceneObject* sceneObject,
     const SceneObjectGeometry* sceneObjectGeometry,
-    const std::shared_ptr<WiVeBVH8Build8<OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNodeInstanced>>& bvh)
+    const std::shared_ptr<WiVeBVH8Build8<OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNodeInstanced>>& bvh)
     : m_data(Instance { sceneObject, sceneObjectGeometry, bvh })
 {
 }
 
-template <typename UserState, size_t BatchSize>
-inline Bounds OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::getBounds() const
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline Bounds OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNode::getBounds() const
 {
     if (std::holds_alternative<Regular>(m_data)) {
         const auto& data = std::get<Regular>(m_data);
@@ -954,8 +954,8 @@ inline Bounds OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLe
     }
 }
 
-template <typename UserState, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode::intersect(Ray& ray, RayHit& hitInfo) const
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNode::intersect(Ray& ray, RayHit& hitInfo) const
 {
     if (std::holds_alternative<Regular>(m_data)) {
         const auto& data = std::get<Regular>(m_data);
@@ -979,72 +979,72 @@ inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeaf
     }
 }
 
-template <typename UserState, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
     m_data.emplace_back(ray, si, state, insertHandle);
 
     return true;
 }
 
-template <typename UserState, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::tryPush(const Ray& ray, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
     m_data.emplace_back(ray, state, insertHandle);
 
     return true;
 }
 
-template <typename UserState, size_t BatchSize>
-inline const typename OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::begin()
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline const typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::begin()
 {
     return iterator(this, 0);
 }
 
-template <typename UserState, size_t BatchSize>
-inline const typename OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::end()
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline const typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::end()
 {
     return iterator(this, m_data.size());
 }
 
-template <typename UserState, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::iterator(OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch* batch, size_t index)
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::iterator(OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch* batch, size_t index)
     : m_rayBatch(batch)
     , m_index(index)
 {
 }
 
-template <typename UserState, size_t BatchSize>
-inline typename OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator& OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator++()
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator& OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::operator++()
 {
     m_index++;
     return *this;
 }
 
-template <typename UserState, size_t BatchSize>
-inline typename OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator++(int)
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::operator++(int)
 {
     auto r = *this;
     m_index++;
     return r;
 }
 
-template <typename UserState, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator==(OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator other) const
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::operator==(OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator other) const
 {
     assert(m_rayBatch == other.m_rayBatch);
     return m_index == other.m_index;
 }
 
-template <typename UserState, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator!=(OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator other) const
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::operator!=(OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator other) const
 {
     assert(m_rayBatch == other.m_rayBatch);
     return m_index != other.m_index;
 }
 
-template <typename UserState, size_t BatchSize>
-inline typename OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::value_type OOCBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator*()
+template <typename UserState, template<typename T> typename Cache, size_t BatchSize>
+inline typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::value_type OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::operator*()
 {
     auto& [ray, si, userState, insertHandle] = m_rayBatch->m_data[m_index];
     return { ray, si, userState, insertHandle };

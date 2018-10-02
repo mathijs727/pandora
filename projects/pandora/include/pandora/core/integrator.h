@@ -2,6 +2,8 @@
 #include "pandora/core/pandora.h"
 #include "pandora/core/scene.h"
 #include "pandora/core/sensor.h"
+#include "pandora/eviction/fifo_cache.h"
+#include "pandora/eviction/lru_cache.h"
 #include "pandora/samplers/uniform_sampler.h"
 #include "pandora/traversal/in_core_acceleration_structure.h"
 #include "pandora/traversal/in_core_batching_acceleration_structure.h"
@@ -29,7 +31,7 @@ protected:
     const Scene& m_scene;
     //InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
     //InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
-    OOCBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
+    OOCBatchingAccelerationStructure<IntegratorState, FifoCache> m_accelerationStructure;
 
     Sensor& m_sensor;
 };

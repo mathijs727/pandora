@@ -15,10 +15,10 @@ namespace pandora {
 using EvictableResourceID = uint32_t;
 
 template <typename T>
-class FifoCache {
+class LRUCache {
 public:
-    FifoCache(size_t maxSizeBytes);
-    FifoCache(size_t maxSizeBytes,
+    LRUCache(size_t maxSizeBytes);
+    LRUCache(size_t maxSizeBytes,
         const std::function<void(size_t)> allocCallback,
         const std::function<void(size_t)> evictCallback);
 
@@ -48,11 +48,12 @@ public:
 
     private:
         // CacheMapItem pointer because using a reference
-        using LoadRequestData = std::tuple<S, CacheMapItem*, EvictableResourceID>;
+        using HistoryIterator = typename std::list<std::shared_ptr<T>>::iterator;
+        using LoadRequestData = std::tuple<S, std::pair<CacheMapItem, HistoryIterator>*, EvictableResourceID>;
         using AccessNode = tbb::flow::multifunction_node<FlowGraphInput, tbb::flow::tuple<FlowGraphOutput, LoadRequestData>>;
         using LoadNode = tbb::flow::async_node<LoadRequestData, FlowGraphOutput>;
 
-        friend class FifoCache<T>;
+        friend class LRUCache<T>;
         SubFlowGraph(AccessNode&& accessNode, LoadNode&& loadNode);
 
     private:
@@ -74,27 +75,21 @@ private:
     std::function<void(size_t)> m_allocCallback;
     std::function<void(size_t)> m_evictCallback;
 
-    // This will grow indefinitely: bad!
-    tbb::concurrent_queue<std::shared_ptr<T>> m_cacheHistory;
-    //tbb::concurrent_unordered_map<EvictableResourceID, std::shared_ptr<T>> m_owningPointers;
-
-public:
-    // Has to be public because SubFlowGraph requires it as template parameter
+    std::mutex m_cacheMutex;
+    std::list<std::shared_ptr<T>> m_history;
     struct CacheMapItem {
         std::mutex loadMutex;
         pandora::atomic_weak_ptr<T> itemPtr;
     };
+    using HistoryIterator = typename std::list<std::shared_ptr<T>>::iterator;
+    std::unordered_map<EvictableResourceID, std::pair<CacheMapItem, HistoryIterator>> m_cacheMap; // Read-only in the resource access function
 
-private:
-    std::unordered_map<EvictableResourceID, CacheMapItem> m_cacheMap; // Read-only in the resource access function
-
-    std::mutex m_factoryInsertMutex;
-    std::vector<std::function<T(void)>> m_resourceFactories;
+    tbb::concurrent_vector<std::function<T(void)>> m_resourceFactories;
     ThreadPool m_factoryThreadPool;
 };
 
 template <typename T>
-inline FifoCache<T>::FifoCache(size_t maxSizeBytes)
+inline LRUCache<T>::LRUCache(size_t maxSizeBytes)
     : m_maxSizeBytes(maxSizeBytes)
     , m_currentSizeBytes(0)
     , m_allocCallback([](size_t) {})
@@ -103,7 +98,7 @@ inline FifoCache<T>::FifoCache(size_t maxSizeBytes)
 {
 }
 template <typename T>
-inline FifoCache<T>::FifoCache(
+inline LRUCache<T>::LRUCache(
     size_t maxSizeBytes,
     const std::function<void(size_t)> allocCallback,
     const std::function<void(size_t)> evictCallback)
@@ -116,10 +111,10 @@ inline FifoCache<T>::FifoCache(
 }
 
 template <typename T>
-inline EvictableResourceID FifoCache<T>::emplaceFactoryUnsafe(std::function<T(void)> factoryFunc)
+inline EvictableResourceID LRUCache<T>::emplaceFactoryUnsafe(std::function<T(void)> factoryFunc)
 {
-    auto resourceID = static_cast<EvictableResourceID>(m_resourceFactories.size());
-    m_resourceFactories.push_back(factoryFunc);
+    auto iter = m_resourceFactories.push_back(factoryFunc);
+    EvictableResourceID resourceID = iter - m_resourceFactories.begin();
 
     // Insert the key into the hashmap so that any "get" operations are read-only (and thus thread safe)
     m_cacheMap.emplace(std::piecewise_construct,
@@ -130,14 +125,13 @@ inline EvictableResourceID FifoCache<T>::emplaceFactoryUnsafe(std::function<T(vo
 }
 
 template <typename T>
-inline EvictableResourceID FifoCache<T>::emplaceFactoryThreadSafe(std::function<T(void)> factoryFunc)
+inline EvictableResourceID LRUCache<T>::emplaceFactoryThreadSafe(std::function<T(void)> factoryFunc)
 {
-    std::scoped_lock<std::mutex> l(m_factoryInsertMutex);
-
-    auto resourceID = static_cast<EvictableResourceID>(m_resourceFactories.size());
-    m_resourceFactories.push_back(factoryFunc);
+    auto iter = m_resourceFactories.push_back(factoryFunc);
+    EvictableResourceID resourceID = iter - m_resourceFactories.begin();
 
     // Insert the key into the hashmap so that any "get" operations are read-only (and thus thread safe)
+    std::scoped_lock l(m_cacheMutex);
     m_cacheMap.emplace(std::piecewise_construct,
         std::forward_as_tuple(resourceID),
         std::forward_as_tuple());
@@ -147,24 +141,28 @@ inline EvictableResourceID FifoCache<T>::emplaceFactoryThreadSafe(std::function<
 
 
 template <typename T>
-inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resourceID) const
+inline std::shared_ptr<T> LRUCache<T>::getBlocking(EvictableResourceID resourceID) const
 {
-    auto* mutThis = const_cast<FifoCache<T>*>(this);
+    auto* mutThis = const_cast<LRUCache<T>*>(this);
 
-    auto& cacheItem = mutThis->m_cacheMap[resourceID];
+    auto& [cacheItem, lruIter] = mutThis->m_cacheMap[resourceID];
     std::shared_ptr<T> sharedResourcePtr = cacheItem.itemPtr.lock();
     if (!sharedResourcePtr) {
-        std::scoped_lock lock(cacheItem.loadMutex);
+        std::scoped_lock itemLock(cacheItem.loadMutex);
 
         // Make sure that no other thread came in first and loaded the resource already
         sharedResourcePtr = cacheItem.itemPtr.lock();
         if (!sharedResourcePtr) {
-            // TODO: load data on a worker thread
+            ALWAYS_ASSERT(lruIter == m_history.end());
+
             const auto& factoryFunc = m_resourceFactories[resourceID];
             sharedResourcePtr = std::make_shared<T>(factoryFunc());
             size_t resourceSize = sharedResourcePtr->sizeBytes();
             cacheItem.itemPtr.store(sharedResourcePtr);
-            mutThis->m_cacheHistory.push(sharedResourcePtr);
+            {
+                std::scoped_lock cacheLock(mutThis->m_cacheMutex);
+                lruIter = mutThis->m_history.insert(std::begin(m_history), sharedResourcePtr);
+            }
             m_allocCallback(resourceSize);
 
             size_t oldCacheSize = mutThis->m_currentSizeBytes.fetch_add(resourceSize);
@@ -182,31 +180,31 @@ inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resource
 }
 
 template <typename T>
-inline void FifoCache<T>::evictAllUnsafe() const
+inline void LRUCache<T>::evictAllUnsafe() const
 {
     for (auto iter = m_cacheHistory.unsafe_begin(); iter != m_cacheHistory.unsafe_end(); iter++) {
         m_evictCallback((*iter)->sizeBytes());
     }
 
-    auto* mutThis = const_cast<FifoCache<T>*>(this);
-    mutThis->m_cacheHistory.clear();
-    //mutThis->m_owningPointers.clear();
+    auto* mutThis = const_cast<LRUCache<T>*>(this);
+    mutThis->m_history.clear();
 }
 
 template <typename T>
-inline void FifoCache<T>::evict(size_t bytesToEvict)
+inline void LRUCache<T>::evict(size_t bytesToEvict)
 {
+    std::scoped_lock l(m_cacheMutex);
 
     size_t bytesEvicted = 0;
     while (bytesEvicted < bytesToEvict) {
-        std::shared_ptr<T> sharedResourcePtr;
-
-        if (m_cacheHistory.try_pop(sharedResourcePtr)) {
-            bytesEvicted += sharedResourcePtr->sizeBytes();
-        } else {
-            // Cache empty, stop evicting to prevent a deadlock.
+        // Cache empty, stop evicting to prevent a deadlock.
+        if (m_history.empty())
             break;
-        }
+
+        auto sharedResourcePtr = m_history.back();
+        m_history.pop_back();
+
+        bytesEvicted += sharedResourcePtr->sizeBytes();
     }
     m_evictCallback(bytesEvicted);
     m_currentSizeBytes.fetch_sub(bytesEvicted);
@@ -214,7 +212,7 @@ inline void FifoCache<T>::evict(size_t bytesToEvict)
 
 template <typename T>
 template <typename S>
-inline typename FifoCache<T>::template SubFlowGraph<S> FifoCache<T>::getFlowGraphNode(tbb::flow::graph& g) const
+inline typename LRUCache<T>::template SubFlowGraph<S> LRUCache<T>::getFlowGraphNode(tbb::flow::graph& g) const
 {
     using Input = typename SubFlowGraph<S>::FlowGraphInput;
     using Output = typename SubFlowGraph<S>::FlowGraphOutput;
@@ -222,34 +220,37 @@ inline typename FifoCache<T>::template SubFlowGraph<S> FifoCache<T>::getFlowGrap
     using AccessNode = typename SubFlowGraph<S>::AccessNode;
     using LoadNode = typename SubFlowGraph<S>::LoadNode;
 
-    auto* mutThis = const_cast<FifoCache<T>*>(this);
+    auto* mutThis = const_cast<LRUCache<T>*>(this);
     AccessNode accessNode(g, tbb::flow::unlimited, [mutThis, this](Input input, typename AccessNode::output_ports_type& op) {
         EvictableResourceID resourceID = std::get<1>(input);
 
-        auto& cacheItem = mutThis->m_cacheMap[resourceID];
-        std::shared_ptr<T> sharedResourcePtr = cacheItem.itemPtr.lock();
+        auto& cacheItemIterPair = mutThis->m_cacheMap[resourceID];
+        std::shared_ptr<T> sharedResourcePtr = std::get<0>(cacheItemIterPair).itemPtr.lock();
         if (sharedResourcePtr) {
-            std::get<0>(op).try_put(std::make_pair(std::get<0>(input), sharedResourcePtr));
+            std::get<0>(op).try_put({ std::get<0>(input), sharedResourcePtr });
         } else {
-            std::get<1>(op).try_put({ std::get<0>(input), &cacheItem, resourceID });
+            std::get<1>(op).try_put({ std::get<0>(input), &cacheItemIterPair, resourceID });
         }
     });
     LoadNode loadNode(g, tbb::flow::unlimited, [mutThis, this](const LoadRequestData& data, typename LoadNode::gateway_type& gatewayRef) {
         auto* gatewayPtr = &gatewayRef; // Work around for MSVC internal compiler error (when trying to capture gateway)
         gatewayPtr->reserve_wait();
         mutThis->m_factoryThreadPool.emplace([=]() {
-            auto& cacheItem = *std::get<1>(data);
-            std::scoped_lock lock(cacheItem.loadMutex);
+            auto& [cacheItem, lruIter] = *std::get<1>(data);
+            std::scoped_lock itemLock(cacheItem.loadMutex);
 
             // Make sure that no other thread came in first and loaded the resource already
             auto sharedResourcePtr = cacheItem.itemPtr.lock();
             if (!sharedResourcePtr) {
-                // Not mutating but having a hard time capturing this
+                // Not mutating but having a hard time capturing "this" pointer
                 const auto& factoryFunc = m_resourceFactories[std::get<2>(data)];
                 sharedResourcePtr = std::make_shared<T>(factoryFunc());
                 size_t resourceSize = sharedResourcePtr->sizeBytes();
                 cacheItem.itemPtr.store(sharedResourcePtr);
-                mutThis->m_cacheHistory.push(sharedResourcePtr);
+                {
+                    std::scoped_lock cacheLock(mutThis->m_cacheMutex);
+                    lruIter = mutThis->m_history.insert(std::begin(m_history), sharedResourcePtr);
+                }
                 m_allocCallback(resourceSize);
 
                 size_t oldCacheSize = mutThis->m_currentSizeBytes.fetch_add(resourceSize);
@@ -272,7 +273,7 @@ inline typename FifoCache<T>::template SubFlowGraph<S> FifoCache<T>::getFlowGrap
 template <typename T>
 template <typename S>
 template <typename N>
-inline void FifoCache<T>::SubFlowGraph<S>::connectInput(N& inputNode)
+inline void LRUCache<T>::SubFlowGraph<S>::connectInput(N& inputNode)
 {
     tbb::flow::make_edge(inputNode, m_accessNode);
 }
@@ -280,7 +281,7 @@ inline void FifoCache<T>::SubFlowGraph<S>::connectInput(N& inputNode)
 template <typename T>
 template <typename S>
 template <typename N>
-inline void FifoCache<T>::SubFlowGraph<S>::connectOutput(N& outputNode)
+inline void LRUCache<T>::SubFlowGraph<S>::connectOutput(N& outputNode)
 {
     tbb::flow::make_edge(tbb::flow::output_port<1>(m_accessNode), m_loadNode);
 
@@ -290,7 +291,7 @@ inline void FifoCache<T>::SubFlowGraph<S>::connectOutput(N& outputNode)
 
 template <typename T>
 template <typename S>
-inline FifoCache<T>::SubFlowGraph<S>::SubFlowGraph(AccessNode&& accessNode, LoadNode&& loadNode)
+inline LRUCache<T>::SubFlowGraph<S>::SubFlowGraph(AccessNode&& accessNode, LoadNode&& loadNode)
     : m_accessNode(std::move(accessNode))
     , m_loadNode(std::move(loadNode))
 {

@@ -18,6 +18,7 @@ PUBLIC
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/eviction/evictable.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/eviction/fifo_cache.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/eviction/lru_cache.h"
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/contiguous_allocator_generated.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/data_conversion.h"
