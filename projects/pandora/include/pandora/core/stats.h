@@ -16,25 +16,28 @@ struct RenderStats : public metrics::Stats {
 
     struct {
         metrics::Stopwatch<std::chrono::milliseconds> totalRenderTime;
+
+        metrics::Stopwatch<std::chrono::nanoseconds> svdagTraversalTime;
     } timings;
 
     struct {
-        // Memory used by actual geometry (TriangleMesh)
+        // Memory loaded by actual geometry (TriangleMesh) including during BVH construction
         metrics::Counter<size_t> geometryLoaded { "bytes" };
         metrics::Counter<size_t> geometryEvicted { "bytes" };
 
-        // Memory used by geometry & bot-level BVHs
-        metrics::Counter<size_t> botLevelLoaded{ "bytes" };
+        // Memory loaded by geometry & bot-level BVHs
+        metrics::Counter<size_t> botLevelLoaded { "bytes" };
         metrics::Counter<size_t> botLevelEvicted { "bytes" };
+        metrics::Counter<size_t> botLevelTotalSize { "bytes" };
 
         // Memory used by the top-level BVH and the svdags associated with the top-level leaf nodes
-        metrics::Counter<size_t> topBVH{ "bytes" };// BVH excluding leafs
-        metrics::Counter<size_t> topBVHLeafs{ "bytes" };// BVH excluding leafs
-        metrics::Counter<size_t> batches{ "bytes" };
+        metrics::Counter<size_t> topBVH { "bytes" }; // BVH excluding leafs
+        metrics::Counter<size_t> topBVHLeafs { "bytes" }; // leafs (without goemetry)
+        metrics::Counter<size_t> batches { "bytes" };
         metrics::Counter<size_t> svdags { "bytes" };
     } memory;
 
-    metrics::Counter<> numTopLevelLeafNodes { "nodes" };
+    metrics::Counter<size_t> numTopLevelLeafNodes { "nodes" };
     struct FlushInfo {
         metrics::Counter<size_t> leafsFlushed { "nodes" };
         metrics::Histogram batchesPerLeaf { "batches", 1, 10, 11 };

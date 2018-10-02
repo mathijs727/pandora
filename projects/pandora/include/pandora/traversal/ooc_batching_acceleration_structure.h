@@ -37,7 +37,7 @@ namespace pandora {
 
 static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 50000;
 static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = true;
-static constexpr bool OUT_OF_CORE_NO_FILE_CACHING = true;
+static constexpr bool OUT_OF_CORE_DISABLE_FILE_CACHING = true;
 
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize = 32>
 class OOCBatchingAccelerationStructure {
@@ -359,6 +359,8 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, Cache,
         }
     });
 
+    g_stats.numTopLevelLeafNodes += leafs.size();
+
     auto ret = PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
     TopLevelLeafNode::compressSVDAGs(ret.leafs());
     return std::move(ret);
@@ -497,6 +499,8 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
         static_cast<uint32_t>(leafs.size()));
     fbb.Finish(serializedTopLevelLeafNode);
 
+    g_stats.memory.botLevelTotalSize += fbb.GetSize();
+
     // Re-use existing cache files and prevent unnecessary writes (reduces SSD lifespan)
     if (!std::filesystem::exists(cacheFilePath)) {
         std::ofstream file;
@@ -506,7 +510,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
     }
 
     auto resourceID = cache->emplaceFactoryThreadSafe([cacheFilePath, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects)]() -> GeometryData {
-        int fileFlags = OUT_OF_CORE_NO_FILE_CACHING ? mio::access_flags::no_buffering : 0;
+        int fileFlags = OUT_OF_CORE_DISABLE_FILE_CACHING ? mio::access_flags::no_buffering : 0;
         auto mmapFile = mio::mmap_source(cacheFilePath.string(), 0, mio::map_entire_file, fileFlags);
         auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(mmapFile.data());
 
@@ -625,7 +629,9 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, Ba
     PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
-        auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
+        //auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+
+        const auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
         auto svdagRay = ray;
         svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
         if (!svdag.intersectScalar(svdagRay))
@@ -662,6 +668,8 @@ template <typename UserState, template <typename T> typename Cache, size_t Batch
 inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
+        //auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+
         auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
         auto svdagRay = ray;
         svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
