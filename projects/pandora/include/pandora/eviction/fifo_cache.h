@@ -17,8 +17,10 @@ using EvictableResourceID = uint32_t;
 template <typename T>
 class FifoCache {
 public:
-    FifoCache(size_t maxSizeBytes);
-    FifoCache(size_t maxSizeBytes,
+    FifoCache(size_t maxSizeBytes, int loaderThreadCount);
+    FifoCache(
+        size_t maxSizeBytes,
+        int loaderThreadCount,
         const std::function<void(size_t)> allocCallback,
         const std::function<void(size_t)> evictCallback);
 
@@ -94,24 +96,25 @@ private:
 };
 
 template <typename T>
-inline FifoCache<T>::FifoCache(size_t maxSizeBytes)
+inline FifoCache<T>::FifoCache(size_t maxSizeBytes, int loaderThreadCount)
     : m_maxSizeBytes(maxSizeBytes)
     , m_currentSizeBytes(0)
     , m_allocCallback([](size_t) {})
     , m_evictCallback([](size_t) {})
-    , m_factoryThreadPool(16)
+    , m_factoryThreadPool(loaderThreadCount)
 {
 }
 template <typename T>
 inline FifoCache<T>::FifoCache(
     size_t maxSizeBytes,
+    int loaderThreadCount,
     const std::function<void(size_t)> allocCallback,
     const std::function<void(size_t)> evictCallback)
     : m_maxSizeBytes(maxSizeBytes)
     , m_currentSizeBytes(0)
     , m_allocCallback(allocCallback)
     , m_evictCallback(evictCallback)
-    , m_factoryThreadPool(16)
+    , m_factoryThreadPool(loaderThreadCount)
 {
 }
 
@@ -144,7 +147,6 @@ inline EvictableResourceID FifoCache<T>::emplaceFactoryThreadSafe(std::function<
 
     return resourceID;
 }
-
 
 template <typename T>
 inline std::shared_ptr<T> FifoCache<T>::getBlocking(EvictableResourceID resourceID) const

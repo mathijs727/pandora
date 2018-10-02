@@ -17,8 +17,10 @@ using EvictableResourceID = uint32_t;
 template <typename T>
 class LRUCache {
 public:
-    LRUCache(size_t maxSizeBytes);
-    LRUCache(size_t maxSizeBytes,
+    LRUCache(size_t maxSizeBytes, int loaderThreadCount);
+    LRUCache(
+        size_t maxSizeBytes,
+        int loaderThreadCount,
         const std::function<void(size_t)> allocCallback,
         const std::function<void(size_t)> evictCallback);
 
@@ -89,24 +91,25 @@ private:
 };
 
 template <typename T>
-inline LRUCache<T>::LRUCache(size_t maxSizeBytes)
+inline LRUCache<T>::LRUCache(size_t maxSizeBytes, int loaderThreadCount)
     : m_maxSizeBytes(maxSizeBytes)
     , m_currentSizeBytes(0)
     , m_allocCallback([](size_t) {})
     , m_evictCallback([](size_t) {})
-    , m_factoryThreadPool(16)
+    , m_factoryThreadPool(loaderThreadCount)
 {
 }
 template <typename T>
 inline LRUCache<T>::LRUCache(
     size_t maxSizeBytes,
+    int loaderThreadCount,
     const std::function<void(size_t)> allocCallback,
     const std::function<void(size_t)> evictCallback)
     : m_maxSizeBytes(maxSizeBytes)
     , m_currentSizeBytes(0)
     , m_allocCallback(allocCallback)
     , m_evictCallback(evictCallback)
-    , m_factoryThreadPool(16)
+    , m_factoryThreadPool(loaderThreadCount)
 {
 }
 
@@ -138,7 +141,6 @@ inline EvictableResourceID LRUCache<T>::emplaceFactoryThreadSafe(std::function<T
 
     return resourceID;
 }
-
 
 template <typename T>
 inline std::shared_ptr<T> LRUCache<T>::getBlocking(EvictableResourceID resourceID) const

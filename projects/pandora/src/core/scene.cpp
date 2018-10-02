@@ -9,13 +9,14 @@
 #include <unordered_set>
 #include <filesystem>
 #include <string>
+#include <thread>
 
 using namespace std::string_literals;
 
 namespace pandora {
 
 Scene::Scene(size_t geometryCacheSize)
-    : m_geometryCache(std::make_unique<FifoCache<TriangleMesh>>(geometryCacheSize))
+    : m_geometryCache(std::make_unique<FifoCache<TriangleMesh>>(geometryCacheSize, 2 * std::thread::hardware_concurrency()))
 {
 }
 
