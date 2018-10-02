@@ -37,6 +37,7 @@ namespace pandora {
 
 static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 50000;
 static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = true;
+static constexpr bool OUT_OF_CORE_NO_FILE_CACHING = true;
 
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize = 32>
 class OOCBatchingAccelerationStructure {
@@ -505,7 +506,8 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
     }
 
     auto resourceID = cache->emplaceFactoryThreadSafe([cacheFilePath, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects)]() -> GeometryData {
-        auto mmapFile = mio::mmap_source(cacheFilePath.string(), 0, mio::map_entire_file);
+        int fileFlags = OUT_OF_CORE_NO_FILE_CACHING ? mio::access_flags::no_buffering : 0;
+        auto mmapFile = mio::mmap_source(cacheFilePath.string(), 0, mio::map_entire_file, fileFlags);
         auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(mmapFile.data());
 
         /*std::ifstream file(filename, std::ios::binary | std::ios::ate);
@@ -752,6 +754,7 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
     gsl::span<TopLevelLeafNode*> nodes,
     OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr)
 {
+    const size_t concurrency = 2 * std::thread::hardware_concurrency();
     tbb::flow::graph g;
 
     std::sort(std::begin(nodes), std::end(nodes), [](const auto* node1, const auto* node2) {
@@ -759,7 +762,7 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
     });
 
     // Only flush nodes that have a lot of flushed batches, wait for other nodes for their batches to fill up.
-    const auto batchesThreshold = nodes[0]->m_numFullBatches.load() / 8;
+    const int batchesThreshold = nodes[0]->m_numFullBatches.load() / 8;
 
     // Generate a task for each top-level leaf node with at least one non-empty batch
     std::atomic_int leafID = 0;
@@ -788,7 +791,7 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
         });
 
     // Prevent TBB from loading all items from the cache before starting traversal
-    tbb::flow::limiter_node<BatchWithoutGeom> flowLimiterNode(g, 2 * std::thread::hardware_concurrency());
+    tbb::flow::limiter_node<BatchWithoutGeom> flowLimiterNode(g, concurrency);
 
     // For each of those leaf nodes, load the geometry (asynchronously)
     auto cacheSubGraph = std::move(accelerationStructurePtr->m_geometryCache.template getFlowGraphNode<RayBatch*>(g));
