@@ -15,11 +15,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <string>
 #include <tbb/concurrent_vector.h>
 #include <tbb/task_group.h>
 #include <tuple>
 #include <vector>
-#include <string>
 
 using namespace std::string_literals;
 
@@ -239,6 +239,25 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
 RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
 {
+    // Delete the out-of-core acceleration structure cache folder if the previous render was
+    // of a different scene.
+    {
+        auto oocNodeCacheFolder = std::filesystem::path("./ooc_node_cache/");
+        auto cacheVersionFilePath = "./version.txt";
+        if (std::filesystem::exists(oocNodeCacheFolder)) {
+
+            std::ifstream cacheFile(cacheVersionFilePath);
+            std::string oldVersion((std::istreambuf_iterator<char>(cacheFile)), std::istreambuf_iterator<char>());
+
+            if (oldVersion != filePath) {
+                std::filesystem::remove_all(oocNodeCacheFolder);
+            }
+        }
+
+        std::ofstream cacheFile(cacheVersionFilePath);
+        cacheFile << filePath.string();
+    }
+
     // Read file and parse json
     nlohmann::json json;
     {
@@ -336,7 +355,6 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         static std::shared_ptr<Material> defaultMaterial = std::make_shared<MatteMaterial>(
             std::make_shared<ConstantTexture<glm::vec3>>(glm::vec3(1.0f)),
             std::make_shared<ConstantTexture<float>>(1.0f));
-
 
         // Load geometry
         auto getTransform = [&](int id) {
