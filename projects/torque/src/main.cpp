@@ -57,6 +57,10 @@ int main(int argc, char** argv)
     std::cout << "  integrator    " << vm["integrator"].as<std::string>() << "\n";
     std::cout << "  spp           " << vm["spp"].as<int>() << std::endl;
 
+    g_stats.config.sceneFile = vm["file"].as<std::string>();
+    g_stats.config.integrator = vm["integrator"].as<std::string>();
+    g_stats.config.spp = vm["spp"].as<int>();
+
     auto renderConfig = loadFromFileOOC(vm["file"].as<std::string>(), false);
 
     /*// Skydome

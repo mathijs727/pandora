@@ -12,6 +12,10 @@ RenderStats g_stats(exporters);
 nlohmann::json RenderStats::getMetricsSnapshot() const
 {
     nlohmann::json ret;
+    ret["config"]["scene"] = config.sceneFile;
+    ret["config"]["integrator"] = config.integrator;
+    ret["config"]["spp"] = config.spp;
+
     ret["timings"]["total_render_time"] = timings.totalRenderTime;
     ret["timings"]["svdag_traversal_time"] = timings.svdagTraversalTime;
 

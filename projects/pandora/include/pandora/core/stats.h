@@ -37,6 +37,12 @@ struct RenderStats : public metrics::Stats {
         metrics::Counter<size_t> svdags { "bytes" };
     } memory;
 
+    struct {
+        std::string sceneFile;
+        std::string integrator;
+        int spp = 0;
+    } config;
+
     metrics::Counter<size_t> numTopLevelLeafNodes { "nodes" };
     struct FlushInfo {
         metrics::Counter<size_t> leafsFlushed { "nodes" };
