@@ -72,12 +72,20 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
         auto resolutionJson = cameraJson["resolution"];
         glm::ivec2 resolution = { resolutionJson[0].get<int>(), resolutionJson[1].get<int>() };
-        float cameraFov = cameraJson["fov"].get<float>();
+        const float cameraFov = cameraJson["fov"].get<float>();
+        // FOV in defined along the narrower of the image's width and height
+        float cameraFovX;
+        if (resolution.x < resolution.y) {
+            cameraFovX = cameraFov;
+        } else {
+            float aspectRatio = static_cast<float>(resolution.x) / static_cast<float>(resolution.y);
+            cameraFovX = glm::degrees(std::atan(aspectRatio * std::tan(glm::radians(cameraFov / 2.0f)))) * 2.0f;
+        }
 
         glm::mat4 cameraToWorldTransform = readMat4(cameraJson["camera_to_world_transform"]);
         //glm::vec4 position = cameraTransform * glm::vec4(0, 0, 0, 1);
         //std::cout << "Camera pos: [" << position.x << ", " << position.y << ", " << position.z << ", " << position.w << "]" << std::endl;
-        config.camera = std::make_unique<PerspectiveCamera>(resolution, cameraFov, cameraToWorldTransform);
+        config.camera = std::make_unique<PerspectiveCamera>(resolution, cameraFovX, cameraToWorldTransform);
         config.resolution = resolution;
     }
 
@@ -280,8 +288,17 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         glm::ivec2 resolution = { resolutionJson[0].get<int>(), resolutionJson[1].get<int>() };
         float cameraFov = cameraJson["fov"].get<float>();
 
+        // FOV in defined along the narrower of the image's width and height
+        float cameraFovX;
+        if (resolution.x < resolution.y) {
+            cameraFovX = cameraFov;
+        } else {
+            float aspectRatio = static_cast<float>(resolution.x) / static_cast<float>(resolution.y);
+            cameraFovX = glm::degrees(std::atan(aspectRatio * std::tan(glm::radians(cameraFov / 2.0f)))) * 2.0f;
+        }
+
         glm::mat4 cameraToWorldTransform = readMat4(cameraJson["camera_to_world_transform"]);
-        config.camera = std::make_unique<PerspectiveCamera>(resolution, cameraFov, cameraToWorldTransform);
+        config.camera = std::make_unique<PerspectiveCamera>(resolution, cameraFovX, cameraToWorldTransform);
         config.resolution = resolution;
     }
 
