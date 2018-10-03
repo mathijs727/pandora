@@ -12,6 +12,7 @@ public:
     EvictableResourceHandle(FifoCache<T>* cache, EvictableResourceID resource);
     EvictableResourceHandle(const EvictableResourceHandle<T>&) = default;
 
+    bool inCache() const;
     std::shared_ptr<T> getBlocking() const;
 
 private:
@@ -26,6 +27,12 @@ inline EvictableResourceHandle<T>::EvictableResourceHandle(
     : m_cache(cache)
     , m_resourceID(resourceID)
 {
+}
+
+template <typename T>
+inline bool EvictableResourceHandle<T>::inCache() const
+{
+    return m_cache->inCache(m_resourceID);
 }
 
 template <typename T>

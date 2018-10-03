@@ -17,6 +17,7 @@ public:
     void store(const std::shared_ptr<T>& sharedPtr);
 
     std::shared_ptr<T> lock();
+    bool expired() const;
 private:
     std::weak_ptr<T> m_ptr;
     tbb::reader_writer_lock m_mutex;
@@ -40,9 +41,22 @@ void atomic_weak_ptr<T>::store(const std::shared_ptr<T>& sharedPtr)
 template<typename T>
 inline std::shared_ptr<T> atomic_weak_ptr<T>::lock()
 {
+    // Lock the mutex to ensure that we cannot store() while locking
     tbb::reader_writer_lock::scoped_lock_read lock(m_mutex);
     std::atomic_thread_fence(std::memory_order_acquire);
     return m_ptr.lock();
 }
+
+template<typename T>
+inline bool atomic_weak_ptr<T>::expired() const
+{
+    auto* mutThisPtr = const_cast<atomic_weak_ptr<T>*>(this);
+
+    // Lock the mutex to ensure that we cannot store() while checking expired status
+    tbb::reader_writer_lock::scoped_lock_read lock(mutThisPtr->m_mutex);
+    std::atomic_thread_fence(std::memory_order_acquire);
+    return m_ptr.expired();
+}
+
 
 }

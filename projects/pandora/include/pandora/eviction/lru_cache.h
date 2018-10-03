@@ -28,6 +28,8 @@ public:
     EvictableResourceID emplaceFactoryUnsafe(std::function<T(void)> factoryFunc); // Not thread-safe
     EvictableResourceID emplaceFactoryThreadSafe(std::function<T(void)> factoryFunc); // Not thread-safe
 
+    bool inCache(EvictableResourceID resourceID) const;
+
     std::shared_ptr<T> getBlocking(EvictableResourceID resourceID) const;
 
     // Output may be in a different order than the input so the node should also store any associated user data
@@ -140,6 +142,13 @@ inline EvictableResourceID LRUCache<T>::emplaceFactoryThreadSafe(std::function<T
         std::forward_as_tuple());
 
     return resourceID;
+}
+
+template <typename T>
+inline bool LRUCache<T>::inCache(EvictableResourceID resourceID) const
+{
+    const auto&[cacheItem, lruIter] = m_cacheMap.find(resourceID)->second;
+    return !cacheItem.itemPtr.expired();
 }
 
 template <typename T>
