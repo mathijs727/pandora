@@ -27,7 +27,7 @@ public:
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
 public:
-    InCoreAccelerationStructure(gsl::span<const std::unique_ptr<InCoreSceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
+    InCoreAccelerationStructure(const Scene& scene, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
     ~InCoreAccelerationStructure() = default;
 
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
@@ -86,8 +86,8 @@ private:
 };
 
 template <typename UserState>
-inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(gsl::span<const std::unique_ptr<InCoreSceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
-    : m_bvh(std::move(buildBVH(sceneObjects)))
+inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(const Scene& scene, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
+    : m_bvh(std::move(buildBVH(scene.getInCoreSceneObjects())))
     //: m_bvh(std::move(buildPauseableBVH(sceneObjects)))
     , m_hitCallback(hitCallback)
     , m_anyHitCallback(anyHitCallback)

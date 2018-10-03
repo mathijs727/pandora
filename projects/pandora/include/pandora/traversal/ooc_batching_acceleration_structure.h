@@ -38,6 +38,16 @@ namespace pandora {
 static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 50000;
 static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = true;
 static constexpr bool OUT_OF_CORE_DISABLE_FILE_CACHING = true;
+static constexpr size_t OUT_OF_CORE_MEMORY_LIMIT = 1024llu * 1024llu * 75llu;
+#ifdef D_OUT_OF_CORE_CACHE_FOLDER
+// Dumb macro magic so I can move the cache folder to my slower SSD on my local machine, remove from the final build!!!
+// https://stackoverflow.com/questions/6852920/how-do-i-turn-a-macro-into-a-string-using-cpp
+#define QUOTE(x) #x
+#define STR(x) QUOTE(x)
+static const std::filesystem::path OUT_OF_CORE_CACHE_FOLDER(STR(D_OUT_OF_CORE_CACHE_FOLDER));
+#else
+static const std::filesystem::path OUT_OF_CORE_CACHE_FOLDER("./ooc_node_cache/");
+#endif
 
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize = 32>
 class OOCBatchingAccelerationStructure {
@@ -49,8 +59,6 @@ public:
 
 public:
     OOCBatchingAccelerationStructure(
-        size_t geometryCacheSize,
-        std::filesystem::path scratchFolder,
         const Scene& scene,
         HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
     ~OOCBatchingAccelerationStructure() = default;
@@ -240,7 +248,6 @@ private:
     };
 
     static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(
-        std::filesystem::path scratchFolder,
         Cache<typename TopLevelLeafNode::GeometryData>* cache,
         gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
         OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr);
@@ -260,17 +267,15 @@ private:
 
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::OOCBatchingAccelerationStructure(
-    size_t geometryCacheSize,
-    std::filesystem::path scratchFolder,
     const Scene& scene,
     HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
     : m_geometryCache(
-          geometryCacheSize,
+          OUT_OF_CORE_MEMORY_LIMIT,
           2 * std::thread::hardware_concurrency(),
           [](size_t bytes) { g_stats.memory.botLevelLoaded += bytes; },
           [](size_t bytes) { g_stats.memory.botLevelEvicted += bytes; })
     , m_batchAllocator()
-    , m_bvh(std::move(buildBVH(scratchFolder, &m_geometryCache, scene.getOOCSceneObjects(), this)))
+    , m_bvh(std::move(buildBVH(&m_geometryCache, scene.getOOCSceneObjects(), this)))
     , m_hitCallback(hitCallback)
     , m_anyHitCallback(anyHitCallback)
     , m_missCallback(missCallback)
@@ -334,15 +339,14 @@ inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::place
 
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
 inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode, UserState> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::buildBVH(
-    std::filesystem::path scratchFolder,
     Cache<typename TopLevelLeafNode::GeometryData>* cache,
     gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
     OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr)
 {
-    if (!std::filesystem::exists(scratchFolder)) {
-        std::filesystem::create_directories(scratchFolder);
+    if (!std::filesystem::exists(OUT_OF_CORE_CACHE_FOLDER)) {
+        std::filesystem::create_directories(OUT_OF_CORE_CACHE_FOLDER);
     }
-    ALWAYS_ASSERT(std::filesystem::is_directory(scratchFolder));
+    ALWAYS_ASSERT(std::filesystem::is_directory(OUT_OF_CORE_CACHE_FOLDER));
 
     auto sceneObjectGroups = groupSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF, sceneObjects);
 
@@ -350,7 +354,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, Cache,
     std::vector<TopLevelLeafNode> leafs;
     tbb::parallel_for(tbb::blocked_range<size_t>(0llu, sceneObjectGroups.size()), [&](tbb::blocked_range<size_t> localRange) {
         for (size_t i = localRange.begin(); i < localRange.end(); i++) {
-            std::filesystem::path cacheFile = scratchFolder / ("node"s + std::to_string(i) + ".bin"s);
+            std::filesystem::path cacheFile = OUT_OF_CORE_CACHE_FOLDER / ("node"s + std::to_string(i) + ".bin"s);
             TopLevelLeafNode leaf(cacheFile, sceneObjectGroups[i], cache, accelerationStructurePtr);
             {
                 std::scoped_lock<std::mutex> l(m);

@@ -371,12 +371,12 @@ class SceneParser:
         self._color_textures.finish()
 
         return {
-            "transforms": self._transforms,
+            "transforms": self._transforms.to_list(),
             "lights": self._light_sources,
-            "geometry": self._geometry,
-            "scene_objects": self._scene_objects,
-            "instance_base_scene_objects": self._instance_base_scene_objects,
-            "materials": self._materials,
-            "float_textures": self._float_textures,
-            "color_textures": self._color_textures
+            "geometry": self._geometry.to_list(),
+            "scene_objects": self._scene_objects.to_list(),
+            "instance_base_scene_objects": self._instance_base_scene_objects.to_list(),
+            "materials": self._materials.to_list(),
+            "float_textures": self._float_textures.to_list(),
+            "color_textures": self._color_textures.to_list()
         }

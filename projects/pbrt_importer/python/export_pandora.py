@@ -111,9 +111,9 @@ if __name__ == "__main__":
     print("==== WRITING PANDORA SCENE FILE ====")
     with open(args.out, "w") as f:
         print(f"Out file: {args.out}")
-        json.dump(pandora_data, f, cls=MyJSONEncoder)
+        #json.dump(pandora_data, f, cls=MyJSONEncoder)
         #ujson.dump(pandora_data, f, indent=2)
-        #ujson.dump(pandora_data, f)# No formatting saves a lot of disk space
+        ujson.dump(pandora_data, f)# No formatting saves a lot of disk space
 
     # Remove the temporary list files created for the json export
     import shutil

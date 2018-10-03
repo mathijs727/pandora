@@ -37,7 +37,7 @@ public:
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
 public:
-    InCoreBatchingAccelerationStructure(gsl::span<const std::unique_ptr<InCoreSceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
+    InCoreBatchingAccelerationStructure(const Scene& scene, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
     ~InCoreBatchingAccelerationStructure() = default;
 
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
@@ -167,9 +167,10 @@ private:
 };
 
 template <typename UserState, size_t BatchSize>
-inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::InCoreBatchingAccelerationStructure(gsl::span<const std::unique_ptr<InCoreSceneObject>> sceneObjects, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
+inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::InCoreBatchingAccelerationStructure(
+    const Scene& scene, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
     : m_batchAllocator()
-    , m_bvh(std::move(buildBVH(sceneObjects, *this)))
+    , m_bvh(std::move(buildBVH(sceneObjects.getInCoreSceneObjects(), *this)))
     , m_threadLocalPreallocatedRaybatch([&]() { return m_batchAllocator.allocate(); })
     , m_hitCallback(hitCallback)
     , m_anyHitCallback(anyHitCallback)
