@@ -10,23 +10,11 @@
 #include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/growing_free_list_ts.h"
-#include <atomic>
 #include <gsl/gsl>
 #include <memory>
-#include <mutex>
 #include <numeric>
 #include <optional>
 #include <string>
-#include <tbb/concurrent_vector.h>
-#include <tbb/enumerable_thread_specific.h>
-#include <tbb/flow_graph.h>
-#include <tbb/mutex.h>
-#include <tbb/parallel_for_each.h>
-#include <tbb/parallel_sort.h>
-#include <tbb/scalable_allocator.h>
-#include <tbb/task_group.h>
-#include <thread>
-
 using namespace std::string_literals;
 
 namespace pandora {
@@ -177,16 +165,13 @@ private:
         std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
         std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
 
-        bool hasFullBatches() { return m_immutableRayBatchList.load() != nullptr; }
-        bool forwardPartiallyFilledBatches(); // Adds the active batches to the list of immutable batches (even if they are not full)
         // Flush a whole range of nodes at a time as opposed to a non-static flush member function which would require a
         // separate tbb flow graph for each node that is processed.
-        static void flushRange(gsl::span<TopLevelLeafNode*> nodes, InCoreBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
+        static bool flushRange(gsl::span<TopLevelLeafNode*> nodes, InCoreBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
 
         static void compressSVDAGs(gsl::span<TopLevelLeafNode*> nodes);
 
         size_t sizeBytes() const;
-        size_t diskSizeBytes() const;
 
     private:
         struct SVDAGRayOffset {
@@ -201,10 +186,10 @@ private:
         WiVeBVH8Build8<BotLevelLeafNode> m_bvh;
         Bounds m_bounds;
 
-        std::atomic_int m_numFullBatches;
-        tbb::enumerable_thread_specific<RayBatch*> m_threadLocalActiveBatch;
-        std::atomic<RayBatch*> m_immutableRayBatchList;
-        InCoreBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;
+        int m_numFullBatches;
+        RayBatch* m_batch;
+        GrowingFreeListTS<RayBatch>* m_batchAllocator;
+        //InCoreBatchingAccelerationStructure<UserState, BatchSize>* m_accelerationStructurePtr;// Used for its ray batch allocator
 
         std::pair<SparseVoxelDAG, SVDAGRayOffset> m_svdagAndTransform;
     };
@@ -319,9 +304,9 @@ inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNo
     InCoreBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructure)
     : m_bvh(buildBVH(sceneObjects))
     , m_bounds(combinedBounds(sceneObjects))
-    , m_threadLocalActiveBatch([]() { return nullptr; })
-    , m_immutableRayBatchList(nullptr)
-    , m_accelerationStructurePtr(accelerationStructure)
+    , m_numFullBatches(0)
+    , m_batch(nullptr)
+    , m_batchAllocator(&accelerationStructure->m_batchAllocator)
     , m_svdagAndTransform(computeSVDAG(sceneObjects))
 {
 }
@@ -330,9 +315,9 @@ template <typename UserState, size_t BatchSize>
 inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(TopLevelLeafNode&& other)
     : m_bvh(std::move(other.m_bvh))
     , m_bounds(std::move(other.m_bounds))
-    , m_threadLocalActiveBatch(std::move(other.m_threadLocalActiveBatch))
-    , m_immutableRayBatchList(other.m_immutableRayBatchList.load())
-    , m_accelerationStructurePtr(other.m_accelerationStructurePtr)
+    , m_numFullBatches(0)
+    , m_batch(other.m_batch)
+    , m_batchAllocator(other.m_batchAllocator)
     , m_svdagAndTransform(std::move(other.m_svdagAndTransform))
 {
 }
@@ -448,26 +433,17 @@ inline std::optional<bool> InCoreBatchingAccelerationStructure<UserState, BatchS
 
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
-    RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
-    if (!batch || batch->full()) {
-        if (batch) {
-            // Batch was full, move it to the list of immutable batches
-            auto* oldHead = mutThisPtr->m_immutableRayBatchList.load();
-            do {
-                batch->setNext(oldHead);
-            } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
-
-            mutThisPtr->m_numFullBatches.fetch_add(1);
+    if (!m_batch || m_batch->full()) {
+        if (m_batch) {
+            mutThisPtr->m_numFullBatches += 1;
         }
 
         // Allocate a new batch and set it as the new active batch
-        auto* mem = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
-        batch = new (mem) RayBatch();
-        mutThisPtr->m_threadLocalActiveBatch.local() = batch;
+        auto* mem = mutThisPtr->m_batchAllocator->allocate();
+        mutThisPtr->m_batch = new (mem) RayBatch(m_batch);
     }
 
-    bool success = batch->tryPush(ray, si, userState, insertHandle);
-    assert(success);
+    mutThisPtr->m_batch->tryPush(ray, si, userState, insertHandle);
 
     return {}; // Paused
 }
@@ -490,155 +466,63 @@ inline std::optional<bool> InCoreBatchingAccelerationStructure<UserState, BatchS
 
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
-    RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
-    if (!batch || batch->full()) {
-        if (batch) {
-            // Batch was full, move it to the list of immutable batches
-            auto* oldHead = mutThisPtr->m_immutableRayBatchList.load();
-            do {
-                batch->setNext(oldHead);
-            } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
-
-            mutThisPtr->m_numFullBatches.fetch_add(1);
+    if (!m_batch || m_batch->full()) {
+        if (m_batch) {
+            mutThisPtr->m_numFullBatches += 1;
         }
 
         // Allocate a new batch and set it as the new active batch
-        auto* mem = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
-        batch = new (mem) RayBatch();
-        mutThisPtr->m_threadLocalActiveBatch.local() = batch;
+        auto* mem = mutThisPtr->m_batchAllocator->allocate();
+        mutThisPtr->m_batch = new (mem) RayBatch(m_batch);
     }
 
-    bool success = batch->tryPush(ray, userState, insertHandle);
-    assert(success);
+    mutThisPtr->m_batch->tryPush(ray, userState, insertHandle);
 
     return {}; // Paused
 }
 
 template <typename UserState, size_t BatchSize>
-inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::forwardPartiallyFilledBatches()
-{
-    bool forwardedBatches = false;
-
-    InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch* outBatch = m_immutableRayBatchList;
-    for (auto& batch : m_threadLocalActiveBatch) {
-        if (batch) {
-            for (const auto& [ray, siOpt, userState, insertHandle] : *batch) {
-                if (!outBatch || outBatch->full()) {
-                    auto* mem = m_accelerationStructurePtr->m_batchAllocator.allocate();
-                    auto* newBatch = new (mem) RayBatch();
-
-                    newBatch->setNext(outBatch);
-                    outBatch = newBatch;
-                    m_numFullBatches.fetch_add(1);
-                }
-
-                if (siOpt) {
-                    outBatch->tryPush(ray, *siOpt, userState, insertHandle);
-                } else {
-                    outBatch->tryPush(ray, userState, insertHandle);
-                }
-            }
-
-            m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
-            forwardedBatches = true;
-        }
-        batch = nullptr; // Reset thread-local batch
-    }
-    m_immutableRayBatchList = outBatch;
-
-    return forwardedBatches;
-}
-
-template <typename UserState, size_t BatchSize>
 inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::flush()
 {
-    while (true) {
-        TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
-
-        bool done = true;
-        for (auto* node : m_bvh.leafs()) {
-            done = done && !node->hasFullBatches();
-            done = done && !node->forwardPartiallyFilledBatches();
-        }
-
-        if (done)
-            break;
+    while (TopLevelLeafNode::flushRange(m_bvh.leafs(), this)) {
     }
 
     std::cout << "FLUSH COMPLETE" << std::endl;
 }
 
 template <typename UserState, size_t BatchSize>
-void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::flushRange(
+bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::flushRange(
     gsl::span<TopLevelLeafNode*> nodes,
     InCoreBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
 {
     std::sort(std::begin(nodes), std::end(nodes), [](const auto* node1, const auto* node2) {
-        return node1->m_numFullBatches.load() > node2->m_numFullBatches.load(); // Sort from big to small
+        return node1->m_numFullBatches > node2->m_numFullBatches; // Sort from big to small
     });
 
-    // Only flush nodes that have a lot of flushed batches, wait for other nodes for their batches to fill up.
-    const int batchesThreshold = nodes.empty() ? 0 : nodes[0]->m_numFullBatches.load();
+    bool done = false;
+    for (auto* node : nodes) {
+        auto* batch = node->m_batch;
 
-    tbb::flow::graph g;
+        // Flushing batches may insert new rays so make sure that we reset the linked list first
+        node->m_batch = nullptr;
+        node->m_numFullBatches = 0;
 
-    //std::cout << "=====================" << std::endl;
+        if (batch) {
+            done = true;
+        }
 
-    std::atomic_size_t nodeIndex = 0; // source_node is always run sequentially but use atomics to make sure
-    using BatchWithGeom = std::pair<RayBatch*, const WiVeBVH8Build8<BotLevelLeafNode>*>;
-    tbb::flow::source_node<BatchWithGeom> sourceNode(
-        g,
-        [&](BatchWithGeom& out) -> bool {
-            TopLevelLeafNode* node = nullptr;
-
-            if (nodeIndex != nodes.size()) {
-                // Process nodes that are in cache first
-                node = nodes[nodeIndex.fetch_add(1)];
-            } else {
-                return false;
-            }
-
-            RayBatch* batch = node->m_immutableRayBatchList.exchange(nullptr);
-            node->m_numFullBatches.store(0);
-            out = { batch, &(node->m_bvh) };
-            return true;
-        });
-
-    // Create a task for each batch associated with that leaf node (for increased parallelism)
-    using BatchNodeType = tbb::flow::multifunction_node<BatchWithGeom, tbb::flow::tuple<BatchWithGeom>>;
-    BatchNodeType batchNode(
-        g,
-        tbb::flow::unlimited,
-        [&](const BatchWithGeom& v, typename BatchNodeType::output_ports_type& op) {
-            auto [firstBatch, bvh] = v;
-
-            // Flow limitter
-            size_t raysProcessed = 0;
-            auto* batch = firstBatch;
-            while (batch) {
-                std::get<0>(op).try_put({ batch, bvh });
-                batch = batch->next();
-            }
-        });
-
-    using TraverseNodeType = tbb::flow::function_node<BatchWithGeom, tbb::flow::continue_msg>;
-    TraverseNodeType traversalNode(
-        g,
-        tbb::flow::unlimited,
-        [&](const BatchWithGeom& v) {
-            auto [batch, bvh] = v;
-
+        while (batch) {
             for (auto [ray, siOpt, userState, insertHandle] : *batch) {
                 // Intersect with the bottom-level BVH
                 if (siOpt) {
                     RayHit rayHit;
-                    if (bvh->intersect(ray, rayHit)) {
+                    if (node->m_bvh.intersect(ray, rayHit)) {
                         const auto& hitSceneObject = std::get<const InCoreSceneObject*>(rayHit.sceneObjectVariant);
                         siOpt = hitSceneObject->fillSurfaceInteraction(ray, rayHit);
                         siOpt->sceneObjectMaterial = hitSceneObject;
                     }
                 } else {
-                    bvh->intersectAny(ray);
+                    node->m_bvh.intersectAny(ray);
                 }
             }
 
@@ -669,14 +553,11 @@ void InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode
             }
 
             accelerationStructurePtr->m_batchAllocator.deallocate(batch);
-            return tbb::flow::continue_msg();
-        });
+            batch = batch->next();
+        }
+    }
 
-    // NOTE: The source starts outputting as soon as an edge is connected.
-    //       So make sure it is the last edge that we connect.
-    tbb::flow::make_edge(tbb::flow::output_port<0>(batchNode), traversalNode);
-    tbb::flow::make_edge(sourceNode, batchNode);
-    g.wait_for_all();
+    return done;
 }
 
 template <typename UserState, size_t BatchSize>
@@ -697,15 +578,8 @@ template <typename UserState, size_t BatchSize>
 inline size_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::sizeBytes() const
 {
     size_t size = sizeof(decltype(*this));
-    size += m_threadLocalActiveBatch.size() * sizeof(RayBatch*);
     size += std::get<0>(m_svdagAndTransform).sizeBytes();
     return size;
-}
-
-template <typename UserState, size_t BatchSize>
-inline size_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::diskSizeBytes() const
-{
-    return m_diskSize;
 }
 
 template <typename UserState, size_t BatchSize>
