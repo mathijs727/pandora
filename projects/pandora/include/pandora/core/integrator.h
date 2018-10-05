@@ -30,8 +30,8 @@ protected:
 protected:
     const Scene& m_scene;
     //InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
-    //InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
-    OOCBatchingAccelerationStructure<IntegratorState, LRUCache> m_accelerationStructure;
+    InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
+    //OOCBatchingAccelerationStructure<IntegratorState, LRUCache> m_accelerationStructure;
 
     Sensor& m_sensor;
 };

@@ -31,7 +31,7 @@ public:
 
     // Assume someone else owns the material (and doesnt free it untill the SurfaceInteraction is destroyed).
     // We cannot store an unique pointer here because that would require including "scene.h", creating a circular dependency.
-    const SceneObjectMaterial* sceneObjectMaterial;
+    const SceneObjectMaterial* sceneObjectMaterial = nullptr;
 
     BSDF* bsdf = nullptr;
 

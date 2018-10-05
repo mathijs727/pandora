@@ -91,6 +91,7 @@ public:
     FifoCache<TriangleMesh>* geometryCache();
 
     std::vector<std::vector<const OOCSceneObject*>> groupOOCSceneObjects(unsigned uniquePrimsPerGroup) const;
+    std::vector<std::vector<const InCoreSceneObject*>> groupInCoreSceneObjects(unsigned uniquePrimsPerGroup) const;
 
 private:
     std::unique_ptr<FifoCache<TriangleMesh>> m_geometryCache;

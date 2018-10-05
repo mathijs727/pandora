@@ -221,7 +221,8 @@ void Scene::splitLargeOOCSceneObjects(unsigned approximatePrimsPerObject)
     m_oocSceneObjects = std::move(outSceneObjects);
 }
 
-std::vector<std::vector<const OOCSceneObject*>> Scene::groupOOCSceneObjects(unsigned uniquePrimsPerGroup) const
+template <typename T, typename InstancedT>
+std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique_ptr<T>> objects, unsigned uniquePrimsPerGroup)
 {
     const auto embreeErrorFunc = [](void* userPtr, const RTCError code, const char* str) {
         switch (code) {
@@ -252,13 +253,13 @@ std::vector<std::vector<const OOCSceneObject*>> Scene::groupOOCSceneObjects(unsi
     };
 
     struct BVHNode {
-        virtual std::pair<std::vector<const OOCSceneObject*>, std::unordered_set<const OOCSceneObject*>> group(
-            uint32_t minPrimsPerGroup, std::vector<std::vector<const OOCSceneObject*>>& out) const = 0;
+        virtual std::pair<std::vector<const T*>, std::unordered_set<const T*>> group(
+            unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const = 0;
     };
 
     struct BVHInnerNode : public BVHNode {
-        virtual std::pair<std::vector<const OOCSceneObject*>, std::unordered_set<const OOCSceneObject*>> group(
-            uint32_t minPrimsPerGroup, std::vector<std::vector<const OOCSceneObject*>>& out) const
+        virtual std::pair<std::vector<const T*>, std::unordered_set<const T*>> group(
+            unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const
         {
             auto[leftObjects, leftUniqueAndBaseObjects] = leftChild->group(minPrimsPerGroup, out);
             auto[rightObjects, rightUniqueAndBaseObjects] = rightChild->group(minPrimsPerGroup, out);
@@ -267,21 +268,21 @@ std::vector<std::vector<const OOCSceneObject*>> Scene::groupOOCSceneObjects(unsi
             } else if (leftObjects.empty() && !rightObjects.empty()) {
                 return { std::move(rightObjects), std::move(rightUniqueAndBaseObjects) };
             } else if (!leftObjects.empty() && !rightObjects.empty()) {
-                std::vector<const OOCSceneObject*> objects = std::move(leftObjects);
+                std::vector<const T*> objects = std::move(leftObjects);
                 objects.insert(std::end(objects), std::begin(rightObjects), std::end(rightObjects));
 
-                std::unordered_set<const OOCSceneObject*> uniqueAndBaseObjects = std::move(leftUniqueAndBaseObjects);
+                std::unordered_set<const T*> uniqueAndBaseObjects = std::move(leftUniqueAndBaseObjects);
                 uniqueAndBaseObjects.insert(std::begin(rightUniqueAndBaseObjects), std::end(rightUniqueAndBaseObjects));
 
 #ifdef _MSC_VER
-                uint32_t numUniqueAndBasePrims = std::transform_reduce(
+                unsigned numUniqueAndBasePrims = std::transform_reduce(
                     std::begin(uniqueAndBaseObjects),
                     std::end(uniqueAndBaseObjects),
                     0u,
-                    [](uint32_t l, uint32_t r) {
+                    [](unsigned l, unsigned r) {
                     return l + r;
                 },
-                    [](const OOCSceneObject* object) {
+                    [](const T* object) {
                     return object->numPrimitives();
                 });
 #else // GCC 8.2.1 stdlib does not support the standardization of parallelism TS
@@ -305,28 +306,28 @@ std::vector<std::vector<const OOCSceneObject*>> Scene::groupOOCSceneObjects(unsi
     };
 
     struct BVHLeafNode : public BVHNode {
-        virtual std::pair<std::vector<const OOCSceneObject*>, std::unordered_set<const OOCSceneObject*>> group(
-            uint32_t minPrimsPerGroup, std::vector<std::vector<const OOCSceneObject*>>& out) const
+        virtual std::pair<std::vector<const T*>, std::unordered_set<const T*>> group(
+            unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const
         {
             if (sceneObject->numPrimitives() > minPrimsPerGroup) {
                 std::cout << "Add single scene object because prims " << sceneObject->numPrimitives() << " > " << minPrimsPerGroup << std::endl;
-                out.emplace_back(std::vector<const OOCSceneObject*> { sceneObject });
+                out.emplace_back(std::vector<const T*> { sceneObject });
                 return { {}, {} };
             }
 
-            if (const auto* instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(sceneObject)) {
+            if (const auto* instancedSceneObject = dynamic_cast<const InstancedT*>(sceneObject)) {
                 return { { sceneObject }, { instancedSceneObject->getBaseObject() } };
             } else {
                 return { { sceneObject }, { sceneObject } };
             }
         }
-        const OOCSceneObject* sceneObject;
+        const T* sceneObject;
     };
 
     std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
-    embreeBuildPrimitives.reserve(m_oocSceneObjects.size());
+    embreeBuildPrimitives.reserve(objects.size());
     uint32_t sceneObjectID = 0;
-    for (const auto& sceneObject : m_oocSceneObjects) {
+    for (const auto& sceneObject : objects) {
         auto bounds = sceneObject->worldBounds();
 
         RTCBuildPrimitive primitive;
@@ -357,7 +358,7 @@ std::vector<std::vector<const OOCSceneObject*>> Scene::groupOOCSceneObjects(unsi
     arguments.primitives = embreeBuildPrimitives.data();
     arguments.primitiveCount = embreeBuildPrimitives.size();
     arguments.primitiveArrayCapacity = embreeBuildPrimitives.capacity();
-    arguments.userPtr = (void*)&m_oocSceneObjects;
+    arguments.userPtr = (void*)&objects;
     arguments.createNode = [](RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr) -> void* {
         auto* mem = rtcThreadLocalAlloc(alloc, sizeof(BVHInnerNode), 8);
         return new (mem) BVHInnerNode();
@@ -373,7 +374,7 @@ std::vector<std::vector<const OOCSceneObject*>> Scene::groupOOCSceneObjects(unsi
     arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
         ALWAYS_ASSERT(numPrims == 1);
 
-        const auto& sceneObjects = *reinterpret_cast<std::vector<std::unique_ptr<OOCSceneObject>>*>(userPtr);
+        const auto& sceneObjects = *reinterpret_cast<gsl::span<std::unique_ptr<T>>*>(userPtr);
 
         auto* mem = rtcThreadLocalAlloc(alloc, sizeof(BVHLeafNode), 8);
         auto nodePtr = new (mem) BVHLeafNode();
@@ -383,7 +384,7 @@ std::vector<std::vector<const OOCSceneObject*>> Scene::groupOOCSceneObjects(unsi
 
     const auto* rootNode = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
 
-    std::vector<std::vector<const OOCSceneObject*>> ret;
+    std::vector<std::vector<const T*>> ret;
     auto[leftOverObjects, leftOverUniqueAndBaseObject] = rootNode->group(uniquePrimsPerGroup, ret);
     if (!leftOverObjects.empty()) {
         ret.emplace_back(std::move(leftOverObjects));
@@ -397,6 +398,17 @@ std::vector<std::vector<const OOCSceneObject*>> Scene::groupOOCSceneObjects(unsi
     rtcReleaseBVH(bvh);
     rtcReleaseDevice(device);
     return ret;
+}
+
+
+std::vector<std::vector<const OOCSceneObject*>> Scene::groupOOCSceneObjects(unsigned uniquePrimsPerGroup) const
+{
+    return groupSceneObjects<OOCSceneObject, OOCInstancedSceneObject>(m_oocSceneObjects, uniquePrimsPerGroup);
+}
+
+std::vector<std::vector<const InCoreSceneObject*>> Scene::groupInCoreSceneObjects(unsigned uniquePrimsPerGroup) const
+{
+    return groupSceneObjects<InCoreSceneObject, InCoreInstancedSceneObject>(m_inCoreSceneObjects, uniquePrimsPerGroup);
 }
 
 }
