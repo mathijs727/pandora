@@ -39,6 +39,8 @@ static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 50000;
 static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = true;
 static constexpr bool OUT_OF_CORE_DISABLE_FILE_CACHING = true;
 static constexpr size_t OUT_OF_CORE_MEMORY_LIMIT = 1024llu * 1024llu * 75llu;
+static constexpr size_t OUT_OF_CORE_SVDAG_RESOLUTION = 64;
+
 #ifdef D_OUT_OF_CORE_CACHE_FOLDER
 // Dumb macro magic so I can move the cache folder to my slower SSD on my local machine, remove from the final build!!!
 // https://stackoverflow.com/questions/6852920/how-do-i-turn-a-macro-into-a-string-using-cpp
@@ -252,7 +254,7 @@ private:
 
     static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(
         Cache<typename TopLevelLeafNode::GeometryData>* cache,
-        gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
+        const Scene& scene,
         OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr);
 
 private:
@@ -280,7 +282,7 @@ inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::OOCBatchin
           [](size_t bytes) { g_stats.memory.botLevelLoaded += bytes; },
           [](size_t bytes) { g_stats.memory.botLevelEvicted += bytes; })
     , m_batchAllocator()
-    , m_bvh(std::move(buildBVH(&m_geometryCache, scene.getOOCSceneObjects(), this)))
+    , m_bvh(std::move(buildBVH(&m_geometryCache, scene, this)))
     , m_hitCallback(hitCallback)
     , m_anyHitCallback(anyHitCallback)
     , m_missCallback(missCallback)
@@ -345,7 +347,7 @@ inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::place
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
 inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode, UserState> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::buildBVH(
     Cache<typename TopLevelLeafNode::GeometryData>* cache,
-    gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects,
+    const Scene& scene,
     OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr)
 {
     if (!std::filesystem::exists(OUT_OF_CORE_CACHE_FOLDER)) {
@@ -353,7 +355,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, Cache,
     }
     ALWAYS_ASSERT(std::filesystem::is_directory(OUT_OF_CORE_CACHE_FOLDER));
 
-    auto sceneObjectGroups = groupSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF, sceneObjects);
+    auto sceneObjectGroups = scene.groupOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF);
 
     std::mutex m;
     std::vector<TopLevelLeafNode> leafs;
@@ -604,7 +606,7 @@ inline std::pair<SparseVoxelDAG, typename OOCBatchingAccelerationStructure<UserS
         gridBounds.extend(sceneObject->worldBounds());
     }
 
-    VoxelGrid voxelGrid(64);
+    VoxelGrid voxelGrid(OUT_OF_CORE_SVDAG_RESOLUTION);
     for (const auto* sceneObject : sceneObjects) {
         auto geometry = sceneObject->getGeometryBlocking();
         geometry->voxelize(voxelGrid, gridBounds);
@@ -640,10 +642,11 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, Ba
     PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
-        if (!inCache()) {
+        //if (!inCache()) {
+        {
             //auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
 
-            const auto&[svdag, svdagRayOffset] = m_svdagAndTransform;
+            const auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
             auto svdagRay = ray;
             svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
             if (!svdag.intersectScalar(svdagRay))
@@ -681,10 +684,11 @@ template <typename UserState, template <typename T> typename Cache, size_t Batch
 inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
-        if (!inCache()) {
+        //if (!inCache()) {
+        {
             //auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
 
-            auto&[svdag, svdagRayOffset] = m_svdagAndTransform;
+            auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
             auto svdagRay = ray;
             svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
             if (!svdag.intersectScalar(svdagRay))
@@ -805,7 +809,7 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
 
     tbb::flow::graph g;
 
-    std::cout << "=====================" << std::endl;
+    //std::cout << "=====================" << std::endl;
 
     // Generate a task for each top-level leaf node that is in cache OR has enough full batches
     static constexpr float traversalCostPerRay = 1.0f; // Magic number based on CPU IPC & clock speed (ignore core count)

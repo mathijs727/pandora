@@ -19,10 +19,6 @@
 
 namespace pandora {
 
-std::vector<std::vector<const OOCSceneObject*>> groupSceneObjects(
-    unsigned primitivesPerGroup,
-    gsl::span<const std::unique_ptr<OOCSceneObject>> sceneObjects);
-
 class SceneObjectGeometry
 {
 public:
@@ -86,13 +82,15 @@ public:
 
     void splitLargeOOCSceneObjects(unsigned maxPrimitivesPerSceneObject);
 
-    gsl::span<const std::unique_ptr<InCoreSceneObject>> getInCoreSceneObjects() const;
-    gsl::span<const std::unique_ptr<OOCSceneObject>> getOOCSceneObjects() const;
+    std::vector<const InCoreSceneObject*> getInCoreSceneObjects() const;
+    std::vector<const OOCSceneObject*> getOOCSceneObjects() const;
     gsl::span<const Light* const> getLights() const;
     gsl::span<const Light* const> getInfiniteLights() const;
 
     const FifoCache<TriangleMesh>* geometryCache() const;
     FifoCache<TriangleMesh>* geometryCache();
+
+    std::vector<std::vector<const OOCSceneObject*>> groupOOCSceneObjects(unsigned uniquePrimsPerGroup) const;
 
 private:
     std::unique_ptr<FifoCache<TriangleMesh>> m_geometryCache;

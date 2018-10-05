@@ -16,6 +16,10 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
     ret["config"]["integrator"] = config.integrator;
     ret["config"]["spp"] = config.spp;
 
+    ret["config"]["ooc"]["memory_limit_bytes"] = OUT_OF_CORE_MEMORY_LIMIT;
+    ret["config"]["ooc"]["prims_per_leaf"] = OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF;
+    ret["config"]["ooc"]["svdag_resolution"] = OUT_OF_CORE_SVDAG_RESOLUTION;
+
     ret["timings"]["total_render_time"] = timings.totalRenderTime;
     ret["timings"]["svdag_traversal_time"] = timings.svdagTraversalTime;
 
