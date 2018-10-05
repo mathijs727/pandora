@@ -19,11 +19,12 @@ using namespace std::string_literals;
 
 namespace pandora {
 
-static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 50000;
-static constexpr bool IN_CORE_OCCLUSION_CULLING = false;
-static constexpr size_t IN_CORE_SVDAG_RESOLUTION = 64;
+static constexpr unsigned IN_CORE_BATCHING_SCENE_OBJECT_PRIMS = 16;
+static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 32 * 1024;
+static constexpr bool IN_CORE_OCCLUSION_CULLING = true;
+static constexpr size_t IN_CORE_SVDAG_RESOLUTION = 32;
 
-template <typename UserState, size_t BatchSize = 32>
+template <typename UserState, size_t BatchSize = 1024>
 class InCoreBatchingAccelerationStructure {
 public:
     using InsertHandle = void*;
@@ -54,7 +55,7 @@ private:
         const RayBatch* next() const { return m_nextPtr; }
         bool full() const { return m_data.full(); }
 
-        bool tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
+        bool tryPush(const Ray& ray, const RayHit& rayHit, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
         bool tryPush(const Ray& ray, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
 
         size_t size() const
@@ -71,7 +72,7 @@ private:
         struct iterator {
         public:
             using iterator_category = std::random_access_iterator_tag;
-            using value_type = std::tuple<Ray&, std::optional<SurfaceInteraction>&, UserState&, PauseableBVHInsertHandle&>;
+            using value_type = std::tuple<Ray&, std::optional<RayHit>&, UserState&, PauseableBVHInsertHandle&>;
             using difference_type = std::ptrdiff_t;
             using pointer = value_type*;
             using reference = value_type&;
@@ -97,20 +98,20 @@ private:
         struct BatchItem {
             BatchItem(const Ray& ray, const UserState& userState, const PauseableBVHInsertHandle& insertHandle)
                 : ray(ray)
-                , si({})
+                , rayHit({})
                 , userState(userState)
                 , insertHandle(insertHandle)
             {
             }
-            BatchItem(const Ray& ray, const SurfaceInteraction& si, const UserState& userState, const PauseableBVHInsertHandle& insertHandle)
+            BatchItem(const Ray& ray, const RayHit& rayHit, const UserState& userState, const PauseableBVHInsertHandle& insertHandle)
                 : ray(ray)
-                , si(si)
+                , rayHit(rayHit)
                 , userState(userState)
                 , insertHandle(insertHandle)
             {
             }
             Ray ray;
-            std::optional<SurfaceInteraction> si;
+            std::optional<RayHit> rayHit;
             UserState userState;
             PauseableBVHInsertHandle insertHandle;
         };
@@ -162,7 +163,7 @@ private:
 
         Bounds getBounds() const;
 
-        std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
+        std::optional<bool> intersect(Ray& ray, RayHit& rayHit, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
         std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
 
         // Flush a whole range of nodes at a time as opposed to a non-static flush member function which would require a
@@ -235,11 +236,11 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
     assert(perRayUserData.size() == rays.size());
 
     for (int i = 0; i < rays.size(); i++) {
-        SurfaceInteraction si;
         Ray ray = rays[i]; // Copy so we can mutate it
+        RayHit rayHit;
         UserState userState = perRayUserData[i];
 
-        auto optResult = m_bvh.intersect(ray, si, userState);
+        auto optResult = m_bvh.intersect(ray, rayHit, userState);
         if (optResult && *optResult == false) {
             // If we get a result directly it must be because we missed the scene
             m_missCallback(ray, userState);
@@ -309,6 +310,9 @@ inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNo
     , m_batchAllocator(&accelerationStructure->m_batchAllocator)
     , m_svdagAndTransform(computeSVDAG(sceneObjects))
 {
+    size_t size = sizeof(TopLevelLeafNode);
+    size += m_bvh.sizeBytes();
+    std::cout << "Approximate TopLeveLeafNode size (exc mesh): " << size << std::endl;
 }
 
 template <typename UserState, size_t BatchSize>
@@ -339,11 +343,6 @@ inline std::pair<SparseVoxelDAG, typename InCoreBatchingAccelerationStructure<Us
     float maxDim = maxComponent(gridBounds.extent());
 
     SparseVoxelDAG svdag(voxelGrid);
-    // NOTE: the svdags are already being compressed together. Compressing here too will cost more compute power but will reduce memory usage.
-    /*{
-        std::vector svdags = { &svdag };
-        compressDAGs(svdags);
-    }*/
     return { std::move(svdag), SVDAGRayOffset { gridBounds.min, glm::vec3(1.0f / maxDim) } };
 }
 
@@ -414,7 +413,7 @@ inline Bounds InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLeve
 template <typename UserState, size_t BatchSize>
 inline std::optional<bool> InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::intersect(
     Ray& ray,
-    SurfaceInteraction& si,
+    RayHit& rayHit,
     const UserState& userState,
     PauseableBVHInsertHandle insertHandle) const
 {
@@ -443,7 +442,7 @@ inline std::optional<bool> InCoreBatchingAccelerationStructure<UserState, BatchS
         mutThisPtr->m_batch = new (mem) RayBatch(m_batch);
     }
 
-    mutThisPtr->m_batch->tryPush(ray, si, userState, insertHandle);
+    mutThisPtr->m_batch->tryPush(ray, rayHit, userState, insertHandle);
 
     return {}; // Paused
 }
@@ -501,39 +500,48 @@ bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode
 
     bool done = false;
     for (auto* node : nodes) {
-        auto* batch = node->m_batch;
+        auto* firstBatch = node->m_batch;
 
         // Flushing batches may insert new rays so make sure that we reset the linked list first
         node->m_batch = nullptr;
         node->m_numFullBatches = 0;
 
-        if (batch) {
+        if (firstBatch) {
             done = true;
         }
 
+        auto* batch = firstBatch;
         while (batch) {
-            for (auto [ray, siOpt, userState, insertHandle] : *batch) {
+            for (auto[ray, rayHitOpt, userState, insertHandle] : *batch) {
                 // Intersect with the bottom-level BVH
-                if (siOpt) {
-                    RayHit rayHit;
-                    if (node->m_bvh.intersect(ray, rayHit)) {
-                        const auto& hitSceneObject = std::get<const InCoreSceneObject*>(rayHit.sceneObjectVariant);
+                if (rayHitOpt) {
+                    node->m_bvh.intersect(ray, *rayHitOpt);
+                    /*if (node->m_bvh.intersect(ray, rayHit)) {
+                        const auto* hitSceneObject = std::get<const InCoreSceneObject*>(rayHit.sceneObjectVariant);
                         siOpt = hitSceneObject->fillSurfaceInteraction(ray, rayHit);
                         siOpt->sceneObjectMaterial = hitSceneObject;
-                    }
+                    }*/
                 } else {
                     node->m_bvh.intersectAny(ray);
                 }
             }
 
-            for (auto [ray, siOpt, userState, insertHandle] : *batch) {
-                if (siOpt) {
+            batch = batch->next();
+        }
+
+        batch = firstBatch;
+        while (batch) {
+            for (auto [ray, rayHitOpt, userState, insertHandle] : *batch) {
+                if (rayHitOpt) {
                     // Insert the ray back into the top-level  BVH
-                    auto optResult = accelerationStructurePtr->m_bvh.intersect(ray, *siOpt, userState, insertHandle);
+                    auto optResult = accelerationStructurePtr->m_bvh.intersect(ray, *rayHitOpt, userState, insertHandle);
                     if (optResult && *optResult == false) {
                         // Ray exited the system so we can run the hit/miss shaders
-                        if (siOpt->sceneObjectMaterial) {
-                            accelerationStructurePtr->m_hitCallback(ray, *siOpt, userState, nullptr);
+                        const auto* hitSceneObject = std::get<const InCoreSceneObject*>(rayHitOpt->sceneObjectVariant);
+                        if (hitSceneObject) {
+                            auto si = hitSceneObject->fillSurfaceInteraction(ray, *rayHitOpt);
+                            si.sceneObjectMaterial = hitSceneObject;
+                            accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
                         } else {
                             accelerationStructurePtr->m_missCallback(ray, userState);
                         }
@@ -656,9 +664,9 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelL
 }
 
 template <typename UserState, size_t BatchSize>
-inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
+inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::tryPush(const Ray& ray, const RayHit& rayHit, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
-    m_data.emplace_back(ray, si, state, insertHandle);
+    m_data.emplace_back(ray, rayHit, state, insertHandle);
 
     return true;
 }
@@ -722,7 +730,7 @@ inline bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch:
 template <typename UserState, size_t BatchSize>
 inline typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::value_type InCoreBatchingAccelerationStructure<UserState, BatchSize>::RayBatch::iterator::operator*()
 {
-    auto& [ray, si, userState, insertHandle] = m_rayBatch->m_data[m_index];
-    return { ray, si, userState, insertHandle };
+    auto& [ray, rayHit, userState, insertHandle] = m_rayBatch->m_data[m_index];
+    return { ray, rayHit, userState, insertHandle };
 }
 }

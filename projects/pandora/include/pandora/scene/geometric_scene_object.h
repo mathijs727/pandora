@@ -83,7 +83,10 @@ public:
 
     void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const override final;
 
+    InCoreGeometricSceneObject geometricSplit(gsl::span<unsigned> primitiveIDs);
+
     size_t sizeBytes() const override final;
+
 
 private:
     static std::vector<AreaLight> createAreaLights(const Spectrum& lightEmitted, const TriangleMesh& mesh);

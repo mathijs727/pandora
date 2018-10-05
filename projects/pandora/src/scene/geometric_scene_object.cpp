@@ -76,6 +76,16 @@ void InCoreGeometricSceneObject::voxelize(VoxelGrid& grid, const Bounds& gridBou
     return m_geometricProperties.voxelize(grid, gridBounds, transform);
 }
 
+InCoreGeometricSceneObject InCoreGeometricSceneObject::geometricSplit(gsl::span<unsigned> primitiveIDs)
+{
+    // Splitting of area light meshes is not supported yet (requires some work / refactoring)
+    ALWAYS_ASSERT(m_areaLights.empty());
+
+    auto subGeometry = std::make_shared<TriangleMesh>(std::move(m_geometricProperties.m_mesh->subMesh(primitiveIDs)));
+
+    return InCoreGeometricSceneObject(subGeometry, m_materialProperties.m_material);
+}
+
 std::vector<AreaLight> InCoreGeometricSceneObject::createAreaLights(const Spectrum& lightEmitted, const TriangleMesh& mesh)
 {
     std::vector<AreaLight> lights;

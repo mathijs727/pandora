@@ -80,6 +80,7 @@ public:
     void addSceneObject(std::unique_ptr<OOCSceneObject>&& sceneNode);
     void addInfiniteLight(const std::shared_ptr<Light>& light);
 
+    void splitLargeInCoreSceneObjects(unsigned maxPrimitivesPerSceneObject);
     void splitLargeOOCSceneObjects(unsigned maxPrimitivesPerSceneObject);
 
     std::vector<const InCoreSceneObject*> getInCoreSceneObjects() const;
