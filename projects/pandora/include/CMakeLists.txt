@@ -28,6 +28,7 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/wive_bvh8_generated.h"
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/geometry/bounds.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/geometry/group.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/geometry/template_magic.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/geometry/triangle.h"
 

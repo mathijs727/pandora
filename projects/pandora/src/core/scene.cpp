@@ -515,7 +515,7 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
         ALWAYS_ASSERT(group.size() > 0);
     }
 
-    // Free Embree memory (including memory allocated with rtcThreadLocalAlloc
+    // Free Embree memory (including memory allocated with rtcThreadLocalAlloc)
     rtcReleaseBVH(bvh);
     rtcReleaseDevice(device);
     return ret;
