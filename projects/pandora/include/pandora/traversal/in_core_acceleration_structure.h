@@ -140,9 +140,7 @@ InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const InCoreSceneObje
         }
     }
 
-    BVHType<LeafNode> bvh;
-    bvh.build(leafs);
-    return std::move(bvh);
+    return BVHType<LeafNode>(leafs);
 }
 
 template <typename UserState>

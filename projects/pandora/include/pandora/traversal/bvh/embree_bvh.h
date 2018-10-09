@@ -12,13 +12,11 @@ namespace pandora {
 template <typename LeafObj>
 class EmbreeBVH : public BVH<LeafObj> {
 public:
-    EmbreeBVH();
+    EmbreeBVH(gsl::span<LeafObj> objects);
     EmbreeBVH(EmbreeBVH&&);
     ~EmbreeBVH();
 
     size_t sizeBytes() const override final;
-
-    void build(gsl::span<LeafObj> objects) override final;
 
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
     bool intersectAny(Ray& ray) const override final;

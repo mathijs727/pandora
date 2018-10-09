@@ -17,7 +17,7 @@ namespace pandora {
 template <typename LeafObj>
 class WiVeBVH8 : public BVH<LeafObj> {
 public:
-	WiVeBVH8() = default;
+    WiVeBVH8(uint32_t numPrims);
     WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects);
 	WiVeBVH8(WiVeBVH8&&) = default;
     ~WiVeBVH8() = default;
@@ -25,8 +25,6 @@ public:
     flatbuffers::Offset<serialization::WiVeBVH8> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
     size_t sizeBytes() const override final;
-
-    void build(gsl::span<LeafObj> objects) override final;
 
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
     bool intersectAny(Ray& ray) const override final;
@@ -84,8 +82,8 @@ protected:
 
     constexpr static uint32_t emptyHandle = 0xFFFFFFFF;
 
-    std::unique_ptr<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>> m_innerNodeAllocator = nullptr;
-    std::unique_ptr<ContiguousAllocatorTS<uint32_t>> m_leafIndexAllocator = nullptr;
+    ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode> m_innerNodeAllocator;
+    ContiguousAllocatorTS<uint32_t> m_leafIndexAllocator;
     std::vector<LeafObj> m_leafObjects;
 
     uint32_t m_compressedRootHandle = 0;

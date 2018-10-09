@@ -8,7 +8,7 @@ template <typename LeafObj>
 class WiVeBVH8Build8 : public WiVeBVH8<LeafObj> {
 public:
     using WiVeBVH8<LeafObj>::WiVeBVH8;
-    //WiVeBVH8Build8() = default;
+    WiVeBVH8Build8(gsl::span<LeafObj> objects);
     WiVeBVH8Build8(WiVeBVH8Build8<LeafObj>&& other)
         : WiVeBVH8<LeafObj>(std::move(other))
     {

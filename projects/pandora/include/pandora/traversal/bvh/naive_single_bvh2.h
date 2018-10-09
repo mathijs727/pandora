@@ -13,13 +13,11 @@ namespace pandora {
 template <typename LeafObj>
 class NaiveSingleRayBVH2 : public BVH<LeafObj> {
 public:
-    NaiveSingleRayBVH2();
+    NaiveSingleRayBVH2(gsl::span<LeafObj> objects);
     NaiveSingleRayBVH2(NaiveSingleRayBVH2<LeafObj>&& other);
     ~NaiveSingleRayBVH2();
 
     size_t sizeBytes() const override final;
-
-    void build(gsl::span<LeafObj> objects) override final;
 
     bool intersect(Ray& ray, RayHit& hitInfo) const override final;
     bool intersectAny(Ray& ray) const override final;
@@ -59,7 +57,7 @@ private:
 };
 
 template <typename LeafObj>
-inline NaiveSingleRayBVH2<LeafObj>::NaiveSingleRayBVH2()
+inline NaiveSingleRayBVH2<LeafObj>::NaiveSingleRayBVH2(gsl::span<LeafObj> objects)
     : m_root(nullptr)
     , m_memoryUsed(0)
 {
@@ -69,37 +67,6 @@ inline NaiveSingleRayBVH2<LeafObj>::NaiveSingleRayBVH2()
     rtcSetDeviceMemoryMonitorFunction(m_embreeDevice, deviceMemoryMonitorFunction, this);
 
     m_embreeBVH = rtcNewBVH(m_embreeDevice);
-}
-
-template <typename LeafObj>
-inline NaiveSingleRayBVH2<LeafObj>::NaiveSingleRayBVH2(NaiveSingleRayBVH2<LeafObj>&& other)
-    : m_embreeDevice(std::move(other.m_embreeDevice))
-    , m_embreeBVH(std::move(other.m_embreeBVH))
-    , m_root(other.m_root)
-{
-    other.m_embreeBVH = nullptr;
-    other.m_embreeDevice = nullptr;
-}
-
-template <typename LeafObj>
-inline NaiveSingleRayBVH2<LeafObj>::~NaiveSingleRayBVH2()
-{
-    if (m_embreeBVH)
-        rtcReleaseBVH(m_embreeBVH);
-    if (m_embreeDevice)
-        rtcReleaseDevice(m_embreeDevice);
-}
-
-template <typename LeafObj>
-inline size_t NaiveSingleRayBVH2<LeafObj>::sizeBytes() const
-{
-    return sizeof(decltype(*this)) + m_memoryUsed.load();
-}
-
-template <typename LeafObj>
-inline void NaiveSingleRayBVH2<LeafObj>::build(gsl::span<LeafObj> objects)
-{
-
     std::vector<RTCBuildPrimitive> embreePrimitives;
     for (unsigned leafID = 0; leafID < static_cast<unsigned>(objects.size()); leafID++) {
         auto bounds = objects[leafID].getBounds();
@@ -135,6 +102,31 @@ inline void NaiveSingleRayBVH2<LeafObj>::build(gsl::span<LeafObj> objects)
     arguments.userPtr = objects.data();
 
     m_root = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
+}
+
+template <typename LeafObj>
+inline NaiveSingleRayBVH2<LeafObj>::NaiveSingleRayBVH2(NaiveSingleRayBVH2<LeafObj>&& other)
+    : m_embreeDevice(std::move(other.m_embreeDevice))
+    , m_embreeBVH(std::move(other.m_embreeBVH))
+    , m_root(other.m_root)
+{
+    other.m_embreeBVH = nullptr;
+    other.m_embreeDevice = nullptr;
+}
+
+template <typename LeafObj>
+inline NaiveSingleRayBVH2<LeafObj>::~NaiveSingleRayBVH2()
+{
+    if (m_embreeBVH)
+        rtcReleaseBVH(m_embreeBVH);
+    if (m_embreeDevice)
+        rtcReleaseDevice(m_embreeDevice);
+}
+
+template <typename LeafObj>
+inline size_t NaiveSingleRayBVH2<LeafObj>::sizeBytes() const
+{
+    return sizeof(decltype(*this)) + m_memoryUsed.load();
 }
 
 template <typename LeafObj>

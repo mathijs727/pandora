@@ -10,10 +10,17 @@
 namespace pandora {
 
 template <typename LeafObj>
-inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects)
+inline WiVeBVH8<LeafObj>::WiVeBVH8(uint32_t numPrims) :
+    m_innerNodeAllocator(std::max(8u, numPrims / 4), 16),
+    m_leafIndexAllocator(numPrims + numPrims * 2 / 10)
 {
-    m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(serialized->innerNodeAllocator());
-    m_leafIndexAllocator = std::make_unique<ContiguousAllocatorTS<uint32_t>>(serialized->leafIndexAllocator());
+}
+
+template <typename LeafObj>
+inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects) :
+    m_innerNodeAllocator(serialized->innerNodeAllocator()),
+    m_innerNodeAllocator(serialized->leafIndexAllocator()),
+{
     m_compressedRootHandle = serialized->compressedRootHandle();
 
     size_t numNodesGiven = objects.size();
@@ -23,14 +30,6 @@ inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, st
     ALWAYS_ASSERT(numNodesGiven == numNodesSerialized, "Number of leaf objects does not match that of the serialized BVH");
 
     this->m_leafObjects = std::move(objects);
-    /*this->m_leafObjects.insert(
-        std::end(this->m_leafObjects),
-        std::make_move_iterator(std::begin(objects)),
-        std::make_move_iterator(std::begin(objects)));*/
-    /*this->m_leafObjects.clear();
-    this->m_leafObjects.reserve(objects.size());
-    for (auto& obj : objects)
-        this->m_leafObjects.emplace_back(std::move(obj));*/
 }
 
 template <typename LeafObj>
@@ -89,7 +88,7 @@ inline void WiVeBVH8<LeafObj>::saveToFile(std::string_view filename)
 template <typename LeafObj>
 inline size_t WiVeBVH8<LeafObj>::sizeBytes() const
 {
-    return sizeof(decltype(*this)) + m_innerNodeAllocator->sizeBytes() + m_leafIndexAllocator->sizeBytes();
+    return sizeof(decltype(*this)) + m_innerNodeAllocator.sizeBytes() + m_leafIndexAllocator.sizeBytes();
 }
 
 template <typename LeafObj>
@@ -125,7 +124,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
         float distance = stackDistances[stackPtr];
 
         uint32_t handle = decompressNodeHandle(compressedNodeHandle);
-        const auto* node = &m_innerNodeAllocator->get(handle);
+        const auto* node = &m_innerNodeAllocator.get(handle);
         if (isInnerNode(compressedNodeHandle)) {
             // Inner node
             simd::vec8_u32 childrenSIMD;
@@ -145,7 +144,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
             assert(isLeafNode(compressedNodeHandle));
 #endif
             // Leaf node
-            if (intersectLeaf(&m_leafIndexAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, hitInfo)) {
+            if (intersectLeaf(&m_leafIndexAllocator.get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, hitInfo)) {
                 hit = true;
                 simdRay.tfar.broadcast(ray.tfar);
 
@@ -208,7 +207,7 @@ inline bool WiVeBVH8<LeafObj>::intersectAny(Ray& ray) const
         float distance = stackDistances[stackPtr];
 
         uint32_t handle = decompressNodeHandle(compressedNodeHandle);
-        const auto* node = &m_innerNodeAllocator->get(handle);
+        const auto* node = &m_innerNodeAllocator.get(handle);
         if (isInnerNode(compressedNodeHandle)) {
             // Inner node
             simd::vec8_u32 childrenSIMD;
@@ -228,7 +227,7 @@ inline bool WiVeBVH8<LeafObj>::intersectAny(Ray& ray) const
             assert(isLeafNode(compressedNodeHandle));
 #endif
             // Leaf node
-            if (intersectAnyLeaf(&m_leafIndexAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray)) {
+            if (intersectAnyLeaf(&m_leafIndexAllocator.get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray)) {
                 ray.tfar = -std::numeric_limits<float>::infinity();
                 return true;
             }
@@ -301,7 +300,6 @@ inline uint32_t WiVeBVH8<LeafObj>::intersectAnyInnerNode(const BVHNode* n, const
     return mask.count();
 }
 
-
 template <typename LeafObj>
 inline bool WiVeBVH8<LeafObj>::intersectLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray, RayHit& hitInfo) const
 {
@@ -362,30 +360,6 @@ inline void WiVeBVH8<LeafObj>::testBVHRecurse(const BVHNode* node, int depth, Te
     }
     out.maxDepth = std::max(out.maxDepth, depth);
     out.numChildrenHistogram[numChildren]++;
-}
-
-template <typename LeafObj>
-inline void WiVeBVH8<LeafObj>::build(gsl::span<LeafObj> objects)
-{
-    std::vector<RTCBuildPrimitive> embreePrimitives;
-    embreePrimitives.reserve(static_cast<unsigned>(objects.size()));
-
-    for (unsigned leafID = 0; leafID < static_cast<unsigned>(objects.size()); leafID++) {
-        auto bounds = objects[leafID].getBounds();
-
-        RTCBuildPrimitive primitive;
-        primitive.lower_x = bounds.min.x;
-        primitive.lower_y = bounds.min.y;
-        primitive.lower_z = bounds.min.z;
-        primitive.upper_x = bounds.max.x;
-        primitive.upper_y = bounds.max.y;
-        primitive.upper_z = bounds.max.z;
-        primitive.primID = leafID;
-        primitive.geomID = 0;
-        embreePrimitives.push_back(primitive);
-    }
-
-    commit(embreePrimitives, objects);
 }
 
 template <typename LeafObj>

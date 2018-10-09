@@ -22,11 +22,11 @@ using namespace std::string_literals;
 namespace pandora {
 
 static constexpr unsigned IN_CORE_BATCHING_SCENE_OBJECT_PRIMS = 512;
-static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 4 * 1024;
+static constexpr unsigned IN_CORE_BATCHING_PRIMS_PER_LEAF = 4096;
 static constexpr bool IN_CORE_OCCLUSION_CULLING = false;
 static constexpr size_t IN_CORE_SVDAG_RESOLUTION = 32;
 
-template <typename UserState, size_t BatchSize = 1024>
+template <typename UserState, size_t BatchSize = 384>
 class InCoreBatchingAccelerationStructure {
 public:
     using InsertHandle = void*;
@@ -174,7 +174,6 @@ private:
             glm::vec3 invGridBoundsExtent;
         };
         static std::pair<SparseVoxelDAG, SVDAGRayOffset> computeSVDAG(gsl::span<const InCoreSceneObject*> sceneObjects);
-        static WiVeBVH8Build8<BotLevelLeafNode> buildBVH(gsl::span<BotLevelLeafNode> leafs);
         static Bounds combinedBounds(gsl::span<const BotLevelLeafNode> sceneObjects);
 
     private:
@@ -289,38 +288,17 @@ inline PauseableBVH4<typename InCoreBatchingAccelerationStructure<UserState, Bat
         leafs.emplace_back(std::move(TopLevelLeafNode(botLeafsGroup, accelerationStructure)));
     }
     return PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
-
-    /*auto sceneObjectGroups = scene.groupInCoreSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
-
-    std::mutex m;
-    std::vector<TopLevelLeafNode> leafs;
-    tbb::parallel_for(tbb::blocked_range<size_t>(0llu, sceneObjectGroups.size()), [&](tbb::blocked_range<size_t> localRange) {
-        for (size_t i = localRange.begin(); i < localRange.end(); i++) {
-            TopLevelLeafNode leaf(sceneObjectGroups[i], accelerationStructurePtr);
-            {
-                std::scoped_lock<std::mutex> l(m);
-                leafs.push_back(std::move(leaf));
-            }
-        }
-    });
-
-    g_stats.numTopLevelLeafNodes += leafs.size();
-
-    auto ret = PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
-    TopLevelLeafNode::compressSVDAGs(ret.leafs());
-    return std::move(ret);*/
 }
 
 template <typename UserState, size_t BatchSize>
 inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(
     gsl::span<BotLevelLeafNode> leafs,
     InCoreBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructure)
-    : m_bvh(buildBVH(leafs))
+    : m_bvh(leafs)
     , m_bounds(combinedBounds(leafs))
     , m_numFullBatches(0)
     , m_batch(nullptr)
     , m_batchAllocator(&accelerationStructure->m_batchAllocator)
-//, m_svdagAndTransform(computeSVDAG(sceneObjects))
 {
     size_t size = sizeof(TopLevelLeafNode);
     size += m_bvh.sizeBytes();
@@ -334,7 +312,6 @@ inline InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNo
     , m_numFullBatches(0)
     , m_batch(other.m_batch)
     , m_batchAllocator(other.m_batchAllocator)
-//, m_svdagAndTransform(std::move(other.m_svdagAndTransform))
 {
 }
 
@@ -356,14 +333,6 @@ inline std::pair<SparseVoxelDAG, typename InCoreBatchingAccelerationStructure<Us
 
     SparseVoxelDAG svdag(voxelGrid);
     return { std::move(svdag), SVDAGRayOffset { gridBounds.min, glm::vec3(1.0f / maxDim) } };
-}
-
-template <typename UserState, size_t BatchSize>
-inline WiVeBVH8Build8<typename InCoreBatchingAccelerationStructure<UserState, BatchSize>::BotLevelLeafNode> InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::buildBVH(gsl::span<BotLevelLeafNode> leafs)
-{
-    WiVeBVH8Build8<BotLevelLeafNode> bvh;
-    bvh.build(leafs);
-    return std::move(bvh);
 }
 
 template <typename UserState, size_t BatchSize>

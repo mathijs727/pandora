@@ -22,7 +22,7 @@ class BVH {
 public:
 	static_assert(is_bvh_Leaf_obj<LeafObj>::value, "BVH leaf does not implement the is_bvh_Leaf_obj trait");
 
-    virtual void build(gsl::span<LeafObj> leafs) = 0;
+    //virtual void build(gsl::span<LeafObj> leafs) = 0;
 
     virtual bool intersect(Ray& ray, RayHit& hitInfo) const = 0;
     virtual bool intersectAny(Ray& ray) const = 0;

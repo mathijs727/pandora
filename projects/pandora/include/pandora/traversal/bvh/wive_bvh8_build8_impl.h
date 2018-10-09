@@ -1,8 +1,7 @@
 #include "pandora/utility/error_handling.h"
 #include <mutex>
 
-namespace pandora
-{
+namespace pandora {
 
 static RTCBVH WiVeBVH8Build8_embreeBVH()
 {
@@ -47,13 +46,45 @@ static RTCBVH WiVeBVH8Build8_embreeBVH()
 }
 
 template <typename LeafObj>
+inline WiVeBVH8Build8<LeafObj>::WiVeBVH8Build8(gsl::span<LeafObj> objects)
+    : WiVeBVH8(objects.size())
+{
+    // Move the leaf objects
+    this->m_leafObjects.reserve(objects.size());
+    this->m_leafObjects.insert(
+        std::end(this->m_leafObjects),
+        std::make_move_iterator(std::begin(objects)),
+        std::make_move_iterator(std::end(objects)));
+
+    std::vector<RTCBuildPrimitive> embreePrimitives;
+    embreePrimitives.reserve(static_cast<unsigned>(objects.size()));
+
+    for (unsigned leafID = 0; leafID < static_cast<unsigned>(objects.size()); leafID++) {
+        auto bounds = objects[leafID].getBounds();
+
+        RTCBuildPrimitive primitive;
+        primitive.lower_x = bounds.min.x;
+        primitive.lower_y = bounds.min.y;
+        primitive.lower_z = bounds.min.z;
+        primitive.upper_x = bounds.max.x;
+        primitive.upper_y = bounds.max.y;
+        primitive.upper_z = bounds.max.z;
+        primitive.primID = leafID;
+        primitive.geomID = 0;
+        embreePrimitives.push_back(primitive);
+    }
+
+    commit(embreePrimitives, objects);
+}
+
+template <typename LeafObj>
 inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects)
 {
     /*RTCDevice device = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);
     std::cout << "create embree BVH class" << std::endl;
     RTCBVH bvh = rtcNewBVH(device);*/
-    RTCBVH bvh = WiVeBVH8Build8_embreeBVH();// Prevent crashes when creating & deleting large numbers of Embree devices
+    RTCBVH bvh = WiVeBVH8Build8_embreeBVH(); // Prevent crashes when creating & deleting large numbers of Embree devices
 
     RTCBuildArguments arguments = rtcDefaultBuildArguments();
     arguments.byteSize = sizeof(arguments);
@@ -72,17 +103,6 @@ inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreeP
     arguments.createLeaf = leafCreate;
     arguments.userPtr = this;
 
-    unsigned numPrimitives = (unsigned)objects.size();
-    this->m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(std::max(8u, numPrimitives / 4), 16);
-
-    // The allocator needs some extra space if we need it to allocate (small) arrays of leafs
-    unsigned allocMargin = numPrimitives * 2 / 10;;
-    this->m_leafIndexAllocator = std::make_unique<ContiguousAllocatorTS<uint32_t>>(numPrimitives + allocMargin, 16);
-    // Move the leaf objects
-    this->m_leafObjects.reserve(objects.size());
-    for (auto& obj : objects)
-        this->m_leafObjects.emplace_back(std::move(obj));
-
     this->m_compressedRootHandle = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rtcBuildBVH(&arguments)));
 
     // Releases Embree memory (including the temporary BVH)
@@ -90,8 +110,8 @@ inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreeP
     //rtcReleaseDevice(device);
 
     // Shrink to fit BVH allocators
-    this->m_innerNodeAllocator->compact();
-    this->m_leafIndexAllocator->compact();
+    this->m_innerNodeAllocator.compact();
+    this->m_leafIndexAllocator.compact();
 
     //this->testBVH();
 }
@@ -102,10 +122,10 @@ inline void* WiVeBVH8Build8<LeafObj>::innerNodeCreate(RTCThreadLocalAllocator al
     assert(numChildren <= 8);
 
     // Allocate node
-	auto* self = reinterpret_cast<WiVeBVH8Build8<LeafObj>*>(userPtr);
-    auto[nodeHandle, nodePtr] = self->m_innerNodeAllocator->allocate();
+    auto* self = reinterpret_cast<WiVeBVH8Build8<LeafObj>*>(userPtr);
+    auto [nodeHandle, nodePtr] = self->m_innerNodeAllocator.allocate();
     (void)nodePtr;
-	return reinterpret_cast<void*>(static_cast<uintptr_t>(WiVeBVH8<LeafObj>::compressHandleInner(nodeHandle)));
+    return reinterpret_cast<void*>(static_cast<uintptr_t>(WiVeBVH8<LeafObj>::compressHandleInner(nodeHandle)));
 }
 
 template <typename LeafObj>
@@ -114,8 +134,8 @@ inline void WiVeBVH8Build8<LeafObj>::innerNodeSetChildren(void* p, void** childP
     assert(numChildren <= 8);
 
     uint32_t nodeHandle = WiVeBVH8<LeafObj>::decompressNodeHandle(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(p)));
-	auto* self = reinterpret_cast<WiVeBVH8Build8<LeafObj>*>(userPtr);
-    typename WiVeBVH8<LeafObj>::BVHNode& node = self->m_innerNodeAllocator->get(nodeHandle);
+    auto* self = reinterpret_cast<WiVeBVH8Build8<LeafObj>*>(userPtr);
+    typename WiVeBVH8<LeafObj>::BVHNode& node = self->m_innerNodeAllocator.get(nodeHandle);
 
     std::array<uint32_t, 8> children;
     for (unsigned childID = 0; childID < numChildren; childID++) {
@@ -133,8 +153,8 @@ inline void WiVeBVH8Build8<LeafObj>::innerNodeSetBounds(void* p, const RTCBounds
     assert(numChildren <= 8);
 
     uint32_t nodeHandle = WiVeBVH8<LeafObj>::decompressNodeHandle(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(p)));
-	auto* self = reinterpret_cast<WiVeBVH8Build8<LeafObj>*>(userPtr);
-    typename WiVeBVH8<LeafObj>::BVHNode& node = self->m_innerNodeAllocator->get(nodeHandle);
+    auto* self = reinterpret_cast<WiVeBVH8Build8<LeafObj>*>(userPtr);
+    typename WiVeBVH8<LeafObj>::BVHNode& node = self->m_innerNodeAllocator.get(nodeHandle);
 
     std::array<float, 8> minX, minY, minZ, maxX, maxY, maxZ;
     std::array<uint32_t, 8> permutationOffsets;
@@ -184,13 +204,13 @@ inline void WiVeBVH8Build8<LeafObj>::innerNodeSetBounds(void* p, const RTCBounds
         }
     }
 
-	node.minX.load(minX);
-	node.minY.load(minY);
-	node.minZ.load(minZ);
-	node.maxX.load(maxX);
-	node.maxY.load(maxY);
-	node.maxZ.load(maxZ);
-	node.permutationOffsets.load(permutationOffsets);
+    node.minX.load(minX);
+    node.minY.load(minY);
+    node.minZ.load(minZ);
+    node.maxX.load(maxX);
+    node.maxY.load(maxY);
+    node.maxZ.load(maxZ);
+    node.permutationOffsets.load(permutationOffsets);
 }
 
 template <typename LeafObj>
@@ -198,12 +218,12 @@ inline void* WiVeBVH8Build8<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, 
 {
     assert(numPrims > 0 && numPrims <= 4);
 
-	// Allocate node
-	auto* self = reinterpret_cast<WiVeBVH8Build8<LeafObj>*>(userPtr);
-    auto[nodeHandle, nodePtr] = self->m_leafIndexAllocator->allocateNInitF((unsigned)numPrims, [&](int i) {
+    // Allocate node
+    auto* self = reinterpret_cast<WiVeBVH8Build8<LeafObj>*>(userPtr);
+    auto [nodeHandle, nodePtr] = self->m_leafIndexAllocator.allocateNInitF((unsigned)numPrims, [&](int i) {
         return prims[i].primID;
     });
-	/*auto[nodeHandle, nodePtr] = self->m_leafNodeAllocator->allocate();
+    /*auto[nodeHandle, nodePtr] = self->m_leafNodeAllocator->allocate();
 	for (size_t i = 0; i < numPrims; i++) {
 		nodePtr->leafObjectIDs[i] = prims[i].geomID;
 		nodePtr->primitiveIDs[i] = prims[i].primID;
@@ -212,6 +232,6 @@ inline void* WiVeBVH8Build8<LeafObj>::leafCreate(RTCThreadLocalAllocator alloc, 
 		nodePtr->leafObjectIDs[i] = WiVeBVH8<LeafObj>::emptyHandle;
 		nodePtr->primitiveIDs[i] = WiVeBVH8<LeafObj>::emptyHandle;
 	}*/
-	return reinterpret_cast<void*>(static_cast<uintptr_t>(WiVeBVH8<LeafObj>::compressHandleLeaf(nodeHandle, (uint32_t)numPrims)));
+    return reinterpret_cast<void*>(static_cast<uintptr_t>(WiVeBVH8<LeafObj>::compressHandleLeaf(nodeHandle, (uint32_t)numPrims)));
 }
 }

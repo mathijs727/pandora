@@ -99,7 +99,7 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
 }
 
 template <typename LeafObj>
-EmbreeBVH<LeafObj>::EmbreeBVH()
+EmbreeBVH<LeafObj>::EmbreeBVH(gsl::span<LeafObj> leafs)
     : m_memoryUsed(0)
 {
     m_device = rtcNewDevice(nullptr);
@@ -108,11 +108,7 @@ EmbreeBVH<LeafObj>::EmbreeBVH()
 
     m_scene = rtcNewScene(m_device);
     rtcSetSceneBuildQuality(m_scene, RTC_BUILD_QUALITY_HIGH);
-}
 
-template <typename LeafObj>
-inline void EmbreeBVH<LeafObj>::build(gsl::span<LeafObj> objects)
-{
     m_leafs.insert(
         std::end(m_leafs),
         std::make_move_iterator(std::begin(objects)),
