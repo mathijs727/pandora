@@ -228,7 +228,7 @@ template <typename S>
 inline typename LRUCache<T>::template SubFlowGraph<S> LRUCache<T>::getFlowGraphNode(tbb::flow::graph& g) const
 {
     using Input = typename SubFlowGraph<S>::FlowGraphInput;
-    using Output = typename SubFlowGraph<S>::FlowGraphOutput;
+    //using Output = typename SubFlowGraph<S>::FlowGraphOutput;
     using LoadRequestData = typename SubFlowGraph<S>::LoadRequestData;
     using AccessNode = typename SubFlowGraph<S>::AccessNode;
     using LoadNode = typename SubFlowGraph<S>::LoadNode;

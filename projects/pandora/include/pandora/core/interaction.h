@@ -61,9 +61,7 @@ public:
 
 inline SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, unsigned primitiveID)
 	: Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo)
-    , sceneObjectMaterial(nullptr)
-	, primitiveID(primitiveID)
-    //, sceneObject(sceneObject)
+    , primitiveID(primitiveID)
     , bsdf(nullptr)
     , uv(uv)
     , dpdu(dpdu)

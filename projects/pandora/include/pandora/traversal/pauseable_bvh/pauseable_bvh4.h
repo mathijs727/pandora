@@ -223,6 +223,10 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray
     if constexpr (is_pauseable_leaf_obj<LeafObj, UserState>::has_intersect_rayhit) {
         return intersectT<false>(ray, rayHit, userState, insertInfo);
     } else {
+        (void)ray;
+        (void)rayHit;
+        (void)userState;
+        (void)insertInfo;
         return false;
     }
 }
@@ -240,6 +244,10 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray
     if constexpr (is_pauseable_leaf_obj<LeafObj, UserState>::has_intersect_si) {
         return intersectT<false, SurfaceInteraction>(ray, si, userState, insertInfo);
     } else {
+        (void)ray;
+        (void)si;
+        (void)userState;
+        (void)insertInfo;
         return false;
     }
 }
