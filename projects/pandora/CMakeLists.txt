@@ -52,6 +52,10 @@ target_link_libraries(libPandora PRIVATE
 	Boost::boost # Header-only Boost libraries
 	libmorton) # Morton code for voxelization & SVO
 
+if (LINK_STD_FILESYSTEM)
+	target_link_libraries(libPandora PRIVATE stdc++fs)
+endif()
+
 if (UNIX)
 	# Using atomic<vec3> in sensor.cpp requires atomic library on Unix
 	target_link_libraries(libPandora PRIVATE atomic)

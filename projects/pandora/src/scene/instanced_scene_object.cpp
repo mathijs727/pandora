@@ -1,6 +1,5 @@
-#include "..\..\include\pandora\scene\instanced_scene_object.h"
-#include "pandora/flatbuffers/data_conversion.h"
 #include "pandora/scene/instanced_scene_object.h"
+#include "pandora/flatbuffers/data_conversion.h"
 
 namespace pandora {
 

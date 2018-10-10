@@ -84,7 +84,7 @@ file_handle_type open_file(const String& path,
         fileFlags,
         0);
 #else
-    int fileFlags = access_mode::read ? O_RDONLY : O_RDWR;
+    int fileFlags = mode == access_mode::read ? O_RDONLY : O_RDWR;
     if (flags | access_flags::no_buffering) {
         fileFlags |= O_DIRECT;
     }

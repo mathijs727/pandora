@@ -94,7 +94,7 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> VoxelGrid::generateSu
 
 void VoxelGrid::fillSphere()
 {
-    glm::u64vec3 halfExtent = m_extent / 2llu;
+    glm::u64vec3 halfExtent = m_extent / (uint64_t)2;
     int minDim = minDimension(halfExtent);
     int radius2 = halfExtent[minDim] * halfExtent[minDim];
 

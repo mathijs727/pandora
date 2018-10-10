@@ -77,15 +77,15 @@ struct TriangleMesh FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_NUMTRIANGLES) &&
            VerifyField<uint32_t>(verifier, VT_NUMVERTICES) &&
            VerifyOffset(verifier, VT_TRIANGLES) &&
-           verifier.Verify(triangles()) &&
+           verifier.VerifyVector(triangles()) &&
            VerifyOffset(verifier, VT_POSITIONS) &&
-           verifier.Verify(positions()) &&
+           verifier.VerifyVector(positions()) &&
            VerifyOffset(verifier, VT_NORMALS) &&
-           verifier.Verify(normals()) &&
+           verifier.VerifyVector(normals()) &&
            VerifyOffset(verifier, VT_TANGENTS) &&
-           verifier.Verify(tangents()) &&
+           verifier.VerifyVector(tangents()) &&
            VerifyOffset(verifier, VT_UVCOORDS) &&
-           verifier.Verify(uvCoords()) &&
+           verifier.VerifyVector(uvCoords()) &&
            VerifyField<Bounds>(verifier, VT_BOUNDS) &&
            verifier.EndTable();
   }

@@ -81,10 +81,12 @@ private:
 
     std::mutex m_cacheMutex;
     std::list<std::shared_ptr<T>> m_history;
+public:
     struct CacheMapItem {
         std::mutex loadMutex;
         pandora::atomic_weak_ptr<T> itemPtr;
     };
+private:
     using HistoryIterator = typename std::list<std::shared_ptr<T>>::iterator;
     std::unordered_map<EvictableResourceID, std::pair<CacheMapItem, HistoryIterator>> m_cacheMap; // Read-only in the resource access function
 
@@ -193,7 +195,7 @@ inline std::shared_ptr<T> LRUCache<T>::getBlocking(EvictableResourceID resourceI
 template <typename T>
 inline void LRUCache<T>::evictAllUnsafe() const
 {
-    for (auto iter = m_cacheHistory.unsafe_begin(); iter != m_cacheHistory.unsafe_end(); iter++) {
+    for (auto iter = this->m_cacheHistory.unsafe_begin(); iter != this->m_cacheHistory.unsafe_end(); iter++) {
         m_evictCallback((*iter)->sizeBytes());
     }
 

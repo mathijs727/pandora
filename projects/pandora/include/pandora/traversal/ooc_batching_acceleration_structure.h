@@ -71,8 +71,6 @@ public:
     void flush();
 
 private:
-    static constexpr unsigned PRIMITIVES_PER_LEAF = IN_CORE_BATCHING_PRIMS_PER_LEAF;
-
     struct RayBatch {
     public:
         RayBatch(RayBatch* nextPtr = nullptr)

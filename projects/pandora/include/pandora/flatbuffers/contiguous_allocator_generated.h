@@ -48,7 +48,7 @@ struct ContiguousAllocator FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
            VerifyField<uint32_t>(verifier, VT_BLOCKSIZE) &&
            VerifyField<uint32_t>(verifier, VT_CURRENTSIZE) &&
            VerifyOffset(verifier, VT_DATA) &&
-           verifier.Verify(data()) &&
+           verifier.VerifyVector(data()) &&
            verifier.EndTable();
   }
 };
