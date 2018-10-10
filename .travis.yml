@@ -42,6 +42,7 @@ arch:
   - "./travis/build_in_arch.sh"
 
 script:
+- sudo apt update
 - sudo apt install python3
 - sudo apt install python3-pip
 - sudo pip3 install pyyaml
