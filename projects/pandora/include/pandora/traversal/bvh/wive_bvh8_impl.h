@@ -19,7 +19,7 @@ inline WiVeBVH8<LeafObj>::WiVeBVH8(uint32_t numPrims) :
 template <typename LeafObj>
 inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects) :
     m_innerNodeAllocator(serialized->innerNodeAllocator()),
-    m_innerNodeAllocator(serialized->leafIndexAllocator()),
+    m_leafIndexAllocator(serialized->leafIndexAllocator())
 {
     m_compressedRootHandle = serialized->compressedRootHandle();
 
@@ -35,8 +35,8 @@ inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, st
 template <typename LeafObj>
 inline flatbuffers::Offset<serialization::WiVeBVH8> WiVeBVH8<LeafObj>::serialize(flatbuffers::FlatBufferBuilder& builder) const
 {
-    auto serializedInnerNodeAllocator = m_innerNodeAllocator->serialize(builder);
-    auto serializedLeafIndexAllocator = m_leafIndexAllocator->serialize(builder);
+    auto serializedInnerNodeAllocator = m_innerNodeAllocator.serialize(builder);
+    auto serializedLeafIndexAllocator = m_leafIndexAllocator.serialize(builder);
     assert(!this->m_leafObjects.empty());
     return serialization::CreateWiVeBVH8(
         builder,

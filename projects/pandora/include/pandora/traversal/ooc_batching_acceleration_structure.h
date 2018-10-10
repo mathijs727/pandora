@@ -441,8 +441,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
 
         // NOTE: the "geometry" variable ensures that the geometry pointed to stays in memory for the BVH build
         //       (which requires the geometry to determine the leaf node bounds).
-        auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>();
-        bvh->build(leafs);
+        auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>(leafs);
         instancedBVHs[instancedGeometricSceneObject] = bvh;
 
         const auto* rawGeometry = dynamic_cast<const GeometricSceneObjectGeometry*>(geometry.get());
@@ -498,8 +497,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
         }
     }
 
-    WiVeBVH8Build8<BotLevelLeafNode> bvh;
-    bvh.build(leafs);
+    WiVeBVH8Build8<BotLevelLeafNode> bvh(leafs);
     auto serializedBVH = bvh.serialize(fbb);
 
     // Don't write if it only exists,
@@ -543,7 +541,8 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
         const auto* serializedInstanceBaseBVHs = serializedTopLevelLeafNode->instance_base_bvh();
         const auto* serializedInstanceBaseGeometry = serializedTopLevelLeafNode->instance_base_geometry();
 
-        GeometryData ret;
+        size_t geometrySize = 0;
+        std::vector<std::unique_ptr<SceneObjectGeometry>> geometryOwningPointers;
 
         // Load geometry/BVH of geometric nodes that are referenced by instancing nodes
         std::vector<std::pair<const GeometricSceneObjectGeometry*, std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>>> instanceBaseObjects;
@@ -560,8 +559,8 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
             instanceBaseObjects.push_back({ geometry.get(), bvh });
 
             // The BVH leaf nodes point directly to geometry so we should keep them alive (they point to the same mesh though)
-            ret.geometrySize += geometry->sizeBytes();
-            ret.geometryOwningPointers.emplace_back(std::move(geometry));
+            geometrySize += geometry->sizeBytes();
+            geometryOwningPointers.emplace_back(std::move(geometry));
         }
 
         // Load unique geometry
@@ -576,8 +575,8 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
                 leafs.emplace_back(geometricSceneObjects[i], geometry.get(), primitiveID);
             }
 
-            ret.geometrySize += geometry->sizeBytes();
-            ret.geometryOwningPointers.emplace_back(std::move(geometry));
+            geometrySize += geometry->sizeBytes();
+            geometryOwningPointers.emplace_back(std::move(geometry));
         }
 
         // Load instanced geometry
@@ -591,11 +590,15 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
                 std::make_unique<GeometricSceneObjectGeometry>(*baseGeometry));
             leafs.push_back(BotLevelLeafNode(instancedSceneObjects[i], geometry.get(), baseBVH));
 
-            ret.geometryOwningPointers.emplace_back(std::move(geometry));
+            geometryOwningPointers.emplace_back(std::move(geometry));
         }
 
-        ret.leafBVH = WiVeBVH8Build8<BotLevelLeafNode>(serializedTopLevelLeafNode->bvh(), std::move(leafs));
-        return ret;
+        auto bvh = WiVeBVH8Build8<BotLevelLeafNode>(serializedTopLevelLeafNode->bvh(), std::move(leafs));
+        return GeometryData {
+            geometrySize,
+            std::move(bvh),
+            std::move(geometryOwningPointers)
+        };
     });
     return resourceID;
 }
@@ -651,7 +654,8 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, Ba
             const auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
             auto svdagRay = ray;
             svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
-            if (!svdag.intersectScalar(svdagRay))
+            auto tOpt = svdag.intersectScalar(svdagRay);
+            if (!tOpt)
                 return false; // Missed, continue traversal
         }
     }
@@ -693,7 +697,8 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, Ba
             auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
             auto svdagRay = ray;
             svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
-            if (!svdag.intersectScalar(svdagRay))
+            auto tOpt = svdag.intersectScalar(svdagRay);
+            if (!tOpt)
                 return false; // Missed, continue traversal
         }
     }

@@ -51,10 +51,13 @@ inline WiVeBVH8Build8<LeafObj>::WiVeBVH8Build8(gsl::span<LeafObj> objects)
 {
     // Move the leaf objects
     this->m_leafObjects.reserve(objects.size());
-    this->m_leafObjects.insert(
+    for (auto& object : objects) {
+        this->m_leafObjects.emplace_back(std::move(object)); 
+    }
+    /*this->m_leafObjects.insert(
         std::end(this->m_leafObjects),
         std::make_move_iterator(std::begin(objects)),
-        std::make_move_iterator(std::end(objects)));
+        std::make_move_iterator(std::end(objects)));*/
 
     std::vector<RTCBuildPrimitive> embreePrimitives;
     embreePrimitives.reserve(static_cast<unsigned>(objects.size()));
