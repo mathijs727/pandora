@@ -51,9 +51,12 @@ find_package(Boost REQUIRED COMPONENTS program_options)
 
 find_package(nlohmann_json)
 
-add_library(tinyply "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/tinyply.cpp")
-target_include_directories(tinyply PUBLIC "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/")
+if (PANDORA_BUILD_VOXEL_EXPORTER)
+	add_library(tinyply "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/tinyply.cpp")
+	target_include_directories(tinyply PUBLIC "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/")
 
+	add_subdirectory("projects/voxel/")
+endif()
 
 find_package(Flatbuffers REQUIRED)
 if (TARGET flatbuffers::flatc)

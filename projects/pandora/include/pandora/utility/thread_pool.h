@@ -1,8 +1,9 @@
 #pragma once
 #include <atomic>
+#include <functional>
 #include <tbb/concurrent_queue.h>
 #include <thread>
-#include <functional>
+#include <vector>
 
 namespace pandora {
 
