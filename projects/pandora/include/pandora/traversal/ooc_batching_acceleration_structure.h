@@ -71,8 +71,6 @@ public:
     void flush();
 
 private:
-    static constexpr unsigned PRIMITIVES_PER_LEAF = IN_CORE_BATCHING_PRIMS_PER_LEAF;
-
     struct RayBatch {
     public:
         RayBatch(RayBatch* nextPtr = nullptr)
@@ -385,8 +383,8 @@ inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLe
     OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructure)
     : m_geometryDataCacheID(generateCachedBVH(cacheFile, sceneObjects, geometryCache))
     , m_diskSize(std::filesystem::file_size(cacheFile))
-    , m_threadLocalActiveBatch([]() { return nullptr; })
     , m_numFullBatches(0)
+    , m_threadLocalActiveBatch([]() { return nullptr; })
     , m_immutableRayBatchList(nullptr)
     , m_accelerationStructurePtr(accelerationStructure)
     , m_svdagAndTransform(computeSVDAG(sceneObjects))
@@ -397,10 +395,10 @@ inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLe
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(TopLevelLeafNode&& other)
     : m_geometryDataCacheID(other.m_geometryDataCacheID)
-    , m_diskSize(other.m_diskSize)
     , m_sceneObjects(std::move(other.m_sceneObjects))
-    , m_threadLocalActiveBatch(std::move(other.m_threadLocalActiveBatch))
+    , m_diskSize(other.m_diskSize)
     , m_numFullBatches(other.m_numFullBatches.load())
+    , m_threadLocalActiveBatch(std::move(other.m_threadLocalActiveBatch))
     , m_immutableRayBatchList(other.m_immutableRayBatchList.load())
     , m_accelerationStructurePtr(other.m_accelerationStructurePtr)
     , m_svdagAndTransform(std::move(other.m_svdagAndTransform))

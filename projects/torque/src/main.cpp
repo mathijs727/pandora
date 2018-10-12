@@ -38,16 +38,16 @@ int main(int argc, char** argv)
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
 
+    if (vm.count("help")) {
+        std::cout << desc << std::endl;
+        return 1;
+    }
+
     try {
         po::notify(vm);
     }
     catch (const boost::program_options::required_option& e) {
         std::cout << "Missing required argument \"" << e.get_option_name() << "\"" << std::endl;
-        return 1;
-    }
-
-    if (vm.count("help")) {
-        std::cout << desc << std::endl;
         return 1;
     }
 

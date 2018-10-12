@@ -407,7 +407,7 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
                     return object->numPrimitives();
                 });
 #else // GCC 8.2.1 stdlib does not support the standardization of parallelism TS
-                int32_t numUniqueAndBasePrims = 0;
+                unsigned numUniqueAndBasePrims = 0;
                 for (const auto* object : uniqueAndBaseObjects)
                     numUniqueAndBasePrims += object->numPrimitives();
 #endif

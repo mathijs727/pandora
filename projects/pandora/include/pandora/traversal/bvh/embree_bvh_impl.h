@@ -111,8 +111,8 @@ EmbreeBVH<LeafObj>::EmbreeBVH(gsl::span<LeafObj> leafs)
 
     m_leafs.insert(
         std::end(m_leafs),
-        std::make_move_iterator(std::begin(objects)),
-        std::make_move_iterator(std::end(objects)));
+        std::make_move_iterator(std::begin(leafs)),
+        std::make_move_iterator(std::end(leafs)));
     m_leafs.shrink_to_fit();
 
     const auto* leafsPtr = m_leafs.data();

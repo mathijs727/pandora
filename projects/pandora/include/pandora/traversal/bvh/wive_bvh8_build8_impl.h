@@ -47,7 +47,7 @@ static RTCBVH WiVeBVH8Build8_embreeBVH()
 
 template <typename LeafObj>
 inline WiVeBVH8Build8<LeafObj>::WiVeBVH8Build8(gsl::span<LeafObj> objects)
-    : WiVeBVH8(objects.size())
+    : WiVeBVH8<LeafObj>(objects.size())
 {
     // Move the leaf objects
     this->m_leafObjects.reserve(objects.size());

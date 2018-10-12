@@ -153,7 +153,7 @@ inline EvictableResourceID FifoCache<T>::emplaceFactoryThreadSafe(std::function<
 template <typename T>
 inline bool FifoCache<T>::inCache(EvictableResourceID resourceID) const
 {
-    const auto& cacheItem = mutThis->m_cacheMap[resourceID];
+    const auto& cacheItem = m_cacheMap[resourceID];
     return !cacheItem.itemPtr.expired();
 }
 
@@ -228,7 +228,7 @@ template <typename S>
 inline typename FifoCache<T>::template SubFlowGraph<S> FifoCache<T>::getFlowGraphNode(tbb::flow::graph& g) const
 {
     using Input = typename SubFlowGraph<S>::FlowGraphInput;
-    using Output = typename SubFlowGraph<S>::FlowGraphOutput;
+    //using Output = typename SubFlowGraph<S>::FlowGraphOutput;
     using LoadRequestData = typename SubFlowGraph<S>::LoadRequestData;
     using AccessNode = typename SubFlowGraph<S>::AccessNode;
     using LoadNode = typename SubFlowGraph<S>::LoadNode;

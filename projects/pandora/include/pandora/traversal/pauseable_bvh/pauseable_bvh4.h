@@ -131,6 +131,34 @@ inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> leafs
         embreeBuildPrimitives.push_back(primitive);
     }
 
+    const auto embreeErrorFunc = [](void* userPtr, const RTCError code, const char* str) {
+        switch (code) {
+        case RTC_ERROR_NONE:
+            std::cout << "RTC_ERROR_NONE";
+            break;
+        case RTC_ERROR_UNKNOWN:
+            std::cout << "RTC_ERROR_UNKNOWN";
+            break;
+        case RTC_ERROR_INVALID_ARGUMENT:
+            std::cout << "RTC_ERROR_INVALID_ARGUMENT";
+            break;
+        case RTC_ERROR_INVALID_OPERATION:
+            std::cout << "RTC_ERROR_INVALID_OPERATION";
+            break;
+        case RTC_ERROR_OUT_OF_MEMORY:
+            std::cout << "RTC_ERROR_OUT_OF_MEMORY";
+            break;
+        case RTC_ERROR_UNSUPPORTED_CPU:
+            std::cout << "RTC_ERROR_UNSUPPORTED_CPU";
+            break;
+        case RTC_ERROR_CANCELLED:
+            std::cout << "RTC_ERROR_CANCELLED";
+            break;
+        }
+
+        std::cout << ": " << str << std::endl;
+    };
+
     // Build the BVH using the Embree BVH builder API
     RTCDevice device = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);
@@ -195,6 +223,10 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray
     if constexpr (is_pauseable_leaf_obj<LeafObj, UserState>::has_intersect_rayhit) {
         return intersectT<false>(ray, rayHit, userState, insertInfo);
     } else {
+        (void)ray;
+        (void)rayHit;
+        (void)userState;
+        (void)insertInfo;
         return false;
     }
 }
@@ -212,6 +244,10 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray
     if constexpr (is_pauseable_leaf_obj<LeafObj, UserState>::has_intersect_si) {
         return intersectT<false, SurfaceInteraction>(ray, si, userState, insertInfo);
     } else {
+        (void)ray;
+        (void)si;
+        (void)userState;
+        (void)insertInfo;
         return false;
     }
 }

@@ -17,16 +17,18 @@ struct TokenResult {
 };
 TokenResult getNextToken(std::string_view string)
 {
+    const int stringSize = static_cast<int>(string.size());
+
     int tokenStart = 0;
-    while (tokenStart < string.size() && std::isspace(string[tokenStart])) {
+    while (tokenStart < stringSize && std::isspace(string[tokenStart])) {
         tokenStart++;
     }
 
-    if (tokenStart == string.size())
-        return { {}, {} };
+    if (tokenStart == stringSize)
+        return { {}, {}, 0 };
 
     int tokenEnd = tokenStart;
-    while (tokenEnd < string.size() && !std::isspace(string[tokenEnd])) {
+    while (tokenEnd < stringSize && !std::isspace(string[tokenEnd])) {
         tokenEnd++;
     }
 

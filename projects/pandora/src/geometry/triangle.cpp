@@ -18,12 +18,6 @@
 
 using namespace std::string_literals;
 
-static bool fileExists(const std::string_view name)
-{
-    std::ifstream f(name.data());
-    return f.good() && f.is_open();
-}
-
 static glm::mat4 assimpMatrix(const aiMatrix4x4& m)
 {
     //float values[3][4] = {};

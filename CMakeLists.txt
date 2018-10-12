@@ -6,6 +6,7 @@ option(PANDORA_BUILD_TESTS "Build tests for Pandora" OFF)
 option(PANDORA_BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
 option(PANDORA_BUILD_VOXEL_EXPORTER "Build voxel exporter" OFF)
 option(PANDORA_BUILD_PBRT_IMPORTER "Build voxel exporter" OFF)
+option(LINK_STD_FILESYSTEM "Add filesystem to linker flags untill GCC includes it by default" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
 if (PANDORA_ISPC_SUPPORT)
