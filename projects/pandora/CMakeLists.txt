@@ -52,8 +52,11 @@ target_link_libraries(libPandora PRIVATE
 	Boost::boost # Header-only Boost libraries
 	libmorton) # Morton code for voxelization & SVO
 
-if (LINK_STD_FILESYSTEM)
+if (LINK_STDCXX_FILESYSTEM)
 	target_link_libraries(libPandora PRIVATE stdc++fs)
+endif()
+if (LINK_CXX_FILESYSTEM)
+	target_link_libraries(libPandora PRIVATE c++fs)
 endif()
 
 if (UNIX)
