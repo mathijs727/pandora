@@ -5,6 +5,7 @@ option(PANDORA_ISPC_SUPPORT "Use ISPC to accelerate voxelization" OFF)
 option(PANDORA_BUILD_TESTS "Build tests for Pandora" OFF)
 option(PANDORA_BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
 option(PANDORA_BUILD_VOXEL_EXPORTER "Build voxel exporter" OFF)
+option(PANDORA_BUILD_PBRT_IMPORTER "Build voxel exporter" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
 if (PANDORA_ISPC_SUPPORT)
@@ -87,7 +88,6 @@ include("projects/torque/CMakeLists.txt")
 #endif()
 
 
-message("CMAKE VERSION: ${CMAKE_VERSION}")
-if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.12")
+if (PANDORA_BUILD_PBRT_IMPORTER)
 	add_subdirectory("projects/pbrt_importer/")	
 endif()
