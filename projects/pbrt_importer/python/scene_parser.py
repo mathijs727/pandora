@@ -7,6 +7,7 @@ import plyfile
 from pandora_mesh_exporter import PandoraMeshExporter
 import sys
 import tempfile
+import pathlib
 import shutil
 
 
@@ -89,24 +90,30 @@ def get_size(obj, seen=None):
 
 
 class SceneParser:
-    def __init__(self, pbrt_scene, out_mesh_folder):
-        tmp_folder = os.path.join(out_mesh_folder, "tmp_lists")
+    def __init__(self, pbrt_scene, out_folder):
+        self._out_folder = out_folder
+        self._tmp_list_folder = os.path.join(out_folder, "tmp_lists")
+        self._out_texture_folder = os.path.join(out_folder, "textures")
+        if not os.path.exists(self._out_texture_folder):
+            os.makedirs(self._out_texture_folder)
 
         self._transforms = UniqueCollection(
-            os.path.join(tmp_folder, "transforms"))
-        self._geometry = UniqueCollection(os.path.join(tmp_folder, "geometry"))
+            os.path.join(self._tmp_list_folder, "transforms"))
+        self._geometry = UniqueCollection(
+            os.path.join(self._tmp_list_folder, "geometry"))
         self._scene_objects = UniqueCollection(
-            os.path.join(tmp_folder, "scene_objects"))
+            os.path.join(self._tmp_list_folder, "scene_objects"))
         self._instance_base_scene_objects = UniqueCollection(
-            os.path.join(tmp_folder, "instance_base_scene_objects"))
+            os.path.join(self._tmp_list_folder, "instance_base_scene_objects"))
         self._materials = UniqueCollection(
-            os.path.join(tmp_folder, "materials"))
+            os.path.join(self._tmp_list_folder, "materials"))
         self._float_textures = UniqueCollection(
-            os.path.join(tmp_folder, "float_textures"))
+            os.path.join(self._tmp_list_folder, "float_textures"))
         self._color_textures = UniqueCollection(
-            os.path.join(tmp_folder, "color_textures"))
+            os.path.join(self._tmp_list_folder, "color_textures"))
         self._light_sources = []
 
+        out_mesh_folder = os.path.join(out_folder, "pandora_meshes")
         self._out_mesh_exporter = PandoraMeshExporter(out_mesh_folder)
         self._out_ply_mesh_folder = os.path.join(out_mesh_folder, "ply")
         if os.path.exists(self._out_ply_mesh_folder):
@@ -152,8 +159,8 @@ class SceneParser:
                     L *= light_source.arguments["scale"]["value"]
 
                 if "mapname" in light_source.arguments:
-                    texture_id = self._create_texture_id(image_texture(
-                        light_source.arguments["mapname"]["value"]))
+                    texture_id = self._create_texture_id(
+                        image_texture(light_source.arguments["mapname"]["value"]))
                 else:
                     texture_id = self._create_texture_id(constant_texture(1.0))
                 self._light_sources.append({
@@ -191,6 +198,14 @@ class SceneParser:
         arguments = {}
         for key, value in texture.arguments.items():
             v = value["value"]
+            if key == "filename":
+                # Copy to the destination folder so that we can use relative paths
+                handle, filename = tempfile.mkstemp(
+                    suffix=".ply", dir=self._out_ply_mesh_folder)
+                os.close(handle)
+                shutil.copyfile(v, filename)
+                v = filename
+
             arguments[key] = v
 
         texture_type = None
@@ -275,6 +290,7 @@ class SceneParser:
 
             shutil.copyfile(shape.arguments["filename"]["value"], filename)
 
+            filename = os.path.relpath(filename, start=self._out_folder)
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": filename,
@@ -288,6 +304,7 @@ class SceneParser:
                 filename, start_byte, size_bytes = self._export_triangle_mesh(
                     triangle_mesh_data)
 
+            filename = os.path.relpath(filename, start=self._out_folder)
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": filename,

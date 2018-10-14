@@ -40,8 +40,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     auto stopwatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
 
     // Generate camera rays
-//#ifndef NDEBUG
-#if 1
+#ifndef NDEBUG
     for (int y = 0; y < m_resolution.y; y++) {
         for (int x = 0; x < m_resolution.x; x++) {
             for (int s = 0; s < m_parallelSamples; s++) {

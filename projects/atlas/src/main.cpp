@@ -44,7 +44,7 @@ int main()
     Scene& scene = renderConfig.scene;
     PerspectiveCamera& camera = *renderConfig.camera;
 
-    Window myWindow(renderConfig.resolution.x, renderConfig.resolution.y, "Hello World!");
+    Window myWindow(renderConfig.resolution.x, renderConfig.resolution.y, "Atlas - Pandora viewer");
     FramebufferGL frameBuffer(renderConfig.resolution.x, renderConfig.resolution.y);
 
     FpsCameraControls cameraControls(myWindow, camera);

@@ -52,6 +52,8 @@ static glm::vec3 readVec3(nlohmann::json json)
 
 RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 {
+    auto basePath = filePath.parent_path();
+
     // Read file and parse json
     nlohmann::json json;
     {
@@ -106,7 +108,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                     float value = arguments["value"].get<float>();
                     _floatTextures[texID] = std::make_shared<ConstantTexture<float>>(value);
                 } else if (textureClass == "imagemap") {
-                    auto textureFile = std::filesystem::path(arguments["filename"].get<std::string>());
+                    auto textureFile = basePath / std::filesystem::path(arguments["filename"].get<std::string>());
                     _floatTextures[texID] = std::make_shared<ImageTexture<float>>(textureFile);
                 } else {
                     std::cout << "Unknown texture class \"" << textureClass << "\"! Substituting with placeholder..." << std::endl;
@@ -128,7 +130,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                     glm::vec3 value = readVec3(arguments["value"]);
                     _colorTextures[texID] = std::make_shared<ConstantTexture<glm::vec3>>(value);
                 } else if (textureClass == "imagemap") {
-                    auto textureFile = std::filesystem::path(arguments["filename"].get<std::string>());
+                    auto textureFile = basePath / std::filesystem::path(arguments["filename"].get<std::string>());
                     _colorTextures[texID] = std::make_shared<ImageTexture<glm::vec3>>(textureFile);
                 } else {
                     std::cout << "Unknown texture class \"" << textureClass << "\"! Substituting with placeholder..." << std::endl;
@@ -168,7 +170,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         std::vector<std::shared_ptr<TriangleMesh>> geometry;
         for (const auto jsonGeometry : sceneJson["geometry"]) {
             auto geometryType = jsonGeometry["type"].get<std::string>();
-            auto geometryFile = std::filesystem::path(jsonGeometry["filename"].get<std::string>());
+            auto geometryFile = basePath / std::filesystem::path(jsonGeometry["filename"].get<std::string>());
 
             if (geometryFile.extension() == ".bin"s) {
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
@@ -247,6 +249,8 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
 RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
 {
+    auto basePath = filePath.parent_path();
+
     // Delete the out-of-core acceleration structure cache folder if the previous render was
     // of a different scene.
     {
@@ -319,7 +323,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                     float value = arguments["value"].get<float>();
                     _floatTextures[texID] = std::make_shared<ConstantTexture<float>>(value);
                 } else if (textureClass == "imagemap") {
-                    auto textureFile = std::filesystem::path(arguments["filename"].get<std::string>());
+                    auto textureFile = basePath / std::filesystem::path(arguments["filename"].get<std::string>());
                     _floatTextures[texID] = std::make_shared<ImageTexture<float>>(textureFile);
                 } else {
                     std::cout << "Unknown texture class \"" << textureClass << "\"! Substituting with placeholder..." << std::endl;
@@ -341,7 +345,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                     glm::vec3 value = readVec3(arguments["value"]);
                     _colorTextures[texID] = std::make_shared<ConstantTexture<glm::vec3>>(value);
                 } else if (textureClass == "imagemap") {
-                    auto textureFile = std::filesystem::path(arguments["filename"].get<std::string>());
+                    auto textureFile = basePath / std::filesystem::path(arguments["filename"].get<std::string>());
                     _colorTextures[texID] = std::make_shared<ImageTexture<glm::vec3>>(textureFile);
                 } else {
                     std::cout << "Unknown texture class \"" << textureClass << "\"! Substituting with placeholder..." << std::endl;
@@ -382,7 +386,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         std::vector<EvictableResourceID> geometry;
         for (const auto jsonGeometry : sceneJson["geometry"]) {
             auto geometryType = jsonGeometry["type"].get<std::string>();
-            auto geometryFile = std::filesystem::path(jsonGeometry["filename"].get<std::string>());
+            auto geometryFile = basePath / std::filesystem::path(jsonGeometry["filename"].get<std::string>());
 
             if (geometryFile.extension() == ".bin"s) {
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);

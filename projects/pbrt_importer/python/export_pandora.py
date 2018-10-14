@@ -10,6 +10,7 @@ from unique_collection import UniqueCollection
 import numpy as np
 import itertools
 import collections.abc
+import shutil
 
 
 def extract_pandora_data(pbrt_data, out_mesh_folder):
@@ -67,7 +68,7 @@ if __name__ == "__main__":
                         help="Either the PBRT scene file OR the intermediate file that was outputted on a previous run")
     parser.add_argument("--out", type=str, required=True,
                         help="Path/name of output Pandora scene description file")
-    parser.add_argument("--intermediate", type=bool, required=False, default=True,
+    parser.add_argument("--intermediate", type=bool, required=False, default=False,
                         help="Whether to output intermediate files")
     args = parser.parse_args()
 
@@ -82,8 +83,8 @@ if __name__ == "__main__":
     args.file = os.path.normpath(args.file)
     args.out = os.path.normpath(args.out)
 
+    out_folder = os.path.dirname(args.out)
     int_mesh_folder = os.path.join(os.path.dirname(args.out), "pbrt_meshes")
-    out_mesh_folder = os.path.join(os.path.dirname(args.out), "pandora_meshes")
 
     if args.file.endswith(".pbrt"):
         print("==== PARSING PBRT FILE ====")
@@ -102,11 +103,12 @@ if __name__ == "__main__":
             pickle.dump(pbrt_data, f)
 
     print("==== CONVERTING TO PANDORA FORMAT ====")
-    pandora_data = extract_pandora_data(pbrt_data, out_mesh_folder)
+    pandora_data = extract_pandora_data(pbrt_data, out_folder)
 
-    print("==== STORING PICKLE BACKUP ====")
-    with open(os.path.join(out_mesh_folder, "BACKUP.bin"), "wb") as f:
-        pickle.dump(pandora_data, f)
+    if args.intermediate:
+        print("==== STORING PICKLE BACKUP ====")
+        with open(os.path.join(out_folder, "BACKUP.bin"), "wb") as f:
+            pickle.dump(pandora_data, f)
 
     print("==== WRITING PANDORA SCENE FILE ====")
     with open(args.out, "w") as f:
@@ -115,6 +117,10 @@ if __name__ == "__main__":
         #ujson.dump(pandora_data, f, indent=2)
         ujson.dump(pandora_data, f)# No formatting saves a lot of disk space
 
-    # Remove the temporary list files created for the json export
-    import shutil
-    shutil.rmtree(os.path.join(out_mesh_folder, "tmp_lists"))
+
+    if not args.intermediate:
+        shutil.rmtree(os.path.join(out_folder, "pbrt_meshes"))
+
+        # Remove the temporary list files created for the json export
+        shutil.rmtree(os.path.join(out_folder, "tmp_lists"))
+
