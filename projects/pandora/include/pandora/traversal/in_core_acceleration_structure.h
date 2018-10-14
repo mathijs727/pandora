@@ -121,9 +121,7 @@ InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const InCoreSceneObje
             leafs.push_back(InstanceLeafNode(*sceneObjectPtr, primitiveID));
         }
 
-        auto bvh = std::make_shared<BVHType<InstanceLeafNode>>();
-        bvh->build(leafs);
-        instancedBVHs[sceneObjectPtr] = bvh;
+        instancedBVHs[sceneObjectPtr] = std::make_shared<BVHType<InstanceLeafNode>>(leafs);
     }
 
     // Build the final BVH over all unique primitives / instanced scene objects
