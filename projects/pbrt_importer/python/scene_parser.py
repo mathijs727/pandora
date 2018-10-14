@@ -6,6 +6,8 @@ import os
 import plyfile
 from pandora_mesh_exporter import PandoraMeshExporter
 import sys
+import tempfile
+import shutil
 
 
 def constant_texture(v):
@@ -90,7 +92,8 @@ class SceneParser:
     def __init__(self, pbrt_scene, out_mesh_folder):
         tmp_folder = os.path.join(out_mesh_folder, "tmp_lists")
 
-        self._transforms = UniqueCollection(os.path.join(tmp_folder, "transforms"))
+        self._transforms = UniqueCollection(
+            os.path.join(tmp_folder, "transforms"))
         self._geometry = UniqueCollection(os.path.join(tmp_folder, "geometry"))
         self._scene_objects = UniqueCollection(
             os.path.join(tmp_folder, "scene_objects"))
@@ -105,6 +108,10 @@ class SceneParser:
         self._light_sources = []
 
         self._out_mesh_exporter = PandoraMeshExporter(out_mesh_folder)
+        self._out_ply_mesh_folder = os.path.join(out_mesh_folder, "ply")
+        if os.path.exists(self._out_ply_mesh_folder):
+            shutil.rmtree(self._out_ply_mesh_folder)
+        os.makedirs(self._out_ply_mesh_folder)
 
         self._pbrt_named_textures = pbrt_scene["textures"]
 
@@ -262,9 +269,15 @@ class SceneParser:
         #transform_matrix = np.reshape(shape.transform, (4, 4))
         #shape_bounds = None
         if shape.type == "plymesh":
+            handle, filename = tempfile.mkstemp(
+                suffix=".ply", dir=self._out_ply_mesh_folder)
+            os.close(handle)
+
+            shutil.copyfile(shape.arguments["filename"]["value"], filename)
+
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
-                "filename": shape.arguments["filename"]["value"],
+                "filename": filename,
                 "transform": self._create_transform(shape.transform)
             })
         elif shape.type == "trianglemesh":
@@ -358,7 +371,7 @@ class SceneParser:
             uv_coords = geometry["uv"]["value"]
         else:
             uv_coords = np.empty((0))
-        
+
         return self._out_mesh_exporter.add_triangle_mesh(triangles, positions, normals, tangents, uv_coords)
 
     def data(self):
