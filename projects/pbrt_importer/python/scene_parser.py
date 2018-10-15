@@ -204,7 +204,7 @@ class SceneParser:
                     suffix=".ply", dir=self._out_ply_mesh_folder)
                 os.close(handle)
                 shutil.copyfile(v, filename)
-                v = filename
+                v = os.path.relpath(filename, start=self._out_folder)
 
             arguments[key] = v
 
