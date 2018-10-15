@@ -75,7 +75,7 @@ private:
         std::shared_ptr<BVHType<InstanceLeafNode>> m_bvh;
     };
 
-    static BVHType<LeafNode> buildBVH(gsl::span<const InCoreSceneObject*>);
+    static BVHType<LeafNode> buildBVH(const Scene& scene);
 
 private:
     BVHType<LeafNode> m_bvh;
@@ -87,8 +87,7 @@ private:
 
 template <typename UserState>
 inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(const Scene& scene, HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
-    : m_bvh(std::move(buildBVH(scene.getInCoreSceneObjects())))
-    //: m_bvh(std::move(buildPauseableBVH(sceneObjects)))
+    : m_bvh(std::move(buildBVH(scene)))
     , m_hitCallback(hitCallback)
     , m_anyHitCallback(anyHitCallback)
     , m_missCallback(missCallback)
@@ -103,8 +102,10 @@ inline typename InCoreAccelerationStructure<UserState>::BVHType<typename InCoreA
 #else
 inline typename InCoreAccelerationStructure<UserState>::template BVHType<typename InCoreAccelerationStructure<UserState>::LeafNode>
 #endif
-InCoreAccelerationStructure<UserState>::buildBVH(gsl::span<const InCoreSceneObject*> sceneObjects)
+InCoreAccelerationStructure<UserState>::buildBVH(const Scene& scene)
 {
+    auto sceneObjects = scene.getInCoreSceneObjects();
+
     // Instancing: find base scene objects
     std::unordered_set<const InCoreGeometricSceneObject*> instancingBaseSceneObjects;
     for (const auto& sceneObject : sceneObjects) {
