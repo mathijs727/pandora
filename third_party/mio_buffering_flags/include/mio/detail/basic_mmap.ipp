@@ -73,7 +73,7 @@ file_handle_type open_file(const String& path,
     }
 #ifdef _WIN32
     int fileFlags = FILE_ATTRIBUTE_NORMAL;
-    if (flags | access_flags::no_buffering) {
+    if (flags & access_flags::no_buffering) {
         fileFlags |= FILE_FLAG_NO_BUFFERING;
     }
     const auto handle = ::CreateFile(c_str(path),

@@ -48,7 +48,7 @@ enum class access_mode
  */
 enum access_flags  : int
 {
-    no_buffering = 0x1
+    no_buffering = 1
 };
 
 /**
