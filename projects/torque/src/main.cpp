@@ -61,7 +61,7 @@ int main(int argc, char** argv)
     g_stats.config.integrator = vm["integrator"].as<std::string>();
     g_stats.config.spp = vm["spp"].as<int>();
 
-    auto renderConfig = loadFromFile(vm["file"].as<std::string>(), false);
+    auto renderConfig = loadFromFileOOC(vm["file"].as<std::string>(), false);
 
     /*// Skydome
     auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");

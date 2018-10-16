@@ -31,12 +31,23 @@
 #include <tbb/task_group.h>
 #include <thread>
 
+// For file I/O
+#ifdef __linux__
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <cstring>
+#endif
+
+
 using namespace std::string_literals;
 
 namespace pandora {
 
 static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 50000;
-static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = true;
+static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = false;
 static constexpr bool OUT_OF_CORE_DISABLE_FILE_CACHING = true;
 static constexpr size_t OUT_OF_CORE_MEMORY_LIMIT = 1024llu * 1024llu * 75llu;
 static constexpr size_t OUT_OF_CORE_SVDAG_RESOLUTION = 64;
@@ -48,7 +59,7 @@ static constexpr size_t OUT_OF_CORE_SVDAG_RESOLUTION = 64;
 #define STR(x) QUOTE(x)
 static const std::filesystem::path OUT_OF_CORE_CACHE_FOLDER(STR(D_OUT_OF_CORE_CACHE_FOLDER));
 #else
-static const std::filesystem::path OUT_OF_CORE_CACHE_FOLDER("./ooc_node_cache/");
+static const std::filesystem::path OUT_OF_CORE_CACHE_FOLDER("ooc_node_cache/");
 #endif
 
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize = 32>
@@ -349,6 +360,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, Cache,
     OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr)
 {
     if (!std::filesystem::exists(OUT_OF_CORE_CACHE_FOLDER)) {
+        std::cout << "Create cache folder: " << OUT_OF_CORE_CACHE_FOLDER << std::endl;
         std::filesystem::create_directories(OUT_OF_CORE_CACHE_FOLDER);
     }
     ALWAYS_ASSERT(std::filesystem::is_directory(OUT_OF_CORE_CACHE_FOLDER));
@@ -521,11 +533,32 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
     }
 
     auto resourceID = cache->emplaceFactoryThreadSafe([cacheFilePath, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects)]() -> GeometryData {
-        int fileFlags = OUT_OF_CORE_DISABLE_FILE_CACHING ? mio::access_flags::no_buffering : 0;
-        auto mmapFile = mio::mmap_source(cacheFilePath.string(), 0, mio::map_entire_file, fileFlags);
-        auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(mmapFile.data());
+#ifdef __linux__ 
+        // Linux does not support O_DIRECT in combination with memory mapped I/O (meaning we cannot bypass the
+        // OS file cache). So instead we use posix I/O on Linux giving us the option to bypass the file cache at
+        // the cost of an extra allocation & copy.
+        int flags = O_RDONLY;
+        if constexpr (OUT_OF_CORE_DISABLE_FILE_CACHING) {
+            flags |= O_DIRECT;
+        }
+        auto filedesc = open(cacheFilePath.string().c_str(), flags);
+        ALWAYS_ASSERT(filedesc >= 0);
 
-        /*std::ifstream file(filename, std::ios::binary | std::ios::ate);
+        constexpr int alignment = 512;// Block size
+        size_t fileSize = std::filesystem::file_size(cacheFilePath);
+        size_t r = fileSize % alignment;
+        size_t bufferSize = r ? fileSize - r + alignment : fileSize;
+
+        auto deleter = [](char* ptr) {
+            free(ptr);
+        };
+        std::unique_ptr<char[], decltype(deleter)> buffer((char*)aligned_alloc(alignment, bufferSize), deleter);
+        ALWAYS_ASSERT(read(filedesc, buffer.get(), bufferSize) >= 0);
+        close(filedesc);
+
+        auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(buffer.get());
+
+        /*std::ifstream file(cacheFilePath, std::ios::binary | std::ios::ate);
         assert(file.is_open());
         auto pos = file.tellg();
         
@@ -535,6 +568,11 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
         file.close();
 
         auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(chars.get());*/
+#else
+        int fileFlags = OUT_OF_CORE_DISABLE_FILE_CACHING ? mio::access_flags::no_buffering : 0;
+        auto mmapFile = mio::mmap_source(cacheFilePath.string(), 0, mio::map_entire_file, fileFlags);
+        auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(mmapFile.data());
+#endif
 
         const auto* serializedInstanceBaseBVHs = serializedTopLevelLeafNode->instance_base_bvh();
         const auto* serializedInstanceBaseGeometry = serializedTopLevelLeafNode->instance_base_geometry();
@@ -576,6 +614,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
             geometrySize += geometry->sizeBytes();
             geometryOwningPointers.emplace_back(std::move(geometry));
         }
+
 
         // Load instanced geometry
         const auto* serializedInstancedIDs = serializedTopLevelLeafNode->instanced_ids();

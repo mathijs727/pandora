@@ -85,7 +85,7 @@ file_handle_type open_file(const String& path,
         0);
 #else
     int fileFlags = mode == access_mode::read ? O_RDONLY : O_RDWR;
-    if (flags | access_flags::no_buffering) {
+    if (flags & access_flags::no_buffering) {
         fileFlags |= O_DIRECT;
     }
     const auto handle = ::open(c_str(path), fileFlags);
