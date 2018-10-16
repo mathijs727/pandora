@@ -88,6 +88,8 @@ if (PANDORA_BUILD_ATLAS)
     include("projects/atlas/CMakeLists.txt")
 endif()
 include("projects/torque/CMakeLists.txt")
+
+add_subdirectory("projects/diskbench/")
 #if (BUILD_VOXEL_EXPORT)
 #    include("projects/voxel/CMakeLists.txt")
 #endif()
