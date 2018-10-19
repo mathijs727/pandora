@@ -19,7 +19,7 @@ namespace growing_free_list_ts_impl {
     struct _FreeListNode;
 
     template <typename T>
-    struct alignas(std::alignment_of_v<T>) _FreeListNode<T, typename std::enable_if<(sizeof(T) > sizeof(void*))>::type> {
+    struct alignas(std::alignment_of_v<T> < 8 ? 8 : std::alignment_of_v<T>) _FreeListNode<T, typename std::enable_if<(sizeof(T) > sizeof(void*))>::type> {
         _FreeListNode<T>* next;
 
     private:
@@ -28,7 +28,7 @@ namespace growing_free_list_ts_impl {
     };
 
     template <typename T>
-    struct alignas(std::alignment_of_v<T>) _FreeListNode<T, typename std::enable_if<(sizeof(T) == sizeof(void*))>::type> {
+    struct alignas(std::alignment_of_v<T> < 8 ? 8 : std::alignment_of_v<T>) _FreeListNode<T, typename std::enable_if<(sizeof(T) == sizeof(void*))>::type> {
         _FreeListNode<T>* next;
     };
 
