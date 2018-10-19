@@ -44,8 +44,8 @@ struct RayHit {
         const SceneObjectGeometry* sceneObjectGeometry = nullptr;
     };
     std::variant<const InCoreSceneObject*, OutOfCore> sceneObjectVariant;
-    unsigned primitiveID = (unsigned)-1;
 
+    unsigned primitiveID = (unsigned)-1;
     glm::vec2 geometricUV;
 };
 

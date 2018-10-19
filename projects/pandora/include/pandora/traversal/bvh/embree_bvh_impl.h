@@ -109,10 +109,13 @@ EmbreeBVH<LeafObj>::EmbreeBVH(gsl::span<LeafObj> leafs)
     m_scene = rtcNewScene(m_device);
     rtcSetSceneBuildQuality(m_scene, RTC_BUILD_QUALITY_HIGH);
 
-    m_leafs.insert(
+    /*m_leafs.insert(
         std::end(m_leafs),
         std::make_move_iterator(std::begin(leafs)),
-        std::make_move_iterator(std::end(leafs)));
+        std::make_move_iterator(std::end(leafs)));*/
+    for (auto& leaf : leafs) {
+        m_leafs.push_back(std::move(leaf));
+    }
     m_leafs.shrink_to_fit();
 
     const auto* leafsPtr = m_leafs.data();
@@ -130,32 +133,35 @@ EmbreeBVH<LeafObj>::EmbreeBVH(gsl::span<LeafObj> leafs)
 }
 
 template <typename LeafObj>
-inline bool EmbreeBVH<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
+inline void EmbreeBVH<LeafObj>::intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const
 {
-    RTCIntersectContext context;
-    rtcInitIntersectContext(&context);
+    assert(rays.size() == hitInfos.size());
 
-    RTCRayHit embreeRayHit;
-    raysToEmbreeRayHits<1>(gsl::make_span(&ray, 1), reinterpret_cast<RTCRayHitN*>(&embreeRayHit));
+    for (int i = 0; i < rays.size(); i++) {
+        RTCIntersectContext context;
+        rtcInitIntersectContext(&context);
 
-    s_intersectionDataRayHit.local() = gsl::make_span(&hitInfo, 1);
-    rtcIntersect1(m_scene, &context, &embreeRayHit);
+        RTCRayHit embreeRayHit;
+        raysToEmbreeRayHits<1>(gsl::make_span(&rays[i], 1), reinterpret_cast<RTCRayHitN*>(&embreeRayHit));
 
-    return hitInfo.primitiveID != (unsigned)-1;
+        s_intersectionDataRayHit.local() = gsl::make_span(&hitInfos[i], 1);
+        rtcIntersect1(m_scene, &context, &embreeRayHit);
+    }
 }
 
 template <typename LeafObj>
-inline bool EmbreeBVH<LeafObj>::intersectAny(Ray& ray) const
+inline void EmbreeBVH<LeafObj>::intersectAny(gsl::span<Ray> rays) const
 {
-    RTCIntersectContext context;
-    rtcInitIntersectContext(&context);
+    for (auto& ray : rays) {
+        RTCIntersectContext context;
+        rtcInitIntersectContext(&context);
 
-    RTCRay embreeRay;
-    raysToEmbreeRays<1>(gsl::make_span(&ray, 1), reinterpret_cast<RTCRayN*>(&embreeRay));
-    rtcOccluded1(m_scene, &context, &embreeRay);
+        RTCRay embreeRay;
+        raysToEmbreeRays<1>(gsl::make_span(&ray, 1), reinterpret_cast<RTCRayN*>(&embreeRay));
+        rtcOccluded1(m_scene, &context, &embreeRay);
 
-    ray.tfar = embreeRay.tfar;
-    return embreeRay.tfar == -std::numeric_limits<float>::infinity();
+        ray.tfar = embreeRay.tfar;
+    }
 }
 
 template <typename LeafObj>
