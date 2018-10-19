@@ -446,9 +446,9 @@ bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode
             for (auto [ray, rayHitOpt, userState, insertHandle] : *batch) {
                 // Intersect with the bottom-level BVH
                 if (rayHitOpt) {
-                    node->m_bvh.intersect(ray, *rayHitOpt);
+                    node->m_bvh.intersect(gsl::make_span(&ray, 1), gsl::make_span(&(*rayHitOpt), 1));
                 } else {
-                    node->m_bvh.intersectAny(ray);
+                    node->m_bvh.intersectAny(gsl::make_span(&ray, 1));
                 }
             }
 

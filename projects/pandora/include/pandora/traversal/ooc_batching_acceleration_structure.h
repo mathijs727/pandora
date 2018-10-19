@@ -957,13 +957,14 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
                 // Intersect with the bottom-level BVH
                 if (siOpt) {
                     RayHit rayHit;
-                    if (geometryData->leafBVH.intersect(ray, rayHit)) {
+                    geometryData->leafBVH.intersect(gsl::make_span(&ray, 1), gsl::make_span(&rayHit, 1));
+                    if (rayHit.primitiveID != -1) {
                         const auto& hitSceneObjectInfo = std::get<RayHit::OutOfCore>(rayHit.sceneObjectVariant);
                         siOpt = hitSceneObjectInfo.sceneObjectGeometry->fillSurfaceInteraction(ray, rayHit);
                         siOpt->sceneObject = hitSceneObjectInfo.sceneObject;
                     }
                 } else {
-                    geometryData->leafBVH.intersectAny(ray);
+                    geometryData->leafBVH.intersectAny(gsl::make_span(&ray, 1));
                 }
             }
 
@@ -1107,14 +1108,17 @@ inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLe
     } else {
         const auto& data = std::get<Instance>(m_data);
 
+        RayHit localHitInfo;
         Ray localRay = data.sceneObject->transformRayToInstanceSpace(ray);
-        bool hit = data.bvh->intersect(localRay, hitInfo);
-        if (hit) {
+        data.bvh->intersect(gsl::make_span(&localRay, 1), gsl::make_span(&localHitInfo, 1));
+        if (localHitInfo.primitiveID != -1) {
+            ray.tfar = localRay.tfar;
+            hitInfo = localHitInfo;
             hitInfo.sceneObjectVariant = RayHit::OutOfCore { data.sceneObject, data.sceneObjectGeometry };
+            return true;
+        } else {
+            return false;
         }
-
-        ray.tfar = localRay.tfar;
-        return hit;
     }
 }
 
