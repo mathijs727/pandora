@@ -19,7 +19,7 @@ def constant_texture(v):
             {  # Arguments
                 "value": {
                     "type": "float",
-                    "value": 0.5
+                    "value": v
                 }
             }
         )
@@ -198,13 +198,13 @@ class SceneParser:
         arguments = {}
         for key, value in texture.arguments.items():
             v = value["value"]
-            if key == "filename":
+            """if key == "filename":
                 # Copy to the destination folder so that we can use relative paths
                 handle, filename = tempfile.mkstemp(
                     suffix=".ply", dir=self._out_ply_mesh_folder)
                 os.close(handle)
                 shutil.copyfile(v, filename)
-                v = os.path.relpath(filename, start=self._out_folder)
+                v = os.path.relpath(filename, start=self._out_folder)"""
 
             arguments[key] = v
 
@@ -216,9 +216,17 @@ class SceneParser:
         else:
             print(f"Unknown texture type \"{texture.type}\"")
 
+        texture_class = texture.texture_class
+        if "filename" in arguments:
+            if texture_type == "float":
+                arguments = { "value": 0.5 }
+            else:
+                arguments = { "value": np.array([0.5, 0.5, 0.5]) }
+            texture_class = "constant"
+
         texture_dict = {
-            "type": texture_type if texture_type != "spectrum" else "color",
-            "class": texture.texture_class,
+            "type": texture_type,
+            "class": texture_class,
             "arguments": arguments
         }
 

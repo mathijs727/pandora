@@ -59,7 +59,7 @@ template <typename F>
 void testReadFunc(F&& f)
 {
     using clock = std::chrono::high_resolution_clock;
-    std::filesystem::path file = "/tmp/mathijsmolenaa/sanmiguel.zip";
+    std::filesystem::path file = "/dev/shm/mathijsmolenaa/sanmiguel.zip";
 
     for (int i = 0; i < 10; i++) {
         // https://stackoverflow.com/questions/12721773/how-to-align-a-value-to-a-given-alignment
@@ -85,7 +85,7 @@ void testReadFunc(F&& f)
 
 int main()
 {
-    /*std::cout << "Mapped I/O" << std::endl;
+    std::cout << "Mapped I/O" << std::endl;
     testReadFunc([](auto path, auto& ret) {
         auto ro_mmap = mio::mmap_source(path.string(), 0, mio::map_entire_file);
         std::copy(std::begin(ro_mmap), std::end(ro_mmap), std::begin(ret));
@@ -105,20 +105,11 @@ int main()
     std::cout << "\nLinux file I/O (buffered)" << std::endl;
     testReadFunc([](auto path, auto& ret) {
         readLinuxIO(path, ret, 0);
-    });*/
+    });
 
     std::cout << "\nLinux file I/O (O_DIRECT)" << std::endl;
     testReadFunc([](auto path, auto& ret) {
-        std::vector<char> xxx(ret.size());
-        std::vector<char> yyy(ret.size());
-        readLinuxIO(path, xxx, O_DIRECT);
-        readFileStream(path, yyy);
-        for (size_t i = 0; i < ret.size(); i++) {
-            if (xxx[i] != yyy[i]) {
-                std::cerr << "ERROR" << std::endl;
-                break;
-            }
-        }
+        readLinuxIO(path, ret, O_DIRECT);
     });
 
 #ifdef _WIN32

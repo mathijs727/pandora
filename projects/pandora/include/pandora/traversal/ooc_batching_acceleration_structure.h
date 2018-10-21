@@ -46,10 +46,10 @@ using namespace std::string_literals;
 
 namespace pandora {
 
-static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 50000;
+static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 100000;
 static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = false;
 static constexpr bool OUT_OF_CORE_DISABLE_FILE_CACHING = true;
-static constexpr size_t OUT_OF_CORE_MEMORY_LIMIT = 1024llu * 1024llu * 75llu;
+static constexpr size_t OUT_OF_CORE_MEMORY_LIMIT = 1024llu * 1024llu * 1024llu * 128llu;
 static constexpr size_t OUT_OF_CORE_SVDAG_RESOLUTION = 64;
 
 #ifdef D_OUT_OF_CORE_CACHE_FOLDER
@@ -804,7 +804,9 @@ inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLe
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
 inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::flush()
 {
+    int i = 0;
     while (true) {
+        std::cout << "FLUSHING " << (i++) << std::endl;
         TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
 
         bool done = true;

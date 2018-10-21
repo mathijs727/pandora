@@ -68,12 +68,13 @@ int main(int argc, char** argv)
     auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));*/
 
-    //renderConfig.scene.splitLargeOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 4);
+    renderConfig.scene.splitLargeOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 4);
 
+    std::cout << "Start render" << std::endl;
     auto integratorType = vm["integrator"].as<std::string>();
     int spp = vm["spp"].as<int>();
     if (integratorType == "direct") {
-        DirectLightingIntegrator integrator(8, renderConfig.scene, renderConfig.camera->getSensor(), spp, 4, LightStrategy::UniformSampleOne);
+        DirectLightingIntegrator integrator(8, renderConfig.scene, renderConfig.camera->getSensor(), spp, 8, LightStrategy::UniformSampleOne);
         integrator.render(*renderConfig.camera);
     } else if (integratorType == "path") {
         PathIntegrator integrator(10, renderConfig.scene, renderConfig.camera->getSensor(), spp, 4);

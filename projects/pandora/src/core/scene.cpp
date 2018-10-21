@@ -251,6 +251,7 @@ void Scene::splitLargeOOCSceneObjects(unsigned approximatePrimsPerObject)
     RTCDevice device = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);
 
+    std::cout << "Splitting large scene objects" << std::endl;
     int outFileCount = 0;
     std::vector<std::unique_ptr<OOCSceneObject>> outSceneObjects;
     for (auto& sceneObject : m_oocSceneObjects) {
@@ -264,6 +265,8 @@ void Scene::splitLargeOOCSceneObjects(unsigned approximatePrimsPerObject)
             outSceneObjects.push_back(std::move(sceneObject));
             continue; // Instanced scene objects are not split
         }
+
+        std::cout << "Split object: " << outFileCount << std::endl;
 
         // NOTE: if we want to support splitting area lights than the old lights should be removed from the
         // lights array. We should than also make sure that the new lights are always added in the same order

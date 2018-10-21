@@ -36,7 +36,7 @@ find_package(Threads REQUIRED)
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/TBBGet.cmake")
 tbb_get(TBB_ROOT tbb_root CONFIG TBB_DIR)
 set(CMAKE_PREFIX_PATH "${TBB_ROOT};${tbb_root}")
-find_package(TBB COMPONENTS tbb tbbmalloc REQUIRED)
+find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
 
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/ms-gsl/")
 
