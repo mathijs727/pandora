@@ -4,7 +4,7 @@ import numpy as np
 import pickle
 import os
 import plyfile
-from pandora_mesh_exporter import PandoraMeshExporter
+from batched_obj_exporter import BatchedObjExporter
 import sys
 import tempfile
 import pathlib
@@ -114,7 +114,7 @@ class SceneParser:
         self._light_sources = []
 
         out_mesh_folder = os.path.join(out_folder, "pandora_meshes")
-        self._out_mesh_exporter = PandoraMeshExporter(out_mesh_folder)
+        self._out_mesh_exporter = BatchedObjExporter(out_mesh_folder)
         self._out_ply_mesh_folder = os.path.join(out_mesh_folder, "ply")
         if os.path.exists(self._out_ply_mesh_folder):
             shutil.rmtree(self._out_ply_mesh_folder)

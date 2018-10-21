@@ -24,8 +24,8 @@ public:
 
     //virtual void build(gsl::span<LeafObj> leafs) = 0;
 
-    virtual bool intersect(Ray& ray, RayHit& hitInfo) const = 0;
-    virtual bool intersectAny(Ray& ray) const = 0;
+    virtual void intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const = 0;
+    virtual void intersectAny(gsl::span<Ray> rays) const = 0;// Set ray tfar to -infinity when hit
 
     virtual size_t sizeBytes() const = 0;
 };

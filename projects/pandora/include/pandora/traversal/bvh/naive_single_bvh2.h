@@ -19,8 +19,8 @@ public:
 
     size_t sizeBytes() const override final;
 
-    bool intersect(Ray& ray, RayHit& hitInfo) const override final;
-    bool intersectAny(Ray& ray) const override final;
+    void intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const override final;
+    void intersectAny(gsl::span<Ray> rays) const override final;
 
 private:
     static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
@@ -130,19 +130,22 @@ inline size_t NaiveSingleRayBVH2<LeafObj>::sizeBytes() const
 }
 
 template <typename LeafObj>
-inline bool NaiveSingleRayBVH2<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
+inline void NaiveSingleRayBVH2<LeafObj>::intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const
 {
-    return m_root->intersect(ray, hitInfo);
+    assert(rays.size() == hitInfos.size());
+
+    for (int i = 0; i < rays.size(); i++) {
+        m_root->intersect(rays[i], hitInfos[i]);
+    }
 }
 
 template <typename LeafObj>
-inline bool NaiveSingleRayBVH2<LeafObj>::intersectAny(Ray& ray) const
+inline void NaiveSingleRayBVH2<LeafObj>::intersectAny(gsl::span<Ray> rays) const
 {
-    if (m_root->intersectAny(ray)) {
-        ray.tfar = -std::numeric_limits<float>::infinity();
-        return true;
-    } else {
-        return false;
+    for (auto& ray : rays) {
+        if (m_root->intersectAny(ray)) {
+            ray.tfar = -std::numeric_limits<float>::infinity();
+        }
     }
 }
 

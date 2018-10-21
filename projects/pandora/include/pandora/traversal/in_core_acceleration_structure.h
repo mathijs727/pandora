@@ -10,11 +10,13 @@
 #include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/memory_arena_ts.h"
+#include <EASTL/fixed_vector.h>
+#include <functional>
 #include <gsl/gsl>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
-#include <functional>
+#include <vector>
 
 namespace pandora {
 
@@ -36,7 +38,9 @@ public:
     void flush() {}; // Dummy
 private:
     template <typename T>
-    using BVHType = WiVeBVH8Build8<T>;
+    //using BVHType = WiVeBVH8Build8<T>;
+    //using BVHType = EmbreeBVH<T>;
+    using BVHType = NaiveSingleRayBVH2<T>;
 
     // Leaf node of a bottom-level (instanced) BVH
     class InstanceLeafNode {
@@ -56,12 +60,10 @@ private:
     public:
         LeafNode(const InCoreSceneObject& sceneObject, const std::shared_ptr<BVHType<InstanceLeafNode>>& bvh); // Instanced object in the top-level BVH
         LeafNode(const InCoreSceneObject& sceneObject, unsigned primitiveID); // Leaf of the top-level BVH
-        inline LeafNode(LeafNode&& other) :
-            m_sceneObject(std::move(other.m_sceneObject)),
-            m_primitiveID(std::move(other.m_primitiveID)),
-            m_bvh(std::move(other.m_bvh))
-        {
-        };
+        inline LeafNode(LeafNode&& other)
+            : m_sceneObject(std::move(other.m_sceneObject))
+            , m_primitiveID(std::move(other.m_primitiveID))
+            , m_bvh(std::move(other.m_bvh)) {};
 
         Bounds getBounds() const;
         bool intersect(Ray& ray, RayHit& hitInfo) const;
@@ -151,20 +153,27 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
     (void)insertHandle;
     assert(perRayUserData.size() == rays.size());
 
-    for (int i = 0; i < rays.size(); i++) {
-        RayHit hitInfo = RayHit();
-        Ray ray = rays[i]; // Copy so we can mutate it
-        UserState userState = perRayUserData[i];
+    constexpr int64_t rayPacketSize = 50;
+    for (int i = 0; i < rays.size(); i += rayPacketSize) {
+        int numRays = std::min(rayPacketSize, rays.size() - i);
+        eastl::fixed_vector<RayHit, rayPacketSize> hitInfos(numRays);
+        eastl::fixed_vector<Ray, rayPacketSize> mutRays(numRays);
+        std::copy(std::begin(rays) + i, std::begin(rays) + i + numRays, std::begin(mutRays));
 
-        m_bvh.intersect(ray, hitInfo);
+        m_bvh.intersect(mutRays, hitInfos);
 
-        const auto* sceneObject = std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant);
-        if (sceneObject) {
-            SurfaceInteraction si = sceneObject->fillSurfaceInteraction(ray, hitInfo);
-            si.sceneObjectMaterial = sceneObject;
-            m_hitCallback(ray, si, perRayUserData[i], nullptr);
-        } else {
-            m_missCallback(ray, perRayUserData[i]);
+        for (int j = 0; j < numRays; j++) {
+            const auto& hitInfo = hitInfos[j];
+            const auto& ray = mutRays[j];
+
+            const auto* sceneObject = std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant);
+            if (sceneObject) {
+                SurfaceInteraction si = sceneObject->fillSurfaceInteraction(ray, hitInfo);
+                si.sceneObjectMaterial = sceneObject;
+                m_hitCallback(ray, si, perRayUserData[i + j], nullptr);
+            } else {
+                m_missCallback(ray, perRayUserData[i + j]);
+            }
         }
     }
 }
@@ -178,15 +187,21 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectAnyRequests(
     (void)insertHandle;
     assert(perRayUserData.size() == rays.size());
 
-    for (int i = 0; i < rays.size(); i++) {
-        Ray ray = rays[i]; // Copy so we can mutate it
-        UserState userState = perRayUserData[i];
+    constexpr int64_t rayPacketSize = 50;
+    for (int i = 0; i < rays.size(); i += rayPacketSize) {
+        int numRays = std::min(rayPacketSize, rays.size() - i);
+        eastl::fixed_vector<Ray, rayPacketSize> mutRays(numRays);
+        std::copy(std::begin(rays) + i, std::begin(rays) + i + numRays, std::begin(mutRays));
 
-        bool hit = m_bvh.intersectAny(ray);
-        if (hit) {
-            m_anyHitCallback(ray, perRayUserData[i]);
-        } else {
-            m_missCallback(ray, perRayUserData[i]);
+        m_bvh.intersectAny(mutRays);
+
+        for (int j = 0; j < numRays; j++) {
+            const auto& ray = mutRays[j];
+            if (ray.tfar == -std::numeric_limits<float>::infinity()) {
+                m_anyHitCallback(ray, perRayUserData[i + j]);
+            } else {
+                m_missCallback(ray, perRayUserData[i + j]);
+            }
         }
     }
 }
@@ -248,14 +263,17 @@ inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersect(Ray& ray
     } else {
         const auto& instancedSceneObject = dynamic_cast<const InCoreInstancedSceneObject&>(m_sceneObject.get());
         Ray localRay = instancedSceneObject.transformRayToInstanceSpace(ray);
+        RayHit localRayHit;
 
-        bool hit = m_bvh->intersect(localRay, hitInfo);
-        if (hit) {
+        m_bvh->intersect(gsl::make_span(&localRay, 1), gsl::make_span(&localRayHit, 1));
+        if (localRayHit.primitiveID != -1) {
+            hitInfo = localRayHit;
             std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant) = &m_sceneObject.get();
+            ray.tfar = localRay.tfar;
+            return true;
+        } else {
+            return false;
         }
-
-        ray.tfar = localRay.tfar;
-        return hit;
     }
 }
 }

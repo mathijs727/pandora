@@ -26,8 +26,8 @@ public:
 
     size_t sizeBytes() const override final;
 
-    bool intersect(Ray& ray, RayHit& hitInfo) const override final;
-    bool intersectAny(Ray& ray) const override final;
+    void intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const override final;
+    void intersectAny(gsl::span<Ray> rays) const override final;
 
 protected:
 	virtual void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) = 0;

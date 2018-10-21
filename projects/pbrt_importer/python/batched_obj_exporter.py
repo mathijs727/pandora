@@ -4,7 +4,7 @@ import sys
 import pandora_py
 
 # Similar to parsing.MeshBatcher but for Pandora format meshes instead of Python (pickled) meshes
-class PandoraMeshExporter:
+class BatchedObjExporter:
     def __init__(self, out_mesh_path):
         self._out_mesh_path = out_mesh_path
         self._file_id = 0

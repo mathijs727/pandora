@@ -4,6 +4,7 @@
 #include <iostream>
 #include <mio/mmap.hpp>
 
+#ifdef __linux__
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -14,7 +15,7 @@
 #ifndef BLKPBSZGET
 #define BLKSSZGET  _IO(0x12,104)/* get block device sector size */
 #endif
-
+#endif
 
 void readFileStream(std::filesystem::path path, std::vector<char>& ret)
 {
@@ -29,6 +30,7 @@ void readFileStream(std::filesystem::path path, std::vector<char>& ret)
     file.read(ret.data(), fileSize);
 }
 
+#ifdef __linux__
 void readLinuxIO(std::filesystem::path path, std::vector<char>& ret, int flags)
 {
     size_t fileSize = std::filesystem::file_size(path);
@@ -54,6 +56,7 @@ void readLinuxIO(std::filesystem::path path, std::vector<char>& ret, int flags)
     free(buffer);
     close(filedesc);
 }
+#endif
 
 template <typename F>
 void testReadFunc(F&& f)
@@ -107,10 +110,12 @@ int main()
         readLinuxIO(path, ret, 0);
     });
 
+#ifdef __linux__
     std::cout << "\nLinux file I/O (O_DIRECT)" << std::endl;
     testReadFunc([](auto path, auto& ret) {
         readLinuxIO(path, ret, O_DIRECT);
     });
+#endif
 
 #ifdef _WIN32
     system("PAUSE");
