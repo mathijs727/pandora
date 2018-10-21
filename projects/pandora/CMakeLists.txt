@@ -50,7 +50,8 @@ target_link_libraries(libPandora PUBLIC
 
 target_link_libraries(libPandora PRIVATE
 	Boost::boost # Header-only Boost libraries
-	libmorton) # Morton code for voxelization & SVO
+	libmorton # Morton code for voxelization & SVO
+	TBB::tbbmalloc_proxy) # Faster malloc/free
 
 if (LINK_STDCXX_FILESYSTEM)
 	target_link_libraries(libPandora PRIVATE stdc++fs)

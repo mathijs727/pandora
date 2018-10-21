@@ -181,6 +181,8 @@ inline std::shared_ptr<T> LRUCache<T>::getBlocking(EvictableResourceID resourceI
             size_t oldCacheSize = mutThis->m_currentSizeBytes.fetch_add(resourceSize);
             size_t newCacheSize = oldCacheSize + resourceSize;
             if (newCacheSize > m_maxSizeBytes) {
+                std::cout << "LRU cache evicting memory, new size: " << newCacheSize << ", limit: " << m_maxSizeBytes << std::endl;
+
                 // If another thread caused us to go over the memory limit that we only have to account
                 //  for our own contribution.
                 size_t overallocated = std::min(newCacheSize - m_maxSizeBytes, resourceSize);

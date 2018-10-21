@@ -26,10 +26,9 @@ if __name__ == "__main__":
                         help="Pandora scene (*json) file")
     args = parser.parse_args()
 
+    print("Start loading scene json")
     with open(args.scene, "r") as f:
         pandora_scene = ujson.load(f)
+    print("Done loading scene json")
 
     verify_instance_references(pandora_scene)
-
-    
-

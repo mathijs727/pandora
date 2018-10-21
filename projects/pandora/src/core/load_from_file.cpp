@@ -8,6 +8,7 @@
 #include "pandora/textures/constant_texture.h"
 #include "pandora/textures/image_texture.h"
 #include "pandora/utility/error_handling.h"
+#include "pandora/core/stats.h"
 #include <array>
 #include <atomic>
 #include <fstream>
@@ -55,6 +56,8 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 {
     auto basePath = filePath.parent_path();
 
+    std::cout << "PARSING JSON" << std::endl;
+
     // Read file and parse json
     nlohmann::json json;
     {
@@ -64,6 +67,8 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
         file >> json;
     }
+
+    std::cout << "Loading camera data from JSON" << std::endl;
 
     RenderConfig config;
     {
@@ -92,6 +97,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         config.resolution = resolution;
     }
 
+    std::cout << "Loading scene from JSON" << std::endl;
     {
         auto sceneJson = json["scene"];
         auto dummyFloatTexture = std::make_shared<ConstantTexture<float>>(1.0f);
@@ -245,6 +251,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         }
     }
 
+    std::cout << "DONE PARSING SCENE" << std::endl;
     return std::move(config);
 }
 
@@ -274,6 +281,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
     // Read file and parse json
     nlohmann::json json;
     {
+        std::cout << "Loading & parsing JSON" << std::endl;
         std::ifstream file(filePath);
         if (!file.is_open())
             THROW_ERROR("Could not open scene file");
@@ -281,8 +289,9 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         file >> json;
     }
 
-    RenderConfig config(512 * 1024 * 1024); // ~512MB
+    RenderConfig config(32llu * 1024llu * 1024llu * 1024llu); // 32GB should be enough?
     {
+        std::cout << "Getting config" << std::endl;
         auto configJson = json["config"];
 
         auto cameraJson = configJson["camera"];
@@ -291,6 +300,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
 
         auto resolutionJson = cameraJson["resolution"];
         glm::ivec2 resolution = { resolutionJson[0].get<int>(), resolutionJson[1].get<int>() };
+        std::cout << "Resolution: (" << resolution[0] << ", " << resolution[1] << ")" << std::endl;
         float cameraFov = cameraJson["fov"].get<float>();
 
         // FOV in defined along the narrower of the image's width and height
@@ -308,6 +318,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
     }
 
     {
+        std::cout << "Loading scene" << std::endl;
         auto sceneJson = json["scene"];
         auto dummyFloatTexture = std::make_shared<ConstantTexture<float>>(1.0f);
         auto dummyColorTexture = std::make_shared<ConstantTexture<glm::vec3>>(glm::vec3(1.0f));
@@ -358,8 +369,10 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         };
 
         // Load materials
+        std::cout << "Loading materials" << std::endl;
         std::vector<std::shared_ptr<Material>> materials;
         if (loadMaterials) {
+            std::cout << "Loading materials" << std::endl;
             for (const auto jsonMaterial : sceneJson["materials"]) {
                 auto materialType = jsonMaterial["type"].get<std::string>();
                 auto arguments = jsonMaterial["arguments"];
@@ -383,6 +396,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
             return readMat4(sceneJson["transforms"][id]);
         };
 
+        std::cout << "Loading geometry" << std::endl;
         std::unordered_map<std::string, mio::shared_mmap_source> mappedGeometryFiles;
         auto* geometryCache = config.scene.geometryCache();
         std::vector<EvictableResourceID> geometry;
@@ -446,25 +460,39 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         };
 
         // Create instanced base objects
+        std::cout << "Creating instanced base objects (multi-threaded)" << std::endl;
         auto jsonBaseSceneObjects = sceneJson["instance_base_scene_objects"];
+        size_t numBaseSceneObjects = jsonBaseSceneObjects.size();
         tbb::task_group taskGroup;
-        std::vector<std::shared_ptr<OOCGeometricSceneObject>> baseSceneObjects(jsonBaseSceneObjects.size());
-        for (size_t i = 0; i < jsonBaseSceneObjects.size(); i++) {
+        std::vector<std::shared_ptr<OOCGeometricSceneObject>> baseSceneObjects(numBaseSceneObjects);
+        std::cout << "Preallocated (empty) scene object pointer array of size: " << numBaseSceneObjects << std::endl;
+        for (size_t i = 0; i < numBaseSceneObjects; i++) {
             auto geomSceneObjectFactory = geomSceneObjectFactoryFunc(jsonBaseSceneObjects[i]);
             taskGroup.run([i, geomSceneObjectFactory, &baseSceneObjects]() {
                 auto sceneObject = geomSceneObjectFactory();
                 ALWAYS_ASSERT(sceneObject != nullptr);
+                if (i % 100llu == 0) {
+                    std::cout << "Processing object " << i << std::endl;
+                }
                 baseSceneObjects[i] = std::move(sceneObject); // Converts to shared_ptr
             });
         }
+        std::cout << "Wait till completion..." << std::endl;
         taskGroup.wait();
+
+        std::cout << "Geometry loaded: " << static_cast<size_t>(g_stats.memory.geometryLoaded) / 1000000 << std::endl;
+        std::cout << "Geometry evicted: " << static_cast<size_t>(g_stats.memory.geometryEvicted) / 1000000<< std::endl;
 
         // Create scene objects
         // NOTE: create in parallel but make sure to add them to the scene in a fixed order. This ensures that the
         //       area lights are added in the same order, thus light sampling is deterministic between runs.
-        std::vector<std::unique_ptr<OOCSceneObject>> sceneObjects(sceneJson["scene_objects"].size());
-        for (size_t i = 0; i < sceneJson["scene_objects"].size(); i++) {
-            const auto jsonSceneObject = sceneJson["scene_objects"][i];
+        std::cout << "Creating final objects (multi-threaded)" << std::endl;
+        auto jsonSceneObjects = sceneJson["scene_objects"];
+        size_t numSceneObjects = jsonSceneObjects.size();
+        std::vector<std::unique_ptr<OOCSceneObject>> sceneObjects(numSceneObjects);
+        std::cout << "Preallocated (empty) scene object pointer array of size: " << numSceneObjects << std::endl;
+        for (size_t i = 0; i < numSceneObjects; i++) {
+            const auto jsonSceneObject = jsonSceneObjects[i];
             if (jsonSceneObject["instancing"].get<bool>()) {
                 glm::mat4 transform = getTransform(jsonSceneObject["transform"]);
                 auto baseSceneObject = baseSceneObjects[jsonSceneObject["base_scene_object_id"].get<int>()];
@@ -473,11 +501,26 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
             } else {
                 auto sceneObjectFactory = geomSceneObjectFactoryFunc(jsonSceneObject);
                 taskGroup.run([&sceneObjects, i, sceneObjectFactory]() {
+                    if (i % 100llu == 0) {
+                        std::cout << "Processing object " << i << std::endl;
+                    }
                     sceneObjects[i] = sceneObjectFactory();
                 });
             }
         }
+
+        std::cout << "Counting unreferenced base objects:" << std::endl;
+        size_t unreferencedBaseSceneObjects = 0;
+        for (const auto& baseSceneObject : baseSceneObjects) {
+            if (baseSceneObject.use_count() == 1) {
+                unreferencedBaseSceneObjects++;
+            }
+        }
+        std::cout << "Number of unreferenced base scene objects: " << unreferencedBaseSceneObjects << std::endl;
+
+        std::cout << "Wait till completion..." << std::endl;
         taskGroup.wait();
+        std::cout << "Done loading, adding to scene" << std::endl;
         for (auto& sceneObject : sceneObjects) {
             if (sceneObject) {
                 config.scene.addSceneObject(std::move(sceneObject));
@@ -485,6 +528,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         }
 
         // Load lights
+        std::cout << "Loading lights" << std::endl;
         for (const auto jsonLight : sceneJson["lights"]) {
             std::string type = jsonLight["type"].get<std::string>();
             if (type == "infinite") {
