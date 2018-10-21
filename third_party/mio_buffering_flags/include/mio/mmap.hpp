@@ -331,7 +331,7 @@ template<
     int64_t offset, int64_t length, std::error_code& error)
 {
     MMap mmap;
-    mmap.map(token, offset, length, error);
+    mmap.map(token, offset, length, 0, error);
     return mmap;
 }
 

@@ -20,6 +20,7 @@
 #include <tbb/task_group.h>
 #include <tuple>
 #include <vector>
+#include <mio/shared_mmap.hpp>
 
 using namespace std::string_literals;
 
@@ -382,6 +383,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
             return readMat4(sceneJson["transforms"][id]);
         };
 
+        std::unordered_map<std::string, mio::shared_mmap_source> mappedGeometryFiles;
         auto* geometryCache = config.scene.geometryCache();
         std::vector<EvictableResourceID> geometry;
         for (const auto jsonGeometry : sceneJson["geometry"]) {
@@ -393,8 +395,15 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
 
+                auto goemetryFileString = geometryFile.string();
+                if (mappedGeometryFiles.find(goemetryFileString) == mappedGeometryFiles.end()) {
+                    mappedGeometryFiles[goemetryFileString] = mio::shared_mmap_source(geometryFile.string(), 0, mio::map_entire_file);
+                }
+                auto mappedGeometryFile = mappedGeometryFiles[goemetryFileString];
                 auto resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
-                    std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, startByte, sizeBytes, transform);
+                    auto buffer = gsl::make_span(mappedGeometryFile.data(), mappedGeometryFile.size());
+                    std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(
+                        gsl::make_span((std::byte*)mappedGeometryFile.data(), mappedGeometryFile.size()), transform);
                     ALWAYS_ASSERT(meshOpt.has_value());
                     return std::move(*meshOpt);
                 });

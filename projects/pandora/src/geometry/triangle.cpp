@@ -253,6 +253,21 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
         std::move(uvCoords));
 }
 
+std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(gsl::span<std::byte> buffer, glm::mat4 objTransform, bool ignoreVertexNormals)
+{
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFileFromMemory(buffer.data(), buffer.size_bytes(), aiProcess_GenNormals, "obj");
+
+    if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
+        LOG_WARNING("Failed to load mesh from buffer");
+        return {};
+    }
+
+    auto ret = loadFromFileSingleMesh(scene, objTransform, ignoreVertexNormals);
+    importer.FreeScene();
+    return std::move(ret);
+}
+
 std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem::path filePath, size_t start, size_t length, glm::mat4 objTransform, bool ignoreVertexNormals)
 {
     if (!std::filesystem::exists(filePath)) {
@@ -263,9 +278,7 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem
     auto mmapFile = mio::mmap_source(filePath.string(), start, length);
 
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFileFromMemory(mmapFile.data(), length,
-        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals,
-        "obj");
+    const aiScene* scene = importer.ReadFileFromMemory(mmapFile.data(), length, aiProcess_GenNormals, "obj");
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
         LOG_WARNING("Failed to load mesh file: "s + filePath.string());
@@ -285,8 +298,7 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem
     }
 
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(filePath.string().data(),
-        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
+    const aiScene* scene = importer.ReadFile(filePath.string().data(), aiProcess_GenNormals);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
         LOG_WARNING("Failed to load mesh file: "s + filePath.string());
@@ -303,6 +315,9 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const aiScene* 
     std::vector<glm::ivec3> indices;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
+    indices.reserve(scene->mMeshes[0]->mNumFaces);
+    positions.reserve(scene->mMeshes[0]->mNumVertices * 3);
+    normals.reserve(scene->mMeshes[0]->mNumVertices * 3);
 
     std::stack<std::tuple<aiNode*, glm::mat4>> stack;
     stack.push({ scene->mRootNode, objTransform * assimpMatrix(scene->mRootNode->mTransformation) });
@@ -388,9 +403,10 @@ std::vector<TriangleMesh> TriangleMesh::loadFromFile(std::filesystem::path fileP
     }
 
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(filePath.string().data(),
-        aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
+    //const aiScene* scene = importer.ReadFile(filePath.string().data(),
+    //    aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
     //importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
+    const aiScene* scene = importer.ReadFile(filePath.string().data(), aiProcess_GenNormals);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
         LOG_WARNING("Failed to load mesh file: "s + filePath.string());
