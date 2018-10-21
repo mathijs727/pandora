@@ -32,10 +32,3 @@ if __name__ == "__main__":
     print("Done loading scene json")
 
     verify_instance_references(pandora_scene)
-
-    
-
-<<<<<<< HEAD
-
-=======
->>>>>>> 2b6a34a3b7932805da02e7330814e31727a1dc46
