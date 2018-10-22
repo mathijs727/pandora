@@ -253,7 +253,7 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
         std::move(uvCoords));
 }
 
-std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(gsl::span<std::byte> buffer, glm::mat4 objTransform, bool ignoreVertexNormals)
+/*std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(gsl::span<std::byte> buffer, glm::mat4 objTransform, bool ignoreVertexNormals)
 {
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFileFromMemory(buffer.data(), buffer.size_bytes(), aiProcess_GenNormals, "obj");
@@ -288,7 +288,7 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem
     auto ret = loadFromFileSingleMesh(scene, objTransform, ignoreVertexNormals);
     importer.FreeScene();
     return std::move(ret);
-}
+}*/
 
 std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem::path filePath, glm::mat4 objTransform, bool ignoreVertexNormals)
 {

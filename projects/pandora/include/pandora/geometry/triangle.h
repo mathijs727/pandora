@@ -40,8 +40,8 @@ public:
     TriangleMesh subMesh(gsl::span<const unsigned> primitives) const;
 
     static std::optional<TriangleMesh> loadFromFileSingleMesh(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
-    static std::optional<TriangleMesh> loadFromFileSingleMesh(gsl::span<std::byte> buffer, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
-    static std::optional<TriangleMesh> loadFromFileSingleMesh(std::filesystem::path filePath, size_t start, size_t length, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
+    //static std::optional<TriangleMesh> loadFromFileSingleMesh(gsl::span<std::byte> buffer, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
+    //static std::optional<TriangleMesh> loadFromFileSingleMesh(std::filesystem::path filePath, size_t start, size_t length, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
     static std::vector<TriangleMesh> loadFromFile(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
 
     //static TriangleMesh loadFromCacheFile(const std::string_view filename);

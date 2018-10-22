@@ -3,9 +3,11 @@
 #include <glm/glm.hpp>
 #include <gsl/gsl>
 #include <iostream>
+#include <cassert>
 //#include <tinyply.h>
 #include <algorithm>
 #include <vector>
+#include <pandora/geometry/triangle.h>
 
 namespace py = boost::python;
 namespace np = boost::python::numpy;
@@ -55,9 +57,46 @@ py::object PandoraMeshBatch::addTriangleMesh(
     auto tangents = reinterpretNumpyArray<glm::dvec3>(npTangents);
     auto uvCoords = reinterpretNumpyArray<glm::dvec2>(npUVCoords);
 
-    size_t startByte = m_file.tellp();
+    assert(triangles.size() < std::numeric_limits<unsigned>::max());
+    assert(positions.size() < std::numeric_limits<unsigned>::max());
+    unsigned numTriangles = static_cast<unsigned>(triangles.size());
+    unsigned numVertices = static_cast<unsigned>(positions.size());
 
-    m_file << "o PandoraMesh\n";
+    auto owningTriangles = std::make_unique<glm::ivec3[]>(numTriangles);
+    std::copy(std::begin(triangles), std::end(triangles), owningTriangles.get());
+    auto owningPositions = std::make_unique<glm::vec3[]>(numTriangles);
+    std::copy(std::begin(positions), std::end(positions), std::next(owningPositions.get(), 0));
+
+
+    std::unique_ptr<glm::vec3[]> owningNormals = nullptr;
+    if (!normals.empty()) {
+        owningNormals = std::make_unique<glm::vec3[]>(numTriangles);
+        std::copy(std::begin(normals), std::end(normals), std::next(owningNormals.get(), 0));
+    }
+
+    std::unique_ptr<glm::vec3[]> owningTangents = nullptr;
+    if (!tangents.empty()) {
+        owningTangents = std::make_unique<glm::vec3[]>(numTriangles);
+        std::copy(std::begin(tangents), std::end(tangents), std::next(owningTangents.get(), 0));
+    }
+
+    std::unique_ptr<glm::vec2[]> owningUVCoords = nullptr;
+    if (!uvCoords.empty()) {
+        owningUVCoords = std::make_unique<glm::vec2[]>(numTriangles);
+        std::copy(std::begin(uvCoords), std::end(uvCoords), std::next(owningUVCoords.get(), 0));
+    }
+
+    pandora::TriangleMesh pandoraMesh = pandora::TriangleMesh(numTriangles, numVertices,
+        std::move(owningTriangles), std::move(owningPositions), std::move(owningNormals), std::move(owningTangents), std::move(owningUVCoords));
+
+    flatbuffers::FlatBufferBuilder fbb;
+    auto serializedMesh = pandoraMesh.serialize(fbb);
+    fbb.Finish(serializedMesh);
+
+    size_t startByte = m_file.tellp();
+    m_file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
+
+    /*m_file << "o PandoraMesh\n";
     for (auto p : positions)
         m_file << "v " << p.x << " " << p.y << " " << p.z << "\n";
 
@@ -84,7 +123,7 @@ py::object PandoraMeshBatch::addTriangleMesh(
             }
         }
         m_file << "\n";
-    }
+    }*/
 
     size_t sizeBytes = static_cast<size_t>(m_file.tellp()) - startByte;
     return py::make_tuple(m_filename, startByte, sizeBytes);

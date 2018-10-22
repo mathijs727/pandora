@@ -184,7 +184,8 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
 
-                std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, startByte, sizeBytes, transform);
+                auto mappedFile = mio::mmap_source(geometryFile.string(), startByte, sizeBytes);
+                std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(mappedFile.data()));
                 ALWAYS_ASSERT(meshOpt.has_value());
                 geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
             } else {
@@ -415,9 +416,8 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 }
                 auto mappedGeometryFile = mappedGeometryFiles[goemetryFileString];
                 auto resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
-                    auto buffer = gsl::make_span(mappedGeometryFile.data(), mappedGeometryFile.size());
-                    std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(
-                        gsl::make_span((std::byte*)mappedGeometryFile.data(), mappedGeometryFile.size()), transform);
+                    auto buffer = gsl::make_span(mappedGeometryFile.data(), mappedGeometryFile.size()).subspan(startByte, sizeBytes);
+                    std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(buffer.data()));
                     ALWAYS_ASSERT(meshOpt.has_value());
                     return std::move(*meshOpt);
                 });
