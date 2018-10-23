@@ -21,7 +21,7 @@ public:
 
     glm::ivec2 getResolution() const;
     //const FrameBufferConstArrayView getFramebufferView() const;
-    gsl::not_null<const glm::vec3*> getFramebufferRaw();
+    gsl::span<const glm::vec3> getFramebufferRaw();
 
 private:
     int getIndex(int x, int y) const;

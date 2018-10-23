@@ -5,7 +5,7 @@ namespace pandora {
 
 class NaiveDirectLightingIntegrator : public SamplerIntegrator {
 public:
-    NaiveDirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp);
+    NaiveDirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples = 1);
 
 private:
     void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h) override final;

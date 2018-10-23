@@ -10,20 +10,22 @@ namespace pandora {
 
 class PerspectiveCamera {
 public:
-    PerspectiveCamera(glm::ivec2 resolution, float fovX);
+    PerspectiveCamera(glm::ivec2 resolution, float fovX, glm::mat4 transform = glm::mat4(1.0f));
 
-    glm::vec3 getPosition() const;
+    /*glm::vec3 getPosition() const;
     void setPosition(glm::vec3 pos);
 
     glm::quat getOrienation() const;
-    void setOrientation(glm::quat orientation);
+    void setOrientation(glm::quat orientation);*/
+    glm::mat4 getTransform() const;
+    void setTransform(const glm::mat4& m);
 
     Sensor& getSensor();
     glm::ivec2 getResolution() const;
 
 	Ray generateRay(const CameraSample& sample) const;
 
-	template <int N>
+	/*template <int N>
 	void generateRaySOA(const gsl::span<CameraSample> samples, RaySOA<N>& outRays) const
 	{
 		for (int i = 0; i < samples.size(); i++) {
@@ -43,7 +45,7 @@ public:
 			outRays.tnear[i] = 0.0f;
 			outRays.tfar[i] = 1.0f;
 		}
-	}
+	}*/
 
 private:
     Sensor m_sensor;
@@ -54,7 +56,8 @@ private:
     float m_aspectRatio;
     float m_fovX;
 
-    glm::vec3 m_position;
-    glm::quat m_orientation;
+    glm::mat4 m_transform;
+    /*glm::vec3 m_position;
+    glm::quat m_orientation;*/
 };
 }

@@ -6,7 +6,7 @@
 namespace pandora {
 class UniformSampler : public Sampler {
 public:
-    UniformSampler(unsigned samplesPerPixel, unsigned rngSeed = 0);
+    UniformSampler(unsigned rngSeed);
 
     float get1D() final;
     glm::vec2 get2D() final;

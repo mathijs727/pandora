@@ -11,8 +11,17 @@ using ShadingMemoryArena = FreeListBackedMemoryArena<1024>;
 struct Interaction;
 struct SurfaceInteraction;
 struct LightSample;
+class Transform;
+
+class InMemoryResource;
+template <typename T>
+class FifoCache;
+template <typename T>
+class LRUCache;
 
 class Light;
+class DistantLight;
+class EnvironmentLight;
 class AreaLight;
 
 class BxDF;
@@ -31,7 +40,10 @@ class ConstantTexture;
 template <class T>
 class ImageTexture;
 
-class SceneObject;
+class SceneObjectMaterial;
+class SceneObjectGeometry;
+class InCoreSceneObject;
+class OOCSceneObject;
 class Scene;
 class TriangleMesh;
 struct Bounds;
@@ -47,5 +59,12 @@ class Sensor;
 
 class VoxelGrid;
 class SparseVoxelOctree;
+
+template <typename, template <typename T> typename, size_t>
+class OOCBatchingAccelerationStructure;
+template <typename T, size_t>
+class InCoreBatchingAccelerationStructure;
+template <typename T>
+class InCoreAccelerationStructure;
 
 }

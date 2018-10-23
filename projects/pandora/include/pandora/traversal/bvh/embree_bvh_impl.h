@@ -8,6 +8,7 @@ inline EmbreeBVH<LeafObj>::EmbreeBVH(EmbreeBVH&& other)
     : m_device(std::move(other.m_device))
     , m_scene(std::move(other.m_scene))
     , m_memoryUsed(other.m_memoryUsed.load())
+    , m_leafs(std::move(other.m_leafs))
 {
     other.m_device = nullptr;
     other.m_scene = nullptr;
@@ -23,11 +24,12 @@ EmbreeBVH<LeafObj>::~EmbreeBVH()
 }
 
 template <typename LeafObj>
-size_t EmbreeBVH<LeafObj>::size() const
+size_t EmbreeBVH<LeafObj>::sizeBytes() const
 {
     size_t sizeBytes = sizeof(decltype(*this));
     sizeBytes += s_intersectionDataRayHit.size() * sizeof(gsl::span<RayHit>);
     sizeBytes += m_memoryUsed.load();
+    sizeBytes += m_leafs.size() * sizeof(LeafObj);
     return sizeBytes;
 }
 
@@ -97,7 +99,7 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
 }
 
 template <typename LeafObj>
-EmbreeBVH<LeafObj>::EmbreeBVH()
+EmbreeBVH<LeafObj>::EmbreeBVH(gsl::span<LeafObj> leafs)
     : m_memoryUsed(0)
 {
     m_device = rtcNewDevice(nullptr);
@@ -106,59 +108,67 @@ EmbreeBVH<LeafObj>::EmbreeBVH()
 
     m_scene = rtcNewScene(m_device);
     rtcSetSceneBuildQuality(m_scene, RTC_BUILD_QUALITY_HIGH);
-}
 
-template <typename LeafObj>
-inline void EmbreeBVH<LeafObj>::build(gsl::span<const LeafObj*> objects)
-{
-    for (const auto* objectPtr : objects) {
-        RTCGeometry geom = rtcNewGeometry(m_device, RTC_GEOMETRY_TYPE_USER);
-        rtcAttachGeometry(m_scene, geom); // Returns geomID
-        rtcSetGeometryUserPrimitiveCount(geom, objectPtr->numPrimitives());
-        rtcSetGeometryUserData(geom, (void*)objectPtr);
-        rtcSetGeometryBoundsFunction(geom, geometryBoundsFunc, nullptr);
-        rtcSetGeometryIntersectFunction(geom, geometryIntersectFunc);
-        rtcSetGeometryOccludedFunction(geom, geometryOccludedFunc);
-        rtcCommitGeometry(geom);
-        rtcReleaseGeometry(geom);
+    /*m_leafs.insert(
+        std::end(m_leafs),
+        std::make_move_iterator(std::begin(leafs)),
+        std::make_move_iterator(std::end(leafs)));*/
+    for (auto& leaf : leafs) {
+        m_leafs.push_back(std::move(leaf));
     }
+    m_leafs.shrink_to_fit();
+
+    const auto* leafsPtr = m_leafs.data();
+    RTCGeometry geom = rtcNewGeometry(m_device, RTC_GEOMETRY_TYPE_USER);
+    rtcAttachGeometry(m_scene, geom); // Returns geomID
+    rtcSetGeometryUserPrimitiveCount(geom, static_cast<unsigned>(m_leafs.size()));
+    rtcSetGeometryUserData(geom, (void*)leafsPtr);
+    rtcSetGeometryBoundsFunction(geom, geometryBoundsFunc, nullptr);
+    rtcSetGeometryIntersectFunction(geom, geometryIntersectFunc);
+    rtcSetGeometryOccludedFunction(geom, geometryOccludedFunc);
+    rtcCommitGeometry(geom);
+
+    rtcReleaseGeometry(geom);
     rtcCommitScene(m_scene);
 }
 
 template <typename LeafObj>
-inline bool EmbreeBVH<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
+inline void EmbreeBVH<LeafObj>::intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const
 {
-    RTCIntersectContext context;
-    rtcInitIntersectContext(&context);
+    assert(rays.size() == hitInfos.size());
 
-    RTCRayHit embreeRayHit;
-    raysToEmbreeRayHits<1>(gsl::make_span(&ray, 1), reinterpret_cast<RTCRayHitN*>(&embreeRayHit));
+    for (int i = 0; i < rays.size(); i++) {
+        RTCIntersectContext context;
+        rtcInitIntersectContext(&context);
 
-    s_intersectionDataRayHit.local() = gsl::make_span(&hitInfo, 1);
-    rtcIntersect1(m_scene, &context, &embreeRayHit);
+        RTCRayHit embreeRayHit;
+        raysToEmbreeRayHits<1>(gsl::make_span(&rays[i], 1), reinterpret_cast<RTCRayHitN*>(&embreeRayHit));
 
-    return hitInfo.sceneObject != nullptr;
+        s_intersectionDataRayHit.local() = gsl::make_span(&hitInfos[i], 1);
+        rtcIntersect1(m_scene, &context, &embreeRayHit);
+    }
 }
 
 template <typename LeafObj>
-inline bool EmbreeBVH<LeafObj>::intersectAny(Ray& ray) const
+inline void EmbreeBVH<LeafObj>::intersectAny(gsl::span<Ray> rays) const
 {
-    RTCIntersectContext context;
-    rtcInitIntersectContext(&context);
+    for (auto& ray : rays) {
+        RTCIntersectContext context;
+        rtcInitIntersectContext(&context);
 
-    RTCRay embreeRay;
-    raysToEmbreeRays<1>(gsl::make_span(&ray, 1), reinterpret_cast<RTCRayN*>(&embreeRay));
-    rtcOccluded1(m_scene, &context, &embreeRay);
+        RTCRay embreeRay;
+        raysToEmbreeRays<1>(gsl::make_span(&ray, 1), reinterpret_cast<RTCRayN*>(&embreeRay));
+        rtcOccluded1(m_scene, &context, &embreeRay);
 
-    ray.tfar = embreeRay.tfar;
-    return embreeRay.tfar == -std::numeric_limits<float>::infinity();
+        ray.tfar = embreeRay.tfar;
+    }
 }
 
 template <typename LeafObj>
 void EmbreeBVH<LeafObj>::geometryBoundsFunc(const RTCBoundsFunctionArguments* args)
 {
-    const LeafObj& leafNode = *reinterpret_cast<const LeafObj*>(args->geometryUserPtr);
-    Bounds bounds = leafNode.getPrimitiveBounds(args->primID);
+    const LeafObj* leafs = reinterpret_cast<const LeafObj*>(args->geometryUserPtr);
+    Bounds bounds = leafs[args->primID].getBounds();
 
     RTCBounds* outBounds = args->bounds_o;
     outBounds->lower_x = bounds.min.x;
@@ -172,7 +182,7 @@ void EmbreeBVH<LeafObj>::geometryBoundsFunc(const RTCBoundsFunctionArguments* ar
 template <typename LeafObj>
 void EmbreeBVH<LeafObj>::geometryIntersectFunc(const RTCIntersectFunctionNArguments* args)
 {
-    const LeafObj& leafNode = *reinterpret_cast<const LeafObj*>(args->geometryUserPtr);
+    const LeafObj* leafs = reinterpret_cast<const LeafObj*>(args->geometryUserPtr);
 
     assert(args->N == 1);
     if (!args->valid[0])
@@ -190,7 +200,7 @@ void EmbreeBVH<LeafObj>::geometryIntersectFunc(const RTCIntersectFunctionNArgume
     ray.direction = glm::vec3(embreeRay.dir_x, embreeRay.dir_y, embreeRay.dir_z);
 
     RayHit& hitInfo = hitInfos[embreeRay.id];
-    if (leafNode.intersectPrimitive(ray, hitInfo, args->primID)) {
+    if (leafs[args->primID].intersect(ray, hitInfo)) {
         RTCHit potentialHit = {};
         potentialHit.instID[0] = args->context->instID[0]; // Don't care for now (may need this in the future to support instancing?)
         potentialHit.geomID = 1; // Indicate that we hit something
@@ -203,7 +213,7 @@ void EmbreeBVH<LeafObj>::geometryIntersectFunc(const RTCIntersectFunctionNArgume
 template <typename LeafObj>
 void EmbreeBVH<LeafObj>::geometryOccludedFunc(const RTCOccludedFunctionNArguments* args)
 {
-    const LeafObj& leafNode = *reinterpret_cast<const LeafObj*>(args->geometryUserPtr);
+    const LeafObj* leafs = reinterpret_cast<const LeafObj*>(args->geometryUserPtr);
 
     assert(args->N == 1);
     if (!args->valid[0])
@@ -218,7 +228,7 @@ void EmbreeBVH<LeafObj>::geometryOccludedFunc(const RTCOccludedFunctionNArgument
     ray.direction = glm::vec3(RTCRayN_dir_x(embreeRay, 1, 0), RTCRayN_dir_y(embreeRay, 1, 0), RTCRayN_dir_z(embreeRay, 1, 0));
 
     RayHit hitInfo;
-    if (leafNode.intersectPrimitive(ray, hitInfo, args->primID)) {
+    if (leafs[args->primID].intersect(ray, hitInfo)) {
         // https://embree.github.io/api.html#rtcsetgeometryoccludedfunction
         // On a hit the ray tfar should be set to negative infinity
         RTCRayN_tfar(embreeRay, 1, 0) = -std::numeric_limits<float>::infinity();

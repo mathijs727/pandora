@@ -1,4 +1,5 @@
 #include "pandora/core/sensor.h"
+#include "pandora/utility/error_handling.h"
 #include <iterator>
 #include <memory>
 
@@ -21,6 +22,10 @@ void Sensor::addPixelContribution(glm::ivec2 pixel, glm::vec3 color)
 {
     auto& pixelVar = m_frameBuffer[getIndex(pixel.x, pixel.y)];
 
+    //ALWAYS_ASSERT(!glm::any(glm::isnan(color) || glm::isinf(color)));
+    if (glm::any(glm::isnan(color) || glm::isinf(color)))
+        return;
+
     auto currentColor = pixelVar.load();
     while (!pixelVar.compare_exchange_weak(currentColor, currentColor + color))
         ;
@@ -31,10 +36,10 @@ glm::ivec2 Sensor::getResolution() const
     return m_resolution;
 }
 
-gsl::not_null<const glm::vec3*> Sensor::getFramebufferRaw()
+gsl::span<const glm::vec3> Sensor::getFramebufferRaw()
 {
     std::transform(std::begin(m_frameBuffer), std::end(m_frameBuffer), std::begin(m_frameBufferCopy), [](const std::atomic<glm::vec3>& v) -> glm::vec3 { return v.load(); });
-    return gsl::not_null<const glm::vec3*>(m_frameBufferCopy.data());
+    return m_frameBufferCopy;
 }
 
 int Sensor::getIndex(int x, int y) const

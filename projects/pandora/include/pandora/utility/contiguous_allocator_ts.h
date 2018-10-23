@@ -79,6 +79,8 @@ inline ContiguousAllocatorTS<T>::ContiguousAllocatorTS(uint32_t maxSize, uint32_
     , m_start(new EmptyItem[m_maxSize])
     , m_currentSize(0)
 {
+    ALWAYS_ASSERT(m_maxSize > 0);
+    ALWAYS_ASSERT(m_blockSize > 0);
 }
 
 template <typename T>

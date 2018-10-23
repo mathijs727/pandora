@@ -10,7 +10,7 @@ class VoxelGrid {
 public:
     VoxelGrid(int resolution);
 
-	int resolution() const;
+    int resolution() const;
 
 	std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 
@@ -26,8 +26,8 @@ public:
 
 private:
 	//static std::vector<bool> createValues(const glm::uvec3& extent);
-	static std::unique_ptr<uint32_t[]> createValues(const glm::uvec3& extent);
-	std::pair<uint32_t*, int> index(int x, int y, int z) const;
+	static std::unique_ptr<uint32_t[]> createValues(const glm::ivec3& extent);
+	std::pair<uint32_t*, uint32_t> index(int x, int y, int z) const;
 
 private:
 	int m_resolution;

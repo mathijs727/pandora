@@ -157,7 +157,7 @@ TEST(Triangle, SampleFromReference)
             RayHit rayHit;
 			ASSERT_TRUE(mesh.intersectPrimitive(ray, rayHit, p));
 
-            if (rayHit.sceneObject) {
+            if (rayHit.primitiveID != (unsigned)-1) {
 			    ASSERT_NE(mesh.pdfPrimitive(p, ref, glm::normalize(interaction.position - ref.position)), 0.0f);
             }
 		}

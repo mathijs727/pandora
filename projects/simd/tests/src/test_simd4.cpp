@@ -1,7 +1,7 @@
-#include "pandora/utility/simd/simd4.h"
+#include "simd/simd4.h"
 #include <gtest/gtest.h>
 
-using namespace pandora;
+using namespace simd;
 
 #define ASSERT_EQ_T(left, right)                               \
     {                                                          \

@@ -2,6 +2,7 @@
 #include "pandora/geometry/bounds.h"
 #include "pandora/traversal/bvh.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
+#include "pandora/flatbuffers/wive_bvh8_generated.h"
 #include "simd/simd8.h"
 #include <EASTL/fixed_vector.h>
 #include <embree3/rtcore.h>
@@ -16,21 +17,20 @@ namespace pandora {
 template <typename LeafObj>
 class WiVeBVH8 : public BVH<LeafObj> {
 public:
-	WiVeBVH8() = default;
+    WiVeBVH8(uint32_t numPrims);
+    WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects);
 	WiVeBVH8(WiVeBVH8&&) = default;
     ~WiVeBVH8() = default;
 
-    size_t size() const override final;
+    flatbuffers::Offset<serialization::WiVeBVH8> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
-    void build(gsl::span<const LeafObj*> objects) override final;
+    size_t sizeBytes() const override final;
 
-    bool intersect(Ray& ray, RayHit& hitInfo) const override final;
-    bool intersectAny(Ray& ray) const override final;
+    void intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const override final;
+    void intersectAny(gsl::span<Ray> rays) const override final;
 
-	void loadFromFile(std::string_view filename, gsl::span<const LeafObj*> objects);
-	void saveToFile(std::string_view filename);
 protected:
-	virtual void commit() = 0;
+	virtual void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) = 0;
 
     void testBVH() const;
 
@@ -57,8 +57,8 @@ private:
     struct SIMDRay;
     uint32_t intersectInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
     uint32_t intersectAnyInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
-    bool intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, RayHit& hitInfo) const;
-    bool intersectAnyLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray) const;
+    bool intersectLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray, RayHit& hitInfo) const;
+    bool intersectAnyLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray) const;
 
     struct TestBVHData {
         int numPrimitives = 0;
@@ -80,19 +80,13 @@ protected:
         simd::vec8_u32 permutationOffsets; // 3 bytes. Can use the other byte for flags but storing it on the stack during traversal is expensive.
     };
 
-    struct alignas(32) BVHLeaf {
-        uint32_t leafObjectIDs[4];
-        uint32_t primitiveIDs[4];
-    };
+    constexpr static uint32_t emptyHandle = 0xFFFFFFFF;
 
-    const static uint32_t emptyHandle = 0xFFFFFFFF;
+    ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode> m_innerNodeAllocator;
+    ContiguousAllocatorTS<uint32_t> m_leafIndexAllocator;
+    std::vector<LeafObj> m_leafObjects;
 
-    std::vector<const LeafObj*> m_leafObjects;
-    std::vector<RTCBuildPrimitive> m_primitives;
-
-    std::unique_ptr<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>> m_innerNodeAllocator;
-    std::unique_ptr<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>> m_leafNodeAllocator;
-    uint32_t m_compressedRootHandle;
+    uint32_t m_compressedRootHandle = 0;
 
 private:
     struct SIMDRay {

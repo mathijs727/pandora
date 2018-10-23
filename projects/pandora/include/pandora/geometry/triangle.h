@@ -1,16 +1,19 @@
 #pragma once
-#include "glm/glm.hpp"
 #include "pandora/core/interaction.h"
 #include "pandora/core/material.h"
 #include "pandora/core/ray.h"
+#include "pandora/flatbuffers/triangle_mesh_generated.h"
 #include "pandora/geometry/bounds.h"
+#include "pandora/svo/voxel_grid.h"
 #include "pandora/utility/math.h"
+#include <glm/glm.hpp>
 #include <gsl/span>
 #include <memory>
 #include <optional>
 #include <string_view>
 #include <tuple>
 #include <vector>
+#include <filesystem>
 
 struct aiScene;
 
@@ -29,15 +32,23 @@ public:
         std::unique_ptr<glm::vec3[]>&& normals,
         std::unique_ptr<glm::vec3[]>&& tangents,
         std::unique_ptr<glm::vec2[]>&& uvCoords);
+    TriangleMesh(const TriangleMesh&) = delete;
     TriangleMesh(TriangleMesh&&) = default;
-    ~TriangleMesh() = default;
+    TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh);
+    ~TriangleMesh();
 
     TriangleMesh subMesh(gsl::span<const unsigned> primitives) const;
 
-    static std::vector<TriangleMesh> loadFromFile(const std::string_view filename, glm::mat4 transform = glm::mat4(1), bool ignoreVertexNormals = false);
+    static std::optional<TriangleMesh> loadFromFileSingleMesh(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
+    //static std::optional<TriangleMesh> loadFromFileSingleMesh(gsl::span<std::byte> buffer, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
+    //static std::optional<TriangleMesh> loadFromFileSingleMesh(std::filesystem::path filePath, size_t start, size_t length, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
+    static std::vector<TriangleMesh> loadFromFile(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
 
-    static TriangleMesh loadFromCacheFile(const std::string_view filename);
-    void saveToCacheFile(const std::string_view filename);
+    //static TriangleMesh loadFromCacheFile(const std::string_view filename);
+    //void saveToCacheFile(const std::string_view filename);
+    flatbuffers::Offset<serialization::TriangleMesh> serialize(flatbuffers::FlatBufferBuilder& builder) const;
+
+    size_t sizeBytes() const;
 
     unsigned numTriangles() const;
     unsigned numVertices() const;
@@ -58,7 +69,10 @@ public:
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const;
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const;
 
+    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const;
+
 private:
+    static std::optional<TriangleMesh> loadFromFileSingleMesh(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals);
     static TriangleMesh createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
 
     gsl::span<const glm::vec3> getNormals() const;
@@ -67,8 +81,7 @@ private:
 
     void getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const;
     void getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
-    
-    size_t size() const;
+
 private:
     unsigned m_numTriangles, m_numVertices;
 
@@ -169,6 +182,7 @@ inline bool TriangleMesh::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned
 
     // Compute the first two barycentric coordinates and t value for triangle intersection
     float invDet = 1.0f / det;
+    hitInfo.primitiveID = primitiveID;
     hitInfo.geometricUV = glm::vec2(e0 * invDet, e1 * invDet);
     ray.tfar = tScaled * invDet;
     return true;
@@ -256,7 +270,7 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
     // TODO: test intersection against alpha texture, if present
 
     // Fill in  surface interaction from triangle hit
-    auto isect = SurfaceInteraction(pHit, uvHit, -ray.direction, dpdu, dpdv, glm::vec3(0.0f), glm::vec3(0.0f), this, hitInfo.primitiveID);
+    auto isect = SurfaceInteraction(pHit, uvHit, -ray.direction, dpdu, dpdv, glm::vec3(0.0f), glm::vec3(0.0f), hitInfo.primitiveID);
 
     // Override surface normal in isect for triangle
     isect.normal = isect.shading.normal = glm::normalize(glm::cross(dp02, dp12));
@@ -317,7 +331,6 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
     //	isect.normal = isect.shading.normal = -isect.normal;
 
     isect.wo = -ray.direction;
-    isect.sceneObject = hitInfo.sceneObject;
     isect.primitiveID = hitInfo.primitiveID;
     return isect;
 }

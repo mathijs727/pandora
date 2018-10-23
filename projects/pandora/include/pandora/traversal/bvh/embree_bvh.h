@@ -12,16 +12,14 @@ namespace pandora {
 template <typename LeafObj>
 class EmbreeBVH : public BVH<LeafObj> {
 public:
-    EmbreeBVH();
+    EmbreeBVH(gsl::span<LeafObj> objects);
     EmbreeBVH(EmbreeBVH&&);
     ~EmbreeBVH();
 
-    size_t size() const override final;
+    size_t sizeBytes() const override final;
 
-    void build(gsl::span<const LeafObj*> objects) override final;
-
-    bool intersect(Ray& ray, RayHit& hitInfo) const override final;
-    bool intersectAny(Ray& ray) const override final;
+    void intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const override final;
+    void intersectAny(gsl::span<Ray> rays) const override final;
 
 private:
     static void geometryBoundsFunc(const RTCBoundsFunctionArguments* args);
@@ -35,6 +33,7 @@ private:
     RTCScene m_scene;
     std::atomic_size_t m_memoryUsed;
 
+    std::vector<LeafObj> m_leafs;
     static tbb::enumerable_thread_specific<gsl::span<RayHit>> s_intersectionDataRayHit;
 };
 

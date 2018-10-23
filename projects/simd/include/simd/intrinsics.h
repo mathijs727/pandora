@@ -1,8 +1,11 @@
 #pragma once
 #ifdef _MSC_VER
 #include <intrin.h>
+#else
+#include <nmmintrin.h>
 #endif
 #include <cstdint>
+#include <cassert>
 
 namespace simd {
 

@@ -120,7 +120,8 @@ inline T& MemoryArenaTS::HandleN<T>::get(MemoryArenaTS& arena)
 template <typename T>
 inline const T& MemoryArenaTS::HandleN<T>::get(const MemoryArenaTS& arena)
 {
-    std::lock_guard<std::mutex> lock(arena.m_mutex);
+    auto* mutArenaPtr = const_cast<MemoryArenaTS*>(&arena);
+    std::lock_guard<std::mutex> lock(mutArenaPtr->m_mutex);
     return reinterpret_cast<const T&>(arena.m_memoryBlocks[block][byteInBlock]);
 }
 
@@ -192,7 +193,7 @@ inline std::pair<MemoryArenaTS::HandleN<T>, T*> MemoryArenaTS::allocateN(Args...
             // Run constructors
             T* tPtr = reinterpret_cast<T*>(ptr);
             for (uint8_t i = 0; i < N; i++) {
-                new (tPtr + i) T(args...);
+                new (tPtr + i) T(std::forward<Args>(args)...);
             }
 
             auto result = HandleN<T>(localBlock.blockIndex, (uint32_t)offsetInBytes, N);
@@ -213,7 +214,7 @@ inline std::pair<MemoryArenaTS::HandleN<T>, T*> MemoryArenaTS::allocateN(Args...
 			// Run constructors
 			T* tPtr = reinterpret_cast<T*>(ptr);
 			for (uint8_t i = 0; i < N; i++) {
-				new (tPtr + i) T(args...);
+				new (tPtr + i) T(std::forward<Args>(args)...);
 			}
 
 			auto result = HandleN<T>(localBlock.blockIndex, (uint32_t)offsetInBytes, N);

@@ -1,0 +1,41 @@
+namespace pandora.serialization;
+
+struct Vec3 {
+	x: float;
+	y: float;
+	z: float;
+}
+
+struct Bounds {
+	min: Vec3;
+	max: Vec3;
+}
+
+struct Mat4
+{
+	x0: float;
+	x1: float;
+	x2: float;
+	x3: float;
+
+	y0: float;
+	y1: float;
+	y2: float;
+	y3: float;
+
+	z0: float;
+	z1: float;
+	z2: float;
+	z3: float;
+
+	w0: float;
+	w1: float;
+	w2: float;
+	w3: float;
+}
+
+struct Transform
+{
+	matrix: Mat4;
+	inverseMatrix: Mat4;
+}

@@ -8,21 +8,20 @@ namespace pandora {
 
 static GrowingFreeListTS<ShadingMemoryArena::MemoryBlock> s_freeList;
 
-NaiveDirectLightingIntegrator::NaiveDirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp)
-    : SamplerIntegrator(maxDepth, scene, sensor, spp)
+NaiveDirectLightingIntegrator::NaiveDirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples)
+    : SamplerIntegrator(maxDepth, scene, sensor, spp, parallelSamples)
 {
 }
 
-void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h)
+void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& rayState, const InsertHandle& h)
 {
     ShadingMemoryArena memoryArena(s_freeList);
 
-    if (std::holds_alternative<ContinuationRayState>(s)) {
-        const auto& rayState = std::get<ContinuationRayState>(s);
-		
+    if (std::holds_alternative<ContinuationRayState>(rayState.data)) {
+        const auto& contRayState = std::get<ContinuationRayState>(rayState.data);
+
         // TODO
-        auto& sampler = getSampler(rayState.pixel);
-        std::array samples = { sampler.get2D() };
+        std::array samples = { rayState.sampler->get2D() };
 
         // Initialize common variables for Whitted integrator
         glm::vec3 n = si.shading.normal;
@@ -34,39 +33,39 @@ void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, 
         // Compute emitted light if ray hit an area light source
         Spectrum emitted = si.Le(wo);
         if (!isBlack(emitted)) {
-            m_sensor.addPixelContribution(rayState.pixel, rayState.weight * emitted);
+            m_sensor.addPixelContribution(rayState.pixel, contRayState.weight * emitted);
         }
 
-        auto bsdfSample = si.bsdf->sampleF(wo, sampler.get2D());
+        auto bsdfSample = si.bsdf->sampleF(wo, rayState.sampler->get2D());
         if (bsdfSample && !isBlack(bsdfSample->f)) {
             Spectrum radiance = bsdfSample->f * glm::abs(glm::dot(bsdfSample->wi, n)) / bsdfSample->pdf;
             Ray visibilityRay = si.spawnRay(bsdfSample->wi);
-            spawnShadowRay(visibilityRay, rayState, radiance);
+            spawnShadowRay(visibilityRay, false, rayState, radiance);
         }
 
-        if (rayState.bounces + 1 < m_maxDepth) {
+        if (contRayState.bounces + 1 < m_maxDepth) {
             // Trace rays for specular reflection and refraction
-            specularReflect(si, sampler, memoryArena, rayState);
-            specularTransmit(si, sampler, memoryArena, rayState);
+            specularReflect(si, *rayState.sampler, memoryArena, rayState);
+            specularTransmit(si, *rayState.sampler, memoryArena, rayState);
         }
-    } else if (std::holds_alternative<ShadowRayState>(s)) {
-        const auto& rayState = std::get<ShadowRayState>(s);
-        // Do nothing, in shadow
-        m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * si.Le(-r.direction));
+    } else if (std::holds_alternative<ShadowRayState>(rayState.data)) {
+        const auto& shadowRayState = std::get<ShadowRayState>(rayState.data);
+        m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight * si.Le(-r.direction));
     }
 }
 
-void NaiveDirectLightingIntegrator::rayMiss(const Ray& r, const RayState& s)
+void NaiveDirectLightingIntegrator::rayMiss(const Ray& r, const RayState& rayState)
 {
-    if (std::holds_alternative<ShadowRayState>(s)) {
-        const auto& rayState = std::get<ShadowRayState>(s);
-        assert(!std::isnan(glm::dot(rayState.radianceOrWeight, rayState.radianceOrWeight)) && glm::dot(rayState.radianceOrWeight, rayState.radianceOrWeight) > 0.0f);
+    if (std::holds_alternative<ShadowRayState>(rayState.data)) {
+        const auto& shadowRayState = std::get<ShadowRayState>(rayState.data);
+        assert(!std::isnan(glm::dot(shadowRayState.radianceOrWeight, shadowRayState.radianceOrWeight)) && glm::dot(shadowRayState.radianceOrWeight, shadowRayState.radianceOrWeight) > 0.0f);
+
         for (const auto light : m_scene.getInfiniteLights())
-            m_sensor.addPixelContribution(rayState.pixel, rayState.radianceOrWeight * light->Le(r));
+            m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight * light->Le(r));
 
         spawnNextSample(rayState.pixel);
-    } else if (std::holds_alternative<ContinuationRayState>(s)) {
-        const auto& rayState = std::get<ContinuationRayState>(s);
+    } else if (std::holds_alternative<ContinuationRayState>(rayState.data)) {
+        const auto& contRayState = std::get<ContinuationRayState>(rayState.data);
 
         // End of path: received radiance
         glm::vec3 radiance = glm::vec3(0.0f);
@@ -76,8 +75,8 @@ void NaiveDirectLightingIntegrator::rayMiss(const Ray& r, const RayState& s)
             radiance += light->Le(r);
         }
 
-        assert(!std::isnan(glm::dot(rayState.weight, rayState.weight)) && glm::dot(rayState.weight, rayState.weight) > 0.0f);
-        m_sensor.addPixelContribution(rayState.pixel, rayState.weight * radiance);
+        assert(!std::isnan(glm::dot(contRayState.weight, contRayState.weight)) && glm::dot(contRayState.weight, contRayState.weight) > 0.0f);
+        m_sensor.addPixelContribution(rayState.pixel, contRayState.weight * radiance);
 
         spawnNextSample(rayState.pixel);
     }

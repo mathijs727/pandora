@@ -41,7 +41,7 @@ int main()
             { cornellBoxFile, "dag_cornell.ply" }
         };
 
-		testDAGCompressionSeparate(files);
+        testDAGCompressionSeparate(files);
     }
 
     std::cout << "INPUT CHARACTER AND PRESS ENTER TO EXIT:" << std::endl;
@@ -52,48 +52,49 @@ int main()
 
 void testDAGCompressionTogether(const gsl::span<std::pair<std::string, std::string>> files)
 {
-	std::vector<SparseVoxelDAG> DAGs;
-	for (const auto&[filePath, outFile] : files) {
-		std::cout << "Model: " << outFile << std::endl;
-		DAGs.emplace_back(std::move(createSVO(filePath)));
-	}
+    std::vector<SparseVoxelDAG> DAGs;
+    for (const auto& [filePath, outFile] : files) {
+        std::cout << "Model: " << outFile << std::endl;
+        DAGs.emplace_back(std::move(createSVO(filePath)));
+    }
 
-	using clock = std::chrono::high_resolution_clock;
-	auto start = clock::now();
+    using clock = std::chrono::high_resolution_clock;
+    auto start = clock::now();
 
-	compressDAGs(DAGs);
+    compressDAGs(DAGs);
 
-	auto end = clock::now();
-	auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-	std::cout << "\nTime to compress SVOs to DAGs: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
-	std::cout << "Combined size after compression: " << DAGs[0].size() << " bytes" << std::endl;
+    auto end = clock::now();
+    auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "\nTime to compress SVOs to DAGs: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
+    std::cout << "Combined size after compression: " << DAGs[0].size() << " bytes" << std::endl;
 
-	for (int i = 0; i < files.size(); i++) {
-		auto[vertices, triangles] = DAGs[i].generateSurfaceMesh();
-		exportMesh(vertices, triangles, files[i].second);
-	}
+    for (int i = 0; i < files.size(); i++) {
+        auto [vertices, triangles] = DAGs[i].generateSurfaceMesh();
+        exportMesh(vertices, triangles, files[i].second);
+    }
 }
 
 void testDAGCompressionSeparate(const gsl::span<std::pair<std::string, std::string>> files)
 {
-	for (const auto&[filePath, outFile] : files) {
-		std::vector<SparseVoxelDAG> DAGs;
-		std::cout << "Model: " << outFile << std::endl;
-		DAGs.emplace_back(std::move(createSVO(filePath)));
+    for (const auto& [filePath, outFile] : files) {
+        std::vector<SparseVoxelDAG> DAGs;
+        std::cout << "Model: " << outFile << std::endl;
+        DAGs.emplace_back(std::move(createSVO(filePath)));
 
-		using clock = std::chrono::high_resolution_clock;
-		auto start = clock::now();
+        using clock = std::chrono::high_resolution_clock;
+        auto start = clock::now();
 
-		compressDAGs(DAGs);
+        compressDAGs(DAGs);
 
-		auto end = clock::now();
-		auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-		std::cout << "Time to compress SVOs to DAGs: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
-		std::cout << "Size after compression: " << DAGs[0].size() << " bytes\n" << std::endl;
+        auto end = clock::now();
+        auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        std::cout << "Time to compress SVOs to DAGs: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
+        std::cout << "Size after compression: " << DAGs[0].size() << " bytes\n"
+                  << std::endl;
 
-		auto[vertices, triangles] = DAGs[0].generateSurfaceMesh();
-		exportMesh(vertices, triangles, outFile);
-	}
+        auto [vertices, triangles] = DAGs[0].generateSurfaceMesh();
+        exportMesh(vertices, triangles, outFile);
+    }
 }
 
 SVO createSVO(std::string_view meshFile)
@@ -141,6 +142,6 @@ void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, 
     plyFile.add_properties_to_element("face", { "vertex_indices" },
         Type::INT32, triangles.size(), reinterpret_cast<uint8_t*>(triangles.data()), Type::UINT8, 3);
 
-    plyFile.write(outStream, true); // write ascii
+    plyFile.write(outStream, true);
     fb.close();
 }

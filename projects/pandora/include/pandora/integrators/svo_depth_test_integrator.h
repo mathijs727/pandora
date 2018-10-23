@@ -6,7 +6,7 @@ namespace pandora {
 
 class SVODepthTestIntegrator : public SamplerIntegrator {
 public:
-    SVODepthTestIntegrator(const Scene& scene, Sensor& sensor, int spp);
+    SVODepthTestIntegrator(const Scene& scene, Sensor& sensor, int spp, int parallelSamples = 1);
 
 private:
     void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h) override final;
@@ -19,7 +19,6 @@ private:
     SparseVoxelOctree m_svo;
 
     glm::mat4 m_worldToSVO;
-    float m_svoToWorldScale;
 };
 
 }

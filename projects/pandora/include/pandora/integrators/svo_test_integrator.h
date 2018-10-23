@@ -21,6 +21,9 @@ private:
 private:
 	using OctreeType = SparseVoxelDAG;
 	OctreeType m_sparseVoxelOctree;
+
+    glm::mat4 m_worldToSVO;
+    float m_svoToWorldScale;
 };
 
 }

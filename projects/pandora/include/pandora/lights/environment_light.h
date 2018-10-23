@@ -8,7 +8,7 @@ class EnvironmentLight : public Light {
 public:
     EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum& l, int numSamples, const std::shared_ptr<Texture<glm::vec3>>& texture);
 
-    glm::vec3 power() const final;
+    //glm::vec3 power() const final;
 
     LightSample sampleLi(const Interaction& ref, const glm::vec2& randomSample) const final;
 	float pdfLi(const Interaction& ref, const glm::vec3& wi) const final;

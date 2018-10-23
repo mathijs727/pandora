@@ -3,13 +3,14 @@ import subprocess
 import yaml
 import os
 import re
-from fix_eastl import fix_eastl
+from fix_dependencies import fix_eastl, fix_tinyply
 
 seperator = "::::"
 env_var_whitelist = ["CC", "CXX"]
 
 if __name__ == "__main__":
     fix_eastl()
+    #fix_tinyply()
 
     with open(".travis.yml") as file:
         travis_config = yaml.load(file.read())

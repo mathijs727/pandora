@@ -14,14 +14,17 @@ namespace pandora {
 template <typename LeafObj, typename UserState>
 class PauseableBVH4 : PauseableBVH<LeafObj, UserState> {
 public:
-    PauseableBVH4(gsl::span<LeafObj> object, gsl::span<const Bounds> bounds);
+    PauseableBVH4(gsl::span<LeafObj> object);
     PauseableBVH4(PauseableBVH4&&) = default;
     ~PauseableBVH4() = default;
 
-    size_t size() const override final;
+    size_t sizeBytes() const override final;
 
     std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState) const override final;
     std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
+
+    std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const override final;
+    std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
 
     std::optional<bool> intersectAny(Ray& ray, const UserState& userState) const override final;
     std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
@@ -29,8 +32,8 @@ public:
     gsl::span<LeafObj*> leafs() { return m_leafs; }
 
 private:
-    template <bool AnyHit>
-    std::optional<bool> intersectT(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const;
+    template <bool AnyHit, typename HitInfo>
+    std::optional<bool> intersectT(Ray& ray, HitInfo& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const;
 
     struct TestBVHData {
         int numPrimitives = 0;
@@ -102,20 +105,19 @@ private:
 };
 
 template <typename LeafObj, typename UserState>
-inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> objects, gsl::span<const Bounds> objectsBounds)
-    : m_innerNodeAllocator(objects.size())
-    , m_leafAllocator(objects.size())
+inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> leafs)
+    : m_innerNodeAllocator(leafs.size())
+    , m_leafAllocator(leafs.size())
 {
-    assert(objects.size() == objectsBounds.size());
-
-    // Copy leafs
-    m_tmpConstructionLeafs = objects;
+    // Store in the class so that the (static) construction functions can access the objects
+    //  and move them into the BVH leafs
+    m_tmpConstructionLeafs = leafs;
 
     // Create a representatin of the leafs that Embree will understand
     std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
-    embreeBuildPrimitives.reserve(objects.size());
-    for (unsigned i = 0; i < static_cast<unsigned>(objects.size()); i++) {
-        auto bounds = objectsBounds[i];
+    embreeBuildPrimitives.reserve(leafs.size());
+    for (unsigned i = 0; i < static_cast<unsigned>(leafs.size()); i++) {
+        auto bounds = leafs[i].getBounds();
 
         RTCBuildPrimitive primitive;
         primitive.lower_x = bounds.min.x;
@@ -128,6 +130,34 @@ inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> objec
         primitive.primID = i;
         embreeBuildPrimitives.push_back(primitive);
     }
+
+    const auto embreeErrorFunc = [](void* userPtr, const RTCError code, const char* str) {
+        switch (code) {
+        case RTC_ERROR_NONE:
+            std::cout << "RTC_ERROR_NONE";
+            break;
+        case RTC_ERROR_UNKNOWN:
+            std::cout << "RTC_ERROR_UNKNOWN";
+            break;
+        case RTC_ERROR_INVALID_ARGUMENT:
+            std::cout << "RTC_ERROR_INVALID_ARGUMENT";
+            break;
+        case RTC_ERROR_INVALID_OPERATION:
+            std::cout << "RTC_ERROR_INVALID_OPERATION";
+            break;
+        case RTC_ERROR_OUT_OF_MEMORY:
+            std::cout << "RTC_ERROR_OUT_OF_MEMORY";
+            break;
+        case RTC_ERROR_UNSUPPORTED_CPU:
+            std::cout << "RTC_ERROR_UNSUPPORTED_CPU";
+            break;
+        case RTC_ERROR_CANCELLED:
+            std::cout << "RTC_ERROR_CANCELLED";
+            break;
+        }
+
+        std::cout << ": " << str << std::endl;
+    };
 
     // Build the BVH using the Embree BVH builder API
     RTCDevice device = rtcNewDevice(nullptr);
@@ -172,7 +202,7 @@ inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> objec
 }
 
 template <typename LeafObj, typename UserState>
-inline size_t PauseableBVH4<LeafObj, UserState>::size() const
+inline size_t PauseableBVH4<LeafObj, UserState>::sizeBytes() const
 {
     size_t size = sizeof(decltype(*this));
     size += m_innerNodeAllocator.sizeBytes();
@@ -181,15 +211,45 @@ inline size_t PauseableBVH4<LeafObj, UserState>::size() const
 }
 
 template <typename LeafObj, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitInfo, const UserState& userState) const
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& rayHit, const UserState& userState) const
 {
-    return intersect(ray, hitInfo, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
+    return intersect(ray, rayHit, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
 }
 
 template <typename LeafObj, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& rayHit, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
 {
-    return intersectT<false>(ray, hitInfo, userState, insertInfo);
+    // TODO: remove the whole function using SFINAE
+    if constexpr (is_pauseable_leaf_obj<LeafObj, UserState>::has_intersect_rayhit) {
+        return intersectT<false>(ray, rayHit, userState, insertInfo);
+    } else {
+        (void)ray;
+        (void)rayHit;
+        (void)userState;
+        (void)insertInfo;
+        return false;
+    }
+}
+
+template <typename LeafObj, typename UserState>
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const
+{
+    return intersect(ray, si, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
+}
+
+template <typename LeafObj, typename UserState>
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+{
+    // TODO: remove the whole function using SFINAE
+    if constexpr (is_pauseable_leaf_obj<LeafObj, UserState>::has_intersect_si) {
+        return intersectT<false, SurfaceInteraction>(ray, si, userState, insertInfo);
+    } else {
+        (void)ray;
+        (void)si;
+        (void)userState;
+        (void)insertInfo;
+        return false;
+    }
 }
 
 template <typename LeafObj, typename UserState>
@@ -207,8 +267,8 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectAny(Ray& 
 }
 
 template <typename LeafObj, typename UserState>
-template <bool AnyHit>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectT(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+template <bool AnyHit, typename HitInfo>
+inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectT(Ray& ray, HitInfo& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
 {
     struct SIMDRay {
         simd::vec4_f32 originX;

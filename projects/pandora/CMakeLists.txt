@@ -8,14 +8,32 @@ if (MSVC)
 	# Surpess warnings from OpenImageIO & libmorton and enable AVX2
 	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/arch:AVX2 /wd5040 /wd4244 /wd4275 /wd4309")
 else()
-	target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Werror -Wno-unused-parameter -Wno-unused-variable -Wno-unused-private-field)
-	target_compile_options(libPandora PUBLIC -mavx2)
+	#target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Wno-unused-parameter -Wno-unused-variable -Wno-unused-private-field)
+	target_compile_options(libPandora PUBLIC -mavx2 -mpopcnt -mbmi2)
 endif()
 target_compile_definitions(libPandora PRIVATE "ENABLE_STATIC_LIB")# Embree static lib
 
 if (PANDORA_ISPC_SUPPORT)
 	target_compile_definitions(libPandora PUBLIC "PANDORA_ISPC_SUPPORT")
 endif()
+
+set(pandora_flatbuffer_files
+	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/contiguous_allocator.fbs"
+	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/data_types.fbs"
+	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/ooc_batching.fbs"
+	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/scene.fbs"
+	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/triangle_mesh.fbs"
+	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/wive_bvh8.fbs")
+set(pandora_flatbuffer_include_folder "${CMAKE_CURRENT_LIST_DIR}/include/pandora/flatbuffers/")
+build_flatbuffers(
+	"${pandora_flatbuffer_files}" # flatbuffers_schemas
+	"" # schema_include_dirs
+	pandoraFlatbuffers # custom_target_name
+	"" # additional_dependencies
+	"${pandora_flatbuffer_include_folder}" # generated_includes_dir
+	"" # binary_schemas_dir
+	"") # copy_text_schemas_dir
+add_dependencies(libPandora pandoraFlatbuffers)
 
 target_link_libraries(libPandora PUBLIC
 	simd
@@ -25,22 +43,32 @@ target_link_libraries(libPandora PUBLIC
     OpenImageIO # Loading textures
 	glm # Vector math
     embree # BVH builder and reference BVH traversal
-	TBB::tbb # Multithreading
+	TBB::tbb TBB::tbbmalloc # Multithreading
 	Threads::Threads
 	EASTL # Stack based STL containers <3 
 	mio) # Memory-mapped file IO for serialization
 
 target_link_libraries(libPandora PRIVATE
 	Boost::boost # Header-only Boost libraries
-	libmorton) # Morton code for voxelization & SVO
+	libmorton # Morton code for voxelization & SVO
+	TBB::tbbmalloc_proxy) # Faster malloc/free
+
+if (LINK_STDCXX_FILESYSTEM)
+	target_link_libraries(libPandora PRIVATE stdc++fs)
+endif()
+if (LINK_CXX_FILESYSTEM)
+	target_link_libraries(libPandora PRIVATE c++fs)
+endif()
 
 if (UNIX)
 	# Using atomic<vec3> in sensor.cpp requires atomic library on Unix
 	target_link_libraries(libPandora PRIVATE atomic)
 endif()
 
-target_include_directories(libPandora PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/")
-target_include_directories(libPandora PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src/")
+target_include_directories(libPandora PUBLIC
+	"${CMAKE_CURRENT_LIST_DIR}/include/")
+target_include_directories(libPandora PRIVATE
+	"${CMAKE_CURRENT_LIST_DIR}/src/")
 include(${CMAKE_CURRENT_LIST_DIR}/src/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/include/CMakeLists.txt)
 

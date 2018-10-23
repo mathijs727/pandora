@@ -3,6 +3,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/core/bxdf.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/interaction.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/light.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/core/load_from_file.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/perspective_camera.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/sampler.cpp"
@@ -10,6 +11,9 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/core/scene.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/sensor.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/stats.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/core/transform.cpp"
+
+        "${CMAKE_CURRENT_LIST_DIR}/flatbuffers/data_conversion.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/geometry/bounds.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/geometry/triangle.cpp"
@@ -22,12 +26,16 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/integrators/svo_test_integrator.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/lights/area_light.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/lights/distant_light.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/lights/environment_light.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/samplers/rng/pcg.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/samplers/uniform_sampler.cpp"
 
-        "${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/scene/geometric_scene_object.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/scene/instanced_scene_object.cpp"
+
+        #"${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_dag.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_octree.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/svo/voxel_grid.cpp"
@@ -57,6 +65,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/utility/eastl_malloc.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena_ts.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/utility/thread_pool.cpp"
 )
 
 if (PANDORA_ISPC_SUPPORT)

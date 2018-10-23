@@ -16,30 +16,42 @@ struct WiVeBVH8;
 struct WiVeBVH8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum {
     VT_INNERNODEALLOCATOR = 4,
-    VT_LEAFNODEALLOCATOR = 6,
+    VT_LEAFINDEXALLOCATOR = 6,
     VT_COMPRESSEDROOTHANDLE = 8,
     VT_NUMLEAFOBJECTS = 10
   };
   const ContiguousAllocator *innerNodeAllocator() const {
     return GetPointer<const ContiguousAllocator *>(VT_INNERNODEALLOCATOR);
   }
-  const ContiguousAllocator *leafNodeAllocator() const {
-    return GetPointer<const ContiguousAllocator *>(VT_LEAFNODEALLOCATOR);
+  ContiguousAllocator *mutable_innerNodeAllocator() {
+    return GetPointer<ContiguousAllocator *>(VT_INNERNODEALLOCATOR);
+  }
+  const ContiguousAllocator *leafIndexAllocator() const {
+    return GetPointer<const ContiguousAllocator *>(VT_LEAFINDEXALLOCATOR);
+  }
+  ContiguousAllocator *mutable_leafIndexAllocator() {
+    return GetPointer<ContiguousAllocator *>(VT_LEAFINDEXALLOCATOR);
   }
   uint32_t compressedRootHandle() const {
     return GetField<uint32_t>(VT_COMPRESSEDROOTHANDLE, 0);
   }
-  uint32_t numLeafObjects() const {
-    return GetField<uint32_t>(VT_NUMLEAFOBJECTS, 0);
+  bool mutate_compressedRootHandle(uint32_t _compressedRootHandle) {
+    return SetField<uint32_t>(VT_COMPRESSEDROOTHANDLE, _compressedRootHandle, 0);
+  }
+  uint64_t numLeafObjects() const {
+    return GetField<uint64_t>(VT_NUMLEAFOBJECTS, 0);
+  }
+  bool mutate_numLeafObjects(uint64_t _numLeafObjects) {
+    return SetField<uint64_t>(VT_NUMLEAFOBJECTS, _numLeafObjects, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_INNERNODEALLOCATOR) &&
            verifier.VerifyTable(innerNodeAllocator()) &&
-           VerifyOffset(verifier, VT_LEAFNODEALLOCATOR) &&
-           verifier.VerifyTable(leafNodeAllocator()) &&
+           VerifyOffset(verifier, VT_LEAFINDEXALLOCATOR) &&
+           verifier.VerifyTable(leafIndexAllocator()) &&
            VerifyField<uint32_t>(verifier, VT_COMPRESSEDROOTHANDLE) &&
-           VerifyField<uint32_t>(verifier, VT_NUMLEAFOBJECTS) &&
+           VerifyField<uint64_t>(verifier, VT_NUMLEAFOBJECTS) &&
            verifier.EndTable();
   }
 };
@@ -50,14 +62,14 @@ struct WiVeBVH8Builder {
   void add_innerNodeAllocator(flatbuffers::Offset<ContiguousAllocator> innerNodeAllocator) {
     fbb_.AddOffset(WiVeBVH8::VT_INNERNODEALLOCATOR, innerNodeAllocator);
   }
-  void add_leafNodeAllocator(flatbuffers::Offset<ContiguousAllocator> leafNodeAllocator) {
-    fbb_.AddOffset(WiVeBVH8::VT_LEAFNODEALLOCATOR, leafNodeAllocator);
+  void add_leafIndexAllocator(flatbuffers::Offset<ContiguousAllocator> leafIndexAllocator) {
+    fbb_.AddOffset(WiVeBVH8::VT_LEAFINDEXALLOCATOR, leafIndexAllocator);
   }
   void add_compressedRootHandle(uint32_t compressedRootHandle) {
     fbb_.AddElement<uint32_t>(WiVeBVH8::VT_COMPRESSEDROOTHANDLE, compressedRootHandle, 0);
   }
-  void add_numLeafObjects(uint32_t numLeafObjects) {
-    fbb_.AddElement<uint32_t>(WiVeBVH8::VT_NUMLEAFOBJECTS, numLeafObjects, 0);
+  void add_numLeafObjects(uint64_t numLeafObjects) {
+    fbb_.AddElement<uint64_t>(WiVeBVH8::VT_NUMLEAFOBJECTS, numLeafObjects, 0);
   }
   explicit WiVeBVH8Builder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -74,13 +86,13 @@ struct WiVeBVH8Builder {
 inline flatbuffers::Offset<WiVeBVH8> CreateWiVeBVH8(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<ContiguousAllocator> innerNodeAllocator = 0,
-    flatbuffers::Offset<ContiguousAllocator> leafNodeAllocator = 0,
+    flatbuffers::Offset<ContiguousAllocator> leafIndexAllocator = 0,
     uint32_t compressedRootHandle = 0,
-    uint32_t numLeafObjects = 0) {
+    uint64_t numLeafObjects = 0) {
   WiVeBVH8Builder builder_(_fbb);
   builder_.add_numLeafObjects(numLeafObjects);
   builder_.add_compressedRootHandle(compressedRootHandle);
-  builder_.add_leafNodeAllocator(leafNodeAllocator);
+  builder_.add_leafIndexAllocator(leafIndexAllocator);
   builder_.add_innerNodeAllocator(innerNodeAllocator);
   return builder_.Finish();
 }
@@ -91,6 +103,10 @@ inline const pandora::serialization::WiVeBVH8 *GetWiVeBVH8(const void *buf) {
 
 inline const pandora::serialization::WiVeBVH8 *GetSizePrefixedWiVeBVH8(const void *buf) {
   return flatbuffers::GetSizePrefixedRoot<pandora::serialization::WiVeBVH8>(buf);
+}
+
+inline WiVeBVH8 *GetMutableWiVeBVH8(void *buf) {
+  return flatbuffers::GetMutableRoot<WiVeBVH8>(buf);
 }
 
 inline bool VerifyWiVeBVH8Buffer(

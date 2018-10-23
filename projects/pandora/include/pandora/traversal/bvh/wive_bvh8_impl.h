@@ -9,157 +9,195 @@
 
 namespace pandora {
 
-
 template <typename LeafObj>
-inline size_t WiVeBVH8<LeafObj>::size() const
+inline WiVeBVH8<LeafObj>::WiVeBVH8(uint32_t numPrims) :
+    m_innerNodeAllocator(std::max(8u, numPrims / 4), 16),
+    m_leafIndexAllocator(numPrims + numPrims * 2 / 10)
 {
-    return sizeof(decltype(*this)) + m_innerNodeAllocator->sizeBytes() + m_leafNodeAllocator->sizeBytes();
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfo) const
+inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects) :
+    m_innerNodeAllocator(serialized->innerNodeAllocator()),
+    m_leafIndexAllocator(serialized->leafIndexAllocator())
 {
-    bool hit = false;
+    m_compressedRootHandle = serialized->compressedRootHandle();
 
-    SIMDRay simdRay;
-    simdRay.originX = simd::vec8_f32(ray.origin.x);
-    simdRay.originY = simd::vec8_f32(ray.origin.y);
-    simdRay.originZ = simd::vec8_f32(ray.origin.z);
-    simdRay.invDirectionX = simd::vec8_f32(1.0f / ray.direction.x);
-    simdRay.invDirectionY = simd::vec8_f32(1.0f / ray.direction.y);
-    simdRay.invDirectionZ = simd::vec8_f32(1.0f / ray.direction.z);
-    simdRay.tnear = simd::vec8_f32(ray.tnear);
-    simdRay.tfar = simd::vec8_f32(ray.tfar);
-    simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
+    size_t numNodesGiven = objects.size();
+    size_t numNodesSerialized = serialized->numLeafObjects();
+    assert(numNodesGiven > 0);
+    assert(m_leafObjects.empty());
+    ALWAYS_ASSERT(numNodesGiven == numNodesSerialized, "Number of leaf objects does not match that of the serialized BVH");
 
-    // Stack
-    alignas(32) std::array<uint32_t, 48> stackCompressedNodeHandles;
-    alignas(32) std::array<float, 48> stackDistances;
-    std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
-    size_t stackPtr = 0;
+    this->m_leafObjects = std::move(objects);
+}
 
-    // Push root node onto the stack
-    stackCompressedNodeHandles[stackPtr] = m_compressedRootHandle;
-    stackDistances[stackPtr] = 0.0f;
-    stackPtr++;
+template <typename LeafObj>
+inline flatbuffers::Offset<serialization::WiVeBVH8> WiVeBVH8<LeafObj>::serialize(flatbuffers::FlatBufferBuilder& builder) const
+{
+    auto serializedInnerNodeAllocator = m_innerNodeAllocator.serialize(builder);
+    auto serializedLeafIndexAllocator = m_leafIndexAllocator.serialize(builder);
+    assert(!this->m_leafObjects.empty());
+    return serialization::CreateWiVeBVH8(
+        builder,
+        serializedInnerNodeAllocator,
+        serializedLeafIndexAllocator,
+        m_compressedRootHandle,
+        this->m_leafObjects.size());
+}
 
-    while (stackPtr > 0) {
-        stackPtr--;
-        uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
-        float distance = stackDistances[stackPtr];
+template <typename LeafObj>
+inline size_t WiVeBVH8<LeafObj>::sizeBytes() const
+{
+    return sizeof(decltype(*this)) + m_innerNodeAllocator.sizeBytes() + m_leafIndexAllocator.sizeBytes();
+}
 
-        uint32_t handle = decompressNodeHandle(compressedNodeHandle);
-        const auto* node = &m_innerNodeAllocator->get(handle);
-        if (isInnerNode(compressedNodeHandle)) {
-            // Inner node
-            simd::vec8_u32 childrenSIMD;
-            simd::vec8_f32 distancesSIMD;
-            uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
+template <typename LeafObj>
+inline void WiVeBVH8<LeafObj>::intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const
+{
+    assert(rays.size() == hitInfos.size());
 
-            if (numChildren > 0) {
-                childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
-                distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
+    for (int i = 0; i < rays.size(); i++) {
+        auto& ray = rays[i];
+        auto& hitInfo = hitInfos[i];
 
-                stackPtr += numChildren;
-            }
-        } else {
-#ifndef NDEBUG
-            if (isEmptyNode(compressedNodeHandle))
-                THROW_ERROR("Empty node in traversal");
-            assert(isLeafNode(compressedNodeHandle));
-#endif
-            // Leaf node
-            if (intersectLeaf(&m_leafNodeAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, hitInfo)) {
-                hit = true;
-                simdRay.tfar.broadcast(ray.tfar);
+        SIMDRay simdRay;
+        simdRay.originX = simd::vec8_f32(ray.origin.x);
+        simdRay.originY = simd::vec8_f32(ray.origin.y);
+        simdRay.originZ = simd::vec8_f32(ray.origin.z);
+        simdRay.invDirectionX = simd::vec8_f32(1.0f / ray.direction.x);
+        simdRay.invDirectionY = simd::vec8_f32(1.0f / ray.direction.y);
+        simdRay.invDirectionZ = simd::vec8_f32(1.0f / ray.direction.z);
+        simdRay.tnear = simd::vec8_f32(ray.tnear);
+        simdRay.tfar = simd::vec8_f32(ray.tfar);
+        simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
 
-                // Compress stack
-                size_t outStackPtr = 0;
-                for (size_t i = 0; i < stackPtr; i += 8) {
-                    simd::vec8_u32 nodesSIMD;
-                    simd::vec8_f32 distancesSIMD;
-                    distancesSIMD.loadAligned(gsl::make_span(stackDistances.data() + i, 8));
-                    nodesSIMD.loadAligned(gsl::make_span(stackCompressedNodeHandles.data() + i, 8));
+        // Stack
+        alignas(32) std::array<uint32_t, 64> stackCompressedNodeHandles;
+        alignas(32) std::array<float, 64> stackDistances;
+        std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
+        size_t stackPtr = 0;
 
-                    simd::mask8 distMask = distancesSIMD < simdRay.tfar;
-                    simd::vec8_u32 compressPermuteIndices(distMask.computeCompressPermutation()); // Compute permute indices that represent the compression (so we only have to calculate them once)
-                    distancesSIMD = distancesSIMD.permute(compressPermuteIndices);
-                    nodesSIMD = nodesSIMD.permute(compressPermuteIndices);
+        // Push root node onto the stack
+        stackCompressedNodeHandles[stackPtr] = m_compressedRootHandle;
+        stackDistances[stackPtr] = 0.0f;
+        stackPtr++;
 
-                    distancesSIMD.store(gsl::make_span(stackDistances.data() + outStackPtr, 8));
-                    nodesSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + outStackPtr, 8));
+        while (stackPtr > 0) {
+            stackPtr--;
+            uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
+            float distance = stackDistances[stackPtr];
 
-                    size_t numItems = std::min((size_t)8, stackPtr - i);
-                    unsigned validMask = (1 << numItems) - 1;
-                    outStackPtr += distMask.count(validMask);
+            uint32_t handle = decompressNodeHandle(compressedNodeHandle);
+            const auto* node = &m_innerNodeAllocator.get(handle);
+            if (isInnerNode(compressedNodeHandle)) {
+                // Inner node
+                simd::vec8_u32 childrenSIMD;
+                simd::vec8_f32 distancesSIMD;
+                uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
+
+                if (numChildren > 0) {
+                    childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
+                    distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
+
+                    stackPtr += numChildren;
                 }
-                stackPtr = outStackPtr;
+            } else {
+#ifndef NDEBUG
+                if (isEmptyNode(compressedNodeHandle))
+                    THROW_ERROR("Empty node in traversal");
+                assert(isLeafNode(compressedNodeHandle));
+#endif
+                // Leaf node
+                if (intersectLeaf(&m_leafIndexAllocator.get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, hitInfo)) {
+                    simdRay.tfar.broadcast(ray.tfar);
+
+                    // Compress stack
+                    size_t outStackPtr = 0;
+                    for (size_t i = 0; i < stackPtr; i += 8) {
+                        simd::vec8_u32 nodesSIMD;
+                        simd::vec8_f32 distancesSIMD;
+                        distancesSIMD.loadAligned(gsl::make_span(stackDistances.data() + i, 8));
+                        nodesSIMD.loadAligned(gsl::make_span(stackCompressedNodeHandles.data() + i, 8));
+
+                        simd::mask8 distMask = distancesSIMD < simdRay.tfar;
+                        simd::vec8_u32 compressPermuteIndices(distMask.computeCompressPermutation()); // Compute permute indices that represent the compression (so we only have to calculate them once)
+                        distancesSIMD = distancesSIMD.permute(compressPermuteIndices);
+                        nodesSIMD = nodesSIMD.permute(compressPermuteIndices);
+
+                        distancesSIMD.store(gsl::make_span(stackDistances.data() + outStackPtr, 8));
+                        nodesSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + outStackPtr, 8));
+
+                        size_t numItems = std::min((size_t)8, stackPtr - i);
+                        unsigned validMask = (1 << numItems) - 1;
+                        outStackPtr += distMask.count(validMask);
+                    }
+                    stackPtr = outStackPtr;
+                }
             }
         }
     }
-
-    return hit;
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersectAny(Ray& ray) const
+inline void WiVeBVH8<LeafObj>::intersectAny(gsl::span<Ray> rays) const
 {
-    SIMDRay simdRay;
-    simdRay.originX = simd::vec8_f32(ray.origin.x);
-    simdRay.originY = simd::vec8_f32(ray.origin.y);
-    simdRay.originZ = simd::vec8_f32(ray.origin.z);
-    simdRay.invDirectionX = simd::vec8_f32(1.0f / ray.direction.x);
-    simdRay.invDirectionY = simd::vec8_f32(1.0f / ray.direction.y);
-    simdRay.invDirectionZ = simd::vec8_f32(1.0f / ray.direction.z);
-    simdRay.tnear = simd::vec8_f32(ray.tnear);
-    simdRay.tfar = simd::vec8_f32(ray.tfar);
-    simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
+    for (auto& ray : rays) {
+        SIMDRay simdRay;
+        simdRay.originX = simd::vec8_f32(ray.origin.x);
+        simdRay.originY = simd::vec8_f32(ray.origin.y);
+        simdRay.originZ = simd::vec8_f32(ray.origin.z);
+        simdRay.invDirectionX = simd::vec8_f32(1.0f / ray.direction.x);
+        simdRay.invDirectionY = simd::vec8_f32(1.0f / ray.direction.y);
+        simdRay.invDirectionZ = simd::vec8_f32(1.0f / ray.direction.z);
+        simdRay.tnear = simd::vec8_f32(ray.tnear);
+        simdRay.tfar = simd::vec8_f32(ray.tfar);
+        simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
 
-    // Stack
-    alignas(32) std::array<uint32_t, 48> stackCompressedNodeHandles;
-    alignas(32) std::array<float, 48> stackDistances;
-    std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
-    size_t stackPtr = 0;
+        // Stack
+        alignas(32) std::array<uint32_t, 48> stackCompressedNodeHandles;
+        alignas(32) std::array<float, 48> stackDistances;
+        std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
+        size_t stackPtr = 0;
 
-    // Push root node onto the stack
-    stackCompressedNodeHandles[stackPtr] = m_compressedRootHandle;
-    stackDistances[stackPtr] = 0.0f;
-    stackPtr++;
+        // Push root node onto the stack
+        stackCompressedNodeHandles[stackPtr] = m_compressedRootHandle;
+        stackDistances[stackPtr] = 0.0f;
+        stackPtr++;
 
-    while (stackPtr > 0) {
-        stackPtr--;
-        uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
-        float distance = stackDistances[stackPtr];
+        while (stackPtr > 0) {
+            stackPtr--;
+            uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
+            float distance = stackDistances[stackPtr];
 
-        uint32_t handle = decompressNodeHandle(compressedNodeHandle);
-        const auto* node = &m_innerNodeAllocator->get(handle);
-        if (isInnerNode(compressedNodeHandle)) {
-            // Inner node
-            simd::vec8_u32 childrenSIMD;
-            simd::vec8_f32 distancesSIMD;
-            uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
+            uint32_t handle = decompressNodeHandle(compressedNodeHandle);
+            const auto* node = &m_innerNodeAllocator.get(handle);
+            if (isInnerNode(compressedNodeHandle)) {
+                // Inner node
+                simd::vec8_u32 childrenSIMD;
+                simd::vec8_f32 distancesSIMD;
+                uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
 
-            if (numChildren > 0) {
-                childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
-                distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
+                if (numChildren > 0) {
+                    childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
+                    distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
 
-                stackPtr += numChildren;
-            }
-        } else {
+                    stackPtr += numChildren;
+                }
+            } else {
 #ifndef NDEBUG
-            if (isEmptyNode(compressedNodeHandle))
-                THROW_ERROR("Empty node in traversal");
-            assert(isLeafNode(compressedNodeHandle));
+                if (isEmptyNode(compressedNodeHandle))
+                    THROW_ERROR("Empty node in traversal");
+                assert(isLeafNode(compressedNodeHandle));
 #endif
-            // Leaf node
-            if (intersectAnyLeaf(&m_leafNodeAllocator->get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray)) {
-                ray.tfar = -std::numeric_limits<float>::infinity();
-                return true;
+                // Leaf node
+                if (intersectAnyLeaf(&m_leafIndexAllocator.get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray)) {
+                    ray.tfar = -std::numeric_limits<float>::infinity();
+                    return;
+                }
             }
         }
     }
-
-    return false;
 }
 
 template <typename LeafObj>
@@ -211,12 +249,13 @@ inline uint32_t WiVeBVH8<LeafObj>::intersectAnyInnerNode(const BVHNode* n, const
     simd::vec8_f32 tmin = simd::max(ray.tnear, simd::max(txMin, simd::max(tyMin, tzMin)));
     simd::vec8_f32 tmax = simd::min(ray.tfar, simd::min(txMax, simd::min(tyMax, tzMax)));
 
+    // Disable sorting since any hit will do
     //const simd::vec8_u32 indexMask(0b111);
     //const simd::vec8_u32 simd24(24);
     //simd::vec8_u32 index = (n->permutationOffsets >> ray.raySignShiftAmount) & indexMask;
-
     //tmin = tmin.permute(index);
     //tmax = tmax.permute(index);
+
     simd::mask8 mask = tmin <= tmax;
     simd::vec8_u32 compressPermuteIndices(mask.computeCompressPermutation());
     outChildren = n->children.permute(compressPermuteIndices);
@@ -224,69 +263,25 @@ inline uint32_t WiVeBVH8<LeafObj>::intersectAnyInnerNode(const BVHNode* n, const
     return mask.count();
 }
 
-
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersectLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray, RayHit& hitInfo) const
+inline bool WiVeBVH8<LeafObj>::intersectLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray, RayHit& hitInfo) const
 {
     bool hit = false;
-    const auto* leafObjectIDs = n->leafObjectIDs;
-    const auto* primitiveIDs = n->primitiveIDs;
-    for (uint32_t i = 0; i < primitiveCount; i++) {
-        hit |= m_leafObjects[leafObjectIDs[i]]->intersectPrimitive(ray, hitInfo, primitiveIDs[i]);
+    for (uint32_t i = 0; i < objectCount; i++) {
+        hit |= m_leafObjects[leafObjectIndices[i]].intersect(ray, hitInfo);
     }
     return hit;
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersectAnyLeaf(const BVHLeaf* n, uint32_t primitiveCount, Ray& ray) const
+inline bool WiVeBVH8<LeafObj>::intersectAnyLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray) const
 {
-    const auto* leafObjectIDs = n->leafObjectIDs;
-    const auto* primitiveIDs = n->primitiveIDs;
-    for (uint32_t i = 0; i < primitiveCount; i++) {
-        RayHit hitInfo = {};
-        if (m_leafObjects[leafObjectIDs[i]]->intersectPrimitive(ray, hitInfo, primitiveIDs[i]))
+    RayHit hitInfo = {};
+    for (uint32_t i = 0; i < objectCount; i++) {
+        if (m_leafObjects[leafObjectIndices[i]].intersect(ray, hitInfo))
             return true;
     }
     return false;
-}
-
-template <typename LeafObj>
-inline void WiVeBVH8<LeafObj>::loadFromFile(std::string_view filename, gsl::span<const LeafObj*> objects)
-{
-    auto mmapFile = mio::mmap_source(filename, 0, mio::map_entire_file);
-    auto bvh = serialization::GetWiVeBVH8(mmapFile.data());
-
-    m_innerNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHNode>>(bvh->innerNodeAllocator());
-    m_leafNodeAllocator = std::make_unique<ContiguousAllocatorTS<typename WiVeBVH8<LeafObj>::BVHLeaf>>(bvh->leafNodeAllocator());
-    m_compressedRootHandle = bvh->compressedRootHandle();
-
-    if ((uint32_t)objects.size() != bvh->numLeafObjects())
-        THROW_ERROR("Number of leaf objects does not match that of the serialized BVH");
-
-    m_leafObjects.resize(objects.size());
-    std::copy(std::begin(objects), std::end(objects), std::begin(m_leafObjects));
-
-    mmapFile.unmap();
-}
-
-template <typename LeafObj>
-inline void WiVeBVH8<LeafObj>::saveToFile(std::string_view filename)
-{
-    flatbuffers::FlatBufferBuilder builder(1024 + m_innerNodeAllocator->size() * sizeof(BVHNode) + m_leafNodeAllocator->size() * sizeof(BVHLeaf));
-    auto serializedInnerNodeAllocator = m_innerNodeAllocator->serialize(builder);
-    auto serializedLeafNodeAllocator = m_leafNodeAllocator->serialize(builder);
-    auto wiveBVH8 = serialization::CreateWiVeBVH8(
-        builder,
-        serializedInnerNodeAllocator,
-        serializedLeafNodeAllocator,
-        m_compressedRootHandle,
-        static_cast<uint32_t>(m_leafObjects.size()));
-    builder.Finish(wiveBVH8);
-
-    std::ofstream file;
-    file.open(filename.data(), std::ios::out | std::ios::binary | std::ios::trunc);
-    file.write(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
-    file.close();
 }
 
 template <typename LeafObj>
@@ -328,32 +323,6 @@ inline void WiVeBVH8<LeafObj>::testBVHRecurse(const BVHNode* node, int depth, Te
     }
     out.maxDepth = std::max(out.maxDepth, depth);
     out.numChildrenHistogram[numChildren]++;
-}
-
-template <typename LeafObj>
-inline void WiVeBVH8<LeafObj>::build(gsl::span<const LeafObj*> objects)
-{
-    for (const auto* objectPtr : objects) {
-        uint32_t leafObjectID = (uint32_t)m_leafObjects.size();
-        m_leafObjects.push_back(objectPtr); // Vector of references is a nightmare
-
-        for (unsigned primitiveID = 0; primitiveID < objectPtr->numPrimitives(); primitiveID++) {
-            auto bounds = objectPtr->getPrimitiveBounds(primitiveID);
-
-            RTCBuildPrimitive primitive;
-            primitive.lower_x = bounds.min.x;
-            primitive.lower_y = bounds.min.y;
-            primitive.lower_z = bounds.min.z;
-            primitive.upper_x = bounds.max.x;
-            primitive.upper_y = bounds.max.y;
-            primitive.upper_z = bounds.max.z;
-            primitive.primID = primitiveID;
-            primitive.geomID = leafObjectID;
-            m_primitives.push_back(primitive);
-        }
-    }
-
-    commit();
 }
 
 template <typename LeafObj>

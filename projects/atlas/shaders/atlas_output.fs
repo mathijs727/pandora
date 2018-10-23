@@ -24,5 +24,6 @@ vec3 ACESFilm(vec3 x)
 
 void main()
 {
-    o_fragColor = vec4(ACESFilm(u_multiplier * texture(u_texture, v_texCoords).xyz), 1.0);
+    //o_fragColor = vec4(ACESFilm(u_multiplier * texture(u_texture, v_texCoords).xyz), 1.0);
+    o_fragColor = vec4(tonemappingReinhard(u_multiplier * texture(u_texture, v_texCoords).xyz), 1.0);
 }

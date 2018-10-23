@@ -26,10 +26,12 @@ public:
 
 struct SurfaceInteraction : public Interaction {
 public:
-    const SceneObject* sceneObject = nullptr;
-
+	const OOCSceneObject* sceneObject = nullptr;
     unsigned primitiveID;
-	const TriangleMesh* shape = nullptr;
+
+    // Assume someone else owns the material (and doesnt free it untill the SurfaceInteraction is destroyed).
+    // We cannot store an unique pointer here because that would require including "scene.h", creating a circular dependency.
+    const SceneObjectMaterial* sceneObjectMaterial = nullptr;
 
     BSDF* bsdf = nullptr;
 
@@ -45,10 +47,10 @@ public:
 
 public:
 	SurfaceInteraction()
-		: sceneObject(nullptr)
+		: sceneObjectMaterial(nullptr)
 	{
 	}
-	SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, const TriangleMesh* shape, unsigned primitiveID);
+	SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, unsigned primitiveID);
 
     void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, const glm::vec3& dndvs, bool orientationIsAuthoritative);
 
@@ -57,11 +59,9 @@ public:
     glm::vec3 Le(const glm::vec3& w) const;
 };
 
-inline SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, const TriangleMesh* shape, unsigned primitiveID)
+inline SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, unsigned primitiveID)
 	: Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo)
-    , sceneObject(nullptr)
-	, primitiveID(primitiveID)
-    , shape(shape)
+    , primitiveID(primitiveID)
     , bsdf(nullptr)
     , uv(uv)
     , dpdu(dpdu)

@@ -2,6 +2,7 @@
 #include "glm/glm.hpp"
 #include "pandora/core/pandora.h"
 #include <limits>
+#include <variant>
 
 namespace pandora {
 
@@ -33,9 +34,18 @@ public:
 };
 
 struct RayHit {
-    const SceneObject* sceneObject = nullptr;
-    unsigned primitiveID;
+    /*struct InCore
+    {
+        const InCoreSceneObject* sceneObject = nullptr;
+    };*/
+    struct OutOfCore
+    {
+        const OOCSceneObject* sceneObject = nullptr;
+        std::shared_ptr<SceneObjectGeometry> sceneObjectGeometry;
+    };
+    std::variant<const InCoreSceneObject*, OutOfCore> sceneObjectVariant;
 
+    unsigned primitiveID = (unsigned)-1;
     glm::vec2 geometricUV;
 };
 

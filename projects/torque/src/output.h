@@ -5,6 +5,6 @@
 namespace torque
 {
 
-void writeOutputToFile(pandora::Sensor& sensor, std::string_view fileName);
+void writeOutputToFile(pandora::Sensor& sensor, int spp, std::string_view fileName, bool applyPostProcessing);
 
 }

@@ -1,3 +1,5 @@
+include "data_types.fbs";
+
 namespace pandora.serialization;
 
 table TriangleMesh
@@ -9,6 +11,7 @@ table TriangleMesh
 	normals: [byte];
 	tangents: [byte];
 	uvCoords: [byte];
+	bounds: Bounds;
 }
 
 root_type TriangleMesh;

@@ -1,0 +1,4 @@
+test/**
+!test/test.cpp
+!test/example.cpp
+build/

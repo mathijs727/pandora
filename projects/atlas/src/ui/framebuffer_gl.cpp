@@ -3,32 +3,6 @@
 #include <fstream>
 #include <iostream>
 
-/*static std::string vertexShaderSrc = " \
-#version 330\n \
-layout(location = 0) in vec3 pos;\n \
-layout(location = 1) in vec2 texCoords;\n \
-\n \
-out vec2 v_texCoords;\n \
-\n \
-void main(){\n \
-	v_texCoords = texCoords;\n \
-	gl_Position = vec4(pos, 1.0);\n \
-}";
-
-static std::string fragmentShaderSrc = " \
-#version 330\n \
-    in vec2 v_texCoords;\n \
-\n \
-out vec4 o_fragColor;\n \
-\n \
-uniform sampler2D u_texture;\n \
-uniform float u_multiplier;\n \
-\n \
-void main()\n \
-{\n \
-    o_fragColor = u_multiplier * texture(u_texture, v_texCoords);\n \
-}";*/
-
 namespace atlas {
 
 FramebufferGL::FramebufferGL(int width, int height)
@@ -52,15 +26,18 @@ FramebufferGL::FramebufferGL(int width, int height)
 
     // Create full screen quad
     // For whatever reason, OpenGL doesnt like GL_QUADS (gives me no output), so I'll just use two triangles
+    // NOTE: vertical texture coordinates are swapped
+    // clang-format off
     float vertices[] = {
-        -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-        1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-        1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f, 1.0f,
+         1.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+         1.0f,  1.0f, 0.0f, 1.0f, 0.0f,
 
-        -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-        1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-        -1.0f, 1.0f, 0.0f, 0.0f, 1.0f
+        -1.0f, -1.0f, 0.0f, 0.0f, 1.0f,
+         1.0f,  1.0f, 0.0f, 1.0f, 0.0f,
+        -1.0f,  1.0f, 0.0f, 0.0f, 0.0f
     };
+    // clang-format on
     glGenVertexArrays(1, &m_vao);
     glBindVertexArray(m_vao);
     glGenBuffers(1, &m_vbo);
@@ -104,7 +81,7 @@ void FramebufferGL::update(Sensor& sensor, float multiplier)
     glUseProgram(m_shader);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, sensor.getResolution().x, sensor.getResolution().y, 0, GL_RGB, GL_FLOAT, sensor.getFramebufferRaw());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, sensor.getResolution().x, sensor.getResolution().y, 0, GL_RGB, GL_FLOAT, sensor.getFramebufferRaw().data());
     glUniform1i(glGetUniformLocation(m_shader, "u_texture"), 0);
     glUniform1f(glGetUniformLocation(m_shader, "u_multiplier"), multiplier);
 
