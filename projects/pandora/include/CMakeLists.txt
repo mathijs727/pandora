@@ -1,5 +1,7 @@
 target_sources(libPandora
 PUBLIC
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/config.h"
+
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/bxdf.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/integrator.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/core/interaction.h"

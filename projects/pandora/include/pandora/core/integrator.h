@@ -1,4 +1,5 @@
 #pragma once
+#include "pandora/config.h"
 #include "pandora/core/pandora.h"
 #include "pandora/core/scene.h"
 #include "pandora/core/sensor.h"
@@ -29,10 +30,7 @@ protected:
 
 protected:
     const Scene& m_scene;
-    
-    InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
-    //InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
-    //OOCBatchingAccelerationStructure<IntegratorState, LRUCache> m_accelerationStructure;
+    AccelerationStructure<IntegratorState> m_accelerationStructure;
 
     Sensor& m_sensor;
 };

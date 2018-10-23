@@ -16,6 +16,8 @@ class Transform;
 class InMemoryResource;
 template <typename T>
 class FifoCache;
+template <typename T>
+class LRUCache;
 
 class Light;
 class DistantLight;
@@ -57,5 +59,12 @@ class Sensor;
 
 class VoxelGrid;
 class SparseVoxelOctree;
+
+template <typename, template <typename T> typename, size_t>
+class OOCBatchingAccelerationStructure;
+template <typename T, size_t>
+class InCoreBatchingAccelerationStructure;
+template <typename T>
+class InCoreAccelerationStructure;
 
 }
