@@ -41,7 +41,7 @@ struct RayHit {
     struct OutOfCore
     {
         const OOCSceneObject* sceneObject = nullptr;
-        const SceneObjectGeometry* sceneObjectGeometry = nullptr;
+        std::shared_ptr<SceneObjectGeometry> sceneObjectGeometry;
     };
     std::variant<const InCoreSceneObject*, OutOfCore> sceneObjectVariant;
 

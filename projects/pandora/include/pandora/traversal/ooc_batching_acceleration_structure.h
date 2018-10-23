@@ -1,4 +1,5 @@
 #pragma once
+#include "pandora/config.h"
 #include "pandora/core/interaction.h"
 #include "pandora/core/ray.h"
 #include "pandora/core/scene.h"
@@ -33,24 +34,17 @@
 
 // For file I/O
 #ifdef __linux__
-#include <unistd.h>
-#include <fcntl.h>
+#include <cstring>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include <cstring>
+#include <unistd.h>
 #endif
-
 
 using namespace std::string_literals;
 
 namespace pandora {
-
-static constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 100000;
-static constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = false;
-static constexpr bool OUT_OF_CORE_DISABLE_FILE_CACHING = true;
-static constexpr size_t OUT_OF_CORE_MEMORY_LIMIT = 1024llu * 1024llu * 1024llu * 128llu;
-static constexpr size_t OUT_OF_CORE_SVDAG_RESOLUTION = 64;
 
 #ifdef D_OUT_OF_CORE_CACHE_FOLDER
 // Dumb macro magic so I can move the cache folder to my slower SSD on my local machine, remove from the final build!!!
@@ -93,7 +87,7 @@ private:
         const RayBatch* next() const { return m_nextPtr; }
         bool full() const { return m_data.full(); }
 
-        bool tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
+        bool tryPush(const Ray& ray, const RayHit& rayHit, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
         bool tryPush(const Ray& ray, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
 
         size_t size() const
@@ -110,7 +104,7 @@ private:
         struct iterator {
         public:
             using iterator_category = std::random_access_iterator_tag;
-            using value_type = std::tuple<Ray&, std::optional<SurfaceInteraction>&, UserState&, PauseableBVHInsertHandle&>;
+            using value_type = std::tuple<Ray&, std::optional<RayHit>&, UserState&, PauseableBVHInsertHandle&>;
             using difference_type = std::ptrdiff_t;
             using pointer = value_type*;
             using reference = value_type&;
@@ -136,20 +130,20 @@ private:
         struct BatchItem {
             BatchItem(const Ray& ray, const UserState& userState, const PauseableBVHInsertHandle& insertHandle)
                 : ray(ray)
-                , si({})
+                , hitInfo({})
                 , userState(userState)
                 , insertHandle(insertHandle)
             {
             }
-            BatchItem(const Ray& ray, const SurfaceInteraction& si, const UserState& userState, const PauseableBVHInsertHandle& insertHandle)
+            BatchItem(const Ray& ray, const RayHit& hitInfo, const UserState& userState, const PauseableBVHInsertHandle& insertHandle)
                 : ray(ray)
-                , si(si)
+                , hitInfo(hitInfo)
                 , userState(userState)
                 , insertHandle(insertHandle)
             {
             }
             Ray ray;
-            std::optional<SurfaceInteraction> si;
+            std::optional<RayHit> hitInfo;
             UserState userState;
             PauseableBVHInsertHandle insertHandle;
         };
@@ -172,8 +166,8 @@ private:
 
     class BotLevelLeafNode {
     public:
-        BotLevelLeafNode(const OOCGeometricSceneObject* sceneObject, const SceneObjectGeometry* sceneObjectGeometry, unsigned primitiveID);
-        BotLevelLeafNode(const OOCInstancedSceneObject* sceneObject, const SceneObjectGeometry* sceneObjectGeometry, const std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>& bvh);
+        BotLevelLeafNode(const OOCGeometricSceneObject* sceneObject, const std::shared_ptr<SceneObjectGeometry>& sceneObjectGeometry, unsigned primitiveID);
+        BotLevelLeafNode(const OOCInstancedSceneObject* sceneObject, const std::shared_ptr<SceneObjectGeometry>& sceneObjectGeometry, const std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>& bvh);
 
         Bounds getBounds() const;
         bool intersect(Ray& ray, RayHit& hitInfo) const;
@@ -182,13 +176,13 @@ private:
         struct Regular {
 
             const OOCGeometricSceneObject* sceneObject;
-            const SceneObjectGeometry* sceneObjectGeometry;
+            const std::shared_ptr<SceneObjectGeometry> sceneObjectGeometry;
             const unsigned primitiveID;
         };
 
         struct Instance {
             const OOCInstancedSceneObject* sceneObject;
-            const SceneObjectGeometry* sceneObjectGeometry;
+            const std::shared_ptr<SceneObjectGeometry> sceneObjectGeometry;
             std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>> bvh;
         };
         std::variant<Regular, Instance> m_data;
@@ -207,7 +201,7 @@ private:
 
             size_t geometrySize = 0; // Simply iterating over geometryOwningPointers is incorrect because we would count instanced geometry multiple times
             WiVeBVH8Build8<BotLevelLeafNode> leafBVH;
-            std::vector<std::unique_ptr<SceneObjectGeometry>> geometryOwningPointers;
+            std::vector<std::shared_ptr<SceneObjectGeometry>> geometryOwningPointers;
         };
 
         TopLevelLeafNode(
@@ -219,7 +213,7 @@ private:
 
         Bounds getBounds() const;
 
-        std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
+        std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
         std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
 
         bool inCache() const { return m_accelerationStructurePtr->m_geometryCache.inCache(m_geometryDataCacheID); }
@@ -316,11 +310,11 @@ inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::place
     assert(perRayUserData.size() == rays.size());
 
     for (int i = 0; i < rays.size(); i++) {
-        SurfaceInteraction si;
+        RayHit rayHit;
         Ray ray = rays[i]; // Copy so we can mutate it
         UserState userState = perRayUserData[i];
 
-        auto optResult = m_bvh.intersect(ray, si, userState);
+        auto optResult = m_bvh.intersect(ray, rayHit, userState);
         if (optResult && *optResult == false) {
             // If we get a result directly it must be because we missed the scene
             m_missCallback(ray, userState);
@@ -342,13 +336,9 @@ inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::place
         UserState userState = perRayUserData[i];
 
         auto optResult = m_bvh.intersectAny(ray, userState);
-        if (optResult) {
-            if (*optResult) {
-                // We got the result immediately (traversal was not paused)
-                m_anyHitCallback(ray, userState);
-            } else {
-                m_missCallback(ray, userState);
-            }
+        if (optResult && *optResult == false) {
+            // If we get a result directly it must be because we missed the scene
+            m_missCallback(ray, userState);
         }
     }
 }
@@ -463,7 +453,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
     std::vector<flatbuffers::Offset<serialization::GeometricSceneObjectGeometry>> serializedUniqueGeometry;
     std::vector<flatbuffers::Offset<serialization::InstancedSceneObjectGeometry>> serializedInstancedGeometry;
 
-    std::vector<std::unique_ptr<SceneObjectGeometry>> geometryOwningPointers; // Keep geometry alive until BVH build finished
+    std::vector<std::shared_ptr<SceneObjectGeometry>> geometryOwningPointers; // Keep geometry alive until BVH build finished
 
     // Create leaf nodes for all instanced geometry and then for all non-instanced geometry. It is important to keep these
     // two separate so we can recreate the leafs in the exact same order when deserializing the BVH.
@@ -474,7 +464,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
     for (const auto* sceneObject : sceneObjects) {
         if (const auto* geometricSceneObject = dynamic_cast<const OOCGeometricSceneObject*>(sceneObject)) {
             // Serialize
-            auto geometryOwningPointer = geometricSceneObject->getGeometryBlocking();
+            std::shared_ptr<SceneObjectGeometry> geometryOwningPointer = geometricSceneObject->getGeometryBlocking();
             const auto* geometry = dynamic_cast<const GeometricSceneObjectGeometry*>(geometryOwningPointer.get());
             serializedUniqueGeometry.push_back(
                 geometry->serialize(fbb));
@@ -482,16 +472,16 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
 
             // Create bot-level leaf node
             for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
-                leafs.push_back(BotLevelLeafNode(geometricSceneObject, geometry, primitiveID));
+                leafs.push_back(BotLevelLeafNode(geometricSceneObject, geometryOwningPointer, primitiveID));
             }
 
-            geometryOwningPointers.emplace_back(std::move(geometryOwningPointer)); // Keep geometry alive until BVH build finished
+            geometryOwningPointers.emplace_back(geometryOwningPointer); // Keep geometry alive until BVH build finished
         }
     }
     for (const auto* sceneObject : sceneObjects) {
         if (const auto* instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(sceneObject)) {
             // Serialize
-            auto geometryOwningPointer = instancedSceneObject->getGeometryBlocking();
+            std::shared_ptr<SceneObjectGeometry> geometryOwningPointer = instancedSceneObject->getGeometryBlocking();
             const auto* geometry = dynamic_cast<const InstancedSceneObjectGeometry*>(geometryOwningPointer.get());
             unsigned baseGeometryID = instanceBaseObjectIDs[instancedSceneObject->getBaseObject()];
             serializedInstancedSceneObjectBaseIDs.push_back(baseGeometryID);
@@ -501,9 +491,9 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
 
             // Create bot-level node
             auto bvh = instancedBVHs[instancedSceneObject->getBaseObject()];
-            leafs.push_back(BotLevelLeafNode(instancedSceneObject, geometry, bvh));
+            leafs.push_back(BotLevelLeafNode(instancedSceneObject, geometryOwningPointer, bvh));
 
-            geometryOwningPointers.emplace_back(std::move(geometryOwningPointer));
+            geometryOwningPointers.emplace_back(geometryOwningPointer);
         }
     }
 
@@ -533,7 +523,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
     }
 
     auto resourceID = cache->emplaceFactoryThreadSafe([cacheFilePath, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects)]() -> GeometryData {
-#ifdef __linux__ 
+#ifdef __linux__
         // Linux does not support O_DIRECT in combination with memory mapped I/O (meaning we cannot bypass the
         // OS file cache). So instead we use posix I/O on Linux giving us the option to bypass the file cache at
         // the cost of an extra allocation & copy.
@@ -544,7 +534,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
         auto filedesc = open(cacheFilePath.string().c_str(), flags);
         ALWAYS_ASSERT(filedesc >= 0);
 
-        constexpr int alignment = 512;// Block size
+        constexpr int alignment = 512; // Block size
         size_t fileSize = std::filesystem::file_size(cacheFilePath);
         size_t r = fileSize % alignment;
         size_t bufferSize = r ? fileSize - r + alignment : fileSize;
@@ -578,12 +568,12 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
         const auto* serializedInstanceBaseGeometry = serializedTopLevelLeafNode->instance_base_geometry();
 
         size_t geometrySize = 0;
-        std::vector<std::unique_ptr<SceneObjectGeometry>> geometryOwningPointers;
+        std::vector<std::shared_ptr<SceneObjectGeometry>> geometryOwningPointers;
 
         // Load geometry/BVH of geometric nodes that are referenced by instancing nodes
         std::vector<std::pair<const GeometricSceneObjectGeometry*, std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>>> instanceBaseObjects;
         for (unsigned i = 0; i < serializedInstanceBaseBVHs->size(); i++) {
-            auto geometry = std::make_unique<GeometricSceneObjectGeometry>(serializedInstanceBaseGeometry->Get(i));
+            auto geometry = std::make_shared<GeometricSceneObjectGeometry>(serializedInstanceBaseGeometry->Get(i));
 
             std::vector<BotLevelLeafNodeInstanced> leafs;
             leafs.reserve(geometry->numPrimitives());
@@ -605,16 +595,15 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
         std::vector<BotLevelLeafNode> leafs;
         leafs.reserve(serializedTopLevelLeafNode->num_bot_level_leafs());
         for (unsigned i = 0; i < geometricSceneObjects.size(); i++) {
-            auto geometry = std::make_unique<GeometricSceneObjectGeometry>(serializedUniqueGeometry->Get(i));
+            auto geometry = std::make_shared<GeometricSceneObjectGeometry>(serializedUniqueGeometry->Get(i));
 
             for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
-                leafs.emplace_back(geometricSceneObjects[i], geometry.get(), primitiveID);
+                leafs.emplace_back(geometricSceneObjects[i], geometry, primitiveID);
             }
 
             geometrySize += geometry->sizeBytes();
             geometryOwningPointers.emplace_back(std::move(geometry));
         }
-
 
         // Load instanced geometry
         const auto* serializedInstancedIDs = serializedTopLevelLeafNode->instanced_ids();
@@ -622,10 +611,10 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
             auto geometryBaseID = serializedInstancedIDs->Get(i);
             const auto& [baseGeometry, baseBVH] = instanceBaseObjects[geometryBaseID];
 
-            auto geometry = std::make_unique<InstancedSceneObjectGeometry>(
+            auto geometry = std::make_shared<InstancedSceneObjectGeometry>(
                 serializedInstancedGeometry->Get(i),
                 std::make_unique<GeometricSceneObjectGeometry>(*baseGeometry));
-            leafs.push_back(BotLevelLeafNode(instancedSceneObjects[i], geometry.get(), baseBVH));
+            leafs.push_back(BotLevelLeafNode(instancedSceneObjects[i], geometry, baseBVH));
 
             geometryOwningPointers.emplace_back(std::move(geometry));
         }
@@ -679,22 +668,19 @@ inline Bounds OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::Top
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
 inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::intersect(
     Ray& ray,
-    SurfaceInteraction& si,
+    RayHit& hitInfo,
     const UserState& userState,
     PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
-        //if (!inCache()) {
-        {
-            //auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        //auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
 
-            const auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
-            auto svdagRay = ray;
-            svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
-            auto tOpt = svdag.intersectScalar(svdagRay);
-            if (!tOpt)
-                return false; // Missed, continue traversal
-        }
+        const auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
+        auto svdagRay = ray;
+        svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
+        auto tOpt = svdag.intersectScalar(svdagRay);
+        if (!tOpt)
+            return false; // Missed, continue traversal
     }
 
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
@@ -717,7 +703,7 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, Ba
         mutThisPtr->m_threadLocalActiveBatch.local() = batch;
     }
 
-    bool success = batch->tryPush(ray, si, userState, insertHandle);
+    bool success = batch->tryPush(ray, hitInfo, userState, insertHandle);
     assert(success);
 
     return {}; // Paused
@@ -774,7 +760,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLe
     OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch* outBatch = m_immutableRayBatchList;
     for (auto& batch : m_threadLocalActiveBatch) {
         if (batch) {
-            for (const auto& [ray, siOpt, userState, insertHandle] : *batch) {
+            for (const auto& [ray, hitInfoOpt, userState, insertHandle] : *batch) {
                 if (!outBatch || outBatch->full()) {
                     auto* mem = m_accelerationStructurePtr->m_batchAllocator.allocate();
                     auto* newBatch = new (mem) RayBatch();
@@ -784,8 +770,8 @@ inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLe
                     m_numFullBatches.fetch_add(1);
                 }
 
-                if (siOpt) {
-                    outBatch->tryPush(ray, *siOpt, userState, insertHandle);
+                if (hitInfoOpt) {
+                    outBatch->tryPush(ray, *hitInfoOpt, userState, insertHandle);
                 } else {
                     outBatch->tryPush(ray, userState, insertHandle);
                 }
@@ -955,31 +941,29 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
             auto [batchInfo, geometryData] = v;
             auto [unprocessedBatchCounter, batch] = batchInfo;
 
-            for (auto [ray, siOpt, userState, insertHandle] : *batch) {
+            for (auto [ray, rayHitOpt, userState, insertHandle] : *batch) {
                 // Intersect with the bottom-level BVH
-                if (siOpt) {
-                    RayHit rayHit;
+                if (rayHitOpt) {
+                    RayHit& rayHit = *rayHitOpt;
                     geometryData->leafBVH.intersect(gsl::make_span(&ray, 1), gsl::make_span(&rayHit, 1));
-                    if (rayHit.primitiveID != -1) {
-                        const auto& hitSceneObjectInfo = std::get<RayHit::OutOfCore>(rayHit.sceneObjectVariant);
-                        siOpt = hitSceneObjectInfo.sceneObjectGeometry->fillSurfaceInteraction(ray, rayHit);
-                        siOpt->sceneObject = hitSceneObjectInfo.sceneObject;
-                    }
                 } else {
                     geometryData->leafBVH.intersectAny(gsl::make_span(&ray, 1));
                 }
             }
 
-            for (auto [ray, siOpt, userState, insertHandle] : *batch) {
-                if (siOpt) {
+            for (auto [ray, rayHitOpt, userState, insertHandle] : *batch) {
+                if (rayHitOpt) {
                     // Insert the ray back into the top-level  BVH
-                    auto optResult = accelerationStructurePtr->m_bvh.intersect(ray, *siOpt, userState, insertHandle);
+                    auto optResult = accelerationStructurePtr->m_bvh.intersect(ray, *rayHitOpt, userState, insertHandle);
                     if (optResult && *optResult == false) {
                         // Ray exited the system so we can run the hit/miss shaders
-                        if (siOpt->sceneObject) {
-                            auto materialOwning = siOpt->sceneObject->getMaterialBlocking(); // Keep alive during the callback
-                            siOpt->sceneObjectMaterial = materialOwning.get();
-                            accelerationStructurePtr->m_hitCallback(ray, *siOpt, userState, nullptr);
+                        if (rayHitOpt->primitiveID != -1) {
+                            const auto& hitSceneObjectInfo = std::get<RayHit::OutOfCore>(rayHitOpt->sceneObjectVariant);
+                            auto si = hitSceneObjectInfo.sceneObjectGeometry->fillSurfaceInteraction(ray, *rayHitOpt);
+                            si.sceneObject = hitSceneObjectInfo.sceneObject;
+                            auto material = hitSceneObjectInfo.sceneObject->getMaterialBlocking();
+                            si.sceneObjectMaterial = material.get();
+                            accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
                         } else {
                             accelerationStructurePtr->m_missCallback(ray, userState);
                         }
@@ -1070,7 +1054,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLe
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNode::BotLevelLeafNode(
     const OOCGeometricSceneObject* sceneObject,
-    const SceneObjectGeometry* sceneObjectGeometry,
+    const std::shared_ptr<SceneObjectGeometry>& sceneObjectGeometry,
     unsigned primitiveID)
     : m_data(Regular { sceneObject, sceneObjectGeometry, primitiveID })
 {
@@ -1079,7 +1063,7 @@ inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLe
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNode::BotLevelLeafNode(
     const OOCInstancedSceneObject* sceneObject,
-    const SceneObjectGeometry* sceneObjectGeometry,
+    const std::shared_ptr<SceneObjectGeometry>& sceneObjectGeometry,
     const std::shared_ptr<WiVeBVH8Build8<OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNodeInstanced>>& bvh)
     : m_data(Instance { sceneObject, sceneObjectGeometry, bvh })
 {
@@ -1125,10 +1109,9 @@ inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLe
 }
 
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::tryPush(const Ray& ray, const SurfaceInteraction& si, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
+inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::tryPush(const Ray& ray, const RayHit& rayHit, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
-    m_data.emplace_back(ray, si, state, insertHandle);
-
+    m_data.emplace_back(ray, rayHit, state, insertHandle);
     return true;
 }
 
@@ -1136,7 +1119,6 @@ template <typename UserState, template <typename T> typename Cache, size_t Batch
 inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::tryPush(const Ray& ray, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
     m_data.emplace_back(ray, state, insertHandle);
-
     return true;
 }
 
@@ -1191,7 +1173,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBa
 template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
 inline typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::value_type OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::operator*()
 {
-    auto& [ray, si, userState, insertHandle] = m_rayBatch->m_data[m_index];
-    return { ray, si, userState, insertHandle };
+    auto& [ray, rayHitOpt, userState, insertHandle] = m_rayBatch->m_data[m_index];
+    return { ray, rayHitOpt, userState, insertHandle };
 }
 }

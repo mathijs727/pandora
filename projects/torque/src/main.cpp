@@ -4,6 +4,7 @@
 #include "pandora/integrators/path_integrator.h"
 #include "pandora/integrators/svo_depth_test_integrator.h"
 #include "pandora/integrators/svo_test_integrator.h"
+#include "pandora/config.h"
 #include "output.h"
 #include <xmmintrin.h>
 
@@ -61,14 +62,16 @@ int main(int argc, char** argv)
     g_stats.config.integrator = vm["integrator"].as<std::string>();
     g_stats.config.spp = vm["spp"].as<int>();
 
-    auto renderConfig = loadFromFileOOC(vm["file"].as<std::string>(), false);
+    auto renderConfig = pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE ? loadFromFileOOC(vm["file"].as<std::string>(), false) : loadFromFile(vm["file"].as<std::string>(), false);
 
     /*// Skydome
     auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
     auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));*/
 
-    renderConfig.scene.splitLargeOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 4);
+    if constexpr (pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE) {
+        renderConfig.scene.splitLargeOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 4);
+    }
 
     std::cout << "Start render" << std::endl;
     auto integratorType = vm["integrator"].as<std::string>();
