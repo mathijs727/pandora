@@ -19,9 +19,11 @@ class BatchedObjExporter:
         return ret
 
     def add_triangle_mesh(self, triangles, positions, normals, tangents, uv_coords):
+        assert(len(triangles) > 0 and len(positions) > 0)
         filename, start_byte, size_bytes = self._current_mesh_batch.addTriangleMesh(
             triangles, positions, normals, tangents, uv_coords)
 
+        #print(f"New mesh at byte {start_byte} of size {size_bytes} bytes")
         if start_byte + size_bytes > self._min_batch_size:
             self._create_new_batch()
 

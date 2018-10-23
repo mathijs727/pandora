@@ -183,9 +183,10 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
-
                 auto mappedFile = mio::mmap_source(geometryFile.string(), startByte, sizeBytes);
-                std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(mappedFile.data()));
+
+                std::optional<TriangleMesh> meshOpt = TriangleMesh(
+                    serialization::GetTriangleMesh(mappedFile.data()));
                 ALWAYS_ASSERT(meshOpt.has_value());
                 geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
             } else {

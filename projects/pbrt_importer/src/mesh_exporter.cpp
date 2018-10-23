@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <vector>
 #include <pandora/geometry/triangle.h>
+#include <pandora/utility/error_handling.h>
 
 namespace py = boost::python;
 namespace np = boost::python::numpy;
@@ -38,7 +39,8 @@ static std::vector<T> castArray(gsl::span<S> in)
 
 PandoraMeshBatch::PandoraMeshBatch(std::string filename) :
     m_filename(filename),
-    m_file(filename)
+    m_file(filename),
+    m_currentPos(0)
 {
 }
 
@@ -51,37 +53,39 @@ py::object PandoraMeshBatch::addTriangleMesh(
 {
     // NOTE: convert back to 32 bit numbers because assimp requires a recompile to support doubles.
     // Using 32 bit floats everywhere is also not an option because ujson and rapidjson (Python bindings) cannot serialize them.
-    auto triangles = reinterpretNumpyArray<glm::ivec3>(npTriangles);
+    auto triangles = reinterpretNumpyArray<glm::i64vec3>(npTriangles);
     auto positions = reinterpretNumpyArray<glm::dvec3>(npPositions);
     auto normals = reinterpretNumpyArray<glm::dvec3>(npNormals);
     auto tangents = reinterpretNumpyArray<glm::dvec3>(npTangents);
     auto uvCoords = reinterpretNumpyArray<glm::dvec2>(npUVCoords);
 
-    assert(triangles.size() < std::numeric_limits<unsigned>::max());
-    assert(positions.size() < std::numeric_limits<unsigned>::max());
+    pandora::ALWAYS_ASSERT(triangles.size() < std::numeric_limits<unsigned>::max());
+    pandora::ALWAYS_ASSERT(positions.size() < std::numeric_limits<unsigned>::max());
     unsigned numTriangles = static_cast<unsigned>(triangles.size());
     unsigned numVertices = static_cast<unsigned>(positions.size());
 
     auto owningTriangles = std::make_unique<glm::ivec3[]>(numTriangles);
     std::copy(std::begin(triangles), std::end(triangles), owningTriangles.get());
-    auto owningPositions = std::make_unique<glm::vec3[]>(numTriangles);
+    auto owningPositions = std::make_unique<glm::vec3[]>(numVertices);
     std::copy(std::begin(positions), std::end(positions), std::next(owningPositions.get(), 0));
-
 
     std::unique_ptr<glm::vec3[]> owningNormals = nullptr;
     if (!normals.empty()) {
+        pandora::ALWAYS_ASSERT(normals.size() == triangles.size());
         owningNormals = std::make_unique<glm::vec3[]>(numTriangles);
         std::copy(std::begin(normals), std::end(normals), std::next(owningNormals.get(), 0));
     }
 
     std::unique_ptr<glm::vec3[]> owningTangents = nullptr;
     if (!tangents.empty()) {
+        pandora::ALWAYS_ASSERT(tangents.size() == triangles.size());
         owningTangents = std::make_unique<glm::vec3[]>(numTriangles);
         std::copy(std::begin(tangents), std::end(tangents), std::next(owningTangents.get(), 0));
     }
 
     std::unique_ptr<glm::vec2[]> owningUVCoords = nullptr;
     if (!uvCoords.empty()) {
+        pandora::ALWAYS_ASSERT(uvCoords.size() == triangles.size());
         owningUVCoords = std::make_unique<glm::vec2[]>(numTriangles);
         std::copy(std::begin(uvCoords), std::end(uvCoords), std::next(owningUVCoords.get(), 0));
     }
@@ -93,38 +97,9 @@ py::object PandoraMeshBatch::addTriangleMesh(
     auto serializedMesh = pandoraMesh.serialize(fbb);
     fbb.Finish(serializedMesh);
 
-    size_t startByte = m_file.tellp();
     m_file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
+    size_t startByte = m_currentPos;
+    m_currentPos += fbb.GetSize();
 
-    /*m_file << "o PandoraMesh\n";
-    for (auto p : positions)
-        m_file << "v " << p.x << " " << p.y << " " << p.z << "\n";
-
-    int numChannels = 1;
-    if (!normals.empty()) {
-        for (auto n : normals)
-            m_file << "vn " << n.x << " " << n.y << " " << n.z << "\n";
-        numChannels++;
-    }
-
-    if (!uvCoords.empty()) {
-        for (auto uv : uvCoords)
-            m_file << "vt " << uv.x << " " << uv.y << "\n";
-        numChannels++;
-    }
-
-    for (auto t : triangles) {
-        m_file << "f";
-        for (int i = 0; i < 3; i++) {
-            auto index = t[i] + 1;// OBJ starts counting at 1...
-            m_file << " " << index;
-            for (int c = 1; c < numChannels; c++) {
-                m_file << "/" << index;
-            }
-        }
-        m_file << "\n";
-    }*/
-
-    size_t sizeBytes = static_cast<size_t>(m_file.tellp()) - startByte;
-    return py::make_tuple(m_filename, startByte, sizeBytes);
+    return py::make_tuple(m_filename, startByte, fbb.GetSize());
 }
