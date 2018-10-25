@@ -38,9 +38,9 @@ public:
     void flush() {}; // Dummy
 private:
     template <typename T>
-    //using BVHType = WiVeBVH8Build8<T>;
+    using BVHType = WiVeBVH8Build8<T>;
     //using BVHType = EmbreeBVH<T>;
-    using BVHType = NaiveSingleRayBVH2<T>;
+    //using BVHType = NaiveSingleRayBVH2<T>;
 
     // Leaf node of a bottom-level (instanced) BVH
     class InstanceLeafNode {
@@ -94,6 +94,7 @@ inline InCoreAccelerationStructure<UserState>::InCoreAccelerationStructure(const
     , m_anyHitCallback(anyHitCallback)
     , m_missCallback(missCallback)
 {
+    std::cout << "BVH was build" << std::endl;
     //m_bvh.saveToFile("scene.bvh");
     //m_bvh.loadFromFile("scene.bvh", leafs);
 }
@@ -108,7 +109,10 @@ InCoreAccelerationStructure<UserState>::buildBVH(const Scene& scene)
 {
     auto sceneObjects = scene.getInCoreSceneObjects();
 
+    std::cout << "buildBVH" << std::endl;
+
     // Instancing: find base scene objects
+    std::cout << "Computing set of base scene objects" << std::endl;
     std::unordered_set<const InCoreGeometricSceneObject*> instancingBaseSceneObjects;
     for (const auto& sceneObject : sceneObjects) {
         if (const auto* instancedSceneObject = dynamic_cast<const InCoreInstancedSceneObject*>(sceneObject)) {
@@ -116,7 +120,9 @@ InCoreAccelerationStructure<UserState>::buildBVH(const Scene& scene)
         }
     }
 
+
     // Build BVHs for the base scene objects
+    std::cout << "Build BVHs for base scene objects" << std::endl;
     std::unordered_map<const InCoreGeometricSceneObject*, std::shared_ptr<BVHType<InstanceLeafNode>>> instancedBVHs;
     for (auto sceneObjectPtr : instancingBaseSceneObjects) {
         std::vector<InstanceLeafNode> leafs;
@@ -124,10 +130,12 @@ InCoreAccelerationStructure<UserState>::buildBVH(const Scene& scene)
             leafs.push_back(InstanceLeafNode(*sceneObjectPtr, primitiveID));
         }
 
+        std::cout << "Build BVH out of " << leafs.size() << " primitives" << std::endl;
         instancedBVHs[sceneObjectPtr] = std::make_shared<BVHType<InstanceLeafNode>>(leafs);
     }
 
     // Build the final BVH over all unique primitives / instanced scene objects
+    std::cout << "Collect final leaf nodes" << std::endl;
     std::vector<LeafNode> leafs;
     for (const auto& sceneObject : sceneObjects) {
         if (const auto* instancedSceneObject = dynamic_cast<const InCoreInstancedSceneObject*>(sceneObject)) {
@@ -141,6 +149,7 @@ InCoreAccelerationStructure<UserState>::buildBVH(const Scene& scene)
         }
     }
 
+    std::cout << "Build final BVH" << std::endl;
     return BVHType<LeafNode>(leafs);
 }
 
@@ -153,6 +162,8 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
     (void)insertHandle;
     assert(perRayUserData.size() == rays.size());
 
+    std::cout << "placeIntersectRequests" << std::endl;
+
     constexpr int64_t rayPacketSize = 50;
     for (int i = 0; i < rays.size(); i += rayPacketSize) {
         int numRays = std::min(rayPacketSize, rays.size() - i);
@@ -160,6 +171,7 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
         eastl::fixed_vector<Ray, rayPacketSize> mutRays(numRays);
         std::copy(std::begin(rays) + i, std::begin(rays) + i + numRays, std::begin(mutRays));
 
+        std::cout << "m_bvh.intersect a packet of rays" << std::endl;
         m_bvh.intersect(mutRays, hitInfos);
 
         for (int j = 0; j < numRays; j++) {
@@ -168,11 +180,16 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
 
             const auto* sceneObject = std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant);
             if (sceneObject) {
+                std::cout << "Compute si for ray hit" << std::endl;
                 SurfaceInteraction si = sceneObject->fillSurfaceInteraction(ray, hitInfo);
                 si.sceneObjectMaterial = sceneObject;
+                std::cout << "Call hit callback" << std::endl;
                 m_hitCallback(ray, si, perRayUserData[i + j], nullptr);
+                std::cout << "Hit callback called" << std::endl;
             } else {
+                std::cout << "Call miss callback" << std::endl;
                 m_missCallback(ray, perRayUserData[i + j]);
+                std::cout << "Miss callback called" << std::endl;
             }
         }
     }

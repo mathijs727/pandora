@@ -62,7 +62,9 @@ inline WiVeBVH8Build8<LeafObj>::WiVeBVH8Build8(gsl::span<LeafObj> objects)
     std::vector<RTCBuildPrimitive> embreePrimitives;
     embreePrimitives.reserve(static_cast<unsigned>(objects.size()));
 
-    for (unsigned leafID = 0; leafID < static_cast<unsigned>(objects.size()); leafID++) {
+    ALWAYS_ASSERT(objects.size() < std::numeric_limits<unsigned>::max());
+
+    for (uint64_t leafID = 0; leafID < static_cast<uint64_t>(objects.size()); leafID++) {
         auto bounds = objects[leafID].getBounds();
 
         RTCBuildPrimitive primitive;
@@ -77,7 +79,9 @@ inline WiVeBVH8Build8<LeafObj>::WiVeBVH8Build8(gsl::span<LeafObj> objects)
         embreePrimitives.push_back(primitive);
     }
 
+    std::cout << "Build Wive8BVH8 for " << objects.size() << " primitives" << std::endl;
     commit(embreePrimitives, objects);
+    std::cout << "Build finished" << std::endl;
 }
 
 template <typename LeafObj>

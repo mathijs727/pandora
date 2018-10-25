@@ -103,6 +103,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         auto dummyFloatTexture = std::make_shared<ConstantTexture<float>>(1.0f);
         auto dummyColorTexture = std::make_shared<ConstantTexture<glm::vec3>>(glm::vec3(1.0f));
 
+        std::cout << "Making map of textures" << std::endl;
         // Lazy load textures to reduce memory usage when loadMaterials is false
         std::unordered_map<int, std::shared_ptr<Texture<float>>> _floatTextures;
         auto getFloatTexture = [&](int texID) {
@@ -148,6 +149,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
             return _colorTextures[texID];
         };
 
+        std::cout << "Collecting list of materials" << std::endl;
         // Load materials
         std::vector<std::shared_ptr<Material>> materials;
         if (loadMaterials) {
@@ -174,6 +176,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
             return readMat4(sceneJson["transforms"][id]);
         };
 
+        std::cout << "Loading geometry" << std::endl;
         std::vector<std::shared_ptr<TriangleMesh>> geometry;
         for (const auto jsonGeometry : sceneJson["geometry"]) {
             auto geometryType = jsonGeometry["type"].get<std::string>();
@@ -183,11 +186,15 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
+                //std::cout << "mmap geometry: " << geometryFile << std::endl;
+                ALWAYS_ASSERT(std::filesystem::exists(geometryFile));
                 auto mappedFile = mio::mmap_source(geometryFile.string(), startByte, sizeBytes);
 
+                //std::cout << "Deserialize" << std::endl;
                 std::optional<TriangleMesh> meshOpt = TriangleMesh(
                     serialization::GetTriangleMesh(mappedFile.data()));
                 ALWAYS_ASSERT(meshOpt.has_value());
+                //std::cout << "Successfully deserialized" << std::endl;
                 geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
             } else {
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
@@ -213,12 +220,14 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
             }
         };
 
+        std::cout << "Creating instance base scene objects" << std::endl;
         // Create instanced base objects
         std::vector<std::shared_ptr<InCoreGeometricSceneObject>> baseSceneObjects;
         for (const auto jsonSceneObject : sceneJson["instance_base_scene_objects"]) {
             baseSceneObjects.emplace_back(makeGeomSceneObject(jsonSceneObject)); // Converts to shared_ptr
         }
 
+        std::cout << "Creating final scene objects" << std::endl;
         // Create scene objects
         for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
             if (jsonSceneObject["instancing"].get<bool>()) {

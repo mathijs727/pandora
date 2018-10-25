@@ -118,6 +118,8 @@ EmbreeBVH<LeafObj>::EmbreeBVH(gsl::span<LeafObj> leafs)
     }
     m_leafs.shrink_to_fit();
 
+    ALWAYS_ASSERT(m_leafs.size() <= std::numeric_limits<unsigned>::max());
+
     const auto* leafsPtr = m_leafs.data();
     RTCGeometry geom = rtcNewGeometry(m_device, RTC_GEOMETRY_TYPE_USER);
     rtcAttachGeometry(m_scene, geom); // Returns geomID
@@ -136,6 +138,8 @@ template <typename LeafObj>
 inline void EmbreeBVH<LeafObj>::intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const
 {
     assert(rays.size() == hitInfos.size());
+    ALWAYS_ASSERT(rays.size() == hitInfos.size());
+    ALWAYS_ASSERT(rays.size() <= std::numeric_limits<int>::max());
 
     for (int i = 0; i < rays.size(); i++) {
         RTCIntersectContext context;

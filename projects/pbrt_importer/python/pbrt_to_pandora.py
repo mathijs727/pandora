@@ -118,9 +118,9 @@ if __name__ == "__main__":
         ujson.dump(pandora_data, f)# No formatting saves a lot of disk space
 
 
-    if not args.intermediate:
+    """if not args.intermediate:
         shutil.rmtree(os.path.join(out_folder, "pbrt_meshes"))
 
         # Remove the temporary list files created for the json export
-        shutil.rmtree(os.path.join(out_folder, "tmp_lists"))
+        shutil.rmtree(os.path.join(out_folder, "tmp_lists"))"""
 

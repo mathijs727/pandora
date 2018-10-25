@@ -57,7 +57,7 @@ inline void WiVeBVH8<LeafObj>::intersect(gsl::span<Ray> rays, gsl::span<RayHit> 
 {
     assert(rays.size() == hitInfos.size());
 
-    for (int i = 0; i < rays.size(); i++) {
+    for (int64_t i = 0; i < rays.size(); i++) {
         auto& ray = rays[i];
         auto& hitInfo = hitInfos[i];
 
@@ -73,8 +73,8 @@ inline void WiVeBVH8<LeafObj>::intersect(gsl::span<Ray> rays, gsl::span<RayHit> 
         simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
 
         // Stack
-        alignas(32) std::array<uint32_t, 64> stackCompressedNodeHandles;
-        alignas(32) std::array<float, 64> stackDistances;
+        alignas(32) std::array<uint32_t, 96> stackCompressedNodeHandles;
+        alignas(32) std::array<float, 96> stackDistances;
         std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
         size_t stackPtr = 0;
 
@@ -155,8 +155,8 @@ inline void WiVeBVH8<LeafObj>::intersectAny(gsl::span<Ray> rays) const
         simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
 
         // Stack
-        alignas(32) std::array<uint32_t, 48> stackCompressedNodeHandles;
-        alignas(32) std::array<float, 48> stackDistances;
+        alignas(32) std::array<uint32_t, 96> stackCompressedNodeHandles;
+        alignas(32) std::array<float, 96> stackDistances;
         std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
         size_t stackPtr = 0;
 
