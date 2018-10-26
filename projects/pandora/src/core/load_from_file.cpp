@@ -511,9 +511,6 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
             } else {
                 auto sceneObjectFactory = geomSceneObjectFactoryFunc(jsonSceneObject);
                 taskGroup.run([&sceneObjects, i, sceneObjectFactory]() {
-                    if (i % 100llu == 0) {
-                        std::cout << "Processing object " << i << std::endl;
-                    }
                     sceneObjects[i] = sceneObjectFactory();
                 });
             }

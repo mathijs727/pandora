@@ -7,7 +7,7 @@ namespace pandora {
 #define THROW_ERROR(message) __THROW_ERROR(message, __FILE__, __LINE__)
 inline void __THROW_ERROR(std::string_view errorMessage, std::string_view fileName, int line)
 {
-    std::cerr << fileName << ":" << line << " ==> " << errorMessage << std::endl;
+    std::cout << fileName << ":" << line << " ==> " << errorMessage << std::endl;
     throw std::runtime_error("");
     int i;
     std::cin >> i;
@@ -17,12 +17,12 @@ inline void __THROW_ERROR(std::string_view errorMessage, std::string_view fileNa
 
 inline void LOG_INFO(std::string_view infoMessage)
 {
-    std::cerr << infoMessage << std::endl;
+    std::cout << infoMessage << std::endl;
 }
 
 inline void LOG_WARNING(std::string_view warningMessage)
 {
-    std::cerr << warningMessage << std::endl;
+    std::cout << warningMessage << std::endl;
 }
 
 #define ALWAYS_ASSERT(...) __ALWAYS_ASSERT(__VA_ARGS__, __FILE__, __LINE__)

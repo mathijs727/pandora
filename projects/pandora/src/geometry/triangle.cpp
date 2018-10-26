@@ -495,6 +495,8 @@ Bounds TriangleMesh::getBounds() const
 
 Bounds TriangleMesh::getPrimitiveBounds(unsigned primitiveID) const
 {
+    ALWAYS_ASSERT(primitiveID < m_numTriangles);
+    
     glm::ivec3 t = m_triangles[primitiveID];
 
     Bounds bounds;

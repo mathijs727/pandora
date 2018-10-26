@@ -70,7 +70,12 @@ int main(int argc, char** argv)
     scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(0.5f), 1, colorTexture));*/
 
     if constexpr (pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE) {
-        renderConfig.scene.splitLargeOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 4);
+        try {
+            renderConfig.scene.splitLargeOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 4);
+        } catch (std::error_code e) {
+            std::cout << "Error splitting ooc scene objects: " << e << std::endl;
+            std::cout << "Message: " << e.message() << std::endl;
+        }
     }
 
     std::cout << "Start render" << std::endl;
@@ -80,15 +85,24 @@ int main(int argc, char** argv)
         DirectLightingIntegrator integrator(8, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES, LightStrategy::UniformSampleOne);
         integrator.render(*renderConfig.camera);
     } else if (integratorType == "path") {
-        PathIntegrator integrator(10, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES);
-        integrator.render(*renderConfig.camera);
+        try {
+            std::cout << "Creating integrator" << std::endl;
+            PathIntegrator integrator(10, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES);
+            std::cout << "Start rendering" << std::endl;
+            integrator.render(*renderConfig.camera);
+        } catch (std::error_code e) {
+            std::cout << "Error creating integrator or rendering: " << e << std::endl;
+            std::cout << "Message: " << e.message() << std::endl;
+        }
     }
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), spp);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), spp);
     //SVODepthTestIntegrator integrator(scene, camera.getSensor(), spp);
 
+    std::cout << "Writing output" << std::endl;
     writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".jpg", true);
     writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".exr", false);
 
+    std::cout << "Done" << std::endl;
     return 0;
 }

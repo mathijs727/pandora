@@ -87,6 +87,7 @@ void SamplerIntegrator::spawnNextSample(const glm::ivec2& pixel)
         seed = static_cast<unsigned>(pixelIndex * m_maxSampleCount + sampleNumber);
     }
 
+
     // Custom deleter
     // https://stackoverflow.com/questions/12340810/using-custom-deleter-with-stdshared-ptr
     void* samplerSpace = m_samplerAllocator.allocate(1);

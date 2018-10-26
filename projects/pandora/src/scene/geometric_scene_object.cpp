@@ -24,6 +24,7 @@ InCoreGeometricSceneObject::InCoreGeometricSceneObject(
 
 Bounds InCoreGeometricSceneObject::worldBounds() const
 {
+    ALWAYS_ASSERT(m_geometricProperties.m_mesh != nullptr);
     return m_geometricProperties.m_mesh->getBounds();
 }
 
@@ -106,6 +107,7 @@ GeometricSceneObjectGeometry::GeometricSceneObjectGeometry(const serialization::
 
 Bounds GeometricSceneObjectGeometry::worldBoundsPrimitive(unsigned primitiveID) const
 {
+    ALWAYS_ASSERT(m_mesh != nullptr);
     return m_mesh->getPrimitiveBounds(primitiveID);
 }
 

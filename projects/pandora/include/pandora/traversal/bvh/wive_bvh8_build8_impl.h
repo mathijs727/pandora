@@ -49,21 +49,26 @@ template <typename LeafObj>
 inline WiVeBVH8Build8<LeafObj>::WiVeBVH8Build8(gsl::span<LeafObj> objects)
     : WiVeBVH8<LeafObj>(objects.size())
 {
+    std::cout << "Reserving leaf objects" << std::endl;
     // Move the leaf objects
     this->m_leafObjects.reserve(objects.size());
+    std::cout << "Moving " << objects.size() << " leaf objects" << std::endl;
     for (auto& object : objects) {
         this->m_leafObjects.emplace_back(std::move(object)); 
     }
+
+    std::cout << "Allocating primitives array" << std::endl;
     /*this->m_leafObjects.insert(
         std::end(this->m_leafObjects),
         std::make_move_iterator(std::begin(objects)),
         std::make_move_iterator(std::end(objects)));*/
 
     std::vector<RTCBuildPrimitive> embreePrimitives;
-    embreePrimitives.reserve(static_cast<unsigned>(objects.size()));
+    embreePrimitives.reserve(static_cast<size_t>(objects.size()));
 
     ALWAYS_ASSERT(objects.size() < std::numeric_limits<unsigned>::max());
 
+    std::cout << "Creating embree primitive array" << std::endl;
     for (uint64_t leafID = 0; leafID < static_cast<uint64_t>(objects.size()); leafID++) {
         auto bounds = objects[leafID].getBounds();
 
