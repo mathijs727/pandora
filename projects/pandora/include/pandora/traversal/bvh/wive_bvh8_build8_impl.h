@@ -51,26 +51,22 @@ inline WiVeBVH8Build8<LeafObj>::WiVeBVH8Build8(gsl::span<LeafObj> objects)
 {
     std::cout << "Reserving leaf objects" << std::endl;
     // Move the leaf objects
-    this->m_leafObjects.reserve(objects.size());
     std::cout << "Moving " << objects.size() << " leaf objects" << std::endl;
+    this->m_leafObjects.reserve(objects.size());
     for (auto& object : objects) {
         this->m_leafObjects.emplace_back(std::move(object)); 
     }
+    this->m_leafObjects.shrink_to_fit();
 
     std::cout << "Allocating primitives array" << std::endl;
-    /*this->m_leafObjects.insert(
-        std::end(this->m_leafObjects),
-        std::make_move_iterator(std::begin(objects)),
-        std::make_move_iterator(std::end(objects)));*/
-
     std::vector<RTCBuildPrimitive> embreePrimitives;
     embreePrimitives.reserve(static_cast<size_t>(objects.size()));
 
     ALWAYS_ASSERT(objects.size() < std::numeric_limits<unsigned>::max());
 
     std::cout << "Creating embree primitive array" << std::endl;
-    for (uint64_t leafID = 0; leafID < static_cast<uint64_t>(objects.size()); leafID++) {
-        auto bounds = objects[leafID].getBounds();
+    for (uint64_t leafID = 0; leafID < static_cast<uint64_t>(this->m_leafObjects.size()); leafID++) {
+        auto bounds = this->m_leafObjects[leafID].getBounds();// NOTE: use the local objects and not the original "objects" array (because its contents has been moved)
 
         RTCBuildPrimitive primitive;
         primitive.lower_x = bounds.min.x;

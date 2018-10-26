@@ -109,22 +109,18 @@ EmbreeBVH<LeafObj>::EmbreeBVH(gsl::span<LeafObj> leafs)
     m_scene = rtcNewScene(m_device);
     rtcSetSceneBuildQuality(m_scene, RTC_BUILD_QUALITY_HIGH);
 
-    /*m_leafs.insert(
-        std::end(m_leafs),
-        std::make_move_iterator(std::begin(leafs)),
-        std::make_move_iterator(std::end(leafs)));*/
+    m_leafs.reserve(leafs.size());
     for (auto& leaf : leafs) {
-        m_leafs.push_back(std::move(leaf));
+        m_leafs.emplace_back(std::move(leaf));
     }
     m_leafs.shrink_to_fit();
 
     ALWAYS_ASSERT(m_leafs.size() <= std::numeric_limits<unsigned>::max());
 
-    const auto* leafsPtr = m_leafs.data();
     RTCGeometry geom = rtcNewGeometry(m_device, RTC_GEOMETRY_TYPE_USER);
     rtcAttachGeometry(m_scene, geom); // Returns geomID
     rtcSetGeometryUserPrimitiveCount(geom, static_cast<unsigned>(m_leafs.size()));
-    rtcSetGeometryUserData(geom, (void*)leafsPtr);
+    rtcSetGeometryUserData(geom, m_leafs.data());
     rtcSetGeometryBoundsFunction(geom, geometryBoundsFunc, nullptr);
     rtcSetGeometryIntersectFunction(geom, geometryIntersectFunc);
     rtcSetGeometryOccludedFunction(geom, geometryOccludedFunc);
