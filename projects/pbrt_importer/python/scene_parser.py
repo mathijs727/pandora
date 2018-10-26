@@ -9,6 +9,7 @@ import sys
 import tempfile
 import pathlib
 import shutil
+import tempfile
 
 
 def constant_texture(v):
@@ -217,12 +218,21 @@ class SceneParser:
             print(f"Unknown texture type \"{texture.type}\"")
 
         texture_class = texture.texture_class
+        """
         if "filename" in arguments:
             if texture_type == "float":
                 arguments = { "value": 0.5 }
             else:
                 arguments = { "value": np.array([0.5, 0.5, 0.5]) }
             texture_class = "constant"
+        """
+        if "filename" in arguments:
+            with tempfile.NamedTemporaryFile("wb+", dir=self._out_texture_folder, delete=False) as out_file:
+                with open(arguments["filename"], "rb") as in_file:
+                    out_file.write(in_file.read())
+
+                arguments["filename"] = os.path.relpath(
+                    out_file.name, self._out_texture_folder)
 
         texture_dict = {
             "type": texture_type,

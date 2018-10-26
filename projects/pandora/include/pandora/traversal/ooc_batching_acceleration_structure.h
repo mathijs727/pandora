@@ -60,7 +60,7 @@ template <typename UserState, template <typename T> typename Cache, size_t Batch
 class OOCBatchingAccelerationStructure {
 public:
     using InsertHandle = void*;
-    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&, const InsertHandle&)>;
+    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&)>;
     using AnyHitCallback = std::function<void(const Ray&, const UserState&)>;
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
@@ -963,7 +963,7 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
                             si.sceneObject = hitSceneObjectInfo.sceneObject;
                             auto material = hitSceneObjectInfo.sceneObject->getMaterialBlocking();
                             si.sceneObjectMaterial = material.get();
-                            accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
+                            accelerationStructurePtr->m_hitCallback(ray, si, userState);
                         } else {
                             accelerationStructurePtr->m_missCallback(ray, userState);
                         }

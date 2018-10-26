@@ -13,7 +13,7 @@ NaiveDirectLightingIntegrator::NaiveDirectLightingIntegrator(int maxDepth, const
 {
 }
 
-void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& rayState, const InsertHandle& h)
+void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& rayState)
 {
     ShadingMemoryArena memoryArena(s_freeList);
 

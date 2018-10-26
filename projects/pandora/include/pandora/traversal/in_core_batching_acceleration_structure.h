@@ -30,7 +30,7 @@ template <typename UserState, size_t BatchSize = 384>
 class InCoreBatchingAccelerationStructure {
 public:
     using InsertHandle = void*;
-    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&, const InsertHandle&)>;
+    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&)>;
     using AnyHitCallback = std::function<void(const Ray&, const UserState&)>;
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
@@ -467,7 +467,7 @@ bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode
                         if (hitSceneObject) {
                             auto si = hitSceneObject->fillSurfaceInteraction(ray, *rayHitOpt);
                             si.sceneObjectMaterial = hitSceneObject;
-                            accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
+                            accelerationStructurePtr->m_hitCallback(ray, si, userState);
                         } else {
                             accelerationStructurePtr->m_missCallback(ray, userState);
                         }

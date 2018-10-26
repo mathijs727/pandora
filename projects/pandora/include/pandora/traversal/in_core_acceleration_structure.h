@@ -24,7 +24,7 @@ template <typename UserState>
 class InCoreAccelerationStructure {
 public:
     using InsertHandle = void*;
-    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&, const InsertHandle&)>;
+    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&)>;
     using AnyHitCallback = std::function<void(const Ray&, const UserState&)>;
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
@@ -64,8 +64,8 @@ private:
             : m_sceneObject(std::move(other.m_sceneObject))
             , m_primitiveID(std::move(other.m_primitiveID))
             , m_bvh(std::move(other.m_bvh))
-            , m_wasMoved(true)
         {
+            other.m_wasMoved = true;
         }
 
         Bounds getBounds() const;
@@ -78,7 +78,7 @@ private:
 
         // Is an instance
         std::shared_ptr<BVHType<InstanceLeafNode>> m_bvh;
-        const bool m_wasMoved = false;
+        bool m_wasMoved = false;
     };
 
     static BVHType<LeafNode> buildBVH(const Scene& scene);
@@ -175,7 +175,7 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
             if (sceneObject) {
                 SurfaceInteraction si = sceneObject->fillSurfaceInteraction(ray, hitInfo);
                 si.sceneObjectMaterial = sceneObject;
-                m_hitCallback(ray, si, perRayUserData[i + j], nullptr);
+                m_hitCallback(ray, si, perRayUserData[i + j]);
             } else {
                 m_missCallback(ray, perRayUserData[i + j]);
             }

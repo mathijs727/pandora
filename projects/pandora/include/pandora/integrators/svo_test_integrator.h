@@ -15,7 +15,7 @@ public:
 	void render(const PerspectiveCamera& camera) override final;
 
 private:
-	void rayHit(const Ray& r, SurfaceInteraction si, const int& s, const InsertHandle& h) override final {};
+	void rayHit(const Ray& r, SurfaceInteraction si, const int& s) override final {};
     void rayAnyHit(const Ray& r, const int& s) override final {};
 	void rayMiss(const Ray& r, const int& s) override final {};
 private:

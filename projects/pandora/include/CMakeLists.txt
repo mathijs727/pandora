@@ -36,6 +36,7 @@ PUBLIC
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/direct_lighting_integrator.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/naive_direct_lighting_integrator.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/normal_debug_integrator.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/path_integrator.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/sampler_integrator.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/svo_depth_test_integrator.h"

@@ -23,7 +23,7 @@ PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor,
 }
 
 // PBRTv3 page 877
-void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& rayState, const InsertHandle& h)
+void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& rayState)
 {
     ShadingMemoryArena memoryArena(s_freeList);
 
