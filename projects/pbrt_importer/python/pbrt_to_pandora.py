@@ -76,8 +76,7 @@ if __name__ == "__main__":
         print("Error: pbrt scene file not found")
         exit(1)
     if not os.path.exists(os.path.dirname(args.out)):
-        print("Error: output path does not exist")
-        exit(1)
+        os.makedirs(os.path.dirname(args.out))
 
     # Replaces forward slashes by backward slashes on Windows
     args.file = os.path.normpath(args.file)

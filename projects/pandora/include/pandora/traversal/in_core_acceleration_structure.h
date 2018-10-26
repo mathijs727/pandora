@@ -64,7 +64,6 @@ private:
             : m_sceneObject(std::move(other.m_sceneObject))
             , m_primitiveID(std::move(other.m_primitiveID))
             , m_bvh(std::move(other.m_bvh))
-            , m_wasMoved(true)
         {
         }
 
@@ -78,7 +77,6 @@ private:
 
         // Is an instance
         std::shared_ptr<BVHType<InstanceLeafNode>> m_bvh;
-        const bool m_wasMoved = false;
     };
 
     static BVHType<LeafNode> buildBVH(const Scene& scene);
@@ -257,7 +255,6 @@ template <typename UserState>
 inline Bounds InCoreAccelerationStructure<UserState>::LeafNode::getBounds() const
 {
     ALWAYS_ASSERT(m_sceneObject != nullptr);
-    ALWAYS_ASSERT(!m_wasMoved);
 
     if (m_bvh) {
         return m_sceneObject->worldBounds();
@@ -269,8 +266,6 @@ inline Bounds InCoreAccelerationStructure<UserState>::LeafNode::getBounds() cons
 template <typename UserState>
 inline bool InCoreAccelerationStructure<UserState>::LeafNode::intersect(Ray& ray, RayHit& hitInfo) const
 {
-    ALWAYS_ASSERT(!m_wasMoved);
-
     if (!m_bvh) {
         bool hit = m_sceneObject->intersectPrimitive(ray, hitInfo, m_primitiveID);
         if (hit) {
