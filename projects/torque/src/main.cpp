@@ -91,6 +91,9 @@ int main(int argc, char** argv)
     } else if (integratorType == "normal") {
         NormalDebugIntegrator integrator(renderConfig.scene, renderConfig.camera->getSensor());
         integrator.render(*renderConfig.camera);
+        std::cout << "WARNING: normal visualization does not support multi-sampling, setting spp to 1!" << std::endl;
+        spp = 1;
+        g_stats.config.spp = 1;
     }
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), spp);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), spp);
