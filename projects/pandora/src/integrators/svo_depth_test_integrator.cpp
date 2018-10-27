@@ -22,7 +22,7 @@ SVODepthTestIntegrator::SVODepthTestIntegrator(const Scene& scene, Sensor& senso
     m_worldToSVO = glm::translate(m_worldToSVO, glm::vec3(-gridBounds.min));
 }
 
-void SVODepthTestIntegrator::rayHit(const Ray& ray, SurfaceInteraction si, const RayState& s, const InsertHandle& h)
+void SVODepthTestIntegrator::rayHit(const Ray& ray, SurfaceInteraction si, const RayState& s)
 {
     m_sensor.addPixelContribution(s.pixel, glm::abs(si.normal));
 

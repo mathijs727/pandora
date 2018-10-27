@@ -1,6 +1,7 @@
 #include "pandora/core/load_from_file.h"
 #include "pandora/integrators/direct_lighting_integrator.h"
 #include "pandora/integrators/naive_direct_lighting_integrator.h"
+#include "pandora/integrators/normal_debug_integrator.h"
 #include "pandora/integrators/path_integrator.h"
 #include "pandora/integrators/svo_depth_test_integrator.h"
 #include "pandora/integrators/svo_test_integrator.h"
@@ -32,7 +33,7 @@ int main(int argc, char** argv)
     desc.add_options()
         ("file", po::value<std::string>()->required(), "Pandora scene description JSON")
         ("out", po::value<std::string>()->default_value("output"s), "output name (without file extension!)")
-        ("integrator", po::value<std::string>()->default_value("direct"), "integrator (direct or path)")
+        ("integrator", po::value<std::string>()->default_value("direct"), "integrator (normal, direct or path)")
         ("spp", po::value<int>()->default_value(1), "samples per pixel")
         ("help", "show all arguments");
 
@@ -85,15 +86,11 @@ int main(int argc, char** argv)
         DirectLightingIntegrator integrator(8, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES, LightStrategy::UniformSampleOne);
         integrator.render(*renderConfig.camera);
     } else if (integratorType == "path") {
-        try {
-            std::cout << "Creating integrator" << std::endl;
-            PathIntegrator integrator(10, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES);
-            std::cout << "Start rendering" << std::endl;
-            integrator.render(*renderConfig.camera);
-        } catch (std::error_code e) {
-            std::cout << "Error creating integrator or rendering: " << e << std::endl;
-            std::cout << "Message: " << e.message() << std::endl;
-        }
+        PathIntegrator integrator(10, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES);
+        integrator.render(*renderConfig.camera);
+    } else if (integratorType == "normal") {
+        NormalDebugIntegrator integrator(renderConfig.scene, renderConfig.camera->getSensor());
+        integrator.render(*renderConfig.camera);
     }
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), spp);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), spp);

@@ -143,6 +143,7 @@ default_material = Material(
 graphics_state_stack = []
 graphics_state = {"area_light": None,
                   "flip_normals": False, "material": default_material}
+transform_start_active = True
 transform_stack = []
 named_transforms = {}
 cur_transform = np.identity(4)
@@ -400,7 +401,7 @@ def p_statement_transform(p):
     #"statement_transform : TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET"
     global cur_transform
     matrix = np.transpose(np.array(p[2]).reshape((4, 4)))
-    cur_transform = np.matmul(cur_transform, matrix)
+    cur_transform = matrix
 
 
 def p_statement_transform_concat(p):
@@ -408,7 +409,7 @@ def p_statement_transform_concat(p):
     #"statement_transform : CONCAT_TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET"
     global cur_transform
     matrix = np.transpose(np.array(p[2]).reshape((4, 4)))
-    cur_transform = matrix
+    cur_transform = np.matmul(cur_transform, matrix)
 
 
 def p_statement_material(p):

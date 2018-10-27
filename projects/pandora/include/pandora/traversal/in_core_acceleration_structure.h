@@ -24,7 +24,7 @@ template <typename UserState>
 class InCoreAccelerationStructure {
 public:
     using InsertHandle = void*;
-    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&, const InsertHandle&)>;
+    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&)>;
     using AnyHitCallback = std::function<void(const Ray&, const UserState&)>;
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
@@ -173,7 +173,7 @@ inline void InCoreAccelerationStructure<UserState>::placeIntersectRequests(
             if (sceneObject) {
                 SurfaceInteraction si = sceneObject->fillSurfaceInteraction(ray, hitInfo);
                 si.sceneObjectMaterial = sceneObject;
-                m_hitCallback(ray, si, perRayUserData[i + j], nullptr);
+                m_hitCallback(ray, si, perRayUserData[i + j]);
             } else {
                 m_missCallback(ray, perRayUserData[i + j]);
             }
