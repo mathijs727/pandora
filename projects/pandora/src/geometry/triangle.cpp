@@ -7,6 +7,8 @@
 #include "pandora/core/transform.h"
 #include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
+#include "pandora/flatbuffers/data_conversion.h"
+#include "pandora/core/transform.h"
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -91,6 +93,48 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
     if (serializedTriangleMesh->tangents()) {
         m_tangents = std::make_unique<glm::vec3[]>(m_numVertices);
         std::memcpy(m_tangents.get(), serializedTriangleMesh->tangents()->data(), serializedTriangleMesh->tangents()->size());
+    }
+
+    if (serializedTriangleMesh->uvCoords()) {
+        m_uvCoords = std::make_unique<glm::vec2[]>(m_numVertices);
+        std::memcpy(m_uvCoords.get(), serializedTriangleMesh->uvCoords()->data(), serializedTriangleMesh->uvCoords()->size());
+    }
+
+    m_bounds = Bounds(*serializedTriangleMesh->bounds());
+
+    g_stats.memory.geometryLoaded += sizeBytes() - sizeof(decltype(*this));
+}
+
+TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh, const glm::mat4& transformMatrix)
+{
+    m_numTriangles = serializedTriangleMesh->numTriangles();
+    m_numVertices = serializedTriangleMesh->numVertices();
+
+    Transform transform(transformMatrix);
+
+    m_triangles = std::make_unique<glm::ivec3[]>(m_numTriangles);
+    std::memcpy(m_triangles.get(), serializedTriangleMesh->triangles()->data(), serializedTriangleMesh->triangles()->size());
+
+    m_positions = std::make_unique<glm::vec3[]>(m_numVertices);
+    auto serializedPositions = gsl::make_span((glm::vec3*)serializedTriangleMesh->positions()->data(), serializedTriangleMesh->positions()->size() / sizeof(glm::vec3));
+    std::transform(std::begin(serializedPositions), std::end(serializedPositions), m_positions.get(), [&](const glm::vec3& p) {
+        return transform.transformPoint(p);
+    });
+
+    if (serializedTriangleMesh->normals()) {
+        m_normals = std::make_unique<glm::vec3[]>(m_numVertices);
+        auto serializedNormals = gsl::make_span((glm::vec3*)serializedTriangleMesh->normals()->data(), serializedTriangleMesh->normals()->size() / sizeof(glm::vec3));
+        std::transform(std::begin(serializedNormals), std::end(serializedNormals), m_normals.get(), [&](const glm::vec3& n) {
+            return transform.transformNormal(n);
+        });
+    }
+
+    if (serializedTriangleMesh->tangents()) {
+        m_tangents = std::make_unique<glm::vec3[]>(m_numVertices);
+        auto serializedTangents = gsl::make_span((glm::vec3*)serializedTriangleMesh->tangents()->data(), serializedTriangleMesh->tangents()->size() / sizeof(glm::vec3));
+        std::transform(std::begin(serializedTangents), std::end(serializedTangents), m_tangents.get(), [&](const glm::vec3& t) {
+            return transform.transformNormal(t);
+        });
     }
 
     if (serializedTriangleMesh->uvCoords()) {

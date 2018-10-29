@@ -192,7 +192,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
                 //std::cout << "Deserialize" << std::endl;
                 std::optional<TriangleMesh> meshOpt = TriangleMesh(
-                    serialization::GetTriangleMesh(mappedFile.data()));
+                    serialization::GetTriangleMesh(mappedFile.data()), transform);
                 ALWAYS_ASSERT(meshOpt.has_value());
                 //std::cout << "Successfully deserialized" << std::endl;
                 geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));

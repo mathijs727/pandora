@@ -35,6 +35,7 @@ public:
     TriangleMesh(const TriangleMesh&) = delete;
     TriangleMesh(TriangleMesh&&) = default;
     TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh);
+    TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh, const glm::mat4& transform);
     ~TriangleMesh();
 
     TriangleMesh subMesh(gsl::span<const unsigned> primitives) const;
