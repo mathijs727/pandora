@@ -1,4 +1,5 @@
 #include "pandora/integrators/sampler_integrator.h"
+#include "pandora/config.h"
 #include "pandora/core/perspective_camera.h"
 #include "pandora/core/sampler.h"
 #include "pandora/core/sensor.h"
@@ -10,8 +11,6 @@
 #include <tbb/blocked_range2d.h>
 #include <tbb/parallel_for.h>
 #include <tbb/tbb.h>
-
-using namespace pandora::sampler_integrator;
 
 namespace pandora {
 
@@ -80,7 +79,7 @@ void SamplerIntegrator::spawnNextSample(const glm::ivec2& pixel)
         return;
 
     unsigned seed = 0;
-    if constexpr (RANDOM_SEEDS) {
+    if constexpr (USE_RANDOM_SEEDS) {
         static thread_local std::random_device rd = std::random_device();
         seed = rd();
     } else {

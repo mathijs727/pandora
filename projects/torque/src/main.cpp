@@ -80,26 +80,32 @@ int main(int argc, char** argv)
     }
 
     std::cout << "Start render" << std::endl;
-    auto integratorType = vm["integrator"].as<std::string>();
     int spp = vm["spp"].as<int>();
-    if (integratorType == "direct") {
-        DirectLightingIntegrator integrator(8, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES, LightStrategy::UniformSampleOne);
-        integrator.render(*renderConfig.camera);
-    } else if (integratorType == "path") {
-        PathIntegrator integrator(10, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES);
-        integrator.render(*renderConfig.camera);
-    } else if (integratorType == "normal") {
-        NormalDebugIntegrator integrator(renderConfig.scene, renderConfig.camera->getSensor());
-        integrator.render(*renderConfig.camera);
-        std::cout << "WARNING: normal visualization does not support multi-sampling, setting spp to 1!" << std::endl;
-        spp = 1;
-        g_stats.config.spp = 1;
+    try {
+        auto integratorType = vm["integrator"].as<std::string>();
+        if (integratorType == "direct") {
+            DirectLightingIntegrator integrator(8, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES, LightStrategy::UniformSampleOne);
+            integrator.render(*renderConfig.camera);
+        } else if (integratorType == "path") {
+            PathIntegrator integrator(10, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES);
+            integrator.render(*renderConfig.camera);
+        } else if (integratorType == "normal") {
+            std::cout << "WARNING: normal visualization does not support multi-sampling, setting spp to 1!" << std::endl;
+            spp = 1;
+            g_stats.config.spp = 1;
+
+            NormalDebugIntegrator integrator(renderConfig.scene, renderConfig.camera->getSensor());
+            integrator.render(*renderConfig.camera);
+        }
+    } catch (const std::exception& e) {
+        std::cout << "Render error: " << e.what() << std::endl;
     }
+
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), spp);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), spp);
     //SVODepthTestIntegrator integrator(scene, camera.getSensor(), spp);
 
-    std::cout << "Writing output" << std::endl;
+    std::cout << "Writing output: " << vm["out"].as<std::string>() << ".jpg/exr" << std::endl;
     writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".jpg", true);
     writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".exr", false);
 

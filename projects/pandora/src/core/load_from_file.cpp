@@ -138,6 +138,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                     glm::vec3 value = readVec3(arguments["value"]);
                     _colorTextures[texID] = std::make_shared<ConstantTexture<glm::vec3>>(value);
                 } else if (textureClass == "imagemap") {
+                    std::cout << "Loading imagemap from file " << arguments["filename"].get<std::string>() << " for texture id " << texID << std::endl;
                     auto textureFile = basePath / std::filesystem::path(arguments["filename"].get<std::string>());
                     _colorTextures[texID] = std::make_shared<ImageTexture<glm::vec3>>(textureFile);
                 } else {
@@ -186,15 +187,12 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
-                //std::cout << "mmap geometry: " << geometryFile << std::endl;
                 ALWAYS_ASSERT(std::filesystem::exists(geometryFile));
                 auto mappedFile = mio::mmap_source(geometryFile.string(), startByte, sizeBytes);
 
-                //std::cout << "Deserialize" << std::endl;
                 std::optional<TriangleMesh> meshOpt = TriangleMesh(
                     serialization::GetTriangleMesh(mappedFile.data()), transform);
                 ALWAYS_ASSERT(meshOpt.has_value());
-                //std::cout << "Successfully deserialized" << std::endl;
                 geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
             } else {
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
@@ -244,10 +242,13 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         for (const auto jsonLight : sceneJson["lights"]) {
             std::string type = jsonLight["type"].get<std::string>();
             if (type == "infinite") {
+                std::cout << "Infinite area light" << std::endl;
                 auto transform = getTransform(jsonLight["transform"]);
                 auto scale = readVec3(jsonLight["scale"]);
                 auto numSamples = jsonLight["num_samples"].get<int>();
                 auto texture = getColorTexture(jsonLight["texture"].get<int>());
+
+                std::cout << "Infinite area light with id: " << jsonLight["texture"].get<int>() << std::endl;
 
                 config.scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, scale, numSamples, texture));
             } else if (type == "distant") {
@@ -255,6 +256,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 auto L = readVec3(jsonLight["L"]);
                 auto dir = readVec3(jsonLight["direction"]);
 
+                std::cout << "Distant area light" << std::endl;
                 config.scene.addInfiniteLight(std::make_shared<DistantLight>(transform, L, dir));
             } else {
                 THROW_ERROR("Unknown light type");
@@ -300,7 +302,9 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         file >> json;
     }
 
-    RenderConfig config(32llu * 1024llu * 1024llu * 1024llu); // 32GB should be enough?
+    // Argument is the size of the geometry cache. This is just a temporary cache because the batched
+    // acceleration structure creates its own for rendering (clearing this cache).
+    RenderConfig config(32llu * 1024llu * 1024llu * 1024llu);
     {
         std::cout << "Getting config" << std::endl;
         auto configJson = json["config"];
@@ -427,7 +431,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 auto mappedGeometryFile = mappedGeometryFiles[goemetryFileString];
                 auto resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
                     auto buffer = gsl::make_span(mappedGeometryFile.data(), mappedGeometryFile.size()).subspan(startByte, sizeBytes);
-                    std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(buffer.data()));
+                    std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(buffer.data()), transform);
                     ALWAYS_ASSERT(meshOpt.has_value());
                     return std::move(*meshOpt);
                 });
