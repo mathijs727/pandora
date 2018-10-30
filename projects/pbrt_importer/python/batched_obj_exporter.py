@@ -23,14 +23,15 @@ class BatchedObjExporter:
         filename, start_byte, size_bytes = self._current_mesh_batch.addTriangleMesh(
             triangles, positions, normals, tangents, uv_coords)
 
-        assert(size_bytes != 2147483647)# Not => that is probably an error
-        print(f"New mesh at byte {start_byte} of size {size_bytes} bytes")
+        assert(size_bytes != 2147483647)# -1 => probably an error
+        #print(f"New mesh at byte {start_byte} of size {size_bytes} bytes")
         if start_byte + size_bytes > self._min_batch_size:
+            print(f"Ending batch with {start_byte+size_bytes} bytes written")
             self._create_new_batch()
 
         return (filename, start_byte, size_bytes)
 
     def _create_new_batch(self):
-        print("Creating new Pandora mesh batch...")
-        self._current_mesh_batch = pandora_py.PandoraMeshBatch(
-            self._gen_filename())
+        new_mesh_filename = self._gen_filename()
+        print(f"Creating new Pandora mesh batch: {new_mesh_filename}")
+        self._current_mesh_batch = pandora_py.PandoraMeshBatch(new_mesh_filename)

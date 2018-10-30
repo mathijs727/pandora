@@ -42,6 +42,12 @@ PandoraMeshBatch::PandoraMeshBatch(std::string filename) :
     m_file(filename),
     m_currentPos(0)
 {
+    std::cout << "PandoraMeshBatch(" << filename << ")" << std::endl;
+}
+
+PandoraMeshBatch::~PandoraMeshBatch()
+{
+    std::cout << "~PandoraMeshBatch() => " << m_filename << std::endl;
 }
 
 py::object PandoraMeshBatch::addTriangleMesh(

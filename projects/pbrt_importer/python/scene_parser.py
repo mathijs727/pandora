@@ -206,7 +206,8 @@ class SceneParser:
                 with tempfile.NamedTemporaryFile("wb+", dir=self._out_texture_folder, suffix=suffix, delete=False) as out_file:
                     with open(v, "rb") as in_file:
                         out_file.write(in_file.read())
-                    v = os.path.relpath(out_file.name, self._out_texture_folder)
+                    v = os.path.relpath(out_file.name, self._out_folder)
+                    #print(f"{out_file.name} is {v} relative to {self._out_folder}")
 
             arguments[key] = v
 

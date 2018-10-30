@@ -11,7 +11,7 @@ class PandoraMeshBatch
 {
 public:
     PandoraMeshBatch(std::string filename);
-    ~PandoraMeshBatch() = default;
+    ~PandoraMeshBatch();
 
     boost::python::object addTriangleMesh(
         ndarray npTriangles,
