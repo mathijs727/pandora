@@ -236,7 +236,7 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
     // Compute barycentric coordinates and t value for triangle intersection
     float b0 = hitInfo.geometricUV.x;
     float b1 = hitInfo.geometricUV.y;
-    float b2 = 1.0f - hitInfo.geometricUV.x - hitInfo.geometricUV.y;
+    float b2 = std::max(0.0f, std::min(1.0f, 1.0f - hitInfo.geometricUV.x - hitInfo.geometricUV.y));
     assert(b2 >= 0.0f && b2 <= 1.0f);
 #else
     float b0 = 1 - hitInfo.geometricUV.u - hitInfo.geometricUV.v;
