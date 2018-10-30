@@ -76,7 +76,7 @@ inline std::optional<glm::vec3> refract(const glm::vec3& wi, const glm::vec3& n,
     float cosThetaI = glm::dot(n, wi);
     float sin2thetaI = std::max(0.0f, 1.0f - cosThetaI * cosThetaI);
     float sin2thetaT = eta * eta * sin2thetaI;
-    if (sin2thetaT)// Total internal reflection
+    if (sin2thetaT >= 1.0f)// Total internal reflection
         return {};
     float cosThetaT = std::sqrt(1 - sin2thetaT);
     return eta * -wi + (eta * cosThetaI - cosThetaT) * glm::vec3(n);
