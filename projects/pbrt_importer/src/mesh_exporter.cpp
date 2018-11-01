@@ -1,14 +1,15 @@
 #include "mesh_exporter.h"
+#include <cassert>
 #include <fstream>
 #include <glm/glm.hpp>
 #include <gsl/gsl>
 #include <iostream>
-#include <cassert>
 //#include <tinyply.h>
 #include <algorithm>
-#include <vector>
+#include <pandora/core/transform.h>
 #include <pandora/geometry/triangle.h>
 #include <pandora/utility/error_handling.h>
+#include <vector>
 
 namespace py = boost::python;
 namespace np = boost::python::numpy;
@@ -37,10 +38,10 @@ static std::vector<T> castArray(gsl::span<S> in)
     return ret;
 }
 
-PandoraMeshBatch::PandoraMeshBatch(std::string filename) :
-    m_filename(filename),
-    m_file(filename),
-    m_currentPos(0)
+PandoraMeshBatch::PandoraMeshBatch(std::string filename)
+    : m_filename(filename)
+    , m_file(filename)
+    , m_currentPos(0)
 {
     std::cout << "PandoraMeshBatch(" << filename << ")" << std::endl;
 }
@@ -55,7 +56,8 @@ py::object PandoraMeshBatch::addTriangleMesh(
     np::ndarray npPositions,
     np::ndarray npNormals,
     np::ndarray npTangents,
-    np::ndarray npUVCoords)
+    np::ndarray npUVCoords,
+    boost::python::list pythonTransform)
 {
     // NOTE: convert back to 32 bit numbers because assimp requires a recompile to support doubles.
     // Using 32 bit floats everywhere is also not an option because ujson and rapidjson (Python bindings) cannot serialize them.
@@ -65,6 +67,14 @@ py::object PandoraMeshBatch::addTriangleMesh(
     auto tangents = reinterpretNumpyArray<glm::dvec3>(npTangents);
     auto uvCoords = reinterpretNumpyArray<glm::dvec2>(npUVCoords);
 
+    glm::mat4 transformMatrix;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            transformMatrix[i][j] = py::extract<double>(pythonTransform[i][j]);
+        }
+    }
+    pandora::Transform transform(transformMatrix);
+
     pandora::ALWAYS_ASSERT(triangles.size() < std::numeric_limits<unsigned>::max());
     pandora::ALWAYS_ASSERT(positions.size() < std::numeric_limits<unsigned>::max());
     unsigned numTriangles = static_cast<unsigned>(triangles.size());
@@ -73,20 +83,26 @@ py::object PandoraMeshBatch::addTriangleMesh(
     auto owningTriangles = std::make_unique<glm::ivec3[]>(numTriangles);
     std::copy(std::begin(triangles), std::end(triangles), owningTriangles.get());
     auto owningPositions = std::make_unique<glm::vec3[]>(numVertices);
-    std::copy(std::begin(positions), std::end(positions), std::next(owningPositions.get(), 0));
+    std::transform(std::begin(positions), std::end(positions), std::next(owningPositions.get(), 0), [&](auto p){
+        return transform.transformPoint(p);
+    });
 
     std::unique_ptr<glm::vec3[]> owningNormals = nullptr;
     if (!normals.empty()) {
         pandora::ALWAYS_ASSERT(normals.size() == triangles.size());
         owningNormals = std::make_unique<glm::vec3[]>(numTriangles);
-        std::copy(std::begin(normals), std::end(normals), std::next(owningNormals.get(), 0));
+        std::transform(std::begin(normals), std::end(normals), std::next(owningNormals.get(), 0), [&](auto n){
+            return transform.transformNormal(n);
+        });
     }
 
     std::unique_ptr<glm::vec3[]> owningTangents = nullptr;
     if (!tangents.empty()) {
         pandora::ALWAYS_ASSERT(tangents.size() == triangles.size());
         owningTangents = std::make_unique<glm::vec3[]>(numTriangles);
-        std::copy(std::begin(tangents), std::end(tangents), std::next(owningTangents.get(), 0));
+        std::transform(std::begin(tangents), std::end(tangents), std::next(owningTangents.get(), 0), [&](auto t) {
+            return transform.transformNormal(t);// Is this the correct transform?
+        });
     }
 
     std::unique_ptr<glm::vec2[]> owningUVCoords = nullptr;

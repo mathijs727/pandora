@@ -17,6 +17,8 @@ constexpr bool OUT_OF_CORE_DISABLE_FILE_CACHING = false;
 constexpr size_t OUT_OF_CORE_MEMORY_LIMIT = 1024llu * 1024llu * 1024llu * 128llu;
 constexpr size_t OUT_OF_CORE_SVDAG_RESOLUTION = 64;
 
+constexpr bool ISLAND_WATER_MATERIAL = true;// Give the water in the Island scene a translucent material
+
 // Use random seeds or deterministic seeds (so images can be reproduced)
 constexpr bool USE_RANDOM_SEEDS = true;
 

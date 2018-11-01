@@ -294,8 +294,6 @@ class SceneParser:
             })
 
     def _create_geometric_scene_object(self, shape):
-        #transform_matrix = np.reshape(shape.transform, (4, 4))
-        #shape_bounds = None
         if shape.type == "plymesh":
             handle, filename = tempfile.mkstemp(
                 suffix=".ply", dir=self._out_ply_mesh_folder)
@@ -315,15 +313,15 @@ class SceneParser:
                 string = f.read(shape.arguments["num_bytes"])
                 triangle_mesh_data = pickle.loads(string)
                 filename, start_byte, size_bytes = self._export_triangle_mesh(
-                    triangle_mesh_data)
+                    triangle_mesh_data, shape.transform)
 
             filename = os.path.relpath(filename, start=self._out_folder)
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": filename,
                 "start_byte": start_byte,
-                "size_bytes": size_bytes,
-                "transform": self._create_transform(shape.transform)
+                "size_bytes": size_bytes
+                #"transform": self._create_transform(shape.transform)
             })
         else:
             # print(f"Ignoring shape of unsupported type {shape.type}")
@@ -383,7 +381,7 @@ class SceneParser:
                     "transform": self._create_transform(instance.transform)
                 })
 
-    def _export_triangle_mesh(self, geometry):
+    def _export_triangle_mesh(self, geometry, transform):
         triangles = geometry["indices"]["value"]
         positions = geometry["P"]["value"]
 
@@ -402,7 +400,7 @@ class SceneParser:
         else:
             uv_coords = np.empty((0))
 
-        return self._out_mesh_exporter.add_triangle_mesh(triangles, positions, normals, tangents, uv_coords)
+        return self._out_mesh_exporter.add_triangle_mesh(triangles, positions, normals, tangents, uv_coords, transform)
 
     def data(self):
         self._transforms.finish()
