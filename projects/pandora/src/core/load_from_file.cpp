@@ -3,6 +3,7 @@
 #include "pandora/lights/distant_light.h"
 #include "pandora/lights/environment_light.h"
 #include "pandora/materials/matte_material.h"
+#include "pandora/materials/translucent_material.h"
 #include "pandora/scene/geometric_scene_object.h"
 #include "pandora/scene/instanced_scene_object.h"
 #include "pandora/textures/constant_texture.h"
@@ -184,16 +185,23 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
             auto geometryFile = basePath / std::filesystem::path(jsonGeometry["filename"].get<std::string>());
 
             if (geometryFile.extension() == ".bin"s) {
-                glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
                 ALWAYS_ASSERT(std::filesystem::exists(geometryFile));
                 auto mappedFile = mio::mmap_source(geometryFile.string(), startByte, sizeBytes);
 
-                std::optional<TriangleMesh> meshOpt = TriangleMesh(
-                    serialization::GetTriangleMesh(mappedFile.data()), transform);
-                ALWAYS_ASSERT(meshOpt.has_value());
-                geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
+                if (jsonGeometry.find("transform") != jsonGeometry.end()) {
+                    glm::mat4 transform = getTransform(jsonGeometry["transform"]);
+                    std::optional<TriangleMesh> meshOpt = TriangleMesh(
+                        serialization::GetTriangleMesh(mappedFile.data()), transform);
+                    ALWAYS_ASSERT(meshOpt.has_value());
+                    geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
+                } else {
+                    std::optional<TriangleMesh> meshOpt = TriangleMesh(
+                        serialization::GetTriangleMesh(mappedFile.data()));
+                    ALWAYS_ASSERT(meshOpt.has_value());
+                    geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
+                }
             } else {
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                 std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, transform);
@@ -396,6 +404,13 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                     const auto& kd = getColorTexture(arguments["kd"].get<int>());
                     const auto& sigma = getFloatTexture(arguments["sigma"].get<int>());
                     materials.push_back(std::make_shared<MatteMaterial>(kd, sigma));
+                } else if(materialType == "translucent") {
+                    auto kd = getColorTexture(arguments["kd"].get<int>());
+                    auto ks = getColorTexture(arguments["ks"].get<int>());
+                    auto roughness = getFloatTexture(arguments["roughness"].get<int>());
+                    auto transmit = getColorTexture(arguments["transmit"].get<int>());
+                    auto reflect = getColorTexture(arguments["reflect"].get<int>());
+                    materials.push_back(std::make_shared<TranslucentMaterial>(kd, ks, roughness, reflect, transmit, true));
                 } else {
                     std::cout << "Unknown material type \"" << materialType << "\"! Substituting with placeholder." << std::endl;
                     materials.push_back(std::make_shared<MatteMaterial>(dummyColorTexture, dummyFloatTexture));
@@ -420,7 +435,6 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
             auto geometryFile = basePath / std::filesystem::path(jsonGeometry["filename"].get<std::string>());
 
             if (geometryFile.extension() == ".bin"s) {
-                glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
 
@@ -429,12 +443,25 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                     mappedGeometryFiles[goemetryFileString] = mio::shared_mmap_source(geometryFile.string(), 0, mio::map_entire_file);
                 }
                 auto mappedGeometryFile = mappedGeometryFiles[goemetryFileString];
-                auto resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
-                    auto buffer = gsl::make_span(mappedGeometryFile.data(), mappedGeometryFile.size()).subspan(startByte, sizeBytes);
-                    std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(buffer.data()), transform);
-                    ALWAYS_ASSERT(meshOpt.has_value());
-                    return std::move(*meshOpt);
-                });
+
+                EvictableResourceID resourceID;
+                if (jsonGeometry.find("transform") != jsonGeometry.end()) {
+                    glm::mat4 transform = getTransform(jsonGeometry["transform"]);
+                    resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
+                        auto buffer = gsl::make_span(mappedGeometryFile.data(), mappedGeometryFile.size()).subspan(startByte, sizeBytes);
+                        std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(buffer.data()), transform);
+                        ALWAYS_ASSERT(meshOpt.has_value());
+                        return std::move(*meshOpt);
+                    });
+                } else {
+                    resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
+                        auto buffer = gsl::make_span(mappedGeometryFile.data(), mappedGeometryFile.size()).subspan(startByte, sizeBytes);
+                        std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(buffer.data()));
+                        ALWAYS_ASSERT(meshOpt.has_value());
+                        return std::move(*meshOpt);
+                    });
+                }
+                
                 geometry.push_back(resourceID);
             } else {
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
