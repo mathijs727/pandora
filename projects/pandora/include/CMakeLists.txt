@@ -60,7 +60,7 @@ PUBLIC
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/shading/lambert_material.h"
 
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/mesh_to_voxel.h"
+    #"${CMAKE_CURRENT_LIST_DIR}/pandora/svo/mesh_to_voxel.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/sparse_voxel_dag.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/sparse_voxel_octree.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/voxel_grid.h"

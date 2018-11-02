@@ -172,3 +172,8 @@ Small change, big impact: only flush nodes that have at least 1/8th the amount o
 
 ==== Disabling file caching ====
 Is it even possible to disable file caching on Windows? Disabling min/max limit does not disable file caching. Setting both to 0 is also not allowed. Adding FILE_FLAG_NO_BUFFERING seems to work, Windows shows 200MB/s with peaks of 600MB/s reads (Samsung 970 EVO 500GB) compared to 0MB/s with buffering enabled. Be warned that disk caching (like SLC cache on MLC/TLC SSD drives) is also at work and cannot be disabled.
+
+
+==== Memory usage without missing cache ====
+San miguel: 552359044    (Windows)
+Crown: 254933920         (Windows)

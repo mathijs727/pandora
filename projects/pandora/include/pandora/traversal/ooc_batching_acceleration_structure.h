@@ -773,6 +773,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLe
     bool forwardedBatches = false;
 
     OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch* outBatch = m_immutableRayBatchList;
+    int forwardedRays = 0;
     for (auto& batch : m_threadLocalActiveBatch) {
         if (batch) {
             for (const auto& [ray, hitInfoOpt, userState, insertHandle] : *batch) {
@@ -790,6 +791,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLe
                 } else {
                     outBatch->tryPush(ray, userState, insertHandle);
                 }
+                forwardedRays++;
             }
 
             m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
@@ -813,7 +815,11 @@ inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::flush
         bool done = true;
         for (auto* node : m_bvh.leafs()) {
             done = done && !node->hasFullBatches();
-            done = done && !node->forwardPartiallyFilledBatches();
+
+            // Put this in a separate variable doing the following will only execute when done is false:
+            // done = done && !forwardedBatches() 
+            bool forwardedBatches = node->forwardPartiallyFilledBatches();
+            done = done && !forwardedBatches;
         }
 
         if (done)
@@ -855,8 +861,6 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
     const int batchesThreshold = maxFullBatchesNonCached / 8;
 
     tbb::flow::graph g;
-
-    //std::cout << "=====================" << std::endl;
 
     // Generate a task for each top-level leaf node that is in cache OR has enough full batches
     static constexpr float traversalCostPerRay = 1.0f; // Magic number based on CPU IPC & clock speed (ignore core count)
@@ -943,7 +947,8 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
             size_t raysProcessed = 0;
             auto* batch = firstBatch;
             while (batch) {
-                ALWAYS_ASSERT(std::get<0>(op).try_put({ { unprocessedBatchesCounter, batch }, geometry }));
+                bool success = std::get<0>(op).try_put({ { unprocessedBatchesCounter, batch }, geometry });
+                assert(success);
                 batch = batch->next();
             }
         });
@@ -998,11 +1003,13 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
             }
 
             if (unprocessedBatchCounter->fetch_sub(1) == 1) {
-                ALWAYS_ASSERT(std::get<0>(op).try_put(tbb::flow::continue_msg()));
+                auto success = std::get<0>(op).try_put(tbb::flow::continue_msg());
+                assert(success);
             }
 
             accelerationStructurePtr->m_batchAllocator.deallocate(batch);
         });
+
 
     // NOTE: The source starts outputting as soon as an edge is connected.
     //       So make sure it is the last edge that we connect.

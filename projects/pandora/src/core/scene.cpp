@@ -373,6 +373,7 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
             break;
         }
 
+        std::cout << "Embree error in grouping scene objects:" << std::endl;
         std::cout << ": " << str << std::endl;
     };
 
@@ -433,24 +434,40 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
         virtual std::pair<std::vector<const T*>, std::unordered_set<const T*>> group(
             unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const
         {
-            if (sceneObject->numPrimitives() > minPrimsPerGroup) {
-                std::cout << "Add single scene object because prims " << sceneObject->numPrimitives() << " > " << minPrimsPerGroup << std::endl;
-                out.emplace_back(std::vector<const T*> { sceneObject });
+            unsigned totalPrimitiveCount = 0;
+            for (const auto* sceneObject : sceneObjects) {
+                totalPrimitiveCount += sceneObject->numPrimitives();
+            }
+
+            if (totalPrimitiveCount) {
+                std::cout << "Add single scene object because prims " << totalPrimitiveCount << " > " << minPrimsPerGroup << std::endl;
+                std::vector<const T*> outGroup;
+                std::copy(std::begin(sceneObjects), std::end(sceneObjects), std::back_inserter(outGroup));
+                out.emplace_back(std::move(outGroup));
                 return { {}, {} };
             }
 
-            if (const auto* instancedSceneObject = dynamic_cast<const InstancedT*>(sceneObject)) {
-                return { { sceneObject }, { instancedSceneObject->getBaseObject() } };
-            } else {
-                return { { sceneObject }, { sceneObject } };
+            std::vector<const T*> outObjects;
+            std::unordered_set<const T*> outUniqueObjects;
+            for (const auto* sceneObject : sceneObjects) {
+                outObjects.push_back(sceneObject);
+                if (const auto* instancedSceneObject = dynamic_cast<const InstancedT*>(sceneObject)) {
+                    outUniqueObjects.insert(instancedSceneObject->getBaseObject());
+                } else {
+                    outUniqueObjects.insert(sceneObject);
+                }
             }
+
+            return { std::move(outObjects), std::move(outUniqueObjects) };
         }
-        const T* sceneObject;
+        
+        eastl::fixed_vector<const T*, 2> sceneObjects;
     };
 
     std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
     embreeBuildPrimitives.reserve(objects.size());
     uint32_t sceneObjectID = 0;
+    ALWAYS_ASSERT(objects.size() < std::numeric_limits<uint32_t>::max());
     for (const auto& sceneObject : objects) {
         auto bounds = sceneObject->worldBounds();
 
@@ -466,6 +483,8 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
         embreeBuildPrimitives.push_back(primitive);
     }
 
+    std::cout << "Creating scene object groups over " << embreeBuildPrimitives.size() << " primitives" << std::endl;
+
     // Build the BVH using the Embree BVH builder API
     RTCDevice device = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);
@@ -477,7 +496,7 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     arguments.buildQuality = RTC_BUILD_QUALITY_MEDIUM;
     arguments.maxBranchingFactor = 2;
     arguments.minLeafSize = 1;
-    arguments.maxLeafSize = 1;
+    arguments.maxLeafSize = 2;// Not 1 because that crashes on the Island scene because of an infinite recursion in Embree (reaching max depth)
     arguments.bvh = bvh;
     arguments.primitives = embreeBuildPrimitives.data();
     arguments.primitiveCount = embreeBuildPrimitives.size();
@@ -488,7 +507,7 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
         return new (mem) BVHInnerNode();
     };
     arguments.setNodeChildren = [](void* voidNodePtr, void** childPtr, unsigned numChildren, void* userPtr) {
-        ALWAYS_ASSERT(numChildren == 2);
+        assert(numChildren == 2);
         auto* nodePtr = reinterpret_cast<BVHInnerNode*>(voidNodePtr);
 
         nodePtr->leftChild = reinterpret_cast<BVHNode*>(childPtr[0]);
@@ -496,13 +515,15 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     };
     arguments.setNodeBounds = [](void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr) {};
     arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
-        ALWAYS_ASSERT(numPrims == 1);
+        assert(numPrims <= 2);
 
         const auto& sceneObjects = *reinterpret_cast<gsl::span<std::unique_ptr<T>>*>(userPtr);
 
         auto* mem = rtcThreadLocalAlloc(alloc, sizeof(BVHLeafNode), 8);
         auto nodePtr = new (mem) BVHLeafNode();
-        nodePtr->sceneObject = sceneObjects[prims[0].primID].get();
+        for (size_t primIdx = 0; primIdx < numPrims; primIdx++) {
+            nodePtr->sceneObjects.push_back(sceneObjects[prims[primIdx].primID].get());
+        }
         return nodePtr;
     };
 

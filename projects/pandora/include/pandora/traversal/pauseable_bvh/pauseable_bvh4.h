@@ -69,7 +69,7 @@ private:
         LeafObj* leafPtr;
     };
 
-    struct alignas(64) BVHNode {
+    struct alignas(16) BVHNode {
         simd::vec4_f32 minX;
         simd::vec4_f32 minY;
         simd::vec4_f32 minZ;
