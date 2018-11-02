@@ -127,6 +127,7 @@ inline EvictableResourceID LRUCache<T>::emplaceFactoryUnsafe(std::function<T(voi
     m_cacheMap.emplace(std::piecewise_construct,
         std::forward_as_tuple(resourceID),
         std::forward_as_tuple());
+    m_cacheMap[resourceID].second = m_history.end();
 
     return resourceID;
 }
@@ -142,6 +143,7 @@ inline EvictableResourceID LRUCache<T>::emplaceFactoryThreadSafe(std::function<T
     m_cacheMap.emplace(std::piecewise_construct,
         std::forward_as_tuple(resourceID),
         std::forward_as_tuple());
+    m_cacheMap[resourceID].second = m_history.end();
 
     return resourceID;
 }
