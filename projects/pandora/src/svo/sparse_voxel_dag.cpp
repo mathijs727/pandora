@@ -86,7 +86,6 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
         uint8_t leafMask = 0x00;
         eastl::fixed_vector<NodeOffset, 8> childrenOffsets;
 
-        std::cout << "Nodes in current level of SVO: " << previousLevelNodes.size() << std::endl;
         uint_fast32_t prevMortonCode = previousLevelNodes[0].mortonCode >> 3;
         // Loop over all the cubes of the previous (more refined level)
         for (const auto& childNodeInfo : previousLevelNodes) {
