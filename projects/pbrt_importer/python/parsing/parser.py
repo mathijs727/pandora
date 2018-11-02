@@ -408,7 +408,6 @@ def p_statement_transform_concat(p):
     "statement_transform : CONCAT_TRANSFORM list"
     #"statement_transform : CONCAT_TRANSFORM L_SQUARE_BRACKET NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER R_SQUARE_BRACKET"
     global cur_transform
-    print("CONCAT TRANSFORM")
     matrix = np.transpose(np.array(p[2]).reshape((4, 4)))
     cur_transform = np.matmul(cur_transform, matrix)
 
