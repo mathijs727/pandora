@@ -216,6 +216,7 @@ private:
         std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
         std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
 
+        void forceLoad() { m_accelerationStructurePtr->m_geometryCache.getBlocking(m_geometryDataCacheID); }
         bool inCache() const { return m_accelerationStructurePtr->m_geometryCache.inCache(m_geometryDataCacheID); }
         bool hasFullBatches() { return m_immutableRayBatchList.load() != nullptr; }
         bool forwardPartiallyFilledBatches(); // Adds the active batches to the list of immutable batches (even if they are not full)
@@ -355,8 +356,10 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, Cache,
     }
     ALWAYS_ASSERT(std::filesystem::is_directory(OUT_OF_CORE_CACHE_FOLDER));
 
+    std::cout << "Creating scene object groups" << std::endl;
     auto sceneObjectGroups = scene.groupOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF);
 
+    std::cout << "Creating leaf nodes" << std::endl;
     std::mutex m;
     std::vector<TopLevelLeafNode> leafs;
     tbb::parallel_for(tbb::blocked_range<size_t>(0llu, sceneObjectGroups.size()), [&](tbb::blocked_range<size_t> localRange) {
@@ -370,8 +373,17 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, Cache,
         }
     });
 
+    std::cout << "Force loading BVH leaf nodes for debugging purposes" << std::endl;
+    for (auto& leaf : leafs) {
+        leaf.forceLoad();
+    }
+    std::cout << "Bot level structures bytes used: " << g_stats.memory.botLevelLoaded << std::endl;
+    system("PAUSE");
+    exit(1);
+
     g_stats.numTopLevelLeafNodes += leafs.size();
 
+    std::cout << "Building top-level BVH" << std::endl;
     auto ret = PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
     TopLevelLeafNode::compressSVDAGs(ret.leafs());
     return std::move(ret);
@@ -413,6 +425,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
     gsl::span<const OOCSceneObject*> sceneObjects,
     Cache<GeometryData>* cache)
 {
+    std::cout << "OOCBatchingAccelerationStructure::generateCachedBVH" << std::endl;
     // Collect the list of [unique] geometric scene objects that are referenced by instanced scene objects
     std::set<const OOCGeometricSceneObject*> instancedBaseObjects;
     for (const auto* sceneObject : sceneObjects) {
@@ -441,6 +454,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
 
         // NOTE: the "geometry" variable ensures that the geometry pointed to stays in memory for the BVH build
         //       (which requires the geometry to determine the leaf node bounds).
+        std::cout << "Building instance base BVH with " << leafs.size() << " leafs" << std::endl;
         auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>(leafs);
         instancedBVHs[instancedGeometricSceneObject] = bvh;
 
@@ -497,6 +511,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
         }
     }
 
+    std::cout << "Build leaf BVH over " << leafs.size() << " leafs" << std::endl;
     WiVeBVH8Build8<BotLevelLeafNode> bvh(leafs);
     auto serializedBVH = bvh.serialize(fbb);
 

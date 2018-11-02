@@ -70,7 +70,7 @@ py::object PandoraMeshBatch::addTriangleMesh(
     glm::mat4 transformMatrix;
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
-            transformMatrix[i][j] = py::extract<double>(pythonTransform[i][j]);
+            transformMatrix[i][j] = py::extract<double>(pythonTransform[j][i]);
         }
     }
     pandora::Transform transform(transformMatrix);

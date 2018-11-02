@@ -107,7 +107,7 @@ int main(int argc, char** argv)
 
     std::cout << "Writing output: " << vm["out"].as<std::string>() << ".jpg/exr" << std::endl;
     writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".jpg", true);
-    writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".exr", false);
+    //writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".exr", false);
 
     std::cout << "Done" << std::endl;
     return 0;
