@@ -329,13 +329,6 @@ private:
         std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>> bvh;
     };
     struct CachedBatchingPoint {
-        CachedBatchingPoint(size_t geometrySize, WiVeBVH8Build8<BotLevelLeafNode>&& bvh, std::vector<std::shared_ptr<SceneObjectGeometry>>&& geometryOwningPointers)
-            : geometrySize(geometrySize)
-            , leafBVH(std::move(bvh))
-            , geometryOwningPointers(std::move(geometryOwningPointers))
-        {
-        }
-
         size_t sizeBytes() const
         {
             size_t size = sizeof(decltype(*this));
@@ -349,25 +342,15 @@ private:
         WiVeBVH8Build8<BotLevelLeafNode> leafBVH;
         std::vector<std::shared_ptr<SceneObjectGeometry>> geometryOwningPointers;
     };
-    struct CacheItem {
-        size_t sizeBytes() const
-        {
-            if (std::holds_alternative<CachedInstanceData>(data)) {
-                return std::get<CachedInstanceData>(data).sizeBytes();
-            } else {
-                return std::get<std::shared_ptr<CachedBatchingPoint>>(data)->sizeBytes();
-            }
-        }
-        std::variant<CachedInstanceData, std::shared_ptr<CachedBatchingPoint>> data;
-    };
+    using MyCacheT = CacheT<CachedInstanceData, CachedBatchingPoint>;
 
     class TopLevelLeafNode {
     public:
         TopLevelLeafNode(
             std::filesystem::path cacheFile,
             gsl::span<const OOCSceneObject*> sceneObjects,
-            const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CacheItem>>& serializedInstanceBaseSceneObject,
-            CacheT<CacheItem>* geometryCache,
+            const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CachedInstanceData, MyCacheT>>& serializedInstanceBaseSceneObject,
+            MyCacheT* geometryCache,
             OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
         TopLevelLeafNode(TopLevelLeafNode&& other);
 
@@ -376,7 +359,7 @@ private:
         std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
         std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
 
-        void forceLoad() { m_accelerationStructurePtr->m_geometryCache.getBlocking(m_geometryDataCacheID); }
+        void forceLoad() { m_accelerationStructurePtr->m_geometryCache.getBlocking<CachedBatchingPoint>(m_geometryDataCacheID); }
         bool inCache() const { return m_accelerationStructurePtr->m_geometryCache.inCache(m_geometryDataCacheID); }
         bool hasFullBatches() { return m_immutableRayBatchList.load() != nullptr; }
         bool forwardPartiallyFilledBatches(); // Adds the active batches to the list of immutable batches (even if they are not full)
@@ -395,8 +378,8 @@ private:
         static EvictableResourceID generateCachedBVH(
             std::filesystem::path cacheFile,
             gsl::span<const OOCSceneObject*> sceneObjects,
-            const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CacheItem>>& serializedInstanceBaseSceneObject,
-            CacheT<CacheItem>* cache);
+            const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CachedInstanceData, MyCacheT>>& serializedInstanceBaseSceneObject,
+            MyCacheT* cache);
 
         struct SVDAGRayOffset {
             glm::vec3 gridBoundsMin;
@@ -418,13 +401,13 @@ private:
     };
 
     static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(
-        CacheT<CacheItem>* cache,
+        MyCacheT* cache,
         const Scene& scene,
         OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr);
 
 private:
     const int m_numLoadingThreads;
-    CacheT<CacheItem> m_geometryCache;
+    MyCacheT m_geometryCache;
 
     GrowingFreeListTS<RayBatch> m_batchAllocator;
     //tbb::scalable_allocator<RayBatch> m_batchAllocator;
@@ -507,7 +490,7 @@ inline void OOCBatchingAccelerationStructure<UserState, BatchSize>::placeInterse
 
 template <typename UserState, size_t BatchSize>
 inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode, UserState> OOCBatchingAccelerationStructure<UserState, BatchSize>::buildBVH(
-    CacheT<CacheItem>* cache,
+    MyCacheT* cache,
     const Scene& scene,
     OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructurePtr)
 {
@@ -529,9 +512,8 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
 
     // For each of those objects build a BVH and store the object+BVH on disk
     DiskDataBatcher fileBatcher(OUT_OF_CORE_CACHE_FOLDER, "instanced_object", 500 * 1024 * 1024); // Batch instanced geometry into files of 500MB
-    std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CacheItem>> instancedBVHs;
+    std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CachedInstanceData, MyCacheT>> instancedBVHs;
     int instanceBaseFileNum = 0;
-    size_t bytesWritten = 0;
     for (const auto* instancedBaseSceneObject : instancedBaseSceneObjects) { // TODO: parallelize
         auto geometry = instancedBaseSceneObject->getGeometryBlocking();
 
@@ -558,11 +540,10 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
         fbb.Finish(serializedBaseSceneObject);
 
         // Write to disk
-        bytesWritten += fbb.GetSize();
         auto filePart = fileBatcher.writeData(fbb);
 
         // Callback to restore the data we have just written to disk
-        auto resourceID = cache->emplaceFactoryThreadSafe([filePart]() -> CacheItem {
+        auto resourceID = cache->emplaceFactoryThreadSafe<CachedInstanceData>([filePart]() -> CachedInstanceData {
             auto buffer = filePart.load();
             auto serializedBaseSceneObject = serialization::GetOOCBatchingBaseSceneObject(buffer.data());
             auto geometry = std::make_shared<GeometricSceneObjectGeometry>(serializedBaseSceneObject->base_geometry());
@@ -574,9 +555,9 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
             }
 
             auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>(serializedBaseSceneObject->bvh(), std::move(leafs));
-            return { CachedInstanceData { geometry, bvh } };
+            return CachedInstanceData { geometry, bvh };
         });
-        instancedBVHs.insert({ instancedBaseSceneObject, EvictableResourceHandle<CacheItem>(cache, resourceID) });
+        instancedBVHs.insert({ instancedBaseSceneObject, EvictableResourceHandle<CachedInstanceData, MyCacheT>(cache, resourceID) });
     }
     fileBatcher.flush();
 
@@ -617,8 +598,8 @@ template <typename UserState, size_t BatchSize>
 inline OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(
     std::filesystem::path cacheFile,
     gsl::span<const OOCSceneObject*> sceneObjects,
-    const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CacheItem>>& baseSceneObjectCacheHandles,
-    CacheT<CacheItem>* geometryCache,
+    const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CachedInstanceData, MyCacheT>>& baseSceneObjectCacheHandles,
+    MyCacheT* geometryCache,
     OOCBatchingAccelerationStructure<UserState, BatchSize>* accelerationStructure)
     : m_geometryDataCacheID(generateCachedBVH(cacheFile, sceneObjects, baseSceneObjectCacheHandles, geometryCache))
     , m_diskSize(std::filesystem::file_size(cacheFile))
@@ -648,8 +629,8 @@ template <typename UserState, size_t BatchSize>
 inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::generateCachedBVH(
     std::filesystem::path cacheFilePath,
     gsl::span<const OOCSceneObject*> sceneObjects,
-    const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CacheItem>>& instanceBaseSceneObjectHandleMapping,
-    CacheT<CacheItem>* cache)
+    const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CachedInstanceData, MyCacheT>>& instanceBaseSceneObjectHandleMapping,
+    MyCacheT* cache)
 {
     std::cout << "OOCBatchingAccelerationStructure::generateCachedBVH" << std::endl;
     /*// Collect the list of [unique] geometric scene objects that are referenced by instanced scene objects
@@ -699,7 +680,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
     std::vector<BotLevelLeafNode> leafs;
     std::vector<const OOCGeometricSceneObject*> geometricSceneObjects;
     std::vector<const OOCInstancedSceneObject*> instancedSceneObjects;
-    std::vector<EvictableResourceHandle<CacheItem>> instanceBaseResourceHandles; // ResourceID into the cache to load an instanced base scene object
+    std::vector<EvictableResourceHandle<CachedInstanceData, MyCacheT>> instanceBaseResourceHandles; // ResourceID into the cache to load an instanced base scene object
     for (const auto* sceneObject : sceneObjects) {
         if (const auto* geometricSceneObject = dynamic_cast<const OOCGeometricSceneObject*>(sceneObject)) {
             // Serialize
@@ -768,8 +749,8 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         file.close();
     }
 
-    auto resourceID = cache->emplaceFactoryThreadSafe([cacheFilePath, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects),
-                                                          instanceBaseResourceHandles = std::move(instanceBaseResourceHandles)]() -> CacheItem {
+    auto resourceID = cache->emplaceFactoryThreadSafe<CachedBatchingPoint>([cacheFilePath, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects),
+                                                                               instanceBaseResourceHandles = std::move(instanceBaseResourceHandles)]() -> CachedBatchingPoint {
 #ifdef __linux__
         // Linux does not support O_DIRECT in combination with memory mapped I/O (meaning we cannot bypass the
         // OS file cache). So instead we use posix I/O on Linux giving us the option to bypass the file cache at
@@ -819,10 +800,9 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
 
         // Load geometry/BVH of geometric nodes that are referenced by instancing nodes
         assert(instancedSceneObjects.size() == instanceBaseResourceHandles.size());
-        std::vector<CachedInstanceData> instanceBaseObjects;
+        std::vector<std::shared_ptr<CachedInstanceData>> instanceBaseObjects;
         for (const auto resourceHandle : instanceBaseResourceHandles) {
-            std::shared_ptr<CacheItem> cacheItem = resourceHandle.getBlocking();
-            CachedInstanceData cachedInstanceBaseData = std::get<CachedInstanceData>(cacheItem->data);
+            std::shared_ptr<CachedInstanceData> cachedInstanceBaseData = resourceHandle.getBlocking();
             instanceBaseObjects.push_back(cachedInstanceBaseData);
 
             /*auto geometry = std::make_shared<GeometricSceneObjectGeometry>(serializedInstanceBaseGeometry->Get(i));
@@ -861,7 +841,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         //const auto* serializedInstancedIDs = serializedTopLevelLeafNode->instanced_ids();
         assert(instanceBaseObjects.size() == serializedInstancedGeometry->Length());
         for (size_t i = 0; i < instanceBaseObjects.size(); i++) {
-            const auto& [baseGeometry, baseBVH] = instanceBaseObjects[i];
+            const auto& [baseGeometry, baseBVH] = *instanceBaseObjects[i];
 
             //auto geometry = std::make_shared<InstancedSceneObjectGeometry>(
             //    serializedInstancedGeometry->Get(static_cast<flatbuffers::uoffset_t>(i)),
@@ -875,10 +855,11 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         }
 
         auto bvh = WiVeBVH8Build8<BotLevelLeafNode>(serializedTopLevelLeafNode->bvh(), std::move(leafs));
-        return { std::make_shared<CachedBatchingPoint>(
+        return CachedBatchingPoint {
             geometrySize,
             std::move(bvh),
-            std::move(geometryOwningPointers)) };
+            std::move(geometryOwningPointers)
+        };
     });
     return resourceID;
 }
@@ -1161,19 +1142,17 @@ void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::f
     tbb::flow::limiter_node<BatchWithoutGeom> flowLimiterNode(g, flowConcurrency);
 
     // For each of those leaf nodes, load the geometry (asynchronously)
-    auto cacheSubGraph = std::move(accelerationStructurePtr->m_geometryCache.template getFlowGraphNode<RayBatch*>(g));
+    auto cacheSubGraph = std::move(accelerationStructurePtr->m_geometryCache.template getFlowGraphNode<RayBatch*, CachedBatchingPoint>(g));
 
     // Create a task for each batch associated with that leaf node (for increased parallelism)
-    using BatchWithGeom = std::pair<RayBatch*, std::shared_ptr<CacheItem>>;
+    using BatchWithGeom = std::pair<RayBatch*, std::shared_ptr<CachedBatchingPoint>>;
     using BatchWithGeomLimited = std::pair<std::pair<std::shared_ptr<std::atomic_int>, RayBatch*>, std::shared_ptr<CachedBatchingPoint>>;
     using BatchNodeType = tbb::flow::multifunction_node<BatchWithGeom, tbb::flow::tuple<BatchWithGeomLimited>>;
     BatchNodeType batchNode(
         g,
         tbb::flow::unlimited,
         [&](const BatchWithGeom& v, typename BatchNodeType::output_ports_type& op) {
-            auto [firstBatch, cacheItem] = v;
-            assert(std::holds_alternative<std::shared_ptr<CachedBatchingPoint>>(cacheItem->data));
-            auto geometry = std::get<std::shared_ptr<CachedBatchingPoint>>(cacheItem->data);
+            auto [firstBatch, geometry] = v;
 
             // Count the number of batches
             int numBatches = 0;

@@ -449,14 +449,14 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 EvictableResourceID resourceID;
                 if (jsonGeometry.find("transform") != jsonGeometry.end()) {
                     glm::mat4 transform = getTransform(jsonGeometry["transform"]);
-                    resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
+                    resourceID = geometryCache->emplaceFactoryUnsafe<TriangleMesh>([=]() -> TriangleMesh {
                         auto buffer = gsl::make_span(mappedGeometryFile.data(), mappedGeometryFile.size()).subspan(startByte, sizeBytes);
                         std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(buffer.data()), transform);
                         ALWAYS_ASSERT(meshOpt.has_value());
                         return std::move(*meshOpt);
                     });
                 } else {
-                    resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
+                    resourceID = geometryCache->emplaceFactoryUnsafe<TriangleMesh>([=]() -> TriangleMesh {
                         auto buffer = gsl::make_span(mappedGeometryFile.data(), mappedGeometryFile.size()).subspan(startByte, sizeBytes);
                         std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(buffer.data()));
                         ALWAYS_ASSERT(meshOpt.has_value());
@@ -467,7 +467,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 geometry.push_back(resourceID);
             } else {
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
-                auto resourceID = geometryCache->emplaceFactoryUnsafe([=]() -> TriangleMesh {
+                auto resourceID = geometryCache->emplaceFactoryUnsafe<TriangleMesh>([=]() -> TriangleMesh {
                     std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, transform);
                     ALWAYS_ASSERT(meshOpt.has_value());
                     return std::move(*meshOpt);
@@ -481,7 +481,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         // https://github.com/nlohmann/json/issues/800
         auto geomSceneObjectFactoryFunc = [&](nlohmann::json jsonSceneObject) -> std::function<std::unique_ptr<OOCGeometricSceneObject>(void)> {
             auto geometryResourceID = geometry[jsonSceneObject["geometry_id"].get<int>()];
-            auto geometry = EvictableResourceHandle<TriangleMesh>(geometryCache, geometryResourceID);
+            auto geometry = EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>>(geometryCache, geometryResourceID);
 
             std::shared_ptr<Material> material;
             if (loadMaterials)

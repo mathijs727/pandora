@@ -14,9 +14,9 @@ struct LightSample;
 class Transform;
 
 class InMemoryResource;
-template <typename T>
-class FifoCache;
-template <typename T>
+//template <typename T>
+//class FifoCache;
+template <typename... T>
 class LRUCache;
 
 class Light;

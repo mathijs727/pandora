@@ -10,11 +10,14 @@
 #include <unordered_map>
 #include <vector>
 
+template <typename T, typename... Args>
+static constexpr bool contains = true; // (std::is_same<T, Args> || ...);
+
 namespace pandora {
 
 using EvictableResourceID = uint32_t;
 
-template <typename T>
+template <typename... T>
 class LRUCache {
 public:
     LRUCache(size_t maxSizeBytes, int loaderThreadCount);
@@ -24,22 +27,27 @@ public:
         const std::function<void(size_t)> allocCallback,
         const std::function<void(size_t)> evictCallback);
 
-    // Hand of ownership of the resource to the cache
-    EvictableResourceID emplaceFactoryUnsafe(std::function<T(void)> factoryFunc); // Not thread-safe
-    EvictableResourceID emplaceFactoryThreadSafe(std::function<T(void)> factoryFunc); // Not thread-safe
+    // Tell the cache how to construct item
+    template <typename S>
+    std::enable_if_t<contains<S, T...>, EvictableResourceID> emplaceFactoryUnsafe(std::function<S(void)> factoryFunc); // Not thread-safe
+    template <typename S>
+    std::enable_if_t<contains<S, T...>, EvictableResourceID> emplaceFactoryThreadSafe(std::function<S(void)> factoryFunc); // Not thread-safe
 
     bool inCache(EvictableResourceID resourceID) const;
 
-    std::shared_ptr<T> getBlocking(EvictableResourceID resourceID) const;
+    template <typename S>
+    std::shared_ptr<S> getBlocking(EvictableResourceID resourceID) const;
 
     // Output may be in a different order than the input so the node should also store any associated user data
 
+    using HistoryType = std::list<std::pair<EvictableResourceID, std::variant<std::shared_ptr<T>...>>>;
+
     struct CacheMapItem;
-    template <typename S>
+    template <typename UserState, typename ItemType>
     struct SubFlowGraph {
     public:
-        using FlowGraphInput = std::pair<S, EvictableResourceID>;
-        using FlowGraphOutput = std::pair<S, std::shared_ptr<T>>;
+        using FlowGraphInput = std::pair<UserState, EvictableResourceID>;
+        using FlowGraphOutput = std::pair<UserState, std::shared_ptr<ItemType>>;
 
     public:
         SubFlowGraph(SubFlowGraph&&) = default;
@@ -52,20 +60,20 @@ public:
 
     private:
         // CacheMapItem pointer because using a reference
-        using HistoryIterator = typename std::list<std::pair<EvictableResourceID, std::shared_ptr<T>>>::iterator;
-        using LoadRequestData = std::tuple<S, std::pair<CacheMapItem, HistoryIterator>*, EvictableResourceID>;
+        using HistoryIterator = typename HistoryType::iterator;
+        using LoadRequestData = std::tuple<UserState, std::pair<CacheMapItem, HistoryIterator>*, EvictableResourceID>;
         using AccessNode = tbb::flow::multifunction_node<FlowGraphInput, tbb::flow::tuple<FlowGraphOutput, LoadRequestData>>;
         using LoadNode = tbb::flow::async_node<LoadRequestData, FlowGraphOutput>;
 
-        friend class LRUCache<T>;
+        friend class LRUCache<T...>;
         SubFlowGraph(AccessNode&& accessNode, LoadNode&& loadNode);
 
     private:
         AccessNode m_accessNode;
         LoadNode m_loadNode;
     };
-    template <typename S>
-    SubFlowGraph<S> getFlowGraphNode(tbb::flow::graph& g) const;
+    template <typename UserState, typename ItemType>
+    SubFlowGraph<UserState, ItemType> getFlowGraphNode(tbb::flow::graph& g) const;
 
     void evictAllUnsafe() const;
 
@@ -80,24 +88,29 @@ private:
     std::function<void(size_t)> m_evictCallback;
 
     mutable std::mutex m_cacheMutex;
-    mutable std::list<std::pair<EvictableResourceID, std::shared_ptr<T>>> m_history;
+    mutable HistoryType m_history;
 
 public:
     struct CacheMapItem {
+        template <typename S>
+        static CacheMapItem construct()
+        {
+            return CacheMapItem { {}, pandora::atomic_weak_ptr<S>(nullptr) };
+        }
         std::mutex loadMutex;
-        pandora::atomic_weak_ptr<T> itemPtr;
+        std::variant<pandora::atomic_weak_ptr<T>...> itemPtr;
     };
 
 private:
     using HistoryIterator = typename decltype(m_history)::iterator;
     mutable std::unordered_map<EvictableResourceID, std::pair<CacheMapItem, HistoryIterator>> m_cacheMap; // Read-only in the resource access function
 
-    tbb::concurrent_vector<std::function<T(void)>> m_resourceFactories;
+    tbb::concurrent_vector<std::variant<std::function<T(void)>...>> m_resourceFactories;
     ThreadPool m_factoryThreadPool;
 };
 
-template <typename T>
-inline LRUCache<T>::LRUCache(size_t maxSizeBytes, int loaderThreadCount)
+template <typename... T>
+inline LRUCache<T...>::LRUCache(size_t maxSizeBytes, int loaderThreadCount)
     : m_maxSizeBytes(maxSizeBytes)
     , m_currentSizeBytes(0)
     , m_allocCallback([](size_t) {})
@@ -105,8 +118,8 @@ inline LRUCache<T>::LRUCache(size_t maxSizeBytes, int loaderThreadCount)
     , m_factoryThreadPool(loaderThreadCount)
 {
 }
-template <typename T>
-inline LRUCache<T>::LRUCache(
+template <typename... T>
+inline LRUCache<T...>::LRUCache(
     size_t maxSizeBytes,
     int loaderThreadCount,
     const std::function<void(size_t)> allocCallback,
@@ -119,63 +132,71 @@ inline LRUCache<T>::LRUCache(
 {
 }
 
-template <typename T>
-inline EvictableResourceID LRUCache<T>::emplaceFactoryUnsafe(std::function<T(void)> factoryFunc)
+template <typename... T>
+template <typename S>
+inline std::enable_if_t<contains<S, T...>, EvictableResourceID>
+LRUCache<T...>::emplaceFactoryUnsafe(std::function<S(void)> factoryFunc)
 {
     auto iter = m_resourceFactories.push_back(factoryFunc);
     EvictableResourceID resourceID = iter - m_resourceFactories.begin();
 
-    // Insert the key into the hashmap so that any "get" operations are read-only (and thus thread safe)
-    m_cacheMap.emplace(std::piecewise_construct,
+    // Create an empty cache item
+    auto[cacheMapIter, success] = m_cacheMap.emplace(std::piecewise_construct,
         std::forward_as_tuple(resourceID),
         std::forward_as_tuple());
-    m_cacheMap[resourceID].second = m_history.end();
+    auto& cacheMapItem = cacheMapIter->second;
+    cacheMapItem.first.itemPtr.emplace<pandora::atomic_weak_ptr<S>>();// Initialize variant with the correct type
+    cacheMapItem.second = m_history.end();
 
     return resourceID;
 }
 
-template <typename T>
-inline EvictableResourceID LRUCache<T>::emplaceFactoryThreadSafe(std::function<T(void)> factoryFunc)
+template <typename... T>
+template <typename S>
+inline std::enable_if_t<contains<S, T...>, EvictableResourceID>
+LRUCache<T...>::emplaceFactoryThreadSafe(std::function<S(void)> factoryFunc)
 {
     auto iter = m_resourceFactories.push_back(factoryFunc);
     EvictableResourceID resourceID = iter - m_resourceFactories.begin();
 
-    // Insert the key into the hashmap so that any "get" operations are read-only (and thus thread safe)
     std::scoped_lock l(m_cacheMutex);
-    m_cacheMap.emplace(std::piecewise_construct,
+    // Create an empty cache item
+    auto[cacheMapIter, success] = m_cacheMap.emplace(std::piecewise_construct,
         std::forward_as_tuple(resourceID),
         std::forward_as_tuple());
-    m_cacheMap[resourceID].second = m_history.end();
+    auto& cacheMapItem = cacheMapIter->second;
+    cacheMapItem.first.itemPtr.emplace<pandora::atomic_weak_ptr<S>>();// Initialize variant with the correct type
+    cacheMapItem.second = m_history.end();
 
     return resourceID;
 }
 
-template <typename T>
-inline bool LRUCache<T>::inCache(EvictableResourceID resourceID) const
+template <typename... T>
+inline bool LRUCache<T...>::inCache(EvictableResourceID resourceID) const
 {
     const auto& [cacheItem, lruIter] = m_cacheMap.find(resourceID)->second;
-    return !cacheItem.itemPtr.expired();
+    return std::visit([](auto&& itemSharedPtr) -> bool { return !itemSharedPtr.expired(); }, cacheItem.itemPtr);
 }
 
-template <typename T>
-inline std::shared_ptr<T> LRUCache<T>::getBlocking(EvictableResourceID resourceID) const
+template <typename... T>
+template <typename S>
+inline std::shared_ptr<S> LRUCache<T...>::getBlocking(EvictableResourceID resourceID) const
 {
-    auto* mutThis = const_cast<LRUCache<T>*>(this);
+    auto* mutThis = const_cast<LRUCache<T...>*>(this);
 
     auto& [cacheItem, lruIter] = mutThis->m_cacheMap[resourceID];
-    std::shared_ptr<T> sharedResourcePtr = cacheItem.itemPtr.lock();
+    auto& cacheMapWeakPtr = std::get<pandora::atomic_weak_ptr<S>>(cacheItem.itemPtr);
+    std::shared_ptr<S> sharedResourcePtr = cacheMapWeakPtr.lock();
     if (!sharedResourcePtr) {
         std::scoped_lock itemLock(cacheItem.loadMutex);
 
         // Make sure that no other thread came in first and loaded the resource already
-        sharedResourcePtr = cacheItem.itemPtr.lock();
+        sharedResourcePtr = cacheMapWeakPtr.lock();
         if (!sharedResourcePtr) {
-            //ALWAYS_ASSERT(lruIter == m_history.end());
-
-            const auto& factoryFunc = m_resourceFactories[resourceID];
-            sharedResourcePtr = std::make_shared<T>(factoryFunc());
+            const auto& factoryFunc = std::get<std::function<S(void)>>(m_resourceFactories[resourceID]);
+            sharedResourcePtr = std::make_shared<S>(factoryFunc());
             size_t resourceSize = sharedResourcePtr->sizeBytes();
-            cacheItem.itemPtr.store(sharedResourcePtr);
+            cacheMapWeakPtr.store(sharedResourcePtr);
             {
                 std::scoped_lock cacheLock(mutThis->m_cacheMutex);
                 lruIter = mutThis->m_history.insert(std::begin(m_history), { resourceID, sharedResourcePtr });
@@ -207,25 +228,25 @@ inline std::shared_ptr<T> LRUCache<T>::getBlocking(EvictableResourceID resourceI
     return sharedResourcePtr;
 }
 
-template <typename T>
-inline void LRUCache<T>::evictAllUnsafe() const
+template <typename... T>
+inline void LRUCache<T...>::evictAllUnsafe() const
 {
     while (!m_history.empty()) {
-        auto [resourceID, sharedResourcePtr] = m_history.back();
+        auto [resourceID, sharedResourcePtrVariant] = m_history.back();
         m_history.pop_back();
 
         // 1. second -> select value from key/value pair returned by m_cacheMap.find()
         // 2. second -> select history iterator from (CacheItem, iterator) pair
         m_cacheMap.find(resourceID)->second.second = m_history.end();
 
-        m_evictCallback(sharedResourcePtr->sizeBytes());
+        m_evictCallback(std::visit([](auto&& sharedResourcePtr) -> size_t { return sharedResourcePtr->sizeBytes(); }, sharedResourcePtrVariant));
     }
-    auto* mutThis = const_cast<LRUCache<T>*>(this);
+    auto* mutThis = const_cast<LRUCache<T...>*>(this);
     mutThis->m_currentSizeBytes.store(0);
 }
 
-template <typename T>
-inline void LRUCache<T>::evict(size_t bytesToEvict)
+template <typename... T>
+inline void LRUCache<T...>::evict(size_t bytesToEvict)
 {
     std::scoped_lock l(m_cacheMutex);
 
@@ -235,14 +256,14 @@ inline void LRUCache<T>::evict(size_t bytesToEvict)
         if (m_history.empty())
             break;
 
-        auto [resourceID, sharedResourcePtr] = m_history.back();
+        auto [resourceID, sharedResourcePtrVariant] = m_history.back();
         m_history.pop_back();
 
         // 1. second -> select value from key/value pair returned by m_cacheMap.find()
         // 2. second -> select history iterator from (CacheItem, iterator) pair
         m_cacheMap.find(resourceID)->second.second = m_history.end();
 
-        bytesEvicted += sharedResourcePtr->sizeBytes();
+        bytesEvicted += std::visit([](auto&& sharedResourcePtr) -> size_t { return sharedResourcePtr->sizeBytes(); }, sharedResourcePtrVariant);
     }
     m_evictCallback(bytesEvicted);
     m_currentSizeBytes.fetch_sub(bytesEvicted);
@@ -250,22 +271,24 @@ inline void LRUCache<T>::evict(size_t bytesToEvict)
     std::cout << "Evicted " << bytesEvicted << " to keep memory usage in check" << std::endl;
 }
 
-template <typename T>
-template <typename S>
-inline typename LRUCache<T>::template SubFlowGraph<S> LRUCache<T>::getFlowGraphNode(tbb::flow::graph& g) const
+template <typename... T>
+template <typename UserState, typename ItemType>
+inline typename LRUCache<T...>::template SubFlowGraph<UserState, ItemType> LRUCache<T...>::getFlowGraphNode(tbb::flow::graph& g) const
 {
-    using Input = typename SubFlowGraph<S>::FlowGraphInput;
+    using Input = typename SubFlowGraph<UserState, ItemType>::FlowGraphInput;
     //using Output = typename SubFlowGraph<S>::FlowGraphOutput;
-    using LoadRequestData = typename SubFlowGraph<S>::LoadRequestData;
-    using AccessNode = typename SubFlowGraph<S>::AccessNode;
-    using LoadNode = typename SubFlowGraph<S>::LoadNode;
+    using LoadRequestData = typename SubFlowGraph<UserState, ItemType>::LoadRequestData;
+    using AccessNode = typename SubFlowGraph<UserState, ItemType>::AccessNode;
+    using LoadNode = typename SubFlowGraph<UserState, ItemType>::LoadNode;
 
-    auto* mutThis = const_cast<LRUCache<T>*>(this);
+    auto* mutThis = const_cast<LRUCache<T...>*>(this);
     AccessNode accessNode(g, tbb::flow::unlimited, [mutThis, this](Input input, typename AccessNode::output_ports_type& op) {
         EvictableResourceID resourceID = std::get<1>(input);
 
         auto& cacheItemIterPair = mutThis->m_cacheMap.find(resourceID)->second;
-        std::shared_ptr<T> sharedResourcePtr = std::get<0>(cacheItemIterPair).itemPtr.lock();
+        auto& cacheItem = std::get<0>(cacheItemIterPair);
+        auto& cacheMapWeakPtr = std::get<pandora::atomic_weak_ptr<ItemType>>(cacheItem.itemPtr);
+        std::shared_ptr<ItemType> sharedResourcePtr = cacheMapWeakPtr.lock();
         if (sharedResourcePtr) {
             std::get<0>(op).try_put({ std::get<0>(input), sharedResourcePtr });
         } else {
@@ -277,23 +300,24 @@ inline typename LRUCache<T>::template SubFlowGraph<S> LRUCache<T>::getFlowGraphN
         gatewayPtr->reserve_wait();
         mutThis->m_factoryThreadPool.emplace([=]() {
             auto& [cacheItem, lruIter] = *std::get<1>(data);
+            auto& cacheMapWeakPtr = std::get<pandora::atomic_weak_ptr<ItemType>>(cacheItem.itemPtr);
             auto resourceID = std::get<2>(data);
 
-            auto sharedResourcePtr = cacheItem.itemPtr.lock();
+            auto sharedResourcePtr = cacheMapWeakPtr.lock();
             if (!sharedResourcePtr) {
                 std::scoped_lock itemLock(cacheItem.loadMutex);
 
                 // Make sure that no other thread came in first and loaded the resource already
-                sharedResourcePtr = cacheItem.itemPtr.lock();
+                sharedResourcePtr = cacheMapWeakPtr.lock();
                 if (!sharedResourcePtr) {
                     // Not mutating but having a hard time capturing "this" pointer
-                    const auto& factoryFunc = m_resourceFactories[std::get<2>(data)];
-                    sharedResourcePtr = std::make_shared<T>(factoryFunc());
+                    const auto& factoryFunc = std::get<std::function<ItemType(void)>>(m_resourceFactories[resourceID]);
+                    sharedResourcePtr = std::make_shared<ItemType>(factoryFunc());
                     size_t resourceSize = sharedResourcePtr->sizeBytes();
-                    cacheItem.itemPtr.store(sharedResourcePtr);
+                    cacheMapWeakPtr.store(sharedResourcePtr);
                     {
                         std::scoped_lock cacheLock(mutThis->m_cacheMutex);
-                        lruIter = mutThis->m_history.insert(std::begin(m_history), { resourceID,  sharedResourcePtr });
+                        lruIter = mutThis->m_history.insert(std::begin(m_history), { resourceID, sharedResourcePtr });
                     }
                     m_allocCallback(resourceSize);
 
@@ -320,21 +344,21 @@ inline typename LRUCache<T>::template SubFlowGraph<S> LRUCache<T>::getFlowGraphN
             gatewayPtr->release_wait();
         });
     });
-    return SubFlowGraph<S>(std::move(accessNode), std::move(loadNode));
+    return SubFlowGraph<UserState, ItemType>(std::move(accessNode), std::move(loadNode));
 }
 
-template <typename T>
-template <typename S>
+template <typename... T>
+template <typename UserState, typename ItemType>
 template <typename N>
-inline void LRUCache<T>::SubFlowGraph<S>::connectInput(N& inputNode)
+inline void LRUCache<T...>::SubFlowGraph<UserState, ItemType>::connectInput(N& inputNode)
 {
     tbb::flow::make_edge(inputNode, m_accessNode);
 }
 
-template <typename T>
-template <typename S>
+template <typename... T>
+template <typename UserState, typename ItemType>
 template <typename N>
-inline void LRUCache<T>::SubFlowGraph<S>::connectOutput(N& outputNode)
+inline void LRUCache<T...>::SubFlowGraph<UserState, ItemType>::connectOutput(N& outputNode)
 {
     tbb::flow::make_edge(tbb::flow::output_port<1>(m_accessNode), m_loadNode);
 
@@ -342,12 +366,11 @@ inline void LRUCache<T>::SubFlowGraph<S>::connectOutput(N& outputNode)
     tbb::flow::make_edge(m_loadNode, outputNode);
 }
 
-template <typename T>
-template <typename S>
-inline LRUCache<T>::SubFlowGraph<S>::SubFlowGraph(AccessNode&& accessNode, LoadNode&& loadNode)
+template <typename... T>
+template <typename UserState, typename ItemType>
+inline LRUCache<T...>::SubFlowGraph<UserState, ItemType>::SubFlowGraph(AccessNode&& accessNode, LoadNode&& loadNode)
     : m_accessNode(std::move(accessNode))
     , m_loadNode(std::move(loadNode))
 {
 }
-
 }
