@@ -52,7 +52,7 @@ public:
 
     private:
         // CacheMapItem pointer because using a reference
-        using HistoryIterator = typename std::list<std::shared_ptr<T>>::iterator;
+        using HistoryIterator = typename std::list<std::pair<EvictableResourceID, std::shared_ptr<T>>>::iterator;
         using LoadRequestData = std::tuple<S, std::pair<CacheMapItem, HistoryIterator>*, EvictableResourceID>;
         using AccessNode = tbb::flow::multifunction_node<FlowGraphInput, tbb::flow::tuple<FlowGraphOutput, LoadRequestData>>;
         using LoadNode = tbb::flow::async_node<LoadRequestData, FlowGraphOutput>;
@@ -80,14 +80,16 @@ private:
     std::function<void(size_t)> m_evictCallback;
 
     mutable std::mutex m_cacheMutex;
-    mutable std::list<std::shared_ptr<T>> m_history;
+    mutable std::list<std::pair<EvictableResourceID, std::shared_ptr<T>>> m_history;
+
 public:
     struct CacheMapItem {
         std::mutex loadMutex;
         pandora::atomic_weak_ptr<T> itemPtr;
     };
+
 private:
-    using HistoryIterator = typename std::list<std::shared_ptr<T>>::iterator;
+    using HistoryIterator = typename decltype(m_history)::iterator;
     mutable std::unordered_map<EvictableResourceID, std::pair<CacheMapItem, HistoryIterator>> m_cacheMap; // Read-only in the resource access function
 
     tbb::concurrent_vector<std::function<T(void)>> m_resourceFactories;
@@ -151,7 +153,7 @@ inline EvictableResourceID LRUCache<T>::emplaceFactoryThreadSafe(std::function<T
 template <typename T>
 inline bool LRUCache<T>::inCache(EvictableResourceID resourceID) const
 {
-    const auto&[cacheItem, lruIter] = m_cacheMap.find(resourceID)->second;
+    const auto& [cacheItem, lruIter] = m_cacheMap.find(resourceID)->second;
     return !cacheItem.itemPtr.expired();
 }
 
@@ -176,14 +178,14 @@ inline std::shared_ptr<T> LRUCache<T>::getBlocking(EvictableResourceID resourceI
             cacheItem.itemPtr.store(sharedResourcePtr);
             {
                 std::scoped_lock cacheLock(mutThis->m_cacheMutex);
-                lruIter = mutThis->m_history.insert(std::begin(m_history), sharedResourcePtr);
+                lruIter = mutThis->m_history.insert(std::begin(m_history), { resourceID, sharedResourcePtr });
             }
             m_allocCallback(resourceSize);
 
             size_t oldCacheSize = mutThis->m_currentSizeBytes.fetch_add(resourceSize);
             size_t newCacheSize = oldCacheSize + resourceSize;
             if (newCacheSize > m_maxSizeBytes) {
-                std::cout << "LRU cache evicting memory, new size: " << newCacheSize << ", limit: " << m_maxSizeBytes << std::endl;
+                //std::cout << "LRU cache evicting memory, new size: " << newCacheSize << ", limit: " << m_maxSizeBytes << std::endl;
 
                 // If another thread caused us to go over the memory limit that we only have to account
                 //  for our own contribution.
@@ -191,6 +193,14 @@ inline std::shared_ptr<T> LRUCache<T>::getBlocking(EvictableResourceID resourceI
                 mutThis->evict(overallocated);
             }
         }
+    } else {
+        // The item was already in cache and not just loaded (either by us or another thread).
+        // Move the item to the front of the history list.
+        std::scoped_lock cacheLock(mutThis->m_cacheMutex);
+        if (lruIter != mutThis->m_history.end()) {
+            mutThis->m_history.erase(lruIter);
+        }
+        lruIter = mutThis->m_history.insert(std::begin(m_history), { resourceID, sharedResourcePtr });
     }
 
     // TODO: move item back to the front of the list
@@ -201,8 +211,12 @@ template <typename T>
 inline void LRUCache<T>::evictAllUnsafe() const
 {
     while (!m_history.empty()) {
-        auto sharedResourcePtr = m_history.back();
+        auto [resourceID, sharedResourcePtr] = m_history.back();
         m_history.pop_back();
+
+        // 1. second -> select value from key/value pair returned by m_cacheMap.find()
+        // 2. second -> select history iterator from (CacheItem, iterator) pair
+        m_cacheMap.find(resourceID)->second.second = m_history.end();
 
         m_evictCallback(sharedResourcePtr->sizeBytes());
     }
@@ -221,13 +235,19 @@ inline void LRUCache<T>::evict(size_t bytesToEvict)
         if (m_history.empty())
             break;
 
-        auto sharedResourcePtr = m_history.back();
+        auto [resourceID, sharedResourcePtr] = m_history.back();
         m_history.pop_back();
+
+        // 1. second -> select value from key/value pair returned by m_cacheMap.find()
+        // 2. second -> select history iterator from (CacheItem, iterator) pair
+        m_cacheMap.find(resourceID)->second.second = m_history.end();
 
         bytesEvicted += sharedResourcePtr->sizeBytes();
     }
     m_evictCallback(bytesEvicted);
     m_currentSizeBytes.fetch_sub(bytesEvicted);
+
+    std::cout << "Evicted " << bytesEvicted << " to keep memory usage in check" << std::endl;
 }
 
 template <typename T>
@@ -244,7 +264,7 @@ inline typename LRUCache<T>::template SubFlowGraph<S> LRUCache<T>::getFlowGraphN
     AccessNode accessNode(g, tbb::flow::unlimited, [mutThis, this](Input input, typename AccessNode::output_ports_type& op) {
         EvictableResourceID resourceID = std::get<1>(input);
 
-        auto& cacheItemIterPair = mutThis->m_cacheMap[resourceID];
+        auto& cacheItemIterPair = mutThis->m_cacheMap.find(resourceID)->second;
         std::shared_ptr<T> sharedResourcePtr = std::get<0>(cacheItemIterPair).itemPtr.lock();
         if (sharedResourcePtr) {
             std::get<0>(op).try_put({ std::get<0>(input), sharedResourcePtr });
@@ -257,30 +277,43 @@ inline typename LRUCache<T>::template SubFlowGraph<S> LRUCache<T>::getFlowGraphN
         gatewayPtr->reserve_wait();
         mutThis->m_factoryThreadPool.emplace([=]() {
             auto& [cacheItem, lruIter] = *std::get<1>(data);
-            std::scoped_lock itemLock(cacheItem.loadMutex);
+            auto resourceID = std::get<2>(data);
 
-            // Make sure that no other thread came in first and loaded the resource already
             auto sharedResourcePtr = cacheItem.itemPtr.lock();
             if (!sharedResourcePtr) {
-                // Not mutating but having a hard time capturing "this" pointer
-                const auto& factoryFunc = m_resourceFactories[std::get<2>(data)];
-                sharedResourcePtr = std::make_shared<T>(factoryFunc());
-                size_t resourceSize = sharedResourcePtr->sizeBytes();
-                cacheItem.itemPtr.store(sharedResourcePtr);
-                {
-                    std::scoped_lock cacheLock(mutThis->m_cacheMutex);
-                    lruIter = mutThis->m_history.insert(std::begin(m_history), sharedResourcePtr);
-                }
-                m_allocCallback(resourceSize);
+                std::scoped_lock itemLock(cacheItem.loadMutex);
 
-                size_t oldCacheSize = mutThis->m_currentSizeBytes.fetch_add(resourceSize);
-                size_t newCacheSize = oldCacheSize + resourceSize;
-                if (newCacheSize > m_maxSizeBytes) {
-                    // If another thread caused us to go over the memory limit that we only have to account
-                    //  for our own contribution.
-                    size_t overallocated = std::min(newCacheSize - m_maxSizeBytes, resourceSize);
-                    mutThis->evict(overallocated);
+                // Make sure that no other thread came in first and loaded the resource already
+                sharedResourcePtr = cacheItem.itemPtr.lock();
+                if (!sharedResourcePtr) {
+                    // Not mutating but having a hard time capturing "this" pointer
+                    const auto& factoryFunc = m_resourceFactories[std::get<2>(data)];
+                    sharedResourcePtr = std::make_shared<T>(factoryFunc());
+                    size_t resourceSize = sharedResourcePtr->sizeBytes();
+                    cacheItem.itemPtr.store(sharedResourcePtr);
+                    {
+                        std::scoped_lock cacheLock(mutThis->m_cacheMutex);
+                        lruIter = mutThis->m_history.insert(std::begin(m_history), { resourceID,  sharedResourcePtr });
+                    }
+                    m_allocCallback(resourceSize);
+
+                    size_t oldCacheSize = mutThis->m_currentSizeBytes.fetch_add(resourceSize);
+                    size_t newCacheSize = oldCacheSize + resourceSize;
+                    if (newCacheSize > m_maxSizeBytes) {
+                        // If another thread caused us to go over the memory limit that we only have to account
+                        //  for our own contribution.
+                        size_t overallocated = std::min(newCacheSize - m_maxSizeBytes, resourceSize);
+                        mutThis->evict(overallocated);
+                    }
                 }
+            } else {
+                // The item was already in cache and not just loaded (either by us or another thread).
+                // Move the item to the front of the history list.
+                std::scoped_lock cacheLock(mutThis->m_cacheMutex);
+                if (lruIter != mutThis->m_history.end()) {
+                    mutThis->m_history.erase(lruIter);
+                }
+                lruIter = mutThis->m_history.insert(std::begin(m_history), { resourceID, sharedResourcePtr });
             }
 
             gatewayPtr->try_put(std::make_pair(std::get<0>(data), sharedResourcePtr));

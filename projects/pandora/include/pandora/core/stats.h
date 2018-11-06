@@ -28,7 +28,6 @@ struct RenderStats : public metrics::Stats {
         // Memory loaded by geometry & bot-level BVHs
         metrics::Counter<size_t> botLevelLoaded { "bytes" };
         metrics::Counter<size_t> botLevelEvicted { "bytes" };
-        metrics::Counter<size_t> botLevelTotalSize { "bytes" };
 
         // Memory used by the top-level BVH and the svdags associated with the top-level leaf nodes
         metrics::Counter<size_t> topBVH { "bytes" }; // BVH excluding leafs

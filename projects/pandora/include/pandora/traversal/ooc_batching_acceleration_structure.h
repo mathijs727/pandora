@@ -341,6 +341,7 @@ private:
             size_t size = sizeof(decltype(*this));
             size += leafBVH.sizeBytes();
             size += geometrySize;
+            size += geometryOwningPointers.size() * sizeof(decltype(geometryOwningPointers)::value_type);
             return size;
         }
 
@@ -516,6 +517,8 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
     }
     ALWAYS_ASSERT(std::filesystem::is_directory(OUT_OF_CORE_CACHE_FOLDER));
 
+    std::cout << "Building BVHs for all instanced geometry and storing them to disk\n";
+
     // Collect scene objects that are referenced by instanced scene objects.
     std::unordered_set<const OOCGeometricSceneObject*> instancedBaseSceneObjects;
     for (const auto* sceneObject : scene.getOOCSceneObjects()) {
@@ -540,7 +543,6 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
 
         // NOTE: the "geometry" variable ensures that the geometry pointed to stays in memory for the BVH build
         //       (which requires the geometry to determine the leaf node bounds).
-        std::cout << "Building instance base BVH with " << leafs.size() << " leafs" << std::endl;
         WiVeBVH8Build8<BotLevelLeafNodeInstanced> bvh(leafs);
 
         // Serialize
@@ -556,7 +558,6 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
         fbb.Finish(serializedBaseSceneObject);
 
         // Write to disk
-        std::cout << "Write " << fbb.GetSize() << " bytes" << std::endl;
         bytesWritten += fbb.GetSize();
         auto filePart = fileBatcher.writeData(fbb);
 
@@ -578,7 +579,6 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
         instancedBVHs.insert({ instancedBaseSceneObject, EvictableResourceHandle<CacheItem>(cache, resourceID) });
     }
     fileBatcher.flush();
-    std::cout << "Bytes written: " << bytesWritten << std::endl;
 
     std::cout << "Creating scene object groups" << std::endl;
     auto sceneObjectGroups = scene.groupOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF);
@@ -759,8 +759,6 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         serializedBVH,
         static_cast<uint32_t>(leafs.size()));
     fbb.Finish(serializedTopLevelLeafNode);
-
-    g_stats.memory.botLevelTotalSize += fbb.GetSize();
 
     // Re-use existing cache files and prevent unnecessary writes (reduces SSD lifespan)
     if (!std::filesystem::exists(cacheFilePath)) {
@@ -1087,6 +1085,9 @@ void OOCBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode::f
     std::copy_if(std::begin(nodes), std::end(nodes), std::back_inserter(nonCachedNodes), [](TopLevelLeafNode* n) {
         return n->hasFullBatches() && !n->inCache();
     });
+
+    std::cout << "Cached nodes: " << cachedNodes.size() << std::endl;
+    std::cout << "Non cached nodes: " << nonCachedNodes.size() << std::endl;
 
     std::sort(std::begin(cachedNodes), std::end(cachedNodes), [](const auto* node1, const auto* node2) {
         return node1->m_numFullBatches.load() > node2->m_numFullBatches.load(); // Sort from big to small

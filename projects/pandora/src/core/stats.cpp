@@ -28,7 +28,6 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
 
     ret["memory"]["bot_level_loaded"] = memory.botLevelLoaded;
     ret["memory"]["bot_level_evicted"] = memory.botLevelEvicted;
-    ret["memory"]["bot_level_total_size"] = memory.botLevelTotalSize;// Total size of bottom leaf nodes
 
     ret["memory"]["top_bvh"] = memory.topBVH;
     ret["memory"]["top_bvh_leafs"] = memory.topBVHLeafs;
