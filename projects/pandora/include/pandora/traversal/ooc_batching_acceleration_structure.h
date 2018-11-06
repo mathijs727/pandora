@@ -750,7 +750,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
     }
 
     auto resourceID = cache->emplaceFactoryThreadSafe<CachedBatchingPoint>([cacheFilePath, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects),
-                                                                               instanceBaseResourceHandles = std::move(instanceBaseResourceHandles)]() -> CachedBatchingPoint {
+                                                          instanceBaseResourceHandles = std::move(instanceBaseResourceHandles)]() -> CachedBatchingPoint {
 #ifdef __linux__
         // Linux does not support O_DIRECT in combination with memory mapped I/O (meaning we cannot bypass the
         // OS file cache). So instead we use posix I/O on Linux giving us the option to bypass the file cache at
@@ -855,7 +855,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         }
 
         auto bvh = WiVeBVH8Build8<BotLevelLeafNode>(serializedTopLevelLeafNode->bvh(), std::move(leafs));
-        return CachedBatchingPoint {
+        return CachedBatchingPoint{
             geometrySize,
             std::move(bvh),
             std::move(geometryOwningPointers)

@@ -38,8 +38,7 @@ inline bool EvictableResourceHandle<T, Cache>::inCache() const
 template <typename T, typename Cache>
 inline std::shared_ptr<T> EvictableResourceHandle<T, Cache>::getBlocking() const
 {
-    auto* mutThisPtr = const_cast<EvictableResourceHandle<T, Cache>*>(this);
-    return mutThisPtr->m_cache->getBlocking<T>(m_resourceID);
+    return m_cache->getBlocking<T>(m_resourceID);
 }
 
 }
