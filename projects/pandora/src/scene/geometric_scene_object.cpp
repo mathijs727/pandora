@@ -1,4 +1,6 @@
 #include "pandora/scene/geometric_scene_object.h"
+#include "pandora/eviction/lru_cache.h"
+#include "pandora/eviction/fifo_cache.h"
 #include <fstream>
 #include <mio/mmap.hpp>
 
@@ -219,28 +221,28 @@ unsigned OOCGeometricSceneObject::numPrimitives() const
     return m_numPrimitives;
 }
 
-std::unique_ptr<SceneObjectGeometry> OOCGeometricSceneObject::getGeometryBlocking() const
+std::shared_ptr<SceneObjectGeometry> OOCGeometricSceneObject::getGeometryBlocking() const
 {
     // Can't use std::make_unique because GeometricSceneObjectGeometry constructor is private (OOCGeometricSceneObject is a friend)
-    return std::unique_ptr<GeometricSceneObjectGeometry>(
+    return std::shared_ptr<GeometricSceneObjectGeometry>(
         new GeometricSceneObjectGeometry(m_geometryHandle.getBlocking()));
 }
 
-std::unique_ptr<SceneObjectMaterial> OOCGeometricSceneObject::getMaterialBlocking() const
+std::shared_ptr<SceneObjectMaterial> OOCGeometricSceneObject::getMaterialBlocking() const
 {
     if (m_areaLightMeshOwner) {
-        return std::unique_ptr<GeometricSceneObjectMaterial>(
+        return std::shared_ptr<GeometricSceneObjectMaterial>(
             new GeometricSceneObjectMaterial(
                 m_material,
                 m_areaLights));
     } else {
-        return std::unique_ptr<GeometricSceneObjectMaterial>(
+        return std::shared_ptr<GeometricSceneObjectMaterial>(
             new GeometricSceneObjectMaterial(
                 m_material));
     }
 }
 
-OOCGeometricSceneObject OOCGeometricSceneObject::geometricSplit(FifoCache<TriangleMesh>* cache, std::filesystem::path filePath, gsl::span<unsigned> primitiveIDs)
+OOCGeometricSceneObject OOCGeometricSceneObject::geometricSplit(CacheT<TriangleMesh>* cache, std::filesystem::path filePath, gsl::span<unsigned> primitiveIDs)
 {
     // Splitting of area light meshes is not supported yet (requires some work / refactoring)
     ALWAYS_ASSERT(m_areaLights.empty() && !m_areaLightMeshOwner);

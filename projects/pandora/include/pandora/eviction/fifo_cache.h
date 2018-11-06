@@ -153,7 +153,7 @@ inline EvictableResourceID FifoCache<T>::emplaceFactoryThreadSafe(std::function<
 template <typename T>
 inline bool FifoCache<T>::inCache(EvictableResourceID resourceID) const
 {
-    const auto& cacheItem = m_cacheMap[resourceID];
+    const auto& cacheItem = m_cacheMap.find(resourceID)->second;
     return !cacheItem.itemPtr.expired();
 }
 

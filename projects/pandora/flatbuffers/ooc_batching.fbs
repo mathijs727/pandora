@@ -7,9 +7,9 @@ namespace pandora.serialization;
 table OOCBatchingTopLevelLeafNode
 {
 	unique_geometry: [GeometricSceneObjectGeometry];
-	instance_base_geometry: [GeometricSceneObjectGeometry];
-	instance_base_bvh: [WiVeBVH8];
-	instanced_ids: [uint]; // Index into the instance_base_geometry&instance_base_bvh arrays
+	//instance_base_geometry: [GeometricSceneObjectGeometry];
+	//instance_base_bvh: [WiVeBVH8];
+	//instanced_ids: [uint]; // Index into the instance_base_geometry&instance_base_bvh arrays
 	instanced_geometry: [InstancedSceneObjectGeometry]; // Associated transforms
 	bvh: WiVeBVH8;
 

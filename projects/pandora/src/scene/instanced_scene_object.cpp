@@ -74,7 +74,7 @@ size_t InCoreInstancedSceneObject::sizeBytes() const
 
 InstancedSceneObjectGeometry::InstancedSceneObjectGeometry(
     const Transform& worldTransform,
-    std::unique_ptr<SceneObjectGeometry>&& baseObjectGeometry)
+    const std::shared_ptr<SceneObjectGeometry>& baseObjectGeometry)
     : m_worldTransform(worldTransform)
     , m_baseObjectGeometry(std::move(baseObjectGeometry))
 {
@@ -82,7 +82,7 @@ InstancedSceneObjectGeometry::InstancedSceneObjectGeometry(
 
 InstancedSceneObjectGeometry::InstancedSceneObjectGeometry(
     const serialization::InstancedSceneObjectGeometry* serialized,
-    std::unique_ptr<SceneObjectGeometry>&& baseObjectGeometry)
+    const std::shared_ptr<SceneObjectGeometry>& baseObjectGeometry)
     : m_worldTransform(Transform(serialized->transform()))
     , m_baseObjectGeometry(std::move(baseObjectGeometry))
 {
@@ -143,15 +143,23 @@ Bounds OOCInstancedSceneObject::worldBounds() const
     return m_transform.transform(m_baseObject->worldBounds());
 }
 
-std::unique_ptr<SceneObjectGeometry> OOCInstancedSceneObject::getGeometryBlocking() const
+std::shared_ptr<SceneObjectGeometry> OOCInstancedSceneObject::getGeometryBlocking() const
 {
     // Cannot use std::make_unique on private constructor of friended class
-    return std::unique_ptr<InstancedSceneObjectGeometry>(
+    return std::shared_ptr<InstancedSceneObjectGeometry>(
         new InstancedSceneObjectGeometry(
             m_transform, m_baseObject->getGeometryBlocking()));
 }
 
-std::unique_ptr<SceneObjectMaterial> OOCInstancedSceneObject::getMaterialBlocking() const
+
+InstancedSceneObjectGeometry OOCInstancedSceneObject::getDummyGeometryBlocking() const
+{
+    // Cannot use std::make_unique on private constructor of friended class
+    std::shared_ptr<SceneObjectGeometry> baseGeometryDummy = nullptr;
+    return InstancedSceneObjectGeometry(m_transform, std::move(baseGeometryDummy));
+}
+
+std::shared_ptr<SceneObjectMaterial> OOCInstancedSceneObject::getMaterialBlocking() const
 {
     return m_baseObject->getMaterialBlocking();
 }

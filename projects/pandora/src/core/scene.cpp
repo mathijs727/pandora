@@ -16,7 +16,7 @@ using namespace std::string_literals;
 namespace pandora {
 
 Scene::Scene(size_t geometryCacheSize)
-    : m_geometryCache(std::make_unique<FifoCache<TriangleMesh>>(geometryCacheSize, 2 * std::thread::hardware_concurrency()))
+    : m_geometryCache(std::make_unique<CacheT<TriangleMesh>>(geometryCacheSize, 2 * std::thread::hardware_concurrency()))
 {
 }
 
@@ -82,12 +82,12 @@ gsl::span<const Light* const> Scene::getInfiniteLights() const
     return m_infiniteLights;
 }
 
-const FifoCache<TriangleMesh>* Scene::geometryCache() const
+const CacheT<TriangleMesh>* Scene::geometryCache() const
 {
     return m_geometryCache.get();
 }
 
-FifoCache<TriangleMesh>* Scene::geometryCache()
+CacheT<TriangleMesh>* Scene::geometryCache()
 {
     return m_geometryCache.get();
 }
@@ -143,7 +143,6 @@ void Scene::splitLargeInCoreSceneObjects(unsigned approximatePrimsPerObject)
         // lights array. We should than also make sure that the new lights are always added in the same order
         // to prevent race conditions.
         ALWAYS_ASSERT(sceneObject->areaLights().empty());
-
 
         std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
         embreeBuildPrimitives.reserve(sceneObject->numPrimitives());
@@ -385,8 +384,8 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
         virtual std::pair<std::vector<const T*>, std::unordered_set<const T*>> group(
             unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const
         {
-            auto[leftObjects, leftUniqueAndBaseObjects] = leftChild->group(minPrimsPerGroup, out);
-            auto[rightObjects, rightUniqueAndBaseObjects] = rightChild->group(minPrimsPerGroup, out);
+            auto [leftObjects, leftUniqueAndBaseObjects] = leftChild->group(minPrimsPerGroup, out);
+            auto [rightObjects, rightUniqueAndBaseObjects] = rightChild->group(minPrimsPerGroup, out);
             if (!leftObjects.empty() && rightObjects.empty()) {
                 return { std::move(leftObjects), std::move(leftUniqueAndBaseObjects) };
             } else if (leftObjects.empty() && !rightObjects.empty()) {
@@ -404,11 +403,11 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
                     std::end(uniqueAndBaseObjects),
                     0u,
                     [](unsigned l, unsigned r) {
-                    return l + r;
-                },
+                        return l + r;
+                    },
                     [](const T* object) {
-                    return object->numPrimitives();
-                });
+                        return object->numPrimitives();
+                    });
 #else // GCC 8.2.1 stdlib does not support the standardization of parallelism TS
                 unsigned numUniqueAndBasePrims = 0;
                 for (const auto* object : uniqueAndBaseObjects)
@@ -510,7 +509,7 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     const auto* rootNode = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
 
     std::vector<std::vector<const T*>> ret;
-    auto[leftOverObjects, leftOverUniqueAndBaseObject] = rootNode->group(uniquePrimsPerGroup, ret);
+    auto [leftOverObjects, leftOverUniqueAndBaseObject] = rootNode->group(uniquePrimsPerGroup, ret);
     if (!leftOverObjects.empty()) {
         ret.emplace_back(std::move(leftOverObjects));
     }
@@ -524,7 +523,6 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     rtcReleaseDevice(device);
     return ret;
 }
-
 
 std::vector<std::vector<const OOCSceneObject*>> Scene::groupOOCSceneObjects(unsigned uniquePrimsPerGroup) const
 {

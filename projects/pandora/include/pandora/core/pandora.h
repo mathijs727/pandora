@@ -60,7 +60,7 @@ class Sensor;
 class VoxelGrid;
 class SparseVoxelOctree;
 
-template <typename, template <typename T> typename, size_t>
+template <typename, size_t>
 class OOCBatchingAccelerationStructure;
 template <typename T, size_t>
 class InCoreBatchingAccelerationStructure;

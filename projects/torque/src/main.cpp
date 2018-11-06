@@ -81,7 +81,7 @@ int main(int argc, char** argv)
 
     std::cout << "Start render" << std::endl;
     int spp = vm["spp"].as<int>();
-    try {
+    //try {
         auto integratorType = vm["integrator"].as<std::string>();
         if (integratorType == "direct") {
             DirectLightingIntegrator integrator(8, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES, LightStrategy::UniformSampleOne);
@@ -97,9 +97,10 @@ int main(int argc, char** argv)
             NormalDebugIntegrator integrator(renderConfig.scene, renderConfig.camera->getSensor());
             integrator.render(*renderConfig.camera);
         }
-    } catch (const std::exception& e) {
+    /*} catch (const std::exception& e) {
         std::cout << "Render error: " << e.what() << std::endl;
-    }
+        system("PAUSE");
+    }*/
 
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), spp);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), spp);

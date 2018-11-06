@@ -110,10 +110,10 @@ public:
     Bounds worldBounds() const override final;
     unsigned numPrimitives() const override final;
 
-    std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
-    std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
+    std::shared_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
+    std::shared_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
 
-    OOCGeometricSceneObject geometricSplit(FifoCache<TriangleMesh>* cache, std::filesystem::path filePath, gsl::span<unsigned> primitiveIDs);
+    OOCGeometricSceneObject geometricSplit(CacheT<TriangleMesh>* cache, std::filesystem::path filePath, gsl::span<unsigned> primitiveIDs);
 
 private:
     friend class OOCInstancedSceneObject;

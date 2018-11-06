@@ -21,6 +21,7 @@ set(pandora_flatbuffer_files
 	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/contiguous_allocator.fbs"
 	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/data_types.fbs"
 	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/ooc_batching.fbs"
+	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/ooc_batching2.fbs"
 	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/scene.fbs"
 	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/triangle_mesh.fbs"
 	"${CMAKE_CURRENT_LIST_DIR}/flatbuffers/wive_bvh8.fbs")

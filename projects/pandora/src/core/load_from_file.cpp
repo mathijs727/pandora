@@ -10,6 +10,8 @@
 #include "pandora/textures/image_texture.h"
 #include "pandora/utility/error_handling.h"
 #include "pandora/core/stats.h"
+#include "pandora/eviction/lru_cache.h"
+#include "pandora/eviction/fifo_cache.h"
 #include <array>
 #include <atomic>
 #include <fstream>

@@ -1,0 +1,13 @@
+include "triangle_mesh.fbs";
+include "wive_bvh8.fbs";
+include "scene.fbs";
+
+namespace pandora.serialization;
+
+table OOCBatchingBaseSceneObject
+{
+	base_geometry: GeometricSceneObjectGeometry;
+	bvh: WiVeBVH8;
+}
+
+root_type OOCBatchingBaseSceneObject;

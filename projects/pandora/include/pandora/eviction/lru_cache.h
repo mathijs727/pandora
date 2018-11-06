@@ -79,8 +79,8 @@ private:
     std::function<void(size_t)> m_allocCallback;
     std::function<void(size_t)> m_evictCallback;
 
-    std::mutex m_cacheMutex;
-    std::list<std::shared_ptr<T>> m_history;
+    mutable std::mutex m_cacheMutex;
+    mutable std::list<std::shared_ptr<T>> m_history;
 public:
     struct CacheMapItem {
         std::mutex loadMutex;
@@ -88,7 +88,7 @@ public:
     };
 private:
     using HistoryIterator = typename std::list<std::shared_ptr<T>>::iterator;
-    std::unordered_map<EvictableResourceID, std::pair<CacheMapItem, HistoryIterator>> m_cacheMap; // Read-only in the resource access function
+    mutable std::unordered_map<EvictableResourceID, std::pair<CacheMapItem, HistoryIterator>> m_cacheMap; // Read-only in the resource access function
 
     tbb::concurrent_vector<std::function<T(void)>> m_resourceFactories;
     ThreadPool m_factoryThreadPool;
@@ -168,7 +168,7 @@ inline std::shared_ptr<T> LRUCache<T>::getBlocking(EvictableResourceID resourceI
         // Make sure that no other thread came in first and loaded the resource already
         sharedResourcePtr = cacheItem.itemPtr.lock();
         if (!sharedResourcePtr) {
-            ALWAYS_ASSERT(lruIter == m_history.end());
+            //ALWAYS_ASSERT(lruIter == m_history.end());
 
             const auto& factoryFunc = m_resourceFactories[resourceID];
             sharedResourcePtr = std::make_shared<T>(factoryFunc());
@@ -193,18 +193,21 @@ inline std::shared_ptr<T> LRUCache<T>::getBlocking(EvictableResourceID resourceI
         }
     }
 
+    // TODO: move item back to the front of the list
     return sharedResourcePtr;
 }
 
 template <typename T>
 inline void LRUCache<T>::evictAllUnsafe() const
 {
-    for (auto iter = this->m_cacheHistory.unsafe_begin(); iter != this->m_cacheHistory.unsafe_end(); iter++) {
-        m_evictCallback((*iter)->sizeBytes());
-    }
+    while (!m_history.empty()) {
+        auto sharedResourcePtr = m_history.back();
+        m_history.pop_back();
 
+        m_evictCallback(sharedResourcePtr->sizeBytes());
+    }
     auto* mutThis = const_cast<LRUCache<T>*>(this);
-    mutThis->m_history.clear();
+    mutThis->m_currentSizeBytes.store(0);
 }
 
 template <typename T>

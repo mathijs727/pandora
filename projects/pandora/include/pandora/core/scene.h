@@ -5,6 +5,7 @@
 #include "pandora/geometry/triangle.h"
 #include "pandora/lights/area_light.h"
 #include "pandora/traversal/bvh.h"
+#include "pandora/eviction/lru_cache.h"
 #include "pandora/eviction/fifo_cache.h"
 #include "pandora/eviction/evictable.h"
 #include <glm/glm.hpp>
@@ -64,8 +65,8 @@ public:
     virtual Bounds worldBounds() const = 0;
     virtual unsigned numPrimitives() const = 0;
 
-    virtual std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const = 0;
-    virtual std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const = 0;
+    virtual std::shared_ptr<SceneObjectGeometry> getGeometryBlocking() const = 0;
+    virtual std::shared_ptr<SceneObjectMaterial> getMaterialBlocking() const = 0;
 
 };
 
@@ -88,14 +89,14 @@ public:
     gsl::span<const Light* const> getLights() const;
     gsl::span<const Light* const> getInfiniteLights() const;
 
-    const FifoCache<TriangleMesh>* geometryCache() const;
-    FifoCache<TriangleMesh>* geometryCache();
+    const CacheT<TriangleMesh>* geometryCache() const;
+    CacheT<TriangleMesh>* geometryCache();
 
     std::vector<std::vector<const OOCSceneObject*>> groupOOCSceneObjects(unsigned uniquePrimsPerGroup) const;
     std::vector<std::vector<const InCoreSceneObject*>> groupInCoreSceneObjects(unsigned uniquePrimsPerGroup) const;
 
 private:
-    std::unique_ptr<FifoCache<TriangleMesh>> m_geometryCache;
+    std::unique_ptr<CacheT<TriangleMesh>> m_geometryCache;
 
     std::vector<std::unique_ptr<InCoreSceneObject>> m_inCoreSceneObjects;
     std::vector<std::unique_ptr<OOCSceneObject>> m_oocSceneObjects;
