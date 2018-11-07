@@ -24,6 +24,7 @@
 #include <numeric>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <tbb/concurrent_vector.h>
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/flow_graph.h>
@@ -184,7 +185,7 @@ private:
     struct CachedInstanceData {
         size_t sizeBytes() const
         {
-            return geometry->sizeBytes() + bvh->sizeBytes();
+            return sizeof(decltype(*this)) + geometry->sizeBytes() + bvh->sizeBytes();
         }
 
         std::shared_ptr<GeometricSceneObjectGeometry> geometry;
@@ -194,9 +195,9 @@ private:
         size_t sizeBytes() const
         {
             size_t size = sizeof(decltype(*this));
-            size += leafBVH.sizeBytes();
             size += geometrySize;
-            size += geometryOwningPointers.size() * sizeof(decltype(geometryOwningPointers)::value_type);
+            size += leafBVH.sizeBytes();
+            size += geometryOwningPointers.size() * sizeof(typename decltype(geometryOwningPointers)::value_type);
             return size;
         }
 
@@ -221,7 +222,7 @@ private:
         std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Blocks rays. This function is thread safe.
         std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Blocks rays. This function is thread safe.
 
-        void forceLoad() { m_accelerationStructurePtr->m_geometryCache.getBlocking<CachedBlockingPoint>(m_geometryDataCacheID); }
+        void forceLoad() { m_accelerationStructurePtr->m_geometryCache.template getBlocking<CachedBlockingPoint>(m_geometryDataCacheID); }
         bool inCache() const { return m_accelerationStructurePtr->m_geometryCache.inCache(m_geometryDataCacheID); }
         bool hasBatchedRays() { return m_immutableRayBlockList.load() != nullptr; }
         bool forwardPartiallyFilledBlocks(); // Adds the active blocks to the list of immutable blocks (even if they are not full)
@@ -234,7 +235,6 @@ private:
         static void compressSVDAGs(gsl::span<TopLevelLeafNode*> nodes);
 
         size_t sizeBytes() const;
-        size_t diskSizeBytes() const;
 
     private:
         static EvictableResourceID generateCachedBVH(
@@ -405,7 +405,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BlockS
         auto filePart = fileBlocker.writeData(fbb);
 
         // Callback to restore the data we have just written to disk
-        auto resourceID = cache->emplaceFactoryThreadSafe<CachedInstanceData>([filePart]() -> CachedInstanceData {
+        auto resourceID = cache->template emplaceFactoryThreadSafe<CachedInstanceData>([filePart]() -> CachedInstanceData {
             g_stats.memory.oocTotalDiskRead += filePart.size;
             auto buffer = filePart.load();
             auto serializedBaseSceneObject = serialization::GetOOCBatchingBaseSceneObject(buffer.data());
@@ -558,8 +558,9 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BlockSize
     // Write the serialized representation to disk
     auto filePart = diskDataBatcher.writeData(fbb);
 
-    auto resourceID = cache->emplaceFactoryThreadSafe<CachedBlockingPoint>([filePart, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects),
+    auto resourceID = cache->template emplaceFactoryThreadSafe<CachedBlockingPoint>([filePart, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects),
                                                                                instanceBaseResourceHandles = std::move(instanceBaseResourceHandles)]() -> CachedBlockingPoint {
+        g_stats.memory.oocTotalDiskRead += filePart.size;
         auto buffer = filePart.load(); // Needs to stay alive as long as serializedTopLevelLeafNode exists
         const auto* serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(buffer.data());
 
@@ -594,6 +595,11 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BlockSize
         assert(instanceBaseObjects.size() == serializedInstancedGeometry->Length());
         for (size_t i = 0; i < instanceBaseObjects.size(); i++) {
             const auto& [baseGeometry, baseBVH] = *instanceBaseObjects[i];
+
+            // Make sure to count the instance geometry class itself towards the memory limit. Although the base objects (the objects
+            // being pointed to) are already accounted for (they are stored in the cache separately), we need to make sure that we do
+            // count the instance objects themselves (because of the transform class, they are actually quite big).
+            geometrySize += sizeof(InstancedSceneObjectGeometry);
 
             auto geometry = std::make_shared<InstancedSceneObjectGeometry>(
                 serializedInstancedGeometry->Get(static_cast<flatbuffers::uoffset_t>(i)),
@@ -980,12 +986,6 @@ inline size_t OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLe
     size += m_threadLocalActiveBlock.size() * sizeof(RayBlock*);
     size += std::get<0>(m_svdagAndTransform).sizeBytes();
     return size;
-}
-
-template <typename UserState, size_t BlockSize>
-inline size_t OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::diskSizeBytes() const
-{
-    return m_diskSize;
 }
 
 template <typename UserState, size_t BlockSize>

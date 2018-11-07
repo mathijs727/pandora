@@ -405,9 +405,9 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
                         return object->numPrimitives();
                     });
 #else // GCC 8.2.1 stdlibc++ does not support the standardization of parallelism TS
-                unsigned numUniqueAndBasePrims = 0;
+                unsigned numPrimitives = 0;
                 for (const auto* object : objects)
-                    numUniqueAndBasePrims += object->numPrimitives();
+                    numPrimitives += object->numPrimitives();
 #endif
 
                 if (numPrimitives >= minPrimsPerGroup) {

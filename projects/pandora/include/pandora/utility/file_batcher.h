@@ -44,30 +44,41 @@ public:
             if constexpr (OUT_OF_CORE_DISABLE_FILE_CACHING) {
                 flags |= O_DIRECT;
             }
-            auto filedesc = open(filePath.string().c_str(), flags);
-            ALWAYS_ASSERT(filedesc >= 0);
+            auto fileDesc = open(filePath.string().c_str(), flags);
+            ALWAYS_ASSERT(fileDesc >= 0);
 
-            constexpr int alignment = 512; // Block size
-            //size_t fileSize = std::filesystem::file_size(cacheFilePath);
-            size_t r = size % alignment;
-            size_t bufferSize = r ? size - r + alignment : size;
+            // Ensure that the offset and size are multiples of the block size
+            constexpr int blockSize = 512; // Block size
+            size_t offsetInBlock = offset % blockSize;
+            size_t blockAlignedOffset = offset - offsetInBlock;
+            size_t offsetAdjustedSize = size + offsetInBlock;
 
-            m_buffer((char*)aligned_alloc(alignment, bufferSize), deleter);
-            fseek(fileDesc, offset, SEEK_SET);
-            ALWAYS_ASSERT(read(filedesc, m_buffer.get(), bufferSize) >= 0);
-            close(filedesc);
+            size_t r = offsetAdjustedSize % blockSize;
+            size_t bufferSize = r ? offsetAdjustedSize - r + blockSize : offsetAdjustedSize;
+
+            m_raiiPtr.ptr = reinterpret_cast<std::byte*>(aligned_alloc(blockSize, bufferSize));
+            lseek(fileDesc, blockAlignedOffset, SEEK_SET);
+            ALWAYS_ASSERT(read(fileDesc, m_raiiPtr.ptr, bufferSize) >= 0);
+            close(fileDesc);
+
+            m_dataPtr = m_raiiPtr.ptr + offsetInBlock;
         }
 
         const void* data() const
         {
-            return m_data.data();
+            return m_dataPtr;
         }
 
     private:
-        static auto deleter = [](char* ptr) {
-            free(ptr);
+        struct RAIIPointer
+        {
+            ~RAIIPointer() {
+                free(ptr);
+            }
+            std::byte* ptr;
         };
-        std::unique_ptr<char[], decltype(deleter)> m_buffer;
+        RAIIPointer m_raiiPtr;
+        void* m_dataPtr;
     };
 
 #else

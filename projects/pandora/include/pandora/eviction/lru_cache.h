@@ -146,7 +146,7 @@ LRUCache<T...>::emplaceFactoryUnsafe(std::function<S(void)> factoryFunc)
         std::forward_as_tuple(resourceID),
         std::forward_as_tuple());
     auto& cacheMapItem = cacheMapIter->second;
-    cacheMapItem.first.itemPtr.emplace<pandora::atomic_weak_ptr<S>>();// Initialize variant with the correct type
+    cacheMapItem.first.itemPtr.template emplace<pandora::atomic_weak_ptr<S>>();// Initialize variant with the correct type
     cacheMapItem.second = m_history.end();
 
     return resourceID;
@@ -167,7 +167,7 @@ LRUCache<T...>::emplaceFactoryThreadSafe(std::function<S(void)> factoryFunc)
         std::forward_as_tuple(resourceID),
         std::forward_as_tuple());
     auto& cacheMapItem = cacheMapIter->second;
-    cacheMapItem.first.itemPtr.emplace<pandora::atomic_weak_ptr<S>>();// Initialize variant with the correct type
+    cacheMapItem.first.itemPtr.template emplace<pandora::atomic_weak_ptr<S>>();// Initialize variant with the correct type
     cacheMapItem.second = m_history.end();
 
     return resourceID;
