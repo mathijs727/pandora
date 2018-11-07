@@ -22,6 +22,9 @@ constexpr bool ISLAND_WATER_MATERIAL = false;// Give the water in the Island sce
 // Use random seeds or deterministic seeds (so images can be reproduced)
 constexpr bool USE_RANDOM_SEEDS = false;
 
+// Whether to enable statistics that are relatively expensive to measure
+constexpr bool ENABLE_ADDITIONAL_STATISTICS = true;
+
 template<typename... T>
 using CacheT = LRUCache<T...>;
 

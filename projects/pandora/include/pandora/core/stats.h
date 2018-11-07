@@ -21,13 +21,18 @@ struct RenderStats : public metrics::Stats {
     } timings;
 
     struct {
-        // Memory loaded by actual geometry (TriangleMesh) including during BVH construction
+        // Memory loaded/evicted by the scenes TriangleMesh cache
         metrics::Counter<size_t> geometryLoaded { "bytes" };
         metrics::Counter<size_t> geometryEvicted { "bytes" };
 
-        // Memory loaded by geometry & bot-level BVHs
+        // Memory loaded/evicted by the OOC acceleration structure
         metrics::Counter<size_t> botLevelLoaded { "bytes" };
         metrics::Counter<size_t> botLevelEvicted { "bytes" };
+
+        // Data loaded from disk by the OOC acceleration structure. This might slightly differ from
+        // botLevelLoaded because that measures the size of the in-memory representation instead of
+        // the serialized (flatbuffer) size.
+        metrics::Counter<size_t> oocTotalDiskRead { "bytes" };
 
         // Memory used by the top-level BVH and the svdags associated with the top-level leaf nodes
         metrics::Counter<size_t> topBVH { "bytes" }; // BVH excluding leafs

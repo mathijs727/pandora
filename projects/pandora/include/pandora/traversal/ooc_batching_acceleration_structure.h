@@ -127,13 +127,14 @@ public:
 #endif
 
     struct FilePart {
-        std::filesystem::path filePath; // TODO: only store file id (int) instead of full path?
+        // Shared between different file fragments to save memory
+        std::shared_ptr<std::filesystem::path> filePathSharedPtr;
         size_t offset; // bytes
         size_t size; // bytes
 
         RAIIBuffer load() const
         {
-            return RAIIBuffer(filePath, offset, size);
+            return RAIIBuffer(*filePathSharedPtr, offset, size);
         }
     };
 
@@ -141,11 +142,11 @@ public:
     {
         std::scoped_lock<std::mutex> l(m_accessMutex);
 
-        FilePart ret;
-        ret.filePath = fullPath(m_currentFileID);
-        ret.offset = m_currentFileSize;
-        ret.size = fbb.GetSize();
-
+        FilePart ret = {
+            m_currentFilePathSharedPtr,
+            m_currentFileSize,
+            fbb.GetSize()
+        };
         m_file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
         m_currentFileSize += fbb.GetSize();
 
@@ -169,8 +170,8 @@ private:
 
     inline void openNewFile()
     {
-        m_currentFilename = fullPath(++m_currentFileID);
-        m_file = std::ofstream(m_currentFilename, std::ios::binary | std::ios::trunc);
+        m_currentFilePathSharedPtr = std::make_shared<std::filesystem::path>(fullPath(++m_currentFileID));
+        m_file = std::ofstream(*m_currentFilePathSharedPtr, std::ios::binary | std::ios::trunc);
         m_currentFileSize = 0;
     }
 
@@ -180,8 +181,9 @@ private:
     const size_t m_maxFileSize;
 
     std::mutex m_accessMutex;
+
     int m_currentFileID;
-    std::filesystem::path m_currentFilename;
+    std::shared_ptr<std::filesystem::path> m_currentFilePathSharedPtr;
     std::ofstream m_file;
     size_t m_currentFileSize;
 };
@@ -548,6 +550,10 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BatchS
             auto serializedBaseSceneObject = serialization::GetOOCBatchingBaseSceneObject(buffer.data());
             auto geometry = std::make_shared<GeometricSceneObjectGeometry>(serializedBaseSceneObject->base_geometry());
 
+            if constexpr (ENABLE_ADDITIONAL_STATISTICS) {
+                g_stats.memory.oocTotalDiskRead += filePart.size;
+            }
+
             std::vector<BotLevelLeafNodeInstanced> leafs;
             leafs.reserve(geometry->numPrimitives());
             for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
@@ -632,43 +638,6 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
     const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CachedInstanceData, MyCacheT>>& instanceBaseSceneObjectHandleMapping,
     MyCacheT* cache)
 {
-    std::cout << "OOCBatchingAccelerationStructure::generateCachedBVH" << std::endl;
-    /*// Collect the list of [unique] geometric scene objects that are referenced by instanced scene objects
-    std::set<const OOCGeometricSceneObject*> instancedBaseObjects;
-    for (const auto* sceneObject : sceneObjects) {
-        if (const auto* instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(sceneObject)) {
-            instancedBaseObjects.insert(instancedSceneObject->getBaseObject());
-        }
-    }*/
-
-    /*// Used for serialization to index into the list of instance base objects
-    std::unordered_map<const OOCGeometricSceneObject*, uint32_t> instanceBaseObjectIDs;
-    std::vector<flatbuffers::Offset<serialization::GeometricSceneObjectGeometry>> serializedInstanceBaseGeometry;
-    std::vector<flatbuffers::Offset<serialization::WiVeBVH8>> serializedInstanceBaseBVHs;
-
-    // Build BVHs for instanced scene objects
-    std::unordered_map<const OOCGeometricSceneObject*, std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>> instancedBVHs;
-    for (const auto* instancedGeometricSceneObject : instancedBaseObjects) {
-        auto geometry = instancedGeometricSceneObject->getGeometryBlocking();
-
-        std::vector<BotLevelLeafNodeInstanced> leafs;
-        leafs.reserve(geometry->numPrimitives());
-        for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
-            leafs.push_back(BotLevelLeafNodeInstanced(geometry.get(), primitiveID));
-        }
-
-        // NOTE: the "geometry" variable ensures that the geometry pointed to stays in memory for the BVH build
-        //       (which requires the geometry to determine the leaf node bounds).
-        std::cout << "Building instance base BVH with " << leafs.size() << " leafs" << std::endl;
-        auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>(leafs);
-        instancedBVHs[instancedGeometricSceneObject] = bvh;
-
-        const auto* rawGeometry = dynamic_cast<const GeometricSceneObjectGeometry*>(geometry.get());
-        instanceBaseObjectIDs[instancedGeometricSceneObject] = static_cast<uint32_t>(serializedInstanceBaseGeometry.size());
-        serializedInstanceBaseGeometry.push_back(rawGeometry->serialize(fbb));
-        serializedInstanceBaseBVHs.push_back(bvh->serialize(fbb));
-    }*/
-
     flatbuffers::FlatBufferBuilder fbb;
     std::vector<flatbuffers::Offset<serialization::GeometricSceneObjectGeometry>> serializedUniqueGeometry;
     std::vector<flatbuffers::Offset<serialization::InstancedSceneObjectGeometry>> serializedInstancedGeometry;
@@ -700,14 +669,6 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
     }
     for (const auto* sceneObject : sceneObjects) {
         if (const auto* instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(sceneObject)) {
-            /*// Serialize
-            std::shared_ptr<SceneObjectGeometry> geometryOwningPointer = instancedSceneObject->getGeometryBlocking();
-            const auto* geometry = dynamic_cast<const InstancedSceneObjectGeometry*>(geometryOwningPointer.get());
-            unsigned baseGeometryID = instanceBaseObjectIDs[instancedSceneObject->getBaseObject()];
-            serializedInstancedSceneObjectBaseIDs.push_back(baseGeometryID);
-            serializedInstancedGeometry.push_back(
-                geometry->serialize(fbb));*/
-
             const auto* baseObject = instancedSceneObject->getBaseObject();
             assert(instanceBaseSceneObjectHandleMapping.find(baseObject) != instanceBaseSceneObjectHandleMapping.end());
 
@@ -721,21 +682,15 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
             // Create bot-level node
             leafs.push_back(BotLevelLeafNode(instancedSceneObject, nullptr, nullptr)); // No need to load the underlying geometry & BVH
             instancedSceneObjects.push_back(instancedSceneObject);
-
-            //geometryOwningPointers.emplace_back(geometryOwningPointer);
         }
     }
 
-    std::cout << "Build leaf BVH over " << leafs.size() << " leafs" << std::endl;
     WiVeBVH8Build8<BotLevelLeafNode> bvh(leafs);
     auto serializedBVH = bvh.serialize(fbb);
 
     auto serializedTopLevelLeafNode = serialization::CreateOOCBatchingTopLevelLeafNode(
         fbb,
         fbb.CreateVector(serializedUniqueGeometry),
-        //fbb.CreateVector(serializedInstanceBaseGeometry),
-        //fbb.CreateVector(serializedInstanceBaseBVHs),
-        //fbb.CreateVector(serializedInstancedSceneObjectBaseIDs),
         fbb.CreateVector(serializedInstancedGeometry),
         serializedBVH,
         static_cast<uint32_t>(leafs.size()));
@@ -750,7 +705,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
     }
 
     auto resourceID = cache->emplaceFactoryThreadSafe<CachedBatchingPoint>([cacheFilePath, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects),
-                                                          instanceBaseResourceHandles = std::move(instanceBaseResourceHandles)]() -> CachedBatchingPoint {
+                                                                               instanceBaseResourceHandles = std::move(instanceBaseResourceHandles)]() -> CachedBatchingPoint {
 #ifdef __linux__
         // Linux does not support O_DIRECT in combination with memory mapped I/O (meaning we cannot bypass the
         // OS file cache). So instead we use posix I/O on Linux giving us the option to bypass the file cache at
@@ -792,6 +747,10 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(mmapFile.data());
 #endif
 
+        if constexpr (ENABLE_ADDITIONAL_STATISTICS) {
+            g_stats.memory.oocTotalDiskRead += std::filesystem::file_size(cacheFilePath);
+        }
+
         //const auto* serializedInstanceBaseBVHs = serializedTopLevelLeafNode->instance_base_bvh();
         //const auto* serializedInstanceBaseGeometry = serializedTopLevelLeafNode->instance_base_geometry();
 
@@ -804,21 +763,6 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         for (const auto resourceHandle : instanceBaseResourceHandles) {
             std::shared_ptr<CachedInstanceData> cachedInstanceBaseData = resourceHandle.getBlocking();
             instanceBaseObjects.push_back(cachedInstanceBaseData);
-
-            /*auto geometry = std::make_shared<GeometricSceneObjectGeometry>(serializedInstanceBaseGeometry->Get(i));
-
-            std::vector<BotLevelLeafNodeInstanced> leafs;
-            leafs.reserve(geometry->numPrimitives());
-            for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
-                leafs.push_back(BotLevelLeafNodeInstanced(geometry.get(), primitiveID));
-            }
-
-            auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>(serializedInstanceBaseBVHs->Get(i), std::move(leafs));
-            instanceBaseObjects.push_back({ geometry.get(), bvh });
-
-            // The BVH leaf nodes point directly to geometry so we should keep them alive (they point to the same mesh though)
-            geometrySize += geometry->sizeBytes();
-            geometryOwningPointers.emplace_back(std::move(geometry));*/
         }
 
         // Load unique geometric scene objects
@@ -843,9 +787,6 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         for (size_t i = 0; i < instanceBaseObjects.size(); i++) {
             const auto& [baseGeometry, baseBVH] = *instanceBaseObjects[i];
 
-            //auto geometry = std::make_shared<InstancedSceneObjectGeometry>(
-            //    serializedInstancedGeometry->Get(static_cast<flatbuffers::uoffset_t>(i)),
-            //    std::make_unique<GeometricSceneObjectGeometry>(*baseGeometry));
             auto geometry = std::make_shared<InstancedSceneObjectGeometry>(
                 serializedInstancedGeometry->Get(static_cast<flatbuffers::uoffset_t>(i)),
                 baseGeometry);
@@ -855,7 +796,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BatchSize
         }
 
         auto bvh = WiVeBVH8Build8<BotLevelLeafNode>(serializedTopLevelLeafNode->bvh(), std::move(leafs));
-        return CachedBatchingPoint{
+        return CachedBatchingPoint {
             geometrySize,
             std::move(bvh),
             std::move(geometryOwningPointers)
