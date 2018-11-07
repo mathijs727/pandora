@@ -14,6 +14,7 @@
 #include "pandora/svo/voxel_grid.h"
 #include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
+#include "pandora/utility/file_batcher.h"
 #include "pandora/utility/growing_free_list_ts.h"
 #include <atomic>
 #include <filesystem>
@@ -33,16 +34,6 @@
 #include <tbb/task_group.h>
 #include <thread>
 
-// For file I/O
-#ifdef __linux__
-#include <cstring>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <unistd.h>
-#endif
-
 using namespace std::string_literals;
 
 namespace pandora {
@@ -56,137 +47,6 @@ static const std::filesystem::path OUT_OF_CORE_CACHE_FOLDER(STR(D_OUT_OF_CORE_CA
 #else
 static const std::filesystem::path OUT_OF_CORE_CACHE_FOLDER("ooc_node_cache/");
 #endif
-
-class DiskDataBatcher {
-public:
-    DiskDataBatcher(std::filesystem::path outFolder, std::string_view filePrefix, size_t maxFileSize)
-        : m_outFolder(outFolder)
-        , m_filePrefix(filePrefix)
-        , m_maxFileSize(maxFileSize)
-        , m_currentFileID(0)
-        , m_currentFileSize(0)
-    {
-        openNewFile();
-    }
-
-#ifdef __linux__
-    struct RAIIBuffer {
-    public:
-        RAIIBuffer(std::filesystem::path filePath, size_t offset, size_t size)
-        {
-            // Linux does not support O_DIRECT in combination with memory mapped I/O (meaning we cannot bypass the
-            // OS file cache). So instead we use posix I/O on Linux giving us the option to bypass the file cache at
-            // the cost of an extra allocation & copy.
-            int flags = O_RDONLY;
-            if constexpr (OUT_OF_CORE_DISABLE_FILE_CACHING) {
-                flags |= O_DIRECT;
-            }
-            auto filedesc = open(filePath.string().c_str(), flags);
-            ALWAYS_ASSERT(filedesc >= 0);
-
-            constexpr int alignment = 512; // Block size
-            //size_t fileSize = std::filesystem::file_size(cacheFilePath);
-            size_t r = size % alignment;
-            size_t bufferSize = r ? size - r + alignment : size;
-
-            m_buffer((char*)aligned_alloc(alignment, bufferSize), deleter);
-            fseek(fileDesc, offset, SEEK_SET);
-            ALWAYS_ASSERT(read(filedesc, m_buffer.get(), bufferSize) >= 0);
-            close(filedesc);
-        }
-
-        const void* data() const
-        {
-            return m_data.data();
-        }
-
-    private:
-        static auto deleter = [](char* ptr) {
-            free(ptr);
-        };
-        std::unique_ptr<char[], decltype(deleter)> m_buffer;
-    };
-
-#else
-    struct RAIIBuffer {
-    public:
-        RAIIBuffer(std::filesystem::path filePath, size_t offset, size_t size)
-        {
-            int fileFlags = OUT_OF_CORE_DISABLE_FILE_CACHING ? mio::access_flags::no_buffering : 0;
-            m_data = mio::mmap_source(filePath.string(), offset, size, fileFlags);
-        }
-
-        const void* data() const
-        {
-            return m_data.data();
-        }
-
-    private:
-        mio::mmap_source m_data;
-    };
-#endif
-
-    struct FilePart {
-        // Shared between different file fragments to save memory
-        std::shared_ptr<std::filesystem::path> filePathSharedPtr;
-        size_t offset; // bytes
-        size_t size; // bytes
-
-        RAIIBuffer load() const
-        {
-            return RAIIBuffer(*filePathSharedPtr, offset, size);
-        }
-    };
-
-    inline FilePart writeData(const flatbuffers::FlatBufferBuilder& fbb)
-    {
-        std::scoped_lock<std::mutex> l(m_accessMutex);
-
-        FilePart ret = {
-            m_currentFilePathSharedPtr,
-            m_currentFileSize,
-            fbb.GetSize()
-        };
-        m_file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
-        m_currentFileSize += fbb.GetSize();
-
-        if (m_currentFileSize > m_maxFileSize) {
-            openNewFile();
-        }
-        assert(m_currentFileSize == m_file.tellp());
-        return ret;
-    }
-
-    inline void flush()
-    {
-        m_file.flush();
-    }
-
-private:
-    inline std::filesystem::path fullPath(int fileID)
-    {
-        return m_outFolder / (m_filePrefix + std::to_string(fileID) + ".bin"s);
-    }
-
-    inline void openNewFile()
-    {
-        m_currentFilePathSharedPtr = std::make_shared<std::filesystem::path>(fullPath(++m_currentFileID));
-        m_file = std::ofstream(*m_currentFilePathSharedPtr, std::ios::binary | std::ios::trunc);
-        m_currentFileSize = 0;
-    }
-
-private:
-    const std::filesystem::path m_outFolder;
-    const std::string m_filePrefix;
-    const size_t m_maxFileSize;
-
-    std::mutex m_accessMutex;
-
-    int m_currentFileID;
-    std::shared_ptr<std::filesystem::path> m_currentFilePathSharedPtr;
-    std::ofstream m_file;
-    size_t m_currentFileSize;
-};
 
 template <typename UserState, size_t BlockSize = 32>
 class OOCBatchingAccelerationStructure {
@@ -950,30 +810,19 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
     const size_t cacheConcurrency = accelerationStructurePtr->m_numLoadingThreads;
     const size_t flowConcurrency = 2 * cacheConcurrency;
 
-    std::vector<TopLevelLeafNode*> cachedNodes;
-    std::vector<TopLevelLeafNode*> nonCachedNodes;
-    std::copy_if(std::begin(nodes), std::end(nodes), std::back_inserter(cachedNodes), [](TopLevelLeafNode* n) {
-        return n->hasBatchedRays() && n->inCache();
-    });
-    std::copy_if(std::begin(nodes), std::end(nodes), std::back_inserter(nonCachedNodes), [](TopLevelLeafNode* n) {
-        return n->hasBatchedRays() && !n->inCache();
+    std::vector<TopLevelLeafNode*> nodesWithBatchedRays;
+    std::copy_if(std::begin(nodes), std::end(nodes), std::back_inserter(nodesWithBatchedRays), [](TopLevelLeafNode* n) {
+        return n->hasBatchedRays();
     });
 
-    std::cout << "Cached nodes: " << cachedNodes.size() << std::endl;
-    std::cout << "Non cached nodes: " << nonCachedNodes.size() << std::endl;
+    std::cout << "Number of nodes with batched rays: " << nodesWithBatchedRays.size() << "\n";
 
-    std::sort(std::begin(cachedNodes), std::end(cachedNodes), [](const auto* node1, const auto* node2) {
-        return node1->m_numFullBlocks.load() > node2->m_numFullBlocks.load(); // Sort from big to small
-    });
-    std::sort(std::begin(nonCachedNodes), std::end(nonCachedNodes), [](const auto* node1, const auto* node2) {
+    std::sort(std::begin(nodesWithBatchedRays), std::end(nodesWithBatchedRays), [](const auto* node1, const auto* node2) {
         return node1->m_numFullBlocks.load() > node2->m_numFullBlocks.load(); // Sort from big to small
     });
 
     // Only flush nodes that have a lot of flushed blocks, wait for other nodes for their blocks to fill up.
-    const int maxFullBlocksCached = cachedNodes.empty() ? 0 : cachedNodes[0]->m_numFullBlocks.load();
-    const int maxFullBlocksNonCached = nonCachedNodes.empty() ? 0 : nonCachedNodes[0]->m_numFullBlocks.load();
-    //const int blocksThreshold = std::max(maxFullBlocksCached, maxFullBlocksNonCached) / 8;
-    const int blocksThreshold = maxFullBlocksNonCached / 8;
+    const int blocksThreshold = nodesWithBatchedRays.empty() ? 0 : nodesWithBatchedRays[0]->m_numFullBlocks.load() / 5;
 
     tbb::flow::graph g;
 
@@ -982,46 +831,21 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
     static constexpr float diskSpeedBytesPerSecond = 300.0f * 1000000.0f; // Disk speed in b/s
     std::atomic_int traversalMargin = 0;
 
-    std::atomic_size_t cachedNodeIndex = 0; // source_node is always run sequentially
-    std::atomic_size_t nonCachedNodeIndex = 0;
+    std::atomic_size_t currentNodeIndex = 0; // source_node is always run sequentially
     using BlockWithoutGeom = std::pair<RayBlock*, EvictableResourceID>;
     tbb::flow::source_node<BlockWithoutGeom> sourceNode(
         g,
         [&](BlockWithoutGeom& out) -> bool {
-            TopLevelLeafNode* node = nullptr;
-
-            /*const bool canDoNonCached = (nonCachedNodeIndex < nonCachedNodes.size() &&
-                nonCachedNodes[nonCachedNodeIndex]->m_numFullBlocks.load() >= blocksThreshold);
-            if ((traversalMargin <= 0 || !canDoNonCached) && cachedNodeIndex < cachedNodes.size()) {
-                node = cachedNodes[cachedNodeIndex.fetch_add(1)];
-                const float traversalCost = node->m_numFullBlocks.load() * BlockSize * traversalCostPerRay / hwConcurrency;
-                traversalMargin.fetch_add(static_cast<int>(traversalCost));
-            } else if (canDoNonCached) {
-                node = nonCachedNodes[nonCachedNodeIndex.fetch_add(1)];
-                const float loadCost = node->diskSizeBytes() / diskSpeedBytesPerSecond;
-                const float traversalCost = node->m_numFullBlocks.load() * BlockSize * traversalCostPerRay / hwConcurrency;
-                const int nettoCost = static_cast<int>(loadCost - traversalCost);
-                traversalMargin.fetch_sub(nettoCost);
-            } else {
+            auto nodeIndex = currentNodeIndex.fetch_add(1);
+            if (nodeIndex >= nodesWithBatchedRays.size()) {
+                // All nodes processed
                 return false;
-            }*/
+            }
 
-            if (cachedNodeIndex != cachedNodes.size()) {
-                // Process nodes that are in cache first
-                node = cachedNodes[cachedNodeIndex.fetch_add(1)];
-            } else {
-                // Then process nodes that were not in cache AND have enough full blocks
-                while (true) {
-                    // All nodes processed
-                    if (nonCachedNodeIndex == nonCachedNodes.size()) {
-                        return false;
-                    }
-
-                    node = nonCachedNodes[nonCachedNodeIndex.fetch_add(1)];
-                    if (node->m_numFullBlocks.load() >= blocksThreshold) {
-                        break;
-                    }
-                }
+            auto* node = nodesWithBatchedRays[nodeIndex];
+            if (node->m_numFullBlocks.load() < blocksThreshold) {
+                // Don't process nodes with very little rays batched (probably not it to load nodes from disk)
+                return false;
             }
 
             RayBlock* block = node->m_immutableRayBlockList.exchange(nullptr);

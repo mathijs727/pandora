@@ -88,6 +88,7 @@ PUBLIC
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/contiguous_allocator_ts.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/error_handling.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/file_batcher.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/free_list_backed_memory_arena.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/growing_free_list_ts.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/math.h"
