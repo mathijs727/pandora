@@ -24,7 +24,6 @@
 #include <numeric>
 #include <optional>
 #include <string>
-#include <unordered_set>
 #include <tbb/concurrent_vector.h>
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/flow_graph.h>
@@ -34,6 +33,7 @@
 #include <tbb/scalable_allocator.h>
 #include <tbb/task_group.h>
 #include <thread>
+#include <unordered_set>
 
 using namespace std::string_literals;
 
@@ -442,15 +442,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BlockS
         }
     });
 
-    /*std::cout << "Force loading BVH leaf nodes for debugging purposes" << std::endl;
-    for (auto& leaf : leafs) {
-        leaf.forceLoad();
-    }
-    std::cout << "Bot level structures bytes used: " << g_stats.memory.botLevelLoaded << std::endl;
-    system("PAUSE");
-    exit(1);*/
-
-    g_stats.numTopLevelLeafNodes += leafs.size();
+    g_stats.numTopLevelLeafNodes = static_cast<int>(leafs.size());
 
     std::cout << "Building top-level BVH" << std::endl;
     auto ret = PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
@@ -559,7 +551,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BlockSize
     auto filePart = diskDataBatcher.writeData(fbb);
 
     auto resourceID = cache->template emplaceFactoryThreadSafe<CachedBlockingPoint>([filePart, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects),
-                                                                               instanceBaseResourceHandles = std::move(instanceBaseResourceHandles)]() -> CachedBlockingPoint {
+                                                                                        instanceBaseResourceHandles = std::move(instanceBaseResourceHandles)]() -> CachedBlockingPoint {
         g_stats.memory.oocTotalDiskRead += filePart.size;
         auto buffer = filePart.load(); // Needs to stay alive as long as serializedTopLevelLeafNode exists
         const auto* serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(buffer.data());
@@ -667,13 +659,27 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BlockSize
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
         //auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        if constexpr (ENABLE_ADDITIONAL_STATISTICS) {
+            auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+            g_stats.svdag.numIntersectionTests += 1;
 
-        const auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
-        auto svdagRay = ray;
-        svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
-        auto tOpt = svdag.intersectScalar(svdagRay);
-        if (!tOpt)
-            return false; // Missed, continue traversal
+            const auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
+            auto svdagRay = ray;
+            svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
+            auto tOpt = svdag.intersectScalar(svdagRay);
+            if (!tOpt) {
+                g_stats.svdag.numRaysCulled++;
+                return false; // Missed, continue traversal
+            }
+        } else {
+            const auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
+            auto svdagRay = ray;
+            svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
+            auto tOpt = svdag.intersectScalar(svdagRay);
+            if (!tOpt) {
+                return false; // Missed, continue traversal
+            }
+        }
     }
 
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
@@ -706,16 +712,26 @@ template <typename UserState, size_t BlockSize>
 inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
-        //if (!inCache()) {
-        {
-            //auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        if constexpr (ENABLE_ADDITIONAL_STATISTICS) {
+            auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+            g_stats.svdag.numIntersectionTests++;
 
             auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
             auto svdagRay = ray;
             svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
             auto tOpt = svdag.intersectScalar(svdagRay);
-            if (!tOpt)
+            if (!tOpt) {
+                g_stats.svdag.numRaysCulled++;
                 return false; // Missed, continue traversal
+            }
+        } else {
+            auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
+            auto svdagRay = ray;
+            svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
+            auto tOpt = svdag.intersectScalar(svdagRay);
+            if (!tOpt) {
+                return false; // Missed, continue traversal
+            }
         }
     }
 
@@ -830,15 +846,13 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
     // Only flush nodes that have a lot of flushed blocks, wait for other nodes for their blocks to fill up.
     const int blocksThreshold = nodesWithBatchedRays.empty() ? 0 : nodesWithBatchedRays[0]->m_numFullBlocks.load() / 5;
 
-    tbb::flow::graph g;
-
-    // Generate a task for each top-level leaf node that is in cache OR has enough full blocks
-    static constexpr float traversalCostPerRay = 1.0f; // Magic number based on CPU IPC & clock speed (ignore core count)
-    static constexpr float diskSpeedBytesPerSecond = 300.0f * 1000000.0f; // Disk speed in b/s
-    std::atomic_int traversalMargin = 0;
+    std::mutex flushInfoMutex;
+    RenderStats::FlushInfo& flushInfo = g_stats.flushInfos.emplace_back();
+    flushInfo.numBatchingPointsWithRays = static_cast<int>(nodesWithBatchedRays.size());
 
     std::atomic_size_t currentNodeIndex = 0; // source_node is always run sequentially
     using BlockWithoutGeom = std::pair<RayBlock*, EvictableResourceID>;
+    tbb::flow::graph g;
     tbb::flow::source_node<BlockWithoutGeom> sourceNode(
         g,
         [&](BlockWithoutGeom& out) -> bool {
@@ -852,6 +866,11 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
             if (node->m_numFullBlocks.load() < blocksThreshold) {
                 // Don't process nodes with very little rays batched (probably not it to load nodes from disk)
                 return false;
+            }
+
+            {
+                std::scoped_lock l(flushInfoMutex);
+                flushInfo.approximateRaysPerFlushedBatchingPoint.push_back(node->m_numFullBlocks.load() * BlockSize);
             }
 
             RayBlock* block = node->m_immutableRayBlockList.exchange(nullptr);

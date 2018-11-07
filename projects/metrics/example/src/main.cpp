@@ -22,7 +22,7 @@ struct MyStats : public metrics::Stats {
     } memory;
 
     Stopwatch<std::chrono::microseconds> stopwatch1;
-    Gauge gauge1 { "MB" };
+    Gauge<> gauge1 { "MB" };
 
     Histogram histogram1 { "MB", 100, 200, 5 };
 

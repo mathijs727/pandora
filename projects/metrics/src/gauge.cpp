@@ -2,24 +2,28 @@
 
 namespace metrics {
 
-Gauge::Gauge(std::string_view unit)
+template <typename T>
+Gauge<T>::Gauge(std::string_view unit)
     : m_value(0)
     , m_unit(unit)
 {
 }
 
-Gauge& Gauge::operator=(int v)
+template <typename T>
+Gauge<T>& Gauge<T>::operator=(T v)
 {
     m_value.store(v);
     return *this;
 }
 
-Gauge::operator int() const
+template <typename T>
+Gauge<T>::operator T() const
 {
     return m_value.load();
 }
 
-Gauge::operator nlohmann::json() const
+template <typename T>
+Gauge<T>::operator nlohmann::json() const
 {
     nlohmann::json json;
     json["type"] = "gauge";
@@ -27,5 +31,10 @@ Gauge::operator nlohmann::json() const
     json["unit"] = m_unit;
     return json;
 }
+
+template class Gauge<int>;
+template class Gauge<unsigned>;
+template class Gauge<size_t>;
+
 
 }

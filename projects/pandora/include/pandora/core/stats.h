@@ -15,8 +15,13 @@ struct RenderStats : public metrics::Stats {
     using metrics::Stats::Stats;
 
     struct {
-        metrics::Stopwatch<std::chrono::milliseconds> totalRenderTime;
+        std::string sceneFile;
+        std::string integrator;
+        int spp = 0;
+    } config;
 
+    struct {
+        metrics::Stopwatch<std::chrono::milliseconds> totalRenderTime;
         metrics::Stopwatch<std::chrono::nanoseconds> svdagTraversalTime;
     } timings;
 
@@ -41,18 +46,17 @@ struct RenderStats : public metrics::Stats {
         metrics::Counter<size_t> svdags { "bytes" };
     } memory;
 
-    struct {
-        std::string sceneFile;
-        std::string integrator;
-        int spp = 0;
-    } config;
-
-    metrics::Counter<size_t> numTopLevelLeafNodes { "nodes" };
+    metrics::Gauge<int> numTopLevelLeafNodes { "nodes" };
     struct FlushInfo {
-        metrics::Counter<size_t> leafsFlushed { "nodes" };
-        metrics::Histogram batchesPerLeaf { "batches", 1, 10, 11 };
+        int numBatchingPointsWithRays; // Stats about all batching points
+        std::vector<size_t> approximateRaysPerFlushedBatchingPoint; // Stats only of flushed batching points
     };
     std::vector<FlushInfo> flushInfos;
+
+    struct {
+        metrics::Counter<size_t> numIntersectionTests { "rays" };
+        metrics::Counter<size_t> numRaysCulled { "rays" };
+    } svdag;
 
 protected:
     nlohmann::json getMetricsSnapshot() const override final;

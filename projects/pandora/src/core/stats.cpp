@@ -42,12 +42,16 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
     for (const auto& flushInfo : flushInfos) {
         // clang-format off
         nlohmann::json flushInfoJSON{
-            { "leafs_flushed", flushInfo.leafsFlushed.operator nlohmann::json() },
-            { "batches_per_leaf", flushInfo.batchesPerLeaf.operator nlohmann::json()}
+            { "num_batching_points_with_rays", flushInfo.numBatchingPointsWithRays },
+            { "approximate_rays_per_flushed_batching_point", flushInfo.approximateRaysPerFlushedBatchingPoint }
         };
         // clang-format on
         ret["flush_info"].push_back(flushInfoJSON);
     }
+
+    ret["svdag"]["num_intersection_tests"] = svdag.numIntersectionTests;
+    ret["svdag"]["num_rays_culled"] = svdag.numRaysCulled;
+
     return ret;
 }
 
