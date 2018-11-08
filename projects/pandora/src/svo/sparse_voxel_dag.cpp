@@ -436,10 +436,8 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
         // === INTERSECT ===
         // Determine the maximum t-value of the cube by evaluating tx(), ty() and tz() at its corner
         //glm::vec3 tCorner = pos * tCoef - tBias;
-        //float tcMax = minComponent(tCorner);
+        //float tcMax = minComponent(tCorner); // Moved to the ADVANCE section because it is not necessary for PUSH
         simd::vec4_f32 tCorner = pos * tCoef - tBias;
-        simd::vec4_f32 tcMax = simd::intBitsToFloat(simd::floatBitsToInt(tCorner) | simd::vec4_u32(0x0, 0x0, 0x0, 0x7FFFFFF)).horizontalMinVec();// Slightly faster
-        //simd::vec4_f32 tcMax = simd::blend(tCorner, simd::vec4_f32(std::numeric_limits<float>::max()), simd::mask4(false,false,false,true)).horizontalMinVec();
 
         int bitIndex = 63 - ((idx & 0b111111) ^ (octantMaskBits | (octantMaskBits << 3)));
         if (depthInLeaf == 2 && (leafData & (1llu << bitIndex))) {
@@ -492,6 +490,8 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
         } else {
             // === ADVANCE ===
             const float scaleExp2 = scaleExp2LUT[scale];
+            //simd::vec4_f32 tcMax = simd::blend(tCorner, simd::vec4_f32(std::numeric_limits<float>::max()), simd::mask4(false,false,false,true)).horizontalMinVec();
+            simd::vec4_f32 tcMax = simd::intBitsToFloat(simd::floatBitsToInt(tCorner) | simd::vec4_u32(0x0, 0x0, 0x0, 0x7FFFFFF)).horizontalMinVec();// Slightly faster
 
             /*// Step along the ray
             int stepMask = 0;
