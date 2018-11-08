@@ -26,7 +26,7 @@ OctreeType buildSVO(const Scene& scene)
     auto result =  OctreeType(voxelGrid);
     if constexpr (std::is_same_v<OctreeType, SparseVoxelDAG>) {
         std::vector svdags = { &result };
-		SparseVoxelDAG::compressDAGs(svdags);
+		//SparseVoxelDAG::compressDAGs(svdags);
     }
 	return std::move(result);
 }

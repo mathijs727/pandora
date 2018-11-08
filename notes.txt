@@ -180,6 +180,12 @@ So my OOC renders of the Island scene would keep crashing before rendering even 
 
 ==== Improving SVDAG traversal performance ====
 SVDAG traversal performance is important to show that the bandwidth savings result in actual savings in render time. So it is very important that SVDAG traversal is implemented efficiently. The current implementation, which is a direct port from the code provided with the Efficient Sparse Voxel Octree paper, was originally designed for GPUs. It contains many bit casts between floats and integers. Although this might be efficient on the GPU, it creates bottlenecks in the CPU pipeline because the integer and floating point units have to wait for eachothers results. 
-Baseline performance of Bunny @ 256^3 voxels (RelWithDebInfo): ~57ms per frame
 
-Keeping track of scaleExp2 manually by recomputing seems like a waste of compute time (and requires float/int casting). Instead we could store a simple look-up table that maps an integer scale to a precomputed scaleExp2. Maybe the authors found that this was slower on GPUs, but on the CPU this should almost definetely be faster.
+Update:
+Profiling showed that the generated code was suboptimal because it only partially vectorized. Trying to express the algorithm using glm functions didnt help because glm seems to rely on auto vectorization (bitwise AND for example performs the operation as scalars). With some extra functions added to simd library I rewrote the algorithm by executing x, y, z operations in different SSE lanes. The profiler also showed that the branches for the voxel block traversal were quite expensive. Going back to the old design where descriptors describe the leafs gave a sizeable speed improvement.
+Release mode bunny at 256x256x256 resolution:
+ - Before: ~43ms
+ - SIMD:   ~38ms
+ - Leafs:  ~34ms
+
+Going back to the old descriptors makes the SVO construction, SVDAG compression and SVO/SVDAG traversal code cleaner. And although it might use more memory, having deeper trees will mean that we will save more by using SVDAG compression because the chance of 64-bit leafs matching is very small.

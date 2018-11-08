@@ -11,8 +11,9 @@ VoxelGrid::VoxelGrid(int resolution)
     : m_resolution(resolution)
     , m_extent(resolution, resolution, resolution)
     , m_values(createValues(m_extent))
-
 {
+    int64_t resolutionLargeInt = resolution;
+    ALWAYS_ASSERT(resolutionLargeInt * resolutionLargeInt * resolutionLargeInt <= std::numeric_limits<int>::max(), "Voxel grid does not currently support resolutions requiring 64 bits");
 }
 
 int VoxelGrid::resolution() const

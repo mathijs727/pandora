@@ -62,7 +62,6 @@ private:
     static Descriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
 
 	const Descriptor* getChild(const Descriptor* descriptor, int idx) const;
-	uint64_t getLeaf(const Descriptor* descriptor, int idx) const;
 
 private:
     unsigned m_resolution;
@@ -71,10 +70,8 @@ private:
     NodeOffset m_rootNodeOffset;
 	
     std::vector<NodeOffset> m_nodeAllocator;
-	std::vector<uint64_t> m_leafAllocator;
 
 	const NodeOffset* m_data;
-	const uint64_t* m_leafData;
 };
 
 }
