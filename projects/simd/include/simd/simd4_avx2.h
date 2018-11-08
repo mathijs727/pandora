@@ -429,21 +429,6 @@ public:
         return bitScan32(static_cast<uint32_t>(bitMask));
     }
 
-    inline _vec4<float, 4> horizontalMinVec3() const
-    {
-        // Based on:
-        // https://stackoverflow.com/questions/9877700/getting-max-value-in-a-m128i-vector-with-sse
-
-        // min2: channels [0, 1] = min(0, 1), channels [2, 3] = 2
-        __m128 min1 = _mm_shuffle_ps(m_value, m_value, _MM_SHUFFLE(1, 0, 2, 2));
-        __m128 min2 = _mm_min_ps(m_value, min1);
-
-        // min4: channels [0-3] = min(min(0, 1), 2)
-        __m128 min3 = _mm_shuffle_ps(min2, min2, _MM_SHUFFLE(2, 3, 0, 1));
-        __m128 min4 = _mm_min_ps(min2, min3);
-        return _vec4<float, 4>(min4);
-    }
-
     inline _vec4<float, 4> horizontalMinVec() const
     {
         // Based on:
