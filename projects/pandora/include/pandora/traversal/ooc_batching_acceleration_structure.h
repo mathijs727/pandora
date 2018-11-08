@@ -804,7 +804,6 @@ inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::flush()
     int i = 0;
     while (true) {
         std::cout << "FLUSHING " << (i++) << std::endl;
-        TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
 
         bool done = true;
         for (auto* node : m_bvh.leafs()) {
@@ -818,6 +817,9 @@ inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::flush()
 
         if (done)
             break;
+
+        TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
+
     }
 
     std::cout << "FLUSH COMPLETE" << std::endl;
