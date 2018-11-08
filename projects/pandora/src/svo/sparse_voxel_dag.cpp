@@ -9,9 +9,11 @@
 #include <cmath>
 #include <cstddef>
 #include <cstring>
+#include <glm/gtx/bit.hpp>
 #include <immintrin.h>
 #include <limits>
 #include <morton.h>
+#include <simd/simd4.h>
 
 namespace pandora {
 
@@ -167,33 +169,6 @@ void SparseVoxelDAG::compressDAGs(gsl::span<SparseVoxelDAG*> svos)
         }
     };
 
-    /*auto decodeDescriptor = [](const Descriptor* descriptorPtr, const std::unordered_map<NodeOffset, NodeOffset>& childDescriptorOffsetLUT) -> FullDescriptor {
-        const auto* dataPtr = reinterpret_cast<const NodeOffset*>(descriptorPtr);
-        const auto* childPtr = dataPtr + 1;
-
-        FullDescriptor result;
-        result.descriptor = *descriptorPtr;
-        for (int i = 0; i < 8; i++) {
-            if (descriptorPtr->isInnerNode(i)) {
-                RelativeNodeOffset relativeChildOffset = *(childPtr++);
-                assert(absoluteDescriptorOffset >= relativeChildOffset);
-                AbsoluteNodeOffset absoluteChildOffset = absoluteDescriptorOffset - relativeChildOffset;
-                AbsoluteNodeOffset offsetInChildrenArray = childDescriptorOffsetLUT.find(absoluteChildOffset)->second;
-                result.children.push_back({ false, offsetInChildrenArray });
-            } else if (descriptorPtr->isLeaf(i)) {
-                AbsoluteNodeOffset absoluteLeafOffset = static_cast<AbsoluteNodeOffset>(*(childPtr++));
-                result.children.push_back({ true, absoluteLeafOffset }); // Absolute offset with respect to the SVO/DAGs local leaf allocator
-            }
-        }
-        return result;
-    };
-
-    auto nextDescriptor = [](const RelativeNodeOffset* dataPtr) -> size_t {
-        Descriptor descriptor = *reinterpret_cast<const Descriptor*>(dataPtr);
-        size_t offset = 1 + descriptor.numChildren();
-        return offset;
-    };*/
-
     // Store the descriptor in the final format
     std::vector<uint64_t> leafAllocator;
     std::vector<NodeOffset> nodeAllocator;
@@ -222,7 +197,7 @@ void SparseVoxelDAG::compressDAGs(gsl::span<SparseVoxelDAG*> svos)
         std::function<NodeOffset(const Descriptor*)> recurseSVO = [&](const Descriptor* descriptor) -> NodeOffset {
             const NodeOffset* childOffsetPtr = reinterpret_cast<const NodeOffset*>(descriptor) + 1;
 
-            FullDescriptor fullDescriptor{ *descriptor, {} };
+            FullDescriptor fullDescriptor { *descriptor, {} };
             for (int childIdx = 0; childIdx < 8; childIdx++) {
                 if (descriptor->isInnerNode(childIdx)) {
                     // Child node offset into node (m_data) array
@@ -335,11 +310,49 @@ uint64_t SparseVoxelDAG::getLeaf(const Descriptor* descriptorPtr, int idx) const
     return m_leafData[childOffset];
 }
 
+static constexpr int CAST_STACK_DEPTH = 23; //intLog2(m_resolution);
+static constexpr std::array<float, CAST_STACK_DEPTH> computeScaleExp2LUT()
+{
+    // scaleExp2 = exp2f(scale - CAST_STACK_DEPTH)
+    std::array<float, CAST_STACK_DEPTH> ret = {};
+    float scaleExp2 = 0.5f;
+    for (int scale = CAST_STACK_DEPTH - 1; scale >= 0; scale--) {
+        ret[scale] = scaleExp2;
+        scaleExp2 *= 0.5f;
+    }
+    return ret;
+}
+
+// Get the lowest value from the first 3 channels of the vector
+static inline float horizontalMin3(const simd::vec4_f32& v)
+{
+    /*simd::mask4 mask(false, false, false, true);
+    simd::vec4_f32 altValues(std::numeric_limits<float>::max());
+    return simd::blend(v, altValues, mask).horizontalMin();*/
+
+    // Scalar min is faster than computing a 4 wide min + blending (masking)
+    alignas(16) float values[4];
+    v.storeAligned(values);
+    return std::min(values[0], std::min(values[1], values[2]));
+}
+
+// Get the highest value from the first 3 channels of the vector
+static inline float horizontalMax3(const simd::vec4_f32& v)
+{
+    /*simd::mask4 mask(false, false, false, true);
+    simd::vec4_f32 altValues(std::numeric_limits<float>::lowest());
+    return simd::blend(v, altValues, mask).horizontalMax();*/
+
+    // Scalar max is faster than computing a 4 wide max + blending (masking)
+    alignas(16) float values[4];
+    v.storeAligned(values);
+    return std::max(values[0], std::max(values[1], values[2]));
+}
+
 std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
 {
     // Based on the reference implementation of Efficient Sparse Voxel Octrees:
     // https://github.com/poelzi/efficient-sparse-voxel-octrees/blob/master/src/octree/cuda/Raycast.inl
-    constexpr int CAST_STACK_DEPTH = 23; //intLog2(m_resolution);
 
     // Get rid of small ray direction components to avoid division by zero
     constexpr float epsilon = 1.1920928955078125e-07f; // std::exp2f(-CAST_STACK_DEPTH);
@@ -349,13 +362,16 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
         ray.direction.y = std::copysign(epsilon, ray.direction.y);
     if (std::abs(ray.direction.z) < epsilon)
         ray.direction.z = std::copysign(epsilon, ray.direction.z);
+    simd::vec4_f32 rayOrigin(ray.origin.x, ray.origin.y, ray.origin.z, 1.0f);
+    simd::vec4_f32 rayDirection(ray.direction.x, ray.direction.y, ray.direction.z, 1.0f);
 
     // Precompute the coefficients of tx(x), ty(y) and tz(z).
     // The octree is assumed to reside at coordinates [1, 2].
-    glm::vec3 tCoef = 1.0f / -glm::abs(ray.direction);
-    glm::vec3 tBias = tCoef * ray.origin;
+    //glm::vec3 tCoef = 1.0f / -glm::abs(ray.direction);
+    simd::vec4_f32 tCoef = simd::vec4_f32(1.0f) / -rayDirection.abs();
+    simd::vec4_f32 tBias = tCoef * rayOrigin;
 
-    // Select octant mask to mirror the coordinate system so that ray direction is negative along each axis
+    /*// Select octant mask to mirror the coordinate system so that ray direction is negative along each axis
     uint32_t octantMask = 7;
     if (ray.direction.x > 0.0f) {
         octantMask ^= (1 << 0);
@@ -368,36 +384,48 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
     if (ray.direction.z > 0.0f) {
         octantMask ^= (1 << 2);
         tBias.z = 3.0f * tCoef.z - tBias.z;
-    }
+    }*/
+    simd::mask4 octantMask = rayDirection > simd::vec4_f32(0.0f);
+    int octantMaskBits = (7 ^ octantMask.bitMask()) & 7; // Mask out channel 4
+    tBias = simd::blend(tBias, simd::vec4_f32(3.0f) * tCoef - tBias, octantMask);
 
     // Initialize the current voxel to the first child of the root
     const Descriptor* parent = reinterpret_cast<const Descriptor*>(m_data + m_rootNodeOffset);
-    int idx = 0;
-    glm::vec3 pos = glm::vec3(1.0f);
+    //glm::vec3 pos = glm::vec3(1.0f);
+    simd::vec4_f32 pos = simd::vec4_f32(1.0f);
     int scale = CAST_STACK_DEPTH - 1;
-    float scaleExp2 = 0.5f; // exp2f(scale - sMax)
+    constexpr std::array<float, CAST_STACK_DEPTH> scaleExp2LUT = computeScaleExp2LUT();
 
     // Initialize the active span of t-values
-    float tMin = maxComponent(2.0f * tCoef - tBias);
-    float tMax = minComponent(tCoef - tBias);
-    tMin = std::max(tMin, 0.0f);
+    /*float tMin = maxComponent(2.0f * tCoef - tBias);
+    float tMax = minComponent(tCoef - tBias);*/
+    const float tMin = std::max(0.0f, horizontalMax3(simd::vec4_f32(2.0f) * tCoef - tBias));
+    const float tMax = horizontalMin3(tCoef - tBias);
 
     if (tMin >= tMax)
         return {};
 
-    // Intersection of ray (negative in all directions) with the root node (cube at [1, 2])
-    if (1.5 * tCoef.x - tBias.x > tMin) {
+    // Store the ray distance as a simd::vector until we have to return. This saves us from needlessly having
+    // to convert between vector and scalar code (which makes this slightly faster)
+    simd::vec4_f32 tMinVec(tMin);
+
+    /*// Intersection of ray (negative in all directions) with the root node (cube at [1, 2])
+    int idx = 0;
+    if (1.5f * tCoef.x - tBias.x > tMin) {
         idx ^= (1 << 0);
         pos.x = 1.5f;
     }
-    if (1.5 * tCoef.y - tBias.y > tMin) {
+    if (1.5f * tCoef.y - tBias.y > tMin) {
         idx ^= (1 << 1);
         pos.y = 1.5f;
     }
-    if (1.5 * tCoef.z - tBias.z > tMin) {
+    if (1.5f * tCoef.z - tBias.z > tMin) {
         idx ^= (1 << 2);
         pos.z = 1.5f;
-    }
+    }*/
+    simd::mask4 idxMask = (simd::vec4_f32(1.5f) * tCoef - tBias) > tMin;
+    int idx = idxMask.bitMask();
+    pos = simd::blend(pos, simd::vec4_f32(1.5f), idxMask);
 
     // Traverse voxels along the ray as long as the current voxel stays within the octree
     std::array<const Descriptor*, CAST_STACK_DEPTH + 1> stack;
@@ -407,19 +435,22 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
     while (scale < CAST_STACK_DEPTH) {
         // === INTERSECT ===
         // Determine the maximum t-value of the cube by evaluating tx(), ty() and tz() at its corner
-        glm::vec3 tCorner = pos * tCoef - tBias;
-        float tcMax = minComponent(tCorner);
+        //glm::vec3 tCorner = pos * tCoef - tBias;
+        //float tcMax = minComponent(tCorner);
+        simd::vec4_f32 tCorner = pos * tCoef - tBias;
+        simd::vec4_f32 tcMax = simd::intBitsToFloat(simd::floatBitsToInt(tCorner) | simd::vec4_u32(0x0, 0x0, 0x0, 0x7FFFFFF)).horizontalMinVec();// Slightly faster
+        //simd::vec4_f32 tcMax = simd::blend(tCorner, simd::vec4_f32(std::numeric_limits<float>::max()), simd::mask4(false,false,false,true)).horizontalMinVec();
 
-        int bitIndex = 63 - ((idx & 0b111111) ^ (octantMask | (octantMask << 3)));
+        int bitIndex = 63 - ((idx & 0b111111) ^ (octantMaskBits | (octantMaskBits << 3)));
         if (depthInLeaf == 2 && (leafData & (1llu << bitIndex))) {
             break;
         }
 
         // Process voxel if the corresponding bit in the parents valid mask is set
-        int childIndex = 7 - ((idx & 0b111) ^ octantMask);
+        int childIndex = 7 - ((idx & 0b111) ^ octantMaskBits);
         if (depthInLeaf == 1 || (depthInLeaf == 0 && parent->isValid(childIndex))) {
-            float half = scaleExp2 * 0.5f;
-            glm::vec3 tCenter = half * tCoef + tCorner;
+            float half = scaleExp2LUT[scale - 1];
+            simd::vec4_f32 tCenter = simd::vec4_f32(half) * tCoef + tCorner;
 
             // === PUSH ===
             stack[scale] = parent;
@@ -440,23 +471,29 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             // Select the child voxel that the ray enters first.
             idx = (idx & 0b111) << 3; // Keep the index in the current level which is required for accessing leaf node bits (which are 2 levels deep conceptually)
             scale--;
-            scaleExp2 = half;
-            if (tCenter.x > tMin) {
+            //scaleExp2 = half;
+            /*if (tCenter.x > tMin) {
                 idx ^= (1 << 0);
-                pos.x += scaleExp2;
+                pos.x += half; // scaleExp2;
             }
             if (tCenter.y > tMin) {
                 idx ^= (1 << 1);
-                pos.y += scaleExp2;
+                pos.y += half; // scaleExp2;
             }
             if (tCenter.z > tMin) {
                 idx ^= (1 << 2);
-                pos.z += scaleExp2;
+                pos.z += half; // scaleExp2;
+            }*/
+            {
+                auto mask = tCenter > tMinVec;
+                idx ^= (mask.bitMask() & 7); // Mask out 4th channel
+                pos = simd::blend(pos, pos + half, mask);
             }
         } else {
             // === ADVANCE ===
+            const float scaleExp2 = scaleExp2LUT[scale];
 
-            // Step along the ray
+            /*// Step along the ray
             int stepMask = 0;
             if (tCorner.x <= tcMax) {
                 stepMask ^= (1 << 0);
@@ -469,18 +506,21 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             if (tCorner.z <= tcMax) {
                 stepMask ^= (1 << 2);
                 pos.z -= scaleExp2;
-            }
+            }*/
+            simd::mask4 stepMask = tCorner <= tcMax;
+            int stepMaskBits = stepMask.bitMask() & 7;
+            pos = simd::blend(pos, pos - scaleExp2, stepMask);
 
             // Update active t-span and flip bits of the child slot index
-            tMin = tcMax;
-            idx ^= stepMask;
+            tMinVec = tcMax;
+            idx ^= stepMaskBits;
 
             // Proceed with pop if the bit flip disagree with the ray direction
-            if ((idx & stepMask) != 0) {
+            if ((idx & stepMaskBits) != 0) {
                 // === POP ===
                 // Find the highest differing bit between the two positions
                 unsigned differingBits = 0;
-                if ((stepMask & (1 << 0)) != 0) {
+                /*if ((stepMask & (1 << 0)) != 0) {
                     differingBits |= floatAsInt(pos.x) ^ floatAsInt(pos.x + scaleExp2);
                 }
                 if ((stepMask & (1 << 1)) != 0) {
@@ -488,10 +528,17 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
                 }
                 if ((stepMask & (1 << 2)) != 0) {
                     differingBits |= floatAsInt(pos.z) ^ floatAsInt(pos.z + scaleExp2);
+                }*/
+                simd::vec4_u32 differingBitsVec = simd::blend(simd::vec4_u32(0u), simd::floatBitsToInt(pos) ^ simd::floatBitsToInt(pos + simd::vec4_f32(scaleExp2)), stepMask);
+                {
+                    alignas(16) uint32_t differingBitsArray[4];
+                    differingBitsVec.storeAligned(differingBitsArray);
+                    differingBits = differingBitsArray[0] | differingBitsArray[1] | differingBitsArray[2];
                 }
+
                 int oldScale = scale;
                 scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest set bit (equivalent of a reverse bit scan)
-                scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
+                //scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
                 assert(oldScale < scale);
                 depthInLeaf = std::max(0, depthInLeaf - (scale - oldScale));
 
@@ -500,6 +547,19 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             }
 
             // Round cube position and extract child slot index
+            simd::vec4_u32 sh = simd::floatBitsToInt(pos) >> scale;
+            pos = simd::intBitsToFloat(sh << scale);
+            const simd::vec4_u32 shMask1 = sh & simd::vec4_u32(1);
+            const simd::vec4_u32 shMask2 = sh & simd::vec4_u32(2);
+            const simd::vec4_u32 shMask1Shifted = shMask1 << simd::vec4_u32(0, 1, 2, 0);
+            const simd::vec4_u32 shMask2Shifted = shMask2 << simd::vec4_u32(2, 3, 4, 0);
+            const simd::vec4_u32 partialIdx = shMask1Shifted | shMask2Shifted;
+            alignas(16) uint32_t partialIdxArray[4];
+            partialIdx.storeAligned(partialIdxArray);
+            idx = partialIdxArray[0] | partialIdxArray[1] | partialIdxArray[2];
+
+            /*
+            // Round cube position and extract child slot index
             int shx = floatAsInt(pos.x) >> scale;
             int shy = floatAsInt(pos.y) >> scale;
             int shz = floatAsInt(pos.z) >> scale;
@@ -507,7 +567,8 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             pos.y = intAsFloat(shy << scale);
             pos.z = intAsFloat(shz << scale);
             //idx = ((shx & 1) << 0) | ((shy & 1) << 1) | ((shz & 1) << 2) | (((shx & 2) >> 1) << 3) | (((shy & 2) >> 1) << 4) | (((shz & 2) >> 1) << 5);
-            idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2) | ((shx & 2) << 2) | ((shy & 2) << 3) | ((shz & 2) << 4);
+            idx= (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2) | ((shx & 2) << 2) | ((shy & 2) << 3) | ((shz & 2) << 4);
+            */
         } // Push / pop
     } // While
 
@@ -515,18 +576,10 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
     if (scale >= CAST_STACK_DEPTH) {
         return {};
     } else {
-        /*// Undo mirroring of the coordinate system
-		if ((octantMask & (1 << 0)) == 0)
-		pos.x = 3.0f - scaleExp2 - pos.x;
-		if ((octantMask & (1 << 1)) == 0)
-		pos.y = 3.0f - scaleExp2 - pos.y;
-		if ((octantMask & (1 << 2)) == 0)
-		pos.z = 3.0f - scaleExp2 - pos.z;
-
-		glm::vec3 hitPos = glm::min(glm::max(ray.origin + tMin * ray.direction, pos.x + epsilon), pos.x + scaleExp2 - epsilon);*/
-
         // Output result
-        return tMin;
+        alignas(16) float ret[4];
+        tMinVec.storeAligned(ret);
+        return ret[0];
     }
 }
 

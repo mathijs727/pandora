@@ -211,6 +211,16 @@ public:
         return _vec4(_mm_and_si128(m_value, other.m_value));
     }
 
+    inline _vec4<uint32_t, 4> operator|(const _vec4<uint32_t, 4>& other) const
+    {
+        return _vec4(_mm_or_si128(m_value, other.m_value));
+    }
+
+    inline _vec4<uint32_t, 4> operator^(const _vec4<uint32_t, 4>& other) const
+    {
+        return _vec4(_mm_xor_si128(m_value, other.m_value));
+    }
+
     inline _mask4<4> operator<(const _vec4<uint32_t, 4>& other) const
     {
         return _mask4<4>(_mm_cmplt_epi32(m_value, other.m_value));
@@ -274,6 +284,9 @@ public:
         store(values);
         return *std::max_element(std::begin(values), std::end(values));
     }
+
+    friend _vec4<uint32_t, 4> floatBitsToInt(const _vec4<float, 4>& a);
+    friend _vec4<float, 4> intBitsToFloat(const _vec4<uint32_t, 4>& a);
 
     friend _vec4<uint32_t, 4> min(const _vec4<uint32_t, 4>& a, const _vec4<uint32_t, 4>& b);
     friend _vec4<uint32_t, 4> max(const _vec4<uint32_t, 4>& a, const _vec4<uint32_t, 4>& b);
@@ -369,6 +382,21 @@ public:
         return _mask4<4>(_mm_cmpge_ps(m_value, other.m_value));
     }
 
+    // http://fastcpp.blogspot.com/2011/03/changing-sign-of-float-values-using-sse.html
+    inline _vec4<float, 4> abs() const
+    {
+        // Set the sign bit (left most bit) to 0
+        const __m128 signMask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
+        return _vec4(_mm_andnot_ps(signMask, m_value));
+    }
+
+    // http://fastcpp.blogspot.com/2011/03/changing-sign-of-float-values-using-sse.html
+    inline _vec4<float, 4> operator-() const {
+        // Flip the sign bit (left most bit)
+        const __m128 signMask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
+        return _vec4(_mm_xor_ps(m_value, signMask));
+    }
+
     inline _vec4<float, 4> permute(const _vec4<uint32_t, 4>& index) const
     {
         // AVX functionality
@@ -386,12 +414,12 @@ public:
         // Based on:
         // https://stackoverflow.com/questions/9877700/getting-max-value-in-a-m128i-vector-with-sse
 
-        // channels [0, 1] = min(0, 1), channels [2,3] = min(2,3)
+        // min2: channels [0, 1] = min(0, 1), channels [2,3] = min(2,3)
         __m128 min1 = _mm_shuffle_ps(m_value, m_value, _MM_SHUFFLE(1, 0, 3, 2));
         __m128 min2 = _mm_min_ps(m_value, min1);
 
-        // channels [0, 3] = min(min(0, 1), min(2, 3))
-        __m128 min3 = _mm_shuffle_ps(min2, min2, _MM_SHUFFLE(2, 3, 0, 1));// channel 3 = min(0, 1)
+        // min4: channels [0-3] = min(min(0, 1), min(2, 3))
+        __m128 min3 = _mm_shuffle_ps(min2, min2, _MM_SHUFFLE(2, 3, 0, 1));
         __m128 min4 = _mm_min_ps(min2, min3);
 
         // TODO: try casting to ints and using integer comparison (way lower latency)
@@ -401,26 +429,109 @@ public:
         return bitScan32(static_cast<uint32_t>(bitMask));
     }
 
+    inline _vec4<float, 4> horizontalMinVec3() const
+    {
+        // Based on:
+        // https://stackoverflow.com/questions/9877700/getting-max-value-in-a-m128i-vector-with-sse
+
+        // min2: channels [0, 1] = min(0, 1), channels [2, 3] = 2
+        __m128 min1 = _mm_shuffle_ps(m_value, m_value, _MM_SHUFFLE(1, 0, 2, 2));
+        __m128 min2 = _mm_min_ps(m_value, min1);
+
+        // min4: channels [0-3] = min(min(0, 1), 2)
+        __m128 min3 = _mm_shuffle_ps(min2, min2, _MM_SHUFFLE(2, 3, 0, 1));
+        __m128 min4 = _mm_min_ps(min2, min3);
+        return _vec4<float, 4>(min4);
+    }
+
+    inline _vec4<float, 4> horizontalMinVec() const
+    {
+        // Based on:
+        // https://stackoverflow.com/questions/9877700/getting-max-value-in-a-m128i-vector-with-sse
+
+        // min2: channels [0, 1] = min(0, 1), channels [2,3] = min(2,3)
+        __m128 min1 = _mm_shuffle_ps(m_value, m_value, _MM_SHUFFLE(1, 0, 3, 2));
+        __m128 min2 = _mm_min_ps(m_value, min1);
+
+        // min4: channels [0-3] = min(min(0, 1), min(2, 3))
+        __m128 min3 = _mm_shuffle_ps(min2, min2, _MM_SHUFFLE(2, 3, 0, 1));
+        __m128 min4 = _mm_min_ps(min2, min3);
+        return _vec4<float, 4>(min4);
+    }
+
     inline float horizontalMin() const
     {
-        std::array<float, 4> values;
-        store(values);
-        return *std::min_element(std::begin(values), std::end(values));
+        // Based on:
+        // https://stackoverflow.com/questions/9877700/getting-max-value-in-a-m128i-vector-with-sse
+
+        // channels [0, 1] = min(0, 1), channels [2,3] = min(2,3)
+        __m128 min1 = _mm_shuffle_ps(m_value, m_value, _MM_SHUFFLE(1, 0, 3, 2));
+        __m128 min2 = _mm_min_ps(m_value, min1);
+
+        // channels [0, 3] = min(min(0, 1), min(2, 3))
+        __m128 min3 = _mm_shuffle_ps(min2, min2, _MM_SHUFFLE(2, 3, 0, 1));// channel 3 = min(0, 1)
+        __m128 min4 = _mm_min_ps(min2, min3);
+
+        alignas(16) float values[4];
+        _mm_store_ps(values, min4);
+        return values[0];
     }
 
     inline unsigned horizontalMaxIndex() const
     {
-        std::array<float, 4> values;
-        store(values);
-        return static_cast<unsigned>(std::distance(std::begin(values), std::max_element(std::begin(values), std::end(values))));
+        // Based on:
+        // https://stackoverflow.com/questions/9877700/getting-max-value-in-a-m128i-vector-with-sse
+
+        // max2: channels [0, 1] = max(0, 1), channels [2,3] = max(2,3)
+        __m128 max1 = _mm_shuffle_ps(m_value, m_value, _MM_SHUFFLE(1, 0, 3, 2));
+        __m128 max2 = _mm_max_ps(m_value, max1);
+
+        // max4: channels [0-3] = max(max(0, 1), max(2, 3))
+        __m128 max3 = _mm_shuffle_ps(max2, max2, _MM_SHUFFLE(2, 3, 0, 1));
+        __m128 max4 = _mm_max_ps(max2, max3);
+
+        // TODO: try casting to ints and using integer comparison (way lower latency)
+        __m128 mask = _mm_cmpeq_ps(m_value, max4);
+
+        int bitMask = _mm_movemask_ps(mask);
+        return bitScan32(static_cast<uint32_t>(bitMask));
+    }
+
+    inline _vec4<float, 4> horizontalMaxVec() const
+    {
+        // Based on:
+        // https://stackoverflow.com/questions/9877700/getting-max-value-in-a-m128i-vector-with-sse
+
+        // max2: channels [0, 1] = max(0, 1), channels [2,3] = max(2,3)
+        __m128 max1 = _mm_shuffle_ps(m_value, m_value, _MM_SHUFFLE(1, 0, 3, 2));
+        __m128 max2 = _mm_max_ps(m_value, max1);
+
+        // max4: channels [0-3] = max(max(0, 1), max(2, 3))
+        __m128 max3 = _mm_shuffle_ps(max2, max2, _MM_SHUFFLE(2, 3, 0, 1));
+        __m128 max4 = _mm_max_ps(max2, max3);
+        return _vec4<float, 4>(max4);
     }
 
     inline float horizontalMax() const
     {
-        std::array<float, 4> values;
-        store(values);
-        return *std::max_element(std::begin(values), std::end(values));
+        // Based on:
+        // https://stackoverflow.com/questions/9877700/getting-max-value-in-a-m128i-vector-with-sse
+
+        // max2: channels [0, 1] = max(0, 1), channels [2,3] = max(2,3)
+        __m128 max1 = _mm_shuffle_ps(m_value, m_value, _MM_SHUFFLE(1, 0, 3, 2));
+        __m128 max2 = _mm_max_ps(m_value, max1);
+
+        // max4: channels [0-3] = max(max(0, 1), max(2, 3))
+        __m128 max3 = _mm_shuffle_ps(max2, max2, _MM_SHUFFLE(2, 3, 0, 1));
+        __m128 max4 = _mm_max_ps(max2, max3);
+
+        alignas(16) float values[4];
+        _mm_store_ps(values, max4);
+        return values[0];
     }
+
+    friend _vec4<uint32_t, 4> floatBitsToInt(const _vec4<float, 4>& a);
+    friend _vec4<float, 4> intBitsToFloat(const _vec4<uint32_t, 4>& a);
 
     friend _vec4<float, 4> min(const _vec4<float, 4>& a, const _vec4<float, 4>& b);
     friend _vec4<float, 4> max(const _vec4<float, 4>& a, const _vec4<float, 4>& b);
@@ -430,6 +541,17 @@ public:
 private:
     __m128 m_value;
 };
+
+
+inline _vec4<uint32_t, 4> floatBitsToInt(const _vec4<float, 4>& a)
+{
+    return _vec4<uint32_t, 4>(_mm_castps_si128(a.m_value));
+}
+
+inline _vec4<float, 4> intBitsToFloat(const _vec4<uint32_t, 4>& a)
+{
+    return _vec4<float, 4>(_mm_castsi128_ps(a.m_value));
+}
 
 inline _vec4<uint32_t, 4> min(const _vec4<uint32_t, 4>& a, const _vec4<uint32_t, 4>& b)
 {

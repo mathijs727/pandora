@@ -88,13 +88,14 @@ public:
         return count() == 4;
     }
 
-	inline int bitMask() const {
-		int bitMask = 0;
-		for (int i = 0; i < 4; i++)
-			if (m_values[i])
-				bitMask |= (1 << i);
-		return bitMask;
-	}
+    inline int bitMask() const
+    {
+        int bitMask = 0;
+        for (int i = 0; i < 4; i++)
+            if (m_values[i])
+                bitMask |= (1 << i);
+        return bitMask;
+    }
 
     inline std::array<uint32_t, 4> computeCompressPermutation() const
     {
@@ -112,8 +113,8 @@ public:
 private:
     std::array<bool, 4> m_values;
 
-	template <typename T>
-	friend _vec4<T, 1> blend(const _vec4<T, 1>& a, const _vec4<T, 1>& b, const _mask4<1>& mask);
+    template <typename T>
+    friend _vec4<T, 1> blend(const _vec4<T, 1>& a, const _vec4<T, 1>& b, const _mask4<1>& mask);
 
     template <typename T, int S>
     friend class _vec4_base; // Not possible to friend only _vec4_base<T, 1>
@@ -230,6 +231,24 @@ public:
         return mask;
     }
 
+    inline _vec4<T, 1> abs() const
+    {
+        _vec4<T, 1> result;
+        for (int i = 0; i < 4; i++) {
+            result.m_values[i] = std::abs(m_values[i]);
+        }
+        return result;
+    }
+
+    inline _vec4<T, 1> operator-() const
+    {
+        _vec4<T, 1> result;
+        for (int i = 0; i < 4; i++) {
+            result.m_values[i] = -m_values[i];
+        }
+        return result;
+    }
+
     inline _vec4<T, 1> compress(_mask4<1> mask) const
     {
         _vec4<T, 1> result;
@@ -250,6 +269,13 @@ public:
         return static_cast<unsigned>(std::distance(std::begin(values), std::min_element(std::begin(values), std::end(values))));
     }
 
+    inline _vec4<T, 1> horizontalMinVec() const
+    {
+        std::array<T, 4> values;
+        store(values);
+        return _vec4<T, 1>(*std::min_element(std::begin(values), std::end(values)));
+    }
+
     inline T horizontalMin() const
     {
         std::array<T, 4> values;
@@ -264,6 +290,13 @@ public:
         return static_cast<unsigned>(std::distance(std::begin(values), std::max_element(std::begin(values), std::end(values))));
     }
 
+    inline _vec4<T, 1> horizontalMaxVec() const
+    {
+        std::array<T, 4> values;
+        store(values);
+        return _vec4<T, 1>(*std::max_element(std::begin(values), std::end(values)));
+    }
+
     inline T horizontalMax() const
     {
         std::array<T, 4> values;
@@ -275,6 +308,9 @@ public:
     friend _vec4<T, 1> max<T>(const _vec4<T, 1>& a, const _vec4<T, 1>& b);
 
     friend _vec4<T, 1> blend<T>(const _vec4<T, 1>& a, const _vec4<T, 1>& b, const _mask4<1>& mask);
+
+    friend _vec4<uint32_t, 1> floatBitsToInt(const _vec4<float, 1>& a);
+    friend _vec4<float, 1> intBitsToFloat(const _vec4<uint32_t, 1>& a);
 
 protected:
     std::array<T, 4> m_values;
@@ -332,6 +368,24 @@ public:
         return result;
     }
 
+    inline _vec4<uint32_t, 1> operator|(const _vec4<uint32_t, 1>& other) const
+    {
+        _vec4<uint32_t, 1> result;
+        for (int i = 0; i < 4; i++) {
+            result.m_values[i] = m_values[i] | other.m_values[i];
+        }
+        return result;
+    }
+
+    inline _vec4<uint32_t, 1> operator^(const _vec4<uint32_t, 1>& other) const
+    {
+        _vec4<uint32_t, 1> result;
+        for (int i = 0; i < 4; i++) {
+            result.m_values[i] = m_values[i] ^ other.m_values[i];
+        }
+        return result;
+    }
+
     inline _vec4<uint32_t, 1> permute(const _vec4<uint32_t, 1>& index) const
     {
         _vec4<uint32_t, 1> result;
@@ -367,6 +421,20 @@ public:
     }
 };
 
+inline _vec4<uint32_t, 1> floatBitsToInt(const _vec4<float, 1>& a)
+{
+    _vec4<uint32_t, 1> result;
+    std::memcpy(result.m_values.data(), a.m_values.data(), sizeof(float) * 4);
+    return result;
+}
+
+inline _vec4<float, 1> intBitsToFloat(const _vec4<uint32_t, 1>& a)
+{
+    _vec4<float, 1> result;
+    std::memcpy(result.m_values.data(), a.m_values.data(), sizeof(uint32_t) * 4);
+    return result;
+}
+
 template <typename T>
 inline _vec4<T, 1> min(const _vec4<T, 1>& a, const _vec4<T, 1>& b)
 {
@@ -388,8 +456,8 @@ inline _vec4<T, 1> max(const _vec4<T, 1>& a, const _vec4<T, 1>& b)
 template <typename T>
 inline _vec4<T, 1> blend(const _vec4<T, 1>& a, const _vec4<T, 1>& b, const _mask4<1>& mask)
 {
-	_vec4<T, 1> result;
-	for (int i = 0; i < 4; i++)
-		result.m_values[i] = mask.m_values[i] ? b.m_values[i] : a.m_values[i];
-	return result;
+    _vec4<T, 1> result;
+    for (int i = 0; i < 4; i++)
+        result.m_values[i] = mask.m_values[i] ? b.m_values[i] : a.m_values[i];
+    return result;
 }

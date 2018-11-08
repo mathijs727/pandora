@@ -12,6 +12,7 @@ public:
 	// WARNING: do not modify the scene in any way while the integrator is alive
 	SVOTestIntegrator(const Scene& scene, Sensor& sensor, int spp);
 
+    void reset() override final {};
 	void render(const PerspectiveCamera& camera) override final;
 
 private:

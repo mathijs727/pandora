@@ -41,8 +41,8 @@ int main()
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
     const std::string_view sceneFilename = "D:/Pandora Scenes/pbrt_intermediate/sanmiguel/pandora_cam25.json";
-    auto renderConfig = pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE ? loadFromFileOOC(sceneFilename, false) : loadFromFile(sceneFilename);
-    //auto renderConfig = createStaticScene();
+    //auto renderConfig = pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE ? loadFromFileOOC(sceneFilename, false) : loadFromFile(sceneFilename);
+    auto renderConfig = createStaticScene();
     if constexpr (pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE) {
         renderConfig.scene.splitLargeOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 4);
     }
@@ -66,9 +66,9 @@ int main()
 
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, 1);
-    NormalDebugIntegrator integrator(scene, camera.getSensor());
+    //NormalDebugIntegrator integrator(scene, camera.getSensor());
     //PathIntegrator integrator(4, scene, camera.getSensor(), PARALLEL_SAMPLES);
-    //SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
+    SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
     //SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
 
     bool pressedEscape = false;
