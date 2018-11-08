@@ -314,7 +314,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
 
     // Argument is the size of the geometry cache. This is just a temporary cache because the batched
     // acceleration structure creates its own for rendering (clearing this cache).
-    RenderConfig config(32llu * 1024llu * 1024llu * 1024llu);
+    RenderConfig config(64llu * 1024llu * 1024llu * 1024llu);
     {
         std::cout << "Getting config" << std::endl;
         auto configJson = json["config"];
@@ -508,15 +508,11 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         size_t numBaseSceneObjects = jsonBaseSceneObjects.size();
         tbb::task_group taskGroup;
         std::vector<std::shared_ptr<OOCGeometricSceneObject>> baseSceneObjects(numBaseSceneObjects);
-        std::cout << "Preallocated (empty) scene object pointer array of size: " << numBaseSceneObjects << std::endl;
         for (size_t i = 0; i < numBaseSceneObjects; i++) {
             auto geomSceneObjectFactory = geomSceneObjectFactoryFunc(jsonBaseSceneObjects[i]);
             taskGroup.run([i, geomSceneObjectFactory, &baseSceneObjects]() {
                 auto sceneObject = geomSceneObjectFactory();
                 ALWAYS_ASSERT(sceneObject != nullptr);
-                if (i % 100llu == 0) {
-                    std::cout << "Processing object " << i << std::endl;
-                }
                 baseSceneObjects[i] = std::move(sceneObject); // Converts to shared_ptr
             });
         }
@@ -548,15 +544,6 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 });
             }
         }
-
-        std::cout << "Counting unreferenced base objects:" << std::endl;
-        size_t unreferencedBaseSceneObjects = 0;
-        for (const auto& baseSceneObject : baseSceneObjects) {
-            if (baseSceneObject.use_count() == 1) {
-                unreferencedBaseSceneObjects++;
-            }
-        }
-        std::cout << "Number of unreferenced base scene objects: " << unreferencedBaseSceneObjects << std::endl;
 
         std::cout << "Wait till completion..." << std::endl;
         taskGroup.wait();
