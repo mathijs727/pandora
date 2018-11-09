@@ -3,6 +3,7 @@
 #include "pandora/core/pandora.h"
 #include <atomic>
 #include <tbb/scalable_allocator.h>
+#include <tbb/flow_graph.h>
 #include <variant>
 
 namespace pandora {
@@ -58,6 +59,7 @@ protected:
 
 private:
     int pixelToIndex(const glm::ivec2& pixel) const;
+    glm::ivec2 indexToPixel(size_t pixelIndex) const;
 
 protected:
     const int m_maxDepth;
@@ -67,9 +69,14 @@ private:
     tbb::scalable_allocator<UniformSampler> m_samplerAllocator;
 
     const glm::ivec2 m_resolution;
-    std::vector<std::atomic_int> m_pixelSampleCount;
     const int m_maxSampleCount;
     const int m_parallelSamples;
+
+    //std::vector<std::atomic_int> m_pixelSampleCount;
+    const size_t m_maxPixelSample;
+    std::atomic_size_t m_currentPixelSample;
+
+    tbb::flow::graph m_graph;
 };
 
 }

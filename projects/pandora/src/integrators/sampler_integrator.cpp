@@ -11,6 +11,7 @@
 #include <tbb/blocked_range2d.h>
 #include <tbb/parallel_for.h>
 #include <tbb/tbb.h>
+#include <morton.h>
 
 namespace pandora {
 
@@ -19,16 +20,19 @@ SamplerIntegrator::SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& s
     , m_maxDepth(maxDepth)
     , m_cameraThisFrame(nullptr)
     , m_resolution(sensor.getResolution())
-    , m_pixelSampleCount(m_resolution.x * m_resolution.y)
+    //, m_pixelSampleCount(m_resolution.x * m_resolution.y)
     , m_maxSampleCount(spp)
     , m_parallelSamples(parallelSamples)
+    , m_maxPixelSample((size_t)m_resolution.x * (size_t)m_resolution.y * (size_t)spp)
+    , m_currentPixelSample(0)
 {
-    std::fill(std::begin(m_pixelSampleCount), std::end(m_pixelSampleCount), 0);
+    //std::fill(std::begin(m_pixelSampleCount), std::end(m_pixelSampleCount), 0);
 }
 
 void SamplerIntegrator::reset()
 {
-    std::fill(std::begin(m_pixelSampleCount), std::end(m_pixelSampleCount), 0);
+    //std::fill(std::begin(m_pixelSampleCount), std::end(m_pixelSampleCount), 0);
+    m_currentPixelSample.store(0);
 }
 
 void SamplerIntegrator::render(const PerspectiveCamera& camera)
@@ -40,7 +44,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
 
     // Generate camera rays
 #ifndef NDEBUG
-//#if 1
+    //#if 1
     for (int y = 0; y < m_resolution.y; y++) {
         for (int x = 0; x < m_resolution.x; x++) {
             for (int s = 0; s < m_parallelSamples; s++) {
@@ -69,23 +73,25 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     m_accelerationStructure.flush();
 }
 
-void SamplerIntegrator::spawnNextSample(const glm::ivec2& pixel)
+void SamplerIntegrator::spawnNextSample(const glm::ivec2&)
 {
     assert(m_cameraThisFrame != nullptr);
 
-    auto pixelIndex = pixelToIndex(pixel);
-    auto sampleNumber = m_pixelSampleCount[pixelIndex].fetch_add(1);
-    if (sampleNumber > m_maxSampleCount)
+    size_t pixelSampleIndex = m_currentPixelSample.fetch_add(1);
+    if (pixelSampleIndex >= m_maxPixelSample)
         return;
+
+    size_t sampleNumber =pixelSampleIndex % m_maxSampleCount;
+    size_t pixelIndex = pixelSampleIndex / m_maxSampleCount;
+    glm::ivec2 pixel = indexToPixel(pixelIndex);
 
     unsigned seed = 0;
     if constexpr (USE_RANDOM_SEEDS) {
         static thread_local std::random_device rd = std::random_device();
         seed = rd();
     } else {
-        seed = static_cast<unsigned>(pixelIndex * m_maxSampleCount + sampleNumber);
+        seed = static_cast<unsigned>(pixelSampleIndex);
     }
-
 
     // Custom deleter
     // https://stackoverflow.com/questions/12340810/using-custom-deleter-with-stdshared-ptr
@@ -212,6 +218,14 @@ void SamplerIntegrator::spawnShadowRay(const Ray& ray, bool anyHit, const RaySta
 int SamplerIntegrator::pixelToIndex(const glm::ivec2& pixel) const
 {
     return pixel.y * m_resolution.x + pixel.x;
+}
+
+glm::ivec2 SamplerIntegrator::indexToPixel(size_t pixelIndex) const
+{
+    //return glm::ivec2((int)pixelIndex % m_resolution.x, (int)pixelIndex / m_resolution.x);
+    uint_fast32_t x, y;
+    libmorton::morton2D_64_decode(pixelIndex, x, y);
+    return glm::ivec2(x, y);
 }
 
 }
