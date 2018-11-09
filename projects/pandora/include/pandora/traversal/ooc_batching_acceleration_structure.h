@@ -16,6 +16,7 @@
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/file_batcher.h"
 #include "pandora/utility/growing_free_list_ts.h"
+#include <algorithm>
 #include <atomic>
 #include <filesystem>
 #include <gsl/gsl>
@@ -23,6 +24,7 @@
 #include <mutex>
 #include <numeric>
 #include <optional>
+#include <random>
 #include <string>
 #include <tbb/concurrent_vector.h>
 #include <tbb/enumerable_thread_specific.h>
@@ -52,6 +54,8 @@ static const std::filesystem::path OUT_OF_CORE_CACHE_FOLDER("ooc_node_cache/");
 template <typename UserState, size_t BlockSize = 32>
 class OOCBatchingAccelerationStructure {
 public:
+    constexpr static bool recurseTillCompletion = false; // Rays are batched, so paths are not traced untill completion
+
     using InsertHandle = void*;
     using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&)>;
     using AnyHitCallback = std::function<void(const Ray&, const UserState&)>;

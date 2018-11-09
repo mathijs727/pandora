@@ -17,8 +17,8 @@ namespace pandora {
 
 static thread_local GrowingFreeListTS<ShadingMemoryArena::MemoryBlock> s_freeList;
 
-PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples)
-    : SamplerIntegrator(maxDepth, scene, sensor, spp, parallelSamples)
+PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp)
+    : SamplerIntegrator(maxDepth, scene, sensor, spp)
 {
 }
 
@@ -43,7 +43,7 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
 
         // Terminate path if maxDepth was reached
         if (contRayState.bounces >= m_maxDepth) {
-            spawnNextSample(rayState.pixel);
+            spawnNextSample();
             return;
         }
 
@@ -65,7 +65,7 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
             if (newContRayState.bounces > 3) {
                 float q = std::max(0.05f, 1 - newContRayState.weight.y);
                 if (rayState.sampler->get1D() < q) {
-                    spawnNextSample(rayState.pixel);
+                    spawnNextSample();
                     return;
                 }
                 newContRayState.weight /= 1.0f - q;
@@ -78,7 +78,7 @@ void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState&
             };
             m_accelerationStructure.placeIntersectRequests(gsl::make_span(&newRay, 1), gsl::make_span(&newRayState, 1));
         } else {
-            spawnNextSample(rayState.pixel);
+            spawnNextSample();
             return;
         }
 
@@ -120,7 +120,7 @@ void PathIntegrator::rayMiss(const Ray& r, const RayState& rayState)
         }
 
         // Terminate path if ray escaped
-        spawnNextSample(rayState.pixel);
+        spawnNextSample();
     } else if (std::holds_alternative<ShadowRayState>(rayState.data)) {
         const auto& shadowRayState = std::get<ShadowRayState>(rayState.data);
 

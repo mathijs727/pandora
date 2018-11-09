@@ -84,10 +84,10 @@ int main(int argc, char** argv)
     try {
         auto integratorType = vm["integrator"].as<std::string>();
         if (integratorType == "direct") {
-            DirectLightingIntegrator integrator(8, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES, LightStrategy::UniformSampleOne);
+            DirectLightingIntegrator integrator(8, renderConfig.scene, renderConfig.camera->getSensor(), spp, LightStrategy::UniformSampleOne);
             integrator.render(*renderConfig.camera);
         } else if (integratorType == "path") {
-            PathIntegrator integrator(10, renderConfig.scene, renderConfig.camera->getSensor(), spp, PARALLEL_SAMPLES);
+            PathIntegrator integrator(10, renderConfig.scene, renderConfig.camera->getSensor(), spp);
             integrator.render(*renderConfig.camera);
         } else if (integratorType == "normal") {
             std::cout << "WARNING: normal visualization does not support multi-sampling, setting spp to 1!" << std::endl;

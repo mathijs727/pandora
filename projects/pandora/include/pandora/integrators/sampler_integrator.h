@@ -34,7 +34,7 @@ namespace sampler_integrator {
 class SamplerIntegrator : public Integrator<sampler_integrator::RayState> {
 public:
     // WARNING: do not modify the scene in any way while the integrator is alive
-    SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples = 1);
+    SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp);
     SamplerIntegrator(const SamplerIntegrator&) = delete;
 
     void reset() override final;
@@ -49,7 +49,7 @@ protected:
     virtual void rayAnyHit(const Ray& r, const RayState& s) override = 0;
     virtual void rayMiss(const Ray& r, const RayState& s) override = 0;
 
-    void spawnNextSample(const glm::ivec2& pixel);
+    void spawnNextSample(bool initialRay = false);
 
     void specularReflect(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const RayState& rayState);
     void specularTransmit(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const RayState& rayState);
@@ -58,7 +58,6 @@ protected:
     void spawnShadowRay(const Ray& ray, bool anyHit, const RayState& s, const Spectrum& weight, const Light& light);
 
 private:
-    int pixelToIndex(const glm::ivec2& pixel) const;
     glm::ivec2 indexToPixel(size_t pixelIndex) const;
 
 protected:
@@ -70,13 +69,10 @@ private:
 
     const glm::ivec2 m_resolution;
     const int m_maxSampleCount;
-    const int m_parallelSamples;
 
     //std::vector<std::atomic_int> m_pixelSampleCount;
     const size_t m_maxPixelSample;
     std::atomic_size_t m_currentPixelSample;
-
-    tbb::flow::graph m_graph;
 };
 
 }

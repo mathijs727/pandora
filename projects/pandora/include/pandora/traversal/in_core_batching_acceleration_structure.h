@@ -29,6 +29,8 @@ static constexpr size_t IN_CORE_SVDAG_RESOLUTION = 32;
 template <typename UserState, size_t BatchSize = 384>
 class InCoreBatchingAccelerationStructure {
 public:
+    constexpr static bool recurseTillCompletion = false; // Rays are batched, so paths are not traced untill completion
+
     using InsertHandle = void*;
     using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&)>;
     using AnyHitCallback = std::function<void(const Ray&, const UserState&)>;
@@ -231,7 +233,7 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
     for (int i = 0; i < rays.size(); i++) {
         Ray ray = rays[i]; // Copy so we can mutate it
         RayHit rayHit;
-        UserState userState = perRayUserData[i];// Copy so we can move items to a batch
+        UserState userState = perRayUserData[i]; // Copy so we can move items to a batch
 
         auto optResult = m_bvh.intersect(ray, rayHit, userState);
         if (optResult && *optResult == false) {
@@ -252,7 +254,7 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
 
     for (int i = 0; i < rays.size(); i++) {
         Ray ray = rays[i];
-        UserState userState = perRayUserData[i];// Copy so we can mutate it
+        UserState userState = perRayUserData[i]; // Copy so we can mutate it
 
         auto optResult = m_bvh.intersectAny(ray, userState);
         if (optResult) {

@@ -7,22 +7,20 @@
 #include "pandora/utility/memory_arena.h"
 #include "utility/fix_visitor.h"
 #include <gsl/gsl>
+#include <morton.h>
 #include <random>
 #include <tbb/blocked_range2d.h>
 #include <tbb/parallel_for.h>
 #include <tbb/tbb.h>
-#include <morton.h>
 
 namespace pandora {
 
-SamplerIntegrator::SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples)
+SamplerIntegrator::SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp)
     : Integrator(scene, sensor, spp)
     , m_maxDepth(maxDepth)
     , m_cameraThisFrame(nullptr)
     , m_resolution(sensor.getResolution())
-    //, m_pixelSampleCount(m_resolution.x * m_resolution.y)
     , m_maxSampleCount(spp)
-    , m_parallelSamples(parallelSamples)
     , m_maxPixelSample((size_t)m_resolution.x * (size_t)m_resolution.y * (size_t)spp)
     , m_currentPixelSample(0)
 {
@@ -55,33 +53,53 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
         }
     }
 #else
-    tbb::blocked_range2d<int, int> sensorRange(0, m_resolution.y, 0, m_resolution.x);
-    tbb::parallel_for(sensorRange, [&](tbb::blocked_range2d<int, int> localRange) {
-        auto rows = localRange.rows();
-        auto cols = localRange.cols();
-        for (int y = rows.begin(); y < rows.end(); y++) {
-            for (int x = cols.begin(); x < cols.end(); x++) {
-                // Allow for multiple samples (of the same pixel) to be in-flight
-                for (int s = 0; s < m_parallelSamples; s++) {
-                    spawnNextSample(glm::ivec2(x, y));
+    if constexpr (AccelerationStructure<int>::recurseTillCompletion) {
+        // The accelation structure will trace a path untill completion. So we are free to spawn all paths
+        // here without concern for memory usage. Recursively spawning paths through spawnNextSample is
+        // actually a bad idea in this case because it will lead to stack overflows.
+        tbb::blocked_range2d<int, int> sensorRange(0, m_resolution.y, 0, m_resolution.x);
+        tbb::parallel_for(sensorRange, [&](tbb::blocked_range2d<int, int> localRange) {
+            auto rows = localRange.rows();
+            auto cols = localRange.cols();
+            for (int y = rows.begin(); y < rows.end(); y++) {
+                for (int x = cols.begin(); x < cols.end(); x++) {
+                    // Allow for multiple samples (of the same pixel) to be in-flight
+                    for (int s = 0; s < m_maxSampleCount; s++) {
+                        spawnNextSample(true);
+                    }
                 }
             }
-        }
-    });
+        });
+    } else {
+        // SpawnNextSample returns before the full path is traced. So we need to make sure that we do not
+        // spawn more rays than the user has requested. The integrator is responsible for calling spawnNextSample
+        // when a path ends so that a new path can be spawned.
+        tbb::parallel_for(tbb::blocked_range(0, PARALLEL_PATHS), [&](tbb::blocked_range<int> localRange) {
+            for (int i = localRange.begin(); i < localRange.end(); i++) {
+                spawnNextSample();
+            }
+        });
+    }
 #endif
 
     m_accelerationStructure.flush();
 }
 
-void SamplerIntegrator::spawnNextSample(const glm::ivec2&)
+void SamplerIntegrator::spawnNextSample(bool initialRay)
 {
     assert(m_cameraThisFrame != nullptr);
+
+    if constexpr (AccelerationStructure<int>::recurseTillCompletion) {
+        if (!initialRay) {
+            return;
+        }
+    }
 
     size_t pixelSampleIndex = m_currentPixelSample.fetch_add(1);
     if (pixelSampleIndex >= m_maxPixelSample)
         return;
 
-    size_t sampleNumber =pixelSampleIndex % m_maxSampleCount;
+    size_t sampleNumber = pixelSampleIndex % m_maxSampleCount;
     size_t pixelIndex = pixelSampleIndex / m_maxSampleCount;
     glm::ivec2 pixel = indexToPixel(pixelIndex);
 
@@ -215,17 +233,9 @@ void SamplerIntegrator::spawnShadowRay(const Ray& ray, bool anyHit, const RaySta
     }
 }
 
-int SamplerIntegrator::pixelToIndex(const glm::ivec2& pixel) const
-{
-    return pixel.y * m_resolution.x + pixel.x;
-}
-
 glm::ivec2 SamplerIntegrator::indexToPixel(size_t pixelIndex) const
 {
-    //return glm::ivec2((int)pixelIndex % m_resolution.x, (int)pixelIndex / m_resolution.x);
-    uint_fast32_t x, y;
-    libmorton::morton2D_64_decode(pixelIndex, x, y);
-    return glm::ivec2(x, y);
+    return glm::ivec2(pixelIndex % m_resolution.x, pixelIndex / m_resolution.x);
 }
 
 }

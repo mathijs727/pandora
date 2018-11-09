@@ -64,12 +64,12 @@ int main()
     //scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
     //scene.splitLargeInCoreSceneObjects(IN_CORE_BATCHING_SCENE_OBJECT_PRIMS);
 
-    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, 1, LightStrategy::UniformSampleOne);
-    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, 1);
+    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
+    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1,);
     //NormalDebugIntegrator integrator(scene, camera.getSensor());
-    //PathIntegrator integrator(4, scene, camera.getSensor(), PARALLEL_SAMPLES);
+    //PathIntegrator integrator(4, scene, camera.getSensor());
     SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
-    //SVODepthTestIntegrator integrator(scene, camera.getSensor(), 1);
+    //SVODepthTestIntegrator integrator(scene, camera.getSensor());
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {

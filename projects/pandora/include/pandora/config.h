@@ -10,7 +10,7 @@ using AccelerationStructure = OOCBatchingAccelerationStructure<T, 64>;
 //using AccelerationStructure = InCoreAccelerationStructure<T>;
 //using AccelerationStructure = InCoreBatchingAccelerationStructure<T, 400>;
 
-constexpr int PARALLEL_SAMPLES = 8;
+constexpr int PARALLEL_PATHS = 8 * 1024 * 1024;
 constexpr unsigned OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF = 100000;
 constexpr bool OUT_OF_CORE_OCCLUSION_CULLING = false;
 constexpr bool OUT_OF_CORE_DISABLE_FILE_CACHING = true;

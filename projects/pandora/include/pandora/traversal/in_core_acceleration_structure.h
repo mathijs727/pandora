@@ -23,6 +23,8 @@ namespace pandora {
 template <typename UserState>
 class InCoreAccelerationStructure {
 public:
+    constexpr static bool recurseTillCompletion = true; // Paths are recursively traced untill completion
+
     using InsertHandle = void*;
     using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&)>;
     using AnyHitCallback = std::function<void(const Ray&, const UserState&)>;

@@ -7,7 +7,7 @@ namespace pandora {
 class PathIntegrator : public SamplerIntegrator {
 public:
     // WARNING: do not modify the scene in any way while the integrator is alive
-    PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples = 1);
+    PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp);
 
 protected:
     void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s) override final;

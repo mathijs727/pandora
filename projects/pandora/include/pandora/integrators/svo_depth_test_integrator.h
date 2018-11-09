@@ -6,7 +6,7 @@ namespace pandora {
 
 class SVODepthTestIntegrator : public SamplerIntegrator {
 public:
-    SVODepthTestIntegrator(const Scene& scene, Sensor& sensor, int spp, int parallelSamples = 1);
+    SVODepthTestIntegrator(const Scene& scene, Sensor& sensor, int spp);
 
 private:
     void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s) override final;

@@ -5,8 +5,8 @@
 
 namespace pandora {
 
-SVODepthTestIntegrator::SVODepthTestIntegrator(const Scene& scene, Sensor& sensor, int spp, int parallelSamples)
-    : SamplerIntegrator(2, scene, sensor, spp, parallelSamples)
+SVODepthTestIntegrator::SVODepthTestIntegrator(const Scene& scene, Sensor& sensor, int spp)
+    : SamplerIntegrator(2, scene, sensor, spp)
     , m_svo(buildSVO(scene))
 {
     Bounds gridBounds;

@@ -9,8 +9,8 @@ namespace pandora {
 
 static GrowingFreeListTS<ShadingMemoryArena::MemoryBlock> s_freeList;
 
-DirectLightingIntegrator::DirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples, LightStrategy strategy)
-    : SamplerIntegrator(maxDepth, scene, sensor, spp, parallelSamples)
+DirectLightingIntegrator::DirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, LightStrategy strategy)
+    : SamplerIntegrator(maxDepth, scene, sensor, spp)
     , m_strategy(strategy)
 {
 }
@@ -32,7 +32,7 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
         Spectrum emitted = si.Le(wo);
         if (!isBlack(emitted)) {
             m_sensor.addPixelContribution(rayState.pixel, contRayState.weight * emitted);
-            spawnNextSample(rayState.pixel);
+            spawnNextSample();
             return;
         }
 
@@ -60,7 +60,7 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
             m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight * li);
         }
 
-        spawnNextSample(rayState.pixel);
+        spawnNextSample();
     }
 }
 
@@ -88,7 +88,7 @@ void DirectLightingIntegrator::rayMiss(const Ray& r, const RayState& rayState)
             m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight);
         }
 
-        spawnNextSample(rayState.pixel);
+        spawnNextSample();
     } else if (std::holds_alternative<ContinuationRayState>(rayState.data)) {
         const auto& shadowRayState = std::get<ContinuationRayState>(rayState.data);
 
@@ -103,7 +103,7 @@ void DirectLightingIntegrator::rayMiss(const Ray& r, const RayState& rayState)
         assert(!std::isnan(glm::dot(shadowRayState.weight, shadowRayState.weight)) && glm::dot(shadowRayState.weight, shadowRayState.weight) > 0.0f);
         m_sensor.addPixelContribution(rayState.pixel, shadowRayState.weight * radiance);
 
-        spawnNextSample(rayState.pixel);
+        spawnNextSample();
     }
 }
 

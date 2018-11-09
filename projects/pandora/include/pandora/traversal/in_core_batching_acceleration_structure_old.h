@@ -31,6 +31,8 @@ static constexpr bool ENABLE_BATCHING = true;
 template <typename UserState, size_t BatchSize = 64>
 class InCoreBatchingAccelerationStructure {
 public:
+    constexpr static bool recurseTillCompletion = false; // Rays are batched, so paths are not traced untill completion
+
     using InsertHandle = void*;
     using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&)>;
     using AnyHitCallback = std::function<void(const Ray&, const UserState&)>;

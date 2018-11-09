@@ -7,7 +7,7 @@ enum class LightStrategy { UniformSampleAll, UniformSampleOne };
 
 class DirectLightingIntegrator : public SamplerIntegrator {
 public:
-	DirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples = 1, LightStrategy strategy = LightStrategy::UniformSampleAll);
+	DirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, LightStrategy strategy = LightStrategy::UniformSampleAll);
 private:
     void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s) override final;
     void rayAnyHit(const Ray& r, const RayState& s) override final;
