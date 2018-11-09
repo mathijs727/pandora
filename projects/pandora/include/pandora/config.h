@@ -4,10 +4,10 @@
 namespace pandora
 {
 
-constexpr bool OUT_OF_CORE_ACCELERATION_STRUCTURE = false;
+constexpr bool OUT_OF_CORE_ACCELERATION_STRUCTURE = true;
 template <typename T>
-using AccelerationStructure = InCoreAccelerationStructure<T>;
-//using AccelerationStructure = OOCBatchingAccelerationStructure<T, 64>;
+using AccelerationStructure = OOCBatchingAccelerationStructure<T, 64>;
+//using AccelerationStructure = InCoreAccelerationStructure<T>;
 //using AccelerationStructure = InCoreBatchingAccelerationStructure<T, 400>;
 
 constexpr int PARALLEL_SAMPLES = 8;

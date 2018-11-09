@@ -189,3 +189,12 @@ Release mode bunny at 256x256x256 resolution:
  - Leafs:  ~34ms
 
 Going back to the old descriptors makes the SVO construction, SVDAG compression and SVO/SVDAG traversal code cleaner. And although it might use more memory, having deeper trees will mean that we will save more by using SVDAG compression because the chance of 64-bit leafs matching is very small.
+
+
+==== Update to scheduling ====
+Good scheduling is probably one of the most important factors. Adding statistics on the flush iterations showed that a lot of iterations in the end are spent on almost empty nodes. Rays that reach almost empty areas of the scene will stay batched there until the end of the render. At that point they need to be traversed further and may need to spawn one or more new camera paths (recursively). So I updated the scheduling to do the following:
+- The top 50% of the nodes are always flushed
+- From the bottom 50%, half of the nodes are flushed (selected randomly)
+- To ensure better load balance the nodes to be flushed are shuffled
+
+This does not take away that the new sample spawning needs an update. Instead of spawning new samples recursively, we should be able to have multiple samples of the same pixel in flight. This could improve coherence and maybe we can get rid of the recursion which is hampering the in-core traverser right now (only at extremely low sample counts will it not crash due to stack overflow).

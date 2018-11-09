@@ -819,7 +819,6 @@ inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::flush()
             break;
 
         TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
-
     }
 
     std::cout << "FLUSH COMPLETE" << std::endl;
@@ -841,18 +840,45 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
 
     std::cout << "Number of nodes with batched rays: " << nodesWithBatchedRays.size() << "\n";
 
-    std::sort(std::begin(nodesWithBatchedRays), std::end(nodesWithBatchedRays), [](const auto* node1, const auto* node2) {
+    // Select the top 50% of the batching points (in terms of batched rays)
+    auto partitionPoint = nodesWithBatchedRays.size() / 2;
+    std::nth_element(
+        std::begin(nodesWithBatchedRays),
+        std::begin(nodesWithBatchedRays) + partitionPoint,
+        std::end(nodesWithBatchedRays),
+        [](const auto* node1, const auto* node2) {
+            return node1->m_numFullBlocks.load() < node2->m_numFullBlocks.load(); // Ascending order
+        });
+
+    // Pick 50% of the remaining nodes randomly so that rays reaching a batching point with a low probability are also flushed once in a while
+    auto startPoint = partitionPoint - partitionPoint / 2;
+    std::random_device randomDevice;
+    std::mt19937 randomGen { randomDevice() };
+    std::shuffle(
+        std::begin(nodesWithBatchedRays) + startPoint,
+        std::begin(nodesWithBatchedRays) + partitionPoint,
+        randomGen);
+
+    // Shuffle the nodes that are to be processed so that the work is divided more evenly (compared to starting with the smallest nodes and working our way up)
+    std::shuffle(
+        std::begin(nodesWithBatchedRays) + startPoint,
+        std::end(nodesWithBatchedRays),
+        randomGen);
+
+    const int blocksThreshold = 0;
+
+    /*std::sort(std::begin(nodesWithBatchedRays), std::end(nodesWithBatchedRays), [](const auto* node1, const auto* node2) {
         return node1->m_numFullBlocks.load() > node2->m_numFullBlocks.load(); // Sort from big to small
     });
 
     // Only flush nodes that have a lot of flushed blocks, wait for other nodes for their blocks to fill up.
-    const int blocksThreshold = nodesWithBatchedRays.empty() ? 0 : nodesWithBatchedRays[0]->m_numFullBlocks.load() / 5;
+    const int blocksThreshold = nodesWithBatchedRays.empty() ? 0 : nodesWithBatchedRays[0]->m_numFullBlocks.load() / 5;*/
 
     std::mutex flushInfoMutex;
     RenderStats::FlushInfo& flushInfo = g_stats.flushInfos.emplace_back();
     flushInfo.numBatchingPointsWithRays = static_cast<int>(nodesWithBatchedRays.size());
 
-    std::atomic_size_t currentNodeIndex = 0; // source_node is always run sequentially
+    std::atomic_size_t currentNodeIndex = startPoint; // source_node is always run sequentially
     using BlockWithoutGeom = std::pair<RayBlock*, EvictableResourceID>;
     tbb::flow::graph g;
     tbb::flow::source_node<BlockWithoutGeom> sourceNode(

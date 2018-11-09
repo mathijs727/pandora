@@ -406,14 +406,14 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                     const auto& kd = getColorTexture(arguments["kd"].get<int>());
                     const auto& sigma = getFloatTexture(arguments["sigma"].get<int>());
                     materials.push_back(std::make_shared<MatteMaterial>(kd, sigma));
-                } else if(materialType == "translucent") {
+                }/* else if(materialType == "translucent") {
                     auto kd = getColorTexture(arguments["kd"].get<int>());
                     auto ks = getColorTexture(arguments["ks"].get<int>());
                     auto roughness = getFloatTexture(arguments["roughness"].get<int>());
                     auto transmit = getColorTexture(arguments["transmit"].get<int>());
                     auto reflect = getColorTexture(arguments["reflect"].get<int>());
                     materials.push_back(std::make_shared<TranslucentMaterial>(kd, ks, roughness, reflect, transmit, true));
-                } else {
+                }*/ else {
                     std::cout << "Unknown material type \"" << materialType << "\"! Substituting with placeholder." << std::endl;
                     materials.push_back(std::make_shared<MatteMaterial>(dummyColorTexture, dummyFloatTexture));
                 }
@@ -429,7 +429,6 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         };
 
         std::cout << "Loading geometry" << std::endl;
-        std::unordered_map<std::string, mio::shared_mmap_source> mappedGeometryFiles;
         auto* geometryCache = config.scene.geometryCache();
         std::vector<EvictableResourceID> geometry;
         for (const auto jsonGeometry : sceneJson["geometry"]) {
@@ -439,26 +438,21 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
             if (geometryFile.extension() == ".bin"s) {
                 size_t startByte = jsonGeometry["start_byte"];
                 size_t sizeBytes = jsonGeometry["size_bytes"];
-
-                auto goemetryFileString = geometryFile.string();
-                if (mappedGeometryFiles.find(goemetryFileString) == mappedGeometryFiles.end()) {
-                    mappedGeometryFiles[goemetryFileString] = mio::shared_mmap_source(geometryFile.string(), 0, mio::map_entire_file);
-                }
-                auto mappedGeometryFile = mappedGeometryFiles[goemetryFileString];
+                ALWAYS_ASSERT(std::filesystem::exists(geometryFile));
 
                 EvictableResourceID resourceID;
                 if (jsonGeometry.find("transform") != jsonGeometry.end()) {
                     glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                     resourceID = geometryCache->emplaceFactoryUnsafe<TriangleMesh>([=]() -> TriangleMesh {
-                        auto buffer = gsl::make_span(mappedGeometryFile.data(), mappedGeometryFile.size()).subspan(startByte, sizeBytes);
-                        std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(buffer.data()), transform);
+                        auto mappedFile = mio::mmap_source(geometryFile.string(), startByte, sizeBytes);
+                        std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(mappedFile.data()), transform);
                         ALWAYS_ASSERT(meshOpt.has_value());
                         return std::move(*meshOpt);
                     });
                 } else {
                     resourceID = geometryCache->emplaceFactoryUnsafe<TriangleMesh>([=]() -> TriangleMesh {
-                        auto buffer = gsl::make_span(mappedGeometryFile.data(), mappedGeometryFile.size()).subspan(startByte, sizeBytes);
-                        std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(buffer.data()));
+                        auto mappedFile = mio::mmap_source(geometryFile.string(), startByte, sizeBytes);
+                        std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(mappedFile.data()));
                         ALWAYS_ASSERT(meshOpt.has_value());
                         return std::move(*meshOpt);
                     });
@@ -481,7 +475,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         // https://github.com/nlohmann/json/issues/800
         auto geomSceneObjectFactoryFunc = [&](nlohmann::json jsonSceneObject) -> std::function<std::unique_ptr<OOCGeometricSceneObject>(void)> {
             auto geometryResourceID = geometry[jsonSceneObject["geometry_id"].get<int>()];
-            auto geometry = EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>>(geometryCache, geometryResourceID);
+            auto geometryResourceHandle = EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>>(geometryCache, geometryResourceID);
 
             std::shared_ptr<Material> material;
             if (loadMaterials)
@@ -493,19 +487,23 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 glm::vec3 lightEmitted = readVec3(jsonSceneObject["area_light"]["L"]);
 
                 return [=]() {
-                    return std::make_unique<OOCGeometricSceneObject>(geometry, material, lightEmitted);
+                    return std::make_unique<OOCGeometricSceneObject>(geometryResourceHandle, material, lightEmitted);
                 };
             } else {
                 return [=]() {
-                    return std::make_unique<OOCGeometricSceneObject>(geometry, material);
+                    return std::make_unique<OOCGeometricSceneObject>(geometryResourceHandle, material);
                 };
             }
         };
 
         // Create instanced base objects
-        std::cout << "Creating instanced base objects (multi-threaded)" << std::endl;
-        auto jsonBaseSceneObjects = sceneJson["instance_base_scene_objects"];
-        size_t numBaseSceneObjects = jsonBaseSceneObjects.size();
+        std::cout << "Creating instanced base objects (single-threaded)" << std::endl;
+        std::vector<std::shared_ptr<OOCGeometricSceneObject>> baseSceneObjects;
+        for (const auto jsonSceneObject : sceneJson["instance_base_scene_objects"]) {
+            auto geomSceneObjectFactory = geomSceneObjectFactoryFunc(jsonSceneObject);
+            baseSceneObjects.emplace_back(geomSceneObjectFactory());
+        }
+        /*size_t numBaseSceneObjects = jsonBaseSceneObjects.size();
         tbb::task_group taskGroup;
         std::vector<std::shared_ptr<OOCGeometricSceneObject>> baseSceneObjects(numBaseSceneObjects);
         for (size_t i = 0; i < numBaseSceneObjects; i++) {
@@ -517,7 +515,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
             });
         }
         std::cout << "Wait till completion..." << std::endl;
-        taskGroup.wait();
+        taskGroup.wait();*/
 
         std::cout << "Geometry loaded: " << static_cast<size_t>(g_stats.memory.geometryLoaded) / 1000000 << std::endl;
         std::cout << "Geometry evicted: " << static_cast<size_t>(g_stats.memory.geometryEvicted) / 1000000<< std::endl;
@@ -525,8 +523,20 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         // Create scene objects
         // NOTE: create in parallel but make sure to add them to the scene in a fixed order. This ensures that the
         //       area lights are added in the same order, thus light sampling is deterministic between runs.
-        std::cout << "Creating final objects (multi-threaded)" << std::endl;
-        auto jsonSceneObjects = sceneJson["scene_objects"];
+        std::cout << "Creating final objects (single-threaded)" << std::endl;
+        for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
+            if (jsonSceneObject["instancing"].get<bool>()) {
+                glm::mat4 transform = getTransform(jsonSceneObject["transform"]);
+                auto baseSceneObject = baseSceneObjects[jsonSceneObject["base_scene_object_id"].get<int>()];
+                auto instancedSceneObject = std::make_unique<OOCInstancedSceneObject>(transform, baseSceneObject);
+                config.scene.addSceneObject(std::move(instancedSceneObject));
+            } else {
+                auto sceneObjectFactory = geomSceneObjectFactoryFunc(jsonSceneObject);
+                config.scene.addSceneObject(sceneObjectFactory());
+            }
+        }
+
+        /*auto jsonSceneObjects = sceneJson["scene_objects"];
         size_t numSceneObjects = jsonSceneObjects.size();
         std::vector<std::unique_ptr<OOCSceneObject>> sceneObjects(numSceneObjects);
         std::cout << "Preallocated (empty) scene object pointer array of size: " << numSceneObjects << std::endl;
@@ -547,12 +557,13 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
 
         std::cout << "Wait till completion..." << std::endl;
         taskGroup.wait();
+
         std::cout << "Done loading, adding to scene" << std::endl;
         for (auto& sceneObject : sceneObjects) {
             if (sceneObject) {
                 config.scene.addSceneObject(std::move(sceneObject));
             }
-        }
+        }*/
 
         // Load lights
         std::cout << "Loading lights" << std::endl;
