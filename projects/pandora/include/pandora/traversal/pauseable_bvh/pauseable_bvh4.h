@@ -106,7 +106,7 @@ private:
 
 template <typename LeafObj, typename UserState>
 inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> leafs)
-    : m_innerNodeAllocator(leafs.size())
+    : m_innerNodeAllocator(leafs.size() * 2)
     , m_leafAllocator(leafs.size())
 {
     // Store in the class so that the (static) construction functions can access the objects
@@ -400,7 +400,7 @@ inline void PauseableBVH4<LeafObj, UserState>::testBVH() const
     testBVHRecurse(&m_innerNodeAllocator.get(m_rootHandle), 0, results);
 
     std::cout << std::endl;
-    std::cout << " <<< BVH Build results >>> " << std::endl;
+    std::cout << " <<< PauseableBVH4 Build results >>> " << std::endl;
     std::cout << "===========================" << std::endl;
     std::cout << "Primitives reached: " << results.numPrimitives << std::endl;
     std::cout << "Max depth:          " << results.maxDepth << std::endl;

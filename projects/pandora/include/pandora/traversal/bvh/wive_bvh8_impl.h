@@ -11,9 +11,10 @@ namespace pandora {
 
 template <typename LeafObj>
 inline WiVeBVH8<LeafObj>::WiVeBVH8(uint32_t numPrims) :
-    m_innerNodeAllocator(std::max(8u, numPrims / 4), 16),
-    m_leafIndexAllocator(numPrims + numPrims * 2 / 10)
+    m_innerNodeAllocator(std::max(16u, numPrims / 2), 16),
+    m_leafIndexAllocator(numPrims + numPrims / 2)
 {
+    std::cout << "Num prims: " << numPrims << std::endl;
 }
 
 template <typename LeafObj>

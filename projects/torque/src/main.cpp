@@ -77,6 +77,13 @@ int main(int argc, char** argv)
             std::cout << "Error splitting ooc scene objects: " << e << std::endl;
             std::cout << "Message: " << e.message() << std::endl;
         }
+    } else {
+        try {
+            renderConfig.scene.splitLargeInCoreSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 4);
+        } catch (std::error_code e) {
+            std::cout << "Error splitting ooc scene objects: " << e << std::endl;
+            std::cout << "Message: " << e.message() << std::endl;
+        }
     }
 
     std::cout << "Start render" << std::endl;

@@ -237,14 +237,18 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
         std::cout << "Creating final scene objects" << std::endl;
         // Create scene objects
+        size_t sceneObjectID = 0;
         for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
             if (jsonSceneObject["instancing"].get<bool>()) {
                 glm::mat4 transform = getTransform(jsonSceneObject["transform"]);
                 auto baseSceneObject = baseSceneObjects[jsonSceneObject["base_scene_object_id"].get<int>()];
                 auto instancedSceneObject = std::make_unique<InCoreInstancedSceneObject>(transform, baseSceneObject);
+                instancedSceneObject->sceneObjectID = sceneObjectID++;
                 config.scene.addSceneObject(std::move(instancedSceneObject));
             } else {
-                config.scene.addSceneObject(makeGeomSceneObject(jsonSceneObject));
+                auto sceneObject = makeGeomSceneObject(jsonSceneObject);
+                sceneObject->sceneObjectID = sceneObjectID++;
+                config.scene.addSceneObject(std::move(sceneObject));
             }
         }
 
@@ -484,6 +488,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 material = defaultMaterial;
 
             if (jsonSceneObject.find("area_light") != jsonSceneObject.end()) {
+                std::cout << "AREA LIGHT" << "\n";
                 glm::vec3 lightEmitted = readVec3(jsonSceneObject["area_light"]["L"]);
 
                 return [=]() {
@@ -497,13 +502,14 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         };
 
         // Create instanced base objects
-        std::cout << "Creating instanced base objects (single-threaded)" << std::endl;
-        std::vector<std::shared_ptr<OOCGeometricSceneObject>> baseSceneObjects;
+        std::cout << "Creating instanced base objects (multi-threaded)" << std::endl;
+        /*std::vector<std::shared_ptr<OOCGeometricSceneObject>> baseSceneObjects;
         for (const auto jsonSceneObject : sceneJson["instance_base_scene_objects"]) {
             auto geomSceneObjectFactory = geomSceneObjectFactoryFunc(jsonSceneObject);
             baseSceneObjects.emplace_back(geomSceneObjectFactory());
-        }
-        /*size_t numBaseSceneObjects = jsonBaseSceneObjects.size();
+        }*/
+        auto jsonBaseSceneObjects = sceneJson["instance_base_scene_objects"];
+        size_t numBaseSceneObjects = jsonBaseSceneObjects.size();
         tbb::task_group taskGroup;
         std::vector<std::shared_ptr<OOCGeometricSceneObject>> baseSceneObjects(numBaseSceneObjects);
         for (size_t i = 0; i < numBaseSceneObjects; i++) {
@@ -515,7 +521,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
             });
         }
         std::cout << "Wait till completion..." << std::endl;
-        taskGroup.wait();*/
+        taskGroup.wait();
 
         std::cout << "Geometry loaded: " << static_cast<size_t>(g_stats.memory.geometryLoaded) / 1000000 << std::endl;
         std::cout << "Geometry evicted: " << static_cast<size_t>(g_stats.memory.geometryEvicted) / 1000000<< std::endl;
@@ -523,7 +529,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         // Create scene objects
         // NOTE: create in parallel but make sure to add them to the scene in a fixed order. This ensures that the
         //       area lights are added in the same order, thus light sampling is deterministic between runs.
-        std::cout << "Creating final objects (single-threaded)" << std::endl;
+        /*std::cout << "Creating final objects (single-threaded)" << std::endl;
         for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
             if (jsonSceneObject["instancing"].get<bool>()) {
                 glm::mat4 transform = getTransform(jsonSceneObject["transform"]);
@@ -534,9 +540,9 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 auto sceneObjectFactory = geomSceneObjectFactoryFunc(jsonSceneObject);
                 config.scene.addSceneObject(sceneObjectFactory());
             }
-        }
+        }*/
 
-        /*auto jsonSceneObjects = sceneJson["scene_objects"];
+        auto jsonSceneObjects = sceneJson["scene_objects"];
         size_t numSceneObjects = jsonSceneObjects.size();
         std::vector<std::unique_ptr<OOCSceneObject>> sceneObjects(numSceneObjects);
         std::cout << "Preallocated (empty) scene object pointer array of size: " << numSceneObjects << std::endl;
@@ -563,7 +569,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
             if (sceneObject) {
                 config.scene.addSceneObject(std::move(sceneObject));
             }
-        }*/
+        }
 
         // Load lights
         std::cout << "Loading lights" << std::endl;

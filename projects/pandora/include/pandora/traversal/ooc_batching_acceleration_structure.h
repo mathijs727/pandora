@@ -448,9 +448,9 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BlockS
 
     g_stats.numTopLevelLeafNodes = static_cast<int>(leafs.size());
 
-    std::cout << "Building top-level BVH" << std::endl;
+    std::cout << "Building top-level BVH \n";
     auto ret = PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
-    TopLevelLeafNode::compressSVDAGs(ret.leafs());
+    //TopLevelLeafNode::compressSVDAGs(ret.leafs());
     return std::move(ret);
 }
 

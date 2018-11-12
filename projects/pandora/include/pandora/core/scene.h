@@ -39,6 +39,9 @@ public:
 class SceneObjectMaterial
 {
 public:
+    size_t sceneObjectID = 0;
+    
+public:
     virtual ~SceneObjectMaterial() {};
 
     virtual void computeScatteringFunctions(

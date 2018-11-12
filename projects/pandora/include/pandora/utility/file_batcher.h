@@ -32,7 +32,7 @@ public:
         openNewFile();
     }
 
-#ifdef __linux__
+#ifdef asdfasdfsdafadsf__linux__
     struct RAIIBuffer {
     public:
         RAIIBuffer(std::filesystem::path filePath, size_t offset, size_t size)
