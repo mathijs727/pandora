@@ -49,6 +49,7 @@ protected:
     virtual void rayAnyHit(const Ray& r, const RayState& s) override = 0;
     virtual void rayMiss(const Ray& r, const RayState& s) override = 0;
 
+    void spawnNextSampleTillSuccess();
     void spawnNextSample(bool initialRay = false);
 
     void specularReflect(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const RayState& rayState);

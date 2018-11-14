@@ -67,8 +67,8 @@ int main()
     //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1,);
     //NormalDebugIntegrator integrator(scene, camera.getSensor());
-    //PathIntegrator integrator(4, scene, camera.getSensor());
-    SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
+    PathIntegrator integrator(8, scene, camera.getSensor(), 1);
+    //SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
     //SVODepthTestIntegrator integrator(scene, camera.getSensor());
 
     bool pressedEscape = false;
@@ -174,11 +174,11 @@ void addStanfordBunny(Scene& scene)
     auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
     //auto material = std::make_shared<MatteMaterial>(kd, roughness);
     auto material = MetalMaterial::createCopper(roughness, true);*/
-    auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.4f, 0.1f));
+    auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.1f, 0.2f, 0.4f));
     auto ks = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
     auto roughness = std::make_shared<ConstantTexture<float>>(0.006f);
     auto t = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
-    auto r = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.6f, 0.3f, 0.5f));
+    auto r = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.3f, 0.3f, 0.5f));
     //auto material = std::make_shared<MatteMaterial>(kd, roughness);
     auto material = std::make_shared<TranslucentMaterial>(kd, ks, roughness, r, t, true);
 
@@ -243,8 +243,8 @@ void addCornellBox(Scene& scene)
         if (i == 0) {
             // Back box
             auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
-            auto t = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
-            auto r = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
+            auto t = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.5f));
+            auto r = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.5f));
             auto ks = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
             auto translucentMaterialRoughness = std::make_shared<ConstantTexture<float>>(1.0f);
             //auto material = std::make_shared<MatteMaterial>(kd, roughness);
