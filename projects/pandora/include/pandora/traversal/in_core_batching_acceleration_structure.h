@@ -42,6 +42,9 @@ public:
         HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
     ~InCoreBatchingAccelerationStructure() = default;
 
+    // Dummy
+    bool placeIntersectRequestsReturnOnMiss(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData) { return false; }
+
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
     void placeIntersectAnyRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
 
