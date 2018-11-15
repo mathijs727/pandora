@@ -43,6 +43,10 @@ int main()
         testDAGCompressionTogether(files);
     }
 
+    /*auto bunnySVDAG = createSVO(bunnyFile);
+    auto[positions, triangles] = bunnySVDAG.generateSurfaceMesh();
+    exportMesh(positions, triangles, "mesh.ply");*/
+
     std::cout << "INPUT CHARACTER AND PRESS ENTER TO EXIT:" << std::endl;
     char x;
     std::cin >> x;

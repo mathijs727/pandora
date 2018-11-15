@@ -9,10 +9,6 @@ inline void __THROW_ERROR(std::string_view errorMessage, std::string_view fileNa
 {
     std::cout << fileName << ":" << line << " ==> " << errorMessage << std::endl;
     throw std::runtime_error("");
-    int i;
-    std::cin >> i;
-    (void)i;
-    exit(-1);
 }
 
 inline void LOG_INFO(std::string_view infoMessage)

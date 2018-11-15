@@ -190,6 +190,9 @@ Release mode bunny at 256x256x256 resolution:
 
 Going back to the old descriptors makes the SVO construction, SVDAG compression and SVO/SVDAG traversal code cleaner. And although it might use more memory, having deeper trees will mean that we will save more by using SVDAG compression because the chance of 64-bit leafs matching is very small.
 
+UPDATE:
+After fixing bugs in both SVO construction & traversal + switching to bitscan instead of reinterpret casts of floats, performance of the traversal is now hovering between 33ms and 34ms.
+
 
 ==== Update to scheduling ====
 Good scheduling is probably one of the most important factors. Adding statistics on the flush iterations showed that a lot of iterations in the end are spent on almost empty nodes. Rays that reach almost empty areas of the scene will stay batched there until the end of the render. At that point they need to be traversed further and may need to spawn one or more new camera paths (recursively). So I updated the scheduling to do the following:
