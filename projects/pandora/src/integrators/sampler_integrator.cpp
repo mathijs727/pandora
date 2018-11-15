@@ -45,10 +45,9 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     //#if 1
     for (int y = 0; y < m_resolution.y; y++) {
         for (int x = 0; x < m_resolution.x; x++) {
-            for (int s = 0; s < m_parallelSamples; s++) {
+            for (int s = 0; s < m_maxSampleCount; s++) {
                 // Initialize camera sample for current sample
-                auto pixel = glm::ivec2(x, y);
-                spawnNextSample(pixel);
+                spawnNextSample();
             }
         }
     }
