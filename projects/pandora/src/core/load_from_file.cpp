@@ -410,14 +410,14 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                     const auto& kd = getColorTexture(arguments["kd"].get<int>());
                     const auto& sigma = getFloatTexture(arguments["sigma"].get<int>());
                     materials.push_back(std::make_shared<MatteMaterial>(kd, sigma));
-                }/* else if(materialType == "translucent") {
+                } else if(materialType == "translucent") {
                     auto kd = getColorTexture(arguments["kd"].get<int>());
                     auto ks = getColorTexture(arguments["ks"].get<int>());
                     auto roughness = getFloatTexture(arguments["roughness"].get<int>());
-                    auto transmit = getColorTexture(arguments["transmit"].get<int>());
-                    auto reflect = getColorTexture(arguments["reflect"].get<int>());
-                    materials.push_back(std::make_shared<TranslucentMaterial>(kd, ks, roughness, reflect, transmit, true));
-                }*/ else {
+                    auto r = getColorTexture(arguments["reflect"].get<int>());
+                    auto t = getColorTexture(arguments["transmit"].get<int>());
+                    materials.push_back(std::make_shared<TranslucentMaterial>(kd, ks, roughness, r, t, true));
+                } else {
                     std::cout << "Unknown material type \"" << materialType << "\"! Substituting with placeholder." << std::endl;
                     materials.push_back(std::make_shared<MatteMaterial>(dummyColorTexture, dummyFloatTexture));
                 }
