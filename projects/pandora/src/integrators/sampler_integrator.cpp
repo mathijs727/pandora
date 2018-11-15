@@ -45,10 +45,9 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     //#if 1
     for (int y = 0; y < m_resolution.y; y++) {
         for (int x = 0; x < m_resolution.x; x++) {
-            for (int s = 0; s < m_parallelSamples; s++) {
+            for (int s = 0; s < m_maxSampleCount; s++) {
                 // Initialize camera sample for current sample
-                auto pixel = glm::ivec2(x, y);
-                spawnNextSample(pixel);
+                spawnNextSample();
             }
         }
     }
@@ -76,13 +75,55 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
         // when a path ends so that a new path can be spawned.
         tbb::parallel_for(tbb::blocked_range(0, PARALLEL_PATHS), [&](tbb::blocked_range<int> localRange) {
             for (int i = localRange.begin(); i < localRange.end(); i++) {
-                spawnNextSample();
+                spawnNextSampleTillSuccess();
             }
         });
     }
 #endif
 
     m_accelerationStructure.flush();
+}
+
+void SamplerIntegrator::spawnNextSampleTillSuccess()
+{
+    assert(m_cameraThisFrame != nullptr);
+
+    bool success = false;
+    do {
+        size_t pixelSampleIndex = m_currentPixelSample.fetch_add(1);
+        if (pixelSampleIndex >= m_maxPixelSample)
+            return;
+
+        size_t sampleNumber = pixelSampleIndex % m_maxSampleCount;
+        size_t pixelIndex = pixelSampleIndex / m_maxSampleCount;
+        glm::ivec2 pixel = indexToPixel(pixelIndex);
+
+        unsigned seed = 0;
+        if constexpr (USE_RANDOM_SEEDS) {
+            static thread_local std::random_device rd = std::random_device();
+            seed = rd();
+        } else {
+            seed = static_cast<unsigned>(pixelSampleIndex);
+        }
+
+        // Custom deleter
+        // https://stackoverflow.com/questions/12340810/using-custom-deleter-with-stdshared-ptr
+        void* samplerSpace = m_samplerAllocator.allocate(1);
+        auto* samplerRawPtr = new (samplerSpace) UniformSampler(seed);
+        auto samplerPtr = std::shared_ptr<UniformSampler>(samplerRawPtr, [this](UniformSampler* ptr) {
+            m_samplerAllocator.deallocate(ptr, 1);
+        });
+
+        CameraSample cameraSample = samplerPtr->getCameraSample(pixel);
+        RayState rayState{
+            { ContinuationRayState { glm::vec3(1.0f), 0, false } },
+            pixel,
+            samplerPtr
+        };
+
+        Ray ray = m_cameraThisFrame->generateRay(cameraSample);
+        success = m_accelerationStructure.placeIntersectRequestsReturnOnMiss(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));
+    } while (!success);
 }
 
 void SamplerIntegrator::spawnNextSample(bool initialRay)

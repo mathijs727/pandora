@@ -67,8 +67,11 @@ public:
         HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
     ~OOCBatchingAccelerationStructure() = default;
 
-    void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
-    void placeIntersectAnyRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
+    // Ignore missing rays to prevent stack overflows
+    bool placeIntersectRequestsReturnOnMiss(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData);
+
+    void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData);
+    void placeIntersectAnyRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData);
 
     void flush();
 
@@ -312,12 +315,32 @@ inline OOCBatchingAccelerationStructure<UserState, BlockSize>::OOCBatchingAccele
 }
 
 template <typename UserState, size_t BlockSize>
+inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::placeIntersectRequestsReturnOnMiss(
+    gsl::span<const Ray> rays,
+    gsl::span<const UserState> perRayUserData)
+{
+    assert(perRayUserData.size() == rays.size());
+
+    for (int i = 0; i < rays.size(); i++) {
+        RayHit rayHit;
+        Ray ray = rays[i]; // Copy so we can mutate it
+        UserState userState = perRayUserData[i];
+
+        auto optResult = m_bvh.intersect(ray, rayHit, userState);
+        if (optResult && *optResult == false) {
+            // If we get a result directly it must be because we missed the scene
+            return false;
+        }
+    }
+
+    return true;
+}
+
+template <typename UserState, size_t BlockSize>
 inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::placeIntersectRequests(
     gsl::span<const Ray> rays,
-    gsl::span<const UserState> perRayUserData,
-    const InsertHandle& insertHandle)
+    gsl::span<const UserState> perRayUserData)
 {
-    (void)insertHandle;
     assert(perRayUserData.size() == rays.size());
 
     for (int i = 0; i < rays.size(); i++) {
@@ -336,10 +359,8 @@ inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::placeInterse
 template <typename UserState, size_t BlockSize>
 inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::placeIntersectAnyRequests(
     gsl::span<const Ray> rays,
-    gsl::span<const UserState> perRayUserData,
-    const InsertHandle& insertHandle)
+    gsl::span<const UserState> perRayUserData)
 {
-    (void)insertHandle;
     assert(perRayUserData.size() == rays.size());
 
     for (int i = 0; i < rays.size(); i++) {
@@ -1023,9 +1044,10 @@ inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeaf
     for (auto* node : nodes) {
         dags.push_back(&std::get<0>(node->m_svdagAndTransform));
     }
+    
     SparseVoxelDAG::compressDAGs(dags);
 
-    for (const auto* dag : dags) {
+    for (auto* dag : dags) {
         g_stats.memory.svdags += dag->sizeBytes();
     }
 }

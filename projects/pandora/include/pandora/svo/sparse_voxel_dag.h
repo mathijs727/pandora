@@ -28,10 +28,13 @@ public:
     void intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const;
 #endif
     std::optional<float> intersectScalar(Ray ray) const;
+    void testSVDAG() const;
 
     std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> generateSurfaceMesh() const;
 
     size_t sizeBytes() const;
+
+private:
 
 private:
 	using NodeOffset = uint32_t; // Either uint32_t or uint16_t
@@ -47,7 +50,7 @@ private:
         inline bool isValid(int i) const { return validMask & (1 << i); };
         inline bool isLeaf(int i) const { return (validMask & leafMask) & (1 << i); };
 		inline bool isInnerNode(int i) const { return (validMask & (~leafMask)) & (1 << i); };
-		//inline int numInnerNodeChildren() const { return _mm_popcnt_u32(validMask & (~leafMask)); };
+		inline int numInnerNodeChildren() const { return _mm_popcnt_u32(validMask & (~leafMask)); };
 		inline int numChildren() const { return _mm_popcnt_u32(validMask); };
 
         Descriptor() = default;

@@ -26,6 +26,7 @@ SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
     m_nodeAllocator.shrink_to_fit();
     m_data = m_nodeAllocator.data();
 
+    //testSVDAG();
     //std::cout << "Size of SparseVoxelDAG before compression: " << this->size() << " bytes" << std::endl;
 }
 
@@ -55,7 +56,7 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
         Descriptor d;
         d.validMask = validMask;
         d.leafMask = leafMask;
-        assert(d.numChildren() == childrenOffsets.size());
+        ALWAYS_ASSERT(d.numInnerNodeChildren() == childrenOffsets.size());
 
         NodeOffset descriptorOffset = static_cast<NodeOffset>(m_nodeAllocator.size());
         m_nodeAllocator.push_back(static_cast<NodeOffset>(d));
@@ -101,12 +102,13 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
             validMask |= 1 << idx;
             if (childNodeInfo.isLeaf) {
                 leafMask |= 1 << idx;
+            } else {
+                childrenOffsets.push_back(childNodeInfo.descriptorOffset);
             }
-            childrenOffsets.push_back(childNodeInfo.descriptorOffset);
         }
 
         // Store final descriptor
-        if ((validMask & leafMask) == 0xFF && N == depth - 1) {
+        if ((validMask & leafMask) == 0xFF && N != depth - 1) {
             // Special case: all children are completely filled (1's): propagate this up the tree (except if this node is the root node)
             currentLevelNodes.push_back({ prevMortonCode, true, 0 });
         } else {
@@ -157,30 +159,38 @@ void SparseVoxelDAG::compressDAGs(gsl::span<SparseVoxelDAG*> svos)
     std::vector<NodeOffset> nodeAllocator;
     auto storeDescriptor = [&](const FullDescriptor& fullDescriptor) -> NodeOffset {
         ALWAYS_ASSERT(nodeAllocator.size() + 1 + fullDescriptor.children.size() < std::numeric_limits<NodeOffset>::max());
+        ALWAYS_ASSERT(fullDescriptor.descriptor.numInnerNodeChildren() == fullDescriptor.children.size());
 
         auto nodeOffset = static_cast<NodeOffset>(nodeAllocator.size());
         nodeAllocator.push_back(static_cast<NodeOffset>(fullDescriptor.descriptor));
         for (auto childOffset : fullDescriptor.children) {
+            ALWAYS_ASSERT(childOffset < nodeAllocator.size());
             nodeAllocator.push_back(childOffset);
         }
+        ALWAYS_ASSERT(*reinterpret_cast<const Descriptor*>(nodeAllocator.data() + nodeOffset) == fullDescriptor.descriptor);
 
         return nodeOffset;
     };
 
     std::unordered_map<FullDescriptor, NodeOffset, FullDescriptorHasher> descriptorLUT; // Look-up table from descriptors (pointing into DAG allocator array) to nodes in the DAG allocator array
     for (auto* svo : svos) {
+        int numNodes = 0;
+        int numOffsets = 0;
         std::function<NodeOffset(const Descriptor*)> recurseSVO = [&](const Descriptor* descriptor) -> NodeOffset {
             const NodeOffset* childOffsetPtr = reinterpret_cast<const NodeOffset*>(descriptor) + 1;
+            numNodes++;
 
             FullDescriptor fullDescriptor { *descriptor, {} };
             for (int childIdx = 0; childIdx < 8; childIdx++) {
                 if (descriptor->isInnerNode(childIdx)) {
                     // Child node offset into node (m_data) array
-                    NodeOffset originalChildOffset = *childOffsetPtr++;
-                    auto svdagChildOffset = recurseSVO(reinterpret_cast<const Descriptor*>(svo->m_data + originalChildOffset));
+                    auto svdagChildOffset = recurseSVO(svo->getChild(descriptor, childIdx));
                     fullDescriptor.children.push_back(svdagChildOffset);
+
+                    numOffsets++;
                 }
             }
+            ALWAYS_ASSERT(descriptor->numInnerNodeChildren() == fullDescriptor.children.size());
 
             if (auto lutIter = descriptorLUT.find(fullDescriptor); lutIter != descriptorLUT.end()) {
                 return lutIter->second;
@@ -204,6 +214,34 @@ void SparseVoxelDAG::compressDAGs(gsl::span<SparseVoxelDAG*> svos)
     svos[0]->m_nodeAllocator = std::move(nodeAllocator);
 
     std::cout << "Combined SVDAG size after compression: " << svos[0]->sizeBytes() << " bytes" << std::endl;
+}
+
+void SparseVoxelDAG::testSVDAG() const
+{
+    // Traverse voxels along the ray as long as the current voxel stays within the octree
+    std::vector<const Descriptor*> stack;
+    stack.push_back(reinterpret_cast<const Descriptor*>(m_data + m_rootNodeOffset));
+
+    auto itemsTouched = 0;
+    auto nodesVisited = 0;
+
+    while (!stack.empty()) {
+        const Descriptor* node = stack.back();
+        stack.pop_back();
+
+        itemsTouched++;
+        nodesVisited++;
+
+        for (int childIndex = 0; childIndex < 8; childIndex++) {
+            if (node->isInnerNode(childIndex)) {
+                itemsTouched++;
+                stack.push_back(getChild(node, childIndex));
+            }
+        }
+    }
+
+    std::cout << "Items touched: " << itemsTouched << "\n";
+    std::cout << "Nodes visited: " << nodesVisited << "\n";
 }
 
 SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
@@ -252,7 +290,8 @@ void SparseVoxelDAG::intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) 
 
 const SparseVoxelDAG::Descriptor* SparseVoxelDAG::getChild(const Descriptor* descriptorPtr, int idx) const
 {
-    uint32_t childMask = descriptorPtr->validMask & ((1 << idx) - 1);
+    auto innerNodeMask = descriptorPtr->validMask & (~descriptorPtr->leafMask);
+    uint32_t childMask = innerNodeMask & ((1 << idx) - 1);
     uint32_t activeChildIndex = _mm_popcnt_u64(childMask);
 
     const NodeOffset* firstChildPtr = reinterpret_cast<const NodeOffset*>(descriptorPtr) + 1;
@@ -302,9 +341,9 @@ static inline float horizontalMax3(const simd::vec4_f32& v)
 std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
 {
     // Based on the reference implementation of Efficient Sparse Voxel Octrees:
-    // https://github.com/poelzi/efficient-sparse-voxel-octrees/blob/master/src/octree/cuda/Raycast.inl
+// https://github.com/poelzi/efficient-sparse-voxel-octrees/blob/master/src/octree/cuda/Raycast.inl
 
-    // Get rid of small ray direction components to avoid division by zero
+// Get rid of small ray direction components to avoid division by zero
     constexpr float epsilon = 1.1920928955078125e-07f; // std::exp2f(-CAST_STACK_DEPTH);
     if (std::abs(ray.direction.x) < epsilon)
         ray.direction.x = std::copysign(epsilon, ray.direction.x);
@@ -400,7 +439,6 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
             parent = getChild(parent, childIndex);
 
             // Select the child voxel that the ray enters first.
-            idx = (idx & 0b111) << 3; // Keep the index in the current level which is required for accessing leaf node bits (which are 2 levels deep conceptually)
             scale--;
             //scaleExp2 = half;
             /*if (tCenter.x > tMin) {
@@ -415,9 +453,9 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
                 idx ^= (1 << 2);
                 pos.z += half; // scaleExp2;
             }*/
-            
+
             auto idxMask = tCenter > tMinVec;
-            idx ^= (idxMask.bitMask() & 7); // Mask out 4th channel
+            idx = (idxMask.bitMask() & 7); // Mask out 4th channel
             pos = simd::blend(pos, pos + half, idxMask);
         } else {
             // === ADVANCE ===
@@ -468,10 +506,9 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
                     differingBits = differingBitsArray[0] | differingBitsArray[1] | differingBitsArray[2];
                 }
 
-                int oldScale = scale;
-                scale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest set bit (equivalent of a reverse bit scan)
+                //auto refScale = (floatAsInt((float)differingBits) >> 23) - 127; // Position of the highest set bit (equivalent of a reverse bit scan)
+                scale = simd::bitScanReverse32(differingBits);
                 //scaleExp2 = intAsFloat((scale - CAST_STACK_DEPTH + 127) << 23); // exp2f(scale - s_max)
-                assert(oldScale < scale);
 
                 // Restore parent voxel from the stack
                 parent = stack[scale];
@@ -511,13 +548,12 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
         return ret[0];
     }
 }
-
 std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::generateSurfaceMesh() const
 {
     std::vector<glm::vec3> positions;
     std::vector<glm::ivec3> triangles;
 
-    /*struct StackItem {
+    struct StackItem {
         const Descriptor* descriptor;
         glm::uvec3 start;
         unsigned extent;
@@ -553,7 +589,17 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
                     };
                     std::array quads = { glm::ivec4 { 0, 1, 2, 3 }, glm::ivec4 { 4, 5, 6, 7 }, glm::ivec4 { 8, 9, 10, 11 }, glm::ivec4 { 12, 13, 14, 15 }, glm::ivec4 { 16, 17, 18, 19 }, glm::ivec4 { 20, 21, 22, 23 } };
 
-                    unsigned voxelExtent = halfExtent / 4;
+                    glm::ivec3 offset((int)positions.size());
+                    for (auto& q : quads) {
+                        triangles.push_back(glm::ivec3 { q.x, q.y, q.z } + offset);
+                        triangles.push_back(glm::ivec3 { q.x, q.z, q.w } + offset);
+                    }
+
+                    for (int t = 0; t < 24; ++t) {
+                        positions.push_back(glm::vec3(cubeStart) + static_cast<float>(halfExtent) * cubePositions[t]);
+                    }
+
+                    /*unsigned voxelExtent = halfExtent / 4;
                     uint64_t leafNode = getLeaf(stackItem.descriptor, childIdx);
                     for (int v = 0; v < 64; v++) {
                         if (leafNode & (1llu << v)) {
@@ -570,11 +616,11 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
                                 positions.push_back(glm::vec3(cubeStart + voxelPos * voxelExtent) + static_cast<float>(voxelExtent) * cubePositions[t]);
                             }
                         }
-                    }
+                    }*/
                 }
             }
         }
-    }*/
+    }
     return { std::move(positions), std::move(triangles) };
 }
 
@@ -584,5 +630,4 @@ size_t SparseVoxelDAG::sizeBytes() const
     size += m_nodeAllocator.capacity() * sizeof(decltype(m_nodeAllocator)::value_type);
     return size;
 }
-
 }
