@@ -294,7 +294,8 @@ void Scene::splitLargeOOCSceneObjects(unsigned approximatePrimsPerObject)
         // Build the BVH using the Embree BVH builder API
         RTCBVH bvh = rtcNewBVH(device);
 
-        tbb::concurrent_vector<gsl::span<unsigned>> primitiveGroups;
+        tbb::concurrent_vector<std::vector<unsigned>> primitiveGroups;
+
         RTCBuildArguments arguments = rtcDefaultBuildArguments();
         arguments.byteSize = sizeof(arguments);
         arguments.buildFlags = RTC_BUILD_FLAG_NONE;
@@ -313,15 +314,13 @@ void Scene::splitLargeOOCSceneObjects(unsigned approximatePrimsPerObject)
         arguments.setNodeChildren = [](void* voidNodePtr, void** childPtr, unsigned numChildren, void* userPtr) {};
         arguments.setNodeBounds = [](void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr) {};
         arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
-            auto* primsMem = rtcThreadLocalAlloc(alloc, numPrims * sizeof(unsigned), 8);
-            unsigned* primitiveIDs = reinterpret_cast<unsigned*>(primsMem);
-
+            std::vector<unsigned> primitiveIDs(numPrims);
             for (size_t i = 0; i < numPrims; i++) {
                 primitiveIDs[i] = prims[i].primID;
             }
 
-            auto primitiveGroups = reinterpret_cast<tbb::concurrent_vector<gsl::span<unsigned>>*>(userPtr);
-            primitiveGroups->push_back(gsl::make_span(primitiveIDs, numPrims));
+            auto primitiveGroups = reinterpret_cast<tbb::concurrent_vector<std::vector<unsigned>>*>(userPtr);
+            primitiveGroups->emplace_back(std::move(primitiveIDs));
             return nullptr;
         };
 
