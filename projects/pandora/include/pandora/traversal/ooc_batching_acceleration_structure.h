@@ -1043,12 +1043,11 @@ inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeaf
     std::vector<SparseVoxelDAG*> dags;
     for (auto* node : nodes) {
         dags.push_back(&std::get<0>(node->m_svdagAndTransform));
-        dags.back()->testSVDAG();
     }
+    
+    SparseVoxelDAG::compressDAGs(dags);
 
     for (auto* dag : dags) {
-        SparseVoxelDAG::compressDAGs(std::vector{ dag });
-        dag->testSVDAG();
         g_stats.memory.svdags += dag->sizeBytes();
     }
 }

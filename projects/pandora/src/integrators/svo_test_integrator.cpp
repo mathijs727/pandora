@@ -23,8 +23,11 @@ OctreeType buildSVO(const Scene& scene)
         sceneObject->voxelize(voxelGrid, gridBounds);
     }
 
+
     auto result =  OctreeType(voxelGrid);
     if constexpr (std::is_same_v<OctreeType, SparseVoxelDAG>) {
+        std::cout << "Size of SVDAG before compression: " << result.sizeBytes() << " bytes\n";
+
         std::vector svdags = { &result };
 		SparseVoxelDAG::compressDAGs(svdags);
     }
