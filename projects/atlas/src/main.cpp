@@ -40,9 +40,9 @@ int main()
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-    const std::string_view sceneFilename = "D:/Pandora Scenes/pbrt_intermediate/sanmiguel/pandora_cam25.json";
-    //auto renderConfig = pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE ? loadFromFileOOC(sceneFilename, false) : loadFromFile(sceneFilename);
-    auto renderConfig = createStaticScene();
+    const std::string_view sceneFilename = "D:/Pandora Scenes/pbrt_intermediate/crown/pandora.json";
+    auto renderConfig = pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE ? loadFromFileOOC(sceneFilename, false) : loadFromFile(sceneFilename);
+    //auto renderConfig = createStaticScene();
     if constexpr (pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE) {
         renderConfig.scene.splitLargeOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 4);
     }
@@ -64,11 +64,12 @@ int main()
     //scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
     //scene.splitLargeInCoreSceneObjects(IN_CORE_BATCHING_SCENE_OBJECT_PRIMS);
 
-    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1, LightStrategy::UniformSampleOne);
-    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), 1,);
+    constexpr int spp = 8;
+    //DirectLightingIntegrator integrator(8, scene, camera.getSensor(), spp, LightStrategy::UniformSampleOne);
+    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), spp);
     //NormalDebugIntegrator integrator(scene, camera.getSensor());
-    //PathIntegrator integrator(8, scene, camera.getSensor(), 1);
-    SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
+    PathIntegrator integrator(8, scene, camera.getSensor(), spp);
+    //SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
     //SVODepthTestIntegrator integrator(scene, camera.getSensor());
 
     bool pressedEscape = false;
@@ -90,9 +91,9 @@ int main()
 
         integrator.reset();
         integrator.render(camera);
-        samples++;
+        samples += spp;
 
-        if (samples % 1 == 0) {
+        if ((samples / spp) % 1 == 0) {
             auto now = std::chrono::high_resolution_clock::now();
             auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(now - previousTimestamp);
             std::cout << "Time time per frame: " << timeDelta.count() / 1.0f / 1000.0f << " miliseconds" << std::endl;

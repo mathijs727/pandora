@@ -49,6 +49,9 @@ protected:
     virtual void rayAnyHit(const Ray& r, const RayState& s) override = 0;
     virtual void rayMiss(const Ray& r, const RayState& s) override = 0;
 
+    // Keep spawning samples until the camera ray does not miss all geometry. Usefull to prevent
+    // stack overflow from the recursion caused by the miss shader (calling spawnNextSample) for 
+    // pixels that do not cover any geometry.
     void spawnNextSampleTillSuccess();
     void spawnNextSample(bool initialRay = false);
 
@@ -59,7 +62,9 @@ protected:
     void spawnShadowRay(const Ray& ray, bool anyHit, const RayState& s, const Spectrum& weight, const Light& light);
 
 private:
-    glm::ivec2 indexToPixel(size_t pixelIndex) const;
+    // Compute a Z-order (morton) curve over the screen tiles
+    static std::vector<glm::ivec2> computeBlockStartLUT(const glm::ivec2& resolution);
+    //glm::ivec2 indexToPixel(size_t pixelIndex) const;
 
 protected:
     const int m_maxDepth;
@@ -71,8 +76,12 @@ private:
     const glm::ivec2 m_resolution;
     const int m_maxSampleCount;
 
+    static constexpr size_t s_tileSize = 8;
+    static constexpr size_t s_pixelsInTile = s_tileSize * s_tileSize;
+    const std::vector<glm::ivec2> m_blockStartLUT;
+
     //std::vector<std::atomic_int> m_pixelSampleCount;
-    const size_t m_maxPixelSample;
+    //const size_t m_maxPixelSample;
     std::atomic_size_t m_currentPixelSample;
 };
 
