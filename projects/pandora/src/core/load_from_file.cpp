@@ -212,7 +212,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
             }
         }
 
-        auto makeGeomSceneObject = [&](nlohmann::json jsonSceneObject) {
+        auto makeGeomSceneObject = [&](nlohmann::json jsonSceneObject) -> std::unique_ptr<InCoreGeometricSceneObject> {
             auto mesh = geometry[jsonSceneObject["geometry_id"].get<int>()];
             std::shared_ptr<Material> material;
             if (loadMaterials)
@@ -223,6 +223,8 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
             if (jsonSceneObject.find("area_light") != jsonSceneObject.end()) {
                 auto areaLight = readVec3(jsonSceneObject["area_light"]["L"]);
                 return std::make_unique<InCoreGeometricSceneObject>(mesh, material, areaLight);
+                //std::cout << "Skipping area light scene object for debugging" << std::endl;
+                //return nullptr;
             } else {
                 return std::make_unique<InCoreGeometricSceneObject>(mesh, material);
             }
@@ -243,12 +245,17 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 glm::mat4 transform = getTransform(jsonSceneObject["transform"]);
                 auto baseSceneObject = baseSceneObjects[jsonSceneObject["base_scene_object_id"].get<int>()];
                 auto instancedSceneObject = std::make_unique<InCoreInstancedSceneObject>(transform, baseSceneObject);
-                instancedSceneObject->sceneObjectID = sceneObjectID++;
-                config.scene.addSceneObject(std::move(instancedSceneObject));
+
+                if (instancedSceneObject) {
+                    instancedSceneObject->sceneObjectID = sceneObjectID++;
+                    config.scene.addSceneObject(std::move(instancedSceneObject));
+                }
             } else {
                 auto sceneObject = makeGeomSceneObject(jsonSceneObject);
-                sceneObject->sceneObjectID = sceneObjectID++;
-                config.scene.addSceneObject(std::move(sceneObject));
+                if (sceneObject) {
+                    sceneObject->sceneObjectID = sceneObjectID++;
+                    config.scene.addSceneObject(std::move(sceneObject));
+                }
             }
         }
 
@@ -262,8 +269,9 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 auto numSamples = jsonLight["num_samples"].get<int>();
                 auto texture = getColorTexture(jsonLight["texture"].get<int>());
 
+                //std::cout << "Skipping loading infinite area light for debugging" << std::endl;
                 std::cout << "Infinite area light with id: " << jsonLight["texture"].get<int>() << std::endl;
-
+                std::cout << "Brightness scale: [" << scale.x << ", " << scale.y << ", " << scale.z << "]" << std::endl;
                 config.scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, scale, numSamples, texture));
             } else if (type == "distant") {
                 auto transform = getTransform(jsonLight["transform"]);

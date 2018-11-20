@@ -7,7 +7,7 @@
 namespace pandora {
 
 DistantLight::DistantLight(const glm::mat4& lightToWorld, const Spectrum& L, const glm::vec3& wLight)
-    : Light((int)LightFlags::DeltaDirection)
+    : InfiniteLight((int)LightFlags::DeltaDirection)
     , m_transform(lightToWorld)
     , m_l(L)
     , m_wLight(wLight)

@@ -20,6 +20,18 @@ Scene::Scene(size_t geometryCacheSize)
 {
 }
 
+// Update infinite area light intensities based on the world radius
+void Scene::finalize()
+{
+    // Approximate world radius by computing the radius of the bounding box of the scene objects.
+    // In PBRTv3 the world radius is based on individual primitives but we should get in the right ballpark.
+    float worldRadius = glm::length(m_bounds.max - m_bounds.center());
+
+    for (auto& light : m_infiniteLights) {
+        light->divideIntensityByWorldSphereArea(worldRadius);
+    }
+}
+
 void Scene::addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneObject)
 {
     for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
@@ -27,6 +39,7 @@ void Scene::addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneObject)
             m_lights.push_back(light);
         }
     }
+    m_bounds.extend(sceneObject->worldBounds());
     m_inCoreSceneObjects.emplace_back(std::move(sceneObject));
 }
 
@@ -37,10 +50,11 @@ void Scene::addSceneObject(std::unique_ptr<OOCSceneObject>&& sceneObject)
     for (const auto& light : material->areaLights()) {
         m_lights.push_back(&light);
     }
+    m_bounds.extend(sceneObject->worldBounds());
     m_oocSceneObjects.emplace_back(std::move(sceneObject));
 }
 
-void Scene::addInfiniteLight(const std::shared_ptr<Light>& light)
+void Scene::addInfiniteLight(const std::shared_ptr<InfiniteLight>& light)
 {
     m_lights.push_back(light.get());
     m_infiniteLights.push_back(light.get());
@@ -77,7 +91,7 @@ gsl::span<const Light* const> Scene::getLights() const
     return m_lights;
 }
 
-gsl::span<const Light* const> Scene::getInfiniteLights() const
+gsl::span<const InfiniteLight* const> Scene::getInfiniteLights() const
 {
     return m_infiniteLights;
 }

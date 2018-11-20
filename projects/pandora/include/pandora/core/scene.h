@@ -80,9 +80,11 @@ public:
     Scene(Scene&&) = default;
     ~Scene() = default;
 
+    void finalize();
+
     void addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneNode);
     void addSceneObject(std::unique_ptr<OOCSceneObject>&& sceneNode);
-    void addInfiniteLight(const std::shared_ptr<Light>& light);
+    void addInfiniteLight(const std::shared_ptr<InfiniteLight>& light);
 
     void splitLargeInCoreSceneObjects(unsigned maxPrimitivesPerSceneObject);
     void splitLargeOOCSceneObjects(unsigned maxPrimitivesPerSceneObject);
@@ -90,7 +92,7 @@ public:
     std::vector<const InCoreSceneObject*> getInCoreSceneObjects() const;
     std::vector<const OOCSceneObject*> getOOCSceneObjects() const;
     gsl::span<const Light* const> getLights() const;
-    gsl::span<const Light* const> getInfiniteLights() const;
+    gsl::span<const InfiniteLight* const> getInfiniteLights() const;
 
     const CacheT<TriangleMesh>* geometryCache() const;
     CacheT<TriangleMesh>* geometryCache();
@@ -104,9 +106,11 @@ private:
     std::vector<std::unique_ptr<InCoreSceneObject>> m_inCoreSceneObjects;
     std::vector<std::unique_ptr<OOCSceneObject>> m_oocSceneObjects;
     std::vector<const Light*> m_lights;
-    std::vector<const Light*> m_infiniteLights;
+    std::vector<InfiniteLight*> m_infiniteLights;
 
     std::vector<std::shared_ptr<Light>> m_lightOwningPointers;
+
+    Bounds m_bounds;
 };
 
 }

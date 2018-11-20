@@ -1,3 +1,5 @@
+#include "output.h"
+#include "pandora/config.h"
 #include "pandora/core/load_from_file.h"
 #include "pandora/integrators/direct_lighting_integrator.h"
 #include "pandora/integrators/naive_direct_lighting_integrator.h"
@@ -5,8 +7,8 @@
 #include "pandora/integrators/path_integrator.h"
 #include "pandora/integrators/svo_depth_test_integrator.h"
 #include "pandora/integrators/svo_test_integrator.h"
-#include "pandora/config.h"
-#include "output.h"
+#include "pandora/materials/matte_material.h"
+#include "pandora/textures/constant_texture.h"
 #include <xmmintrin.h>
 
 #include <boost/program_options.hpp>
@@ -30,12 +32,7 @@ int main(int argc, char** argv)
     namespace po = boost::program_options;
 
     po::options_description desc("Pandora options");
-    desc.add_options()
-        ("file", po::value<std::string>()->required(), "Pandora scene description JSON")
-        ("out", po::value<std::string>()->default_value("output"s), "output name (without file extension!)")
-        ("integrator", po::value<std::string>()->default_value("direct"), "integrator (normal, direct or path)")
-        ("spp", po::value<int>()->default_value(1), "samples per pixel")
-        ("help", "show all arguments");
+    desc.add_options()("file", po::value<std::string>()->required(), "Pandora scene description JSON")("out", po::value<std::string>()->default_value("output"s), "output name (without file extension!)")("integrator", po::value<std::string>()->default_value("direct"), "integrator (normal, direct or path)")("spp", po::value<int>()->default_value(1), "samples per pixel")("help", "show all arguments");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -65,6 +62,42 @@ int main(int argc, char** argv)
 
     auto renderConfig = pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE ? loadFromFileOOC(vm["file"].as<std::string>(), false) : loadFromFile(vm["file"].as<std::string>(), false);
 
+    /*{
+        // Create skylight plane
+        Bounds sceneBounds;
+        {
+            for (const auto& object : renderConfig.scene.getInCoreSceneObjects()) {
+                sceneBounds.extend(object->worldBounds());
+            }
+        }
+
+        auto positions = std::make_unique<glm::vec3[]>(4);
+        positions[0] = glm::vec3(sceneBounds.min.x, sceneBounds.min.y, sceneBounds.max.z + sceneBounds.extent().z / 4);
+        positions[1] = glm::vec3(sceneBounds.max.x, sceneBounds.min.y, sceneBounds.max.z + sceneBounds.extent().z / 4);
+        positions[2] = glm::vec3(sceneBounds.min.x, sceneBounds.max.y, sceneBounds.max.z + sceneBounds.extent().z / 4);
+        positions[3] = glm::vec3(sceneBounds.max.x, sceneBounds.max.y, sceneBounds.max.z + sceneBounds.extent().z / 4);
+
+        auto normals = std::make_unique<glm::vec3[]>(4);
+        normals[0] = glm::vec3(0, 0, -1);
+        normals[1] = glm::vec3(0, 0, -1);
+        normals[2] = glm::vec3(0, 0, -1);
+        normals[3] = glm::vec3(0, 0, -1);
+
+        auto triangles = std::make_unique<glm::ivec3[]>(2);
+        triangles[0] = glm::ivec3(0, 1, 2);
+        triangles[1] = glm::ivec3(1, 2, 3);
+
+        auto material = std::make_shared<MatteMaterial>(
+            std::make_shared<ConstantTexture<glm::vec3>>(glm::vec3(0.0f)),
+            std::make_shared<ConstantTexture<float>>(0.0f));
+        auto mesh = std::make_shared<TriangleMesh>(2, 4, std::move(triangles), std::move(positions), std::move(normals), nullptr, nullptr);
+
+        auto lightSceneObject = std::make_unique<InCoreGeometricSceneObject>(mesh, material, Spectrum(1));
+        renderConfig.scene.addSceneObject(std::move(lightSceneObject));
+    }*/
+
+    renderConfig.scene.finalize();
+
     /*// Skydome
     auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
     auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
@@ -73,14 +106,16 @@ int main(int argc, char** argv)
     if constexpr (pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE) {
         try {
             renderConfig.scene.splitLargeOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 8);
-        } catch (std::error_code e) {
+        }
+        catch (std::error_code e) {
             std::cout << "Error splitting ooc scene objects: " << e << std::endl;
             std::cout << "Message: " << e.message() << std::endl;
         }
     } else {
         try {
             renderConfig.scene.splitLargeInCoreSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 8);
-        } catch (std::error_code e) {
+        }
+        catch (std::error_code e) {
             std::cout << "Error splitting in-core scene objects: " << e << std::endl;
             std::cout << "Message: " << e.message() << std::endl;
         }
@@ -105,7 +140,8 @@ int main(int argc, char** argv)
             NormalDebugIntegrator integrator(renderConfig.scene, renderConfig.camera->getSensor());
             integrator.render(*renderConfig.camera);
         }
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e) {
         std::cout << "Render error: " << e.what() << std::endl;
     }
 
@@ -115,7 +151,7 @@ int main(int argc, char** argv)
 
     std::cout << "Writing output: " << vm["out"].as<std::string>() << ".jpg/exr" << std::endl;
     writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".jpg", true);
-    //writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".exr", false);
+    writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".exr", false);
 
     std::cout << "Done" << std::endl;
     return 0;

@@ -42,9 +42,9 @@ void NormalDebugIntegrator::render(const PerspectiveCamera& camera)
 
 void NormalDebugIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const NormalDebugIntegratorState& s)
 {
-    if (s.pixel.x == 780 && s.pixel.y == 155) {
-        std::cout << "Plane scene object ID: " << si.sceneObjectMaterial->sceneObjectID << "\n";
-    }
+    //if (s.pixel.x == 780 && s.pixel.y == 155) {
+    //    std::cout << "Plane scene object ID: " << si.sceneObjectMaterial->sceneObjectID << "\n";
+    // }
     m_sensor.addPixelContribution(s.pixel, glm::abs(glm::normalize(si.normal)));
 }
 
