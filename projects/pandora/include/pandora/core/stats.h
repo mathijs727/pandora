@@ -43,7 +43,9 @@ struct RenderStats : public metrics::Stats {
         metrics::Counter<size_t> topBVH { "bytes" }; // BVH excluding leafs
         metrics::Counter<size_t> topBVHLeafs { "bytes" }; // leafs (without goemetry)
         metrics::Counter<size_t> batches { "bytes" };
-        metrics::Counter<size_t> svdags { "bytes" };
+
+        metrics::Counter<size_t> svdagsBeforeCompression { "bytes" };
+        metrics::Counter<size_t> svdagsAfterCompression { "bytes" };
     } memory;
 
     metrics::Gauge<int> numTopLevelLeafNodes { "nodes" };

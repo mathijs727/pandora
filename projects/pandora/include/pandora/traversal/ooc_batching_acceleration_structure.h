@@ -471,7 +471,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BlockS
 
     std::cout << "Building top-level BVH \n";
     auto ret = PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
-    //TopLevelLeafNode::compressSVDAGs(ret.leafs());
+    TopLevelLeafNode::compressSVDAGs(ret.leafs());
     return std::move(ret);
 }
 
@@ -683,7 +683,6 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BlockSize
     PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
-        //auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
         if constexpr (ENABLE_ADDITIONAL_STATISTICS) {
             auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
             g_stats.svdag.numIntersectionTests += 1;
@@ -1045,10 +1044,14 @@ inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeaf
         dags.push_back(&std::get<0>(node->m_svdagAndTransform));
     }
     
+    for (auto* dag : dags) {
+        g_stats.memory.svdagsBeforeCompression += dag->sizeBytes();
+    }
+
     SparseVoxelDAG::compressDAGs(dags);
 
     for (auto* dag : dags) {
-        g_stats.memory.svdags += dag->sizeBytes();
+        g_stats.memory.svdagsAfterCompression += dag->sizeBytes();
     }
 }
 
