@@ -330,9 +330,12 @@ class SceneParser:
         material_id = self._create_material_id(shape.material)
 
         if shape.area_light is not None:
+            L =  _replace_black_body(shape.area_light.arguments["L"]["value"])
+            if "scale" in shape.area_light.arguments:
+                L = list(np.array(L) * np.array(shape.area_light.arguments["scale"]["value"]))
             area_light = {
                 # get_argument_with_default(shape.area_light.arguments, "L", [1,1,1]),
-                "L": _replace_black_body(shape.area_light.arguments["L"]["value"]),
+                "L": L,
                 "num_samples": get_argument_with_default(shape.area_light.arguments, "nsamples", 1),
                 "two_sided": get_argument_with_default(shape.area_light.arguments, "twosided", False)
             }
