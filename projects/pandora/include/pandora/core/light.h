@@ -46,12 +46,6 @@ protected:
 class InfiniteLight : public Light {
 public:
     InfiniteLight(int flags, int numSamples = 1);
-
-    // PBRTv3 handles infinite area lights as a sphere around the scene. This means that they
-    // "smear out" the light energy over the sphere (the larger the sphere the less the energy
-    // any point on the sphere). This hack accounts for this by dividing the light intensity
-    // by the area of the world sphere.
-    virtual void divideIntensityByWorldSphereArea(float worldRadius) {}
 };
 
 }

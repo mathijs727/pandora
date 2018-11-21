@@ -92,8 +92,6 @@ int main()
         scene.addSceneObject(std::move(lightSceneObject));
     }*/
 
-    renderConfig.scene.finalize();
-
     /*// Skydome
     auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
     auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));

@@ -25,11 +25,6 @@ EnvironmentLight::EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum
 {
 }
 
-void EnvironmentLight::divideIntensityByWorldSphereArea(float worldRadius)
-{
-    m_l /= (glm::pi<float>() * worldRadius * worldRadius);
-}
-
 /*glm::vec3 EnvironmentLight::power() const
 {
     // Approximate total power
