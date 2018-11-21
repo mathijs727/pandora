@@ -32,7 +32,8 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
 
     ret["memory"]["top_bvh"] = memory.topBVH;
     ret["memory"]["top_bvh_leafs"] = memory.topBVHLeafs;
-    ret["memory"]["svdags"] = memory.svdags;
+    ret["memory"]["svdags_before_compression"] = memory.svdagsBeforeCompression;
+    ret["memory"]["svdags_after_compression"] = memory.svdagsAfterCompression;
 
     ret["ooc"]["num_top_leaf_nodes"] = numTopLevelLeafNodes;
     ret["ooc"]["prims_per_leaf"] = OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF;
