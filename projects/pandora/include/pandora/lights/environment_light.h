@@ -8,8 +8,6 @@ class EnvironmentLight : public InfiniteLight {
 public:
     EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum& l, int numSamples, const std::shared_ptr<Texture<glm::vec3>>& texture);
 
-    void divideIntensityByWorldSphereArea(float worldRadius) override final;
-
     LightSample sampleLi(const Interaction& ref, const glm::vec2& randomSample) const final;
 	float pdfLi(const Interaction& ref, const glm::vec3& wi) const final;
 
