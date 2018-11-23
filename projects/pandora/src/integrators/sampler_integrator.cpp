@@ -142,7 +142,7 @@ void SamplerIntegrator::spawnNextSampleTillSuccess()
         assert(!AccelerationStructure<int>::recurseTillCompletion);// static_assert will never compile with in-core traverser
         isProcessingCameraRay = true;
         Ray ray = m_cameraThisFrame->generateRay(cameraSample);
-        m_accelerationStructure.placeIntersectRequestsReturnOnMiss(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));
+        success = m_accelerationStructure.placeIntersectRequestReturnOnMiss(ray, rayState);
         isProcessingCameraRay = false;
     } while (!success);
 }

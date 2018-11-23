@@ -35,7 +35,7 @@ public:
     ~InCoreAccelerationStructure() = default;
 
     // Dummy
-    bool placeIntersectRequestsReturnOnMiss(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData) { return false; }
+    bool placeIntersectRequestReturnOnMiss(const Ray& ray, const UserState& userState) { return false; }
 
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
     void placeIntersectAnyRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);

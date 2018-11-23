@@ -68,7 +68,7 @@ public:
     ~OOCBatchingAccelerationStructure() = default;
 
     // Ignore missing rays to prevent stack overflows
-    bool placeIntersectRequestsReturnOnMiss(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData);
+    bool placeIntersectRequestReturnOnMiss(const Ray& ray, const UserState& userState);
 
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData);
     void placeIntersectAnyRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData);
@@ -315,25 +315,22 @@ inline OOCBatchingAccelerationStructure<UserState, BlockSize>::OOCBatchingAccele
 }
 
 template <typename UserState, size_t BlockSize>
-inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::placeIntersectRequestsReturnOnMiss(
-    gsl::span<const Ray> rays,
-    gsl::span<const UserState> perRayUserData)
+inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::placeIntersectRequestReturnOnMiss(
+    const Ray& ray,
+    const UserState& userState)
 {
     assert(perRayUserData.size() == rays.size());
 
-    for (int i = 0; i < rays.size(); i++) {
-        RayHit rayHit;
-        Ray ray = rays[i]; // Copy so we can mutate it
-        UserState userState = perRayUserData[i];
+    RayHit rayHit;
+    Ray mutRay = ray; // Copy so we can mutate it
 
-        auto optResult = m_bvh.intersect(ray, rayHit, userState);
-        if (optResult && *optResult == false) {
-            // If we get a result directly it must be because we missed the scene
-            return false;
-        }
+    auto optResult = m_bvh.intersect(mutRay, rayHit, userState);
+    if (optResult && *optResult == false) {
+        // If we get a result directly it must be because we missed the scene
+        return false;
+    } else {
+        return true;
     }
-
-    return true;
 }
 
 template <typename UserState, size_t BlockSize>
