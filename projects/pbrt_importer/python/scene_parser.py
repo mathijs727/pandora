@@ -144,6 +144,10 @@ class SceneParser:
 
     def _create_light_sources(self, pbrt_scene):
         for light_source in pbrt_scene["light_sources"]:
+            scale = [1.0, 1.0, 1.0]
+            if "scale" in light_source.arguments:
+                scale = light_source.arguments["scale"]["value"]
+
             if light_source.type == "infinite":
                 if "samples" in light_source.arguments:
                     num_samples = light_source.arguments["samples"]["value"]
@@ -155,9 +159,7 @@ class SceneParser:
                         light_source.arguments["L"]["value"])
                 else:
                     L = [1.0, 1.0, 1.0]
-
-                if "scale" in light_source.arguments:
-                    L *= light_source.arguments["scale"]["value"]
+                L = list(np.array(L) * np.array(scale))
 
                 if "mapname" in light_source.arguments:
                     texture_id = self._create_texture_id(
@@ -183,6 +185,7 @@ class SceneParser:
                         light_source.arguments["L"]["value"])
                 else:
                     L = [1, 1, 1]
+                L = list(np.array(L) * np.array(scale))
 
                 self._light_sources.append({
                     "type": "distant",
