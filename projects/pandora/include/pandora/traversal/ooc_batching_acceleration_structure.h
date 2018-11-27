@@ -281,8 +281,8 @@ private:
     const int m_numLoadingThreads;
     MyCacheT m_geometryCache;
 
-    //GrowingFreeListTS<RayBlock> m_blockAllocator;
-    tbb::scalable_allocator<RayBlock> m_blockAllocator;
+    GrowingFreeListTS<RayBlock> m_blockAllocator;
+    //tbb::scalable_allocator<RayBlock> m_blockAllocator;
 
     PauseableBVH4<TopLevelLeafNode, UserState> m_bvh;
 
@@ -398,7 +398,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BlockS
     }
 
     // For each of those objects build a BVH and store the object+BVH on disk
-    DiskDataBatcher fileBlocker(OUT_OF_CORE_CACHE_FOLDER, "instanced_object", 500 * 1024 * 1024); // Block instanced geometry into files of 500MB
+    DiskDataBatcher fileBatcher(OUT_OF_CORE_CACHE_FOLDER, "instanced_object", 500 * 1024 * 1024); // Block instanced geometry into files of 500MB
     std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CachedInstanceData, MyCacheT>> instancedBVHs;
     int instanceBaseFileNum = 0;
     for (const auto* instancedBaseSceneObject : instancedBaseSceneObjects) { // TODO: parallelize
@@ -427,7 +427,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BlockS
         fbb.Finish(serializedBaseSceneObject);
 
         // Write to disk
-        auto filePart = fileBlocker.writeData(fbb);
+        auto filePart = fileBatcher.writeData(fbb);
 
         // Callback to restore the data we have just written to disk
         auto resourceID = cache->template emplaceFactoryThreadSafe<CachedInstanceData>([filePart]() -> CachedInstanceData {
@@ -447,7 +447,7 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BlockS
         });
         instancedBVHs.insert({ instancedBaseSceneObject, EvictableResourceHandle<CachedInstanceData, MyCacheT>(cache, resourceID) });
     }
-    fileBlocker.flush();
+    fileBatcher.flush();
 
     std::cout << "Creating scene object groups" << std::endl;
     auto sceneObjectGroups = scene.groupOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF);
@@ -722,7 +722,7 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BlockSize
         }
 
         // Allocate a new block and set it as the new active block
-        auto* mem = mutThisPtr->m_accelerationStructurePtr->m_blockAllocator.allocate(1);
+        auto* mem = mutThisPtr->m_accelerationStructurePtr->m_blockAllocator.allocate();
         block = new (mem) RayBlock();
         mutThisPtr->m_threadLocalActiveBlock.local() = block;
     }
@@ -776,7 +776,7 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BlockSize
         }
 
         // Allocate a new block and set it as the new active block
-        auto* mem = mutThisPtr->m_accelerationStructurePtr->m_blockAllocator.allocate(1);
+        auto* mem = mutThisPtr->m_accelerationStructurePtr->m_blockAllocator.allocate();
         block = new (mem) RayBlock();
         mutThisPtr->m_threadLocalActiveBlock.local() = block;
     }
@@ -792,7 +792,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeaf
 {
     //OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock* outBlock = m_immutableRayBlockList;
 
-    auto* mem = m_accelerationStructurePtr->m_blockAllocator.allocate(1);
+    auto* mem = m_accelerationStructurePtr->m_blockAllocator.allocate();
     auto* outBlock = new (mem) RayBlock();
 
     bool forwardedSomething = false;
@@ -802,7 +802,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeaf
                 if (outBlock->full()) {
                     m_immutableRayBlockList.push(outBlock);
 
-                    auto* mem = m_accelerationStructurePtr->m_blockAllocator.allocate(1);
+                    auto* mem = m_accelerationStructurePtr->m_blockAllocator.allocate();
                     outBlock = new (mem) RayBlock();
                     /*auto* mem = m_accelerationStructurePtr->m_blockAllocator.allocate();
                     auto* newBlock = new (mem) RayBlock();
@@ -820,7 +820,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeaf
                 forwardedSomething = true;
             }
 
-            m_accelerationStructurePtr->m_blockAllocator.deallocate(block, 1);
+            m_accelerationStructurePtr->m_blockAllocator.deallocate(block);
             block = nullptr; // Reset thread-local block
         }
     }
@@ -828,7 +828,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeaf
     if (!outBlock->empty()) {
         m_immutableRayBlockList.push(outBlock);
     } else {
-        m_accelerationStructurePtr->m_blockAllocator.deallocate(outBlock, 1);
+        m_accelerationStructurePtr->m_blockAllocator.deallocate(outBlock);
     }
 
     return forwardedSomething;
@@ -1043,7 +1043,7 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
                 assert(success);
             }
 
-            accelerationStructurePtr->m_blockAllocator.deallocate(block, 1);
+            accelerationStructurePtr->m_blockAllocator.deallocate(block);
         });
 
     // NOTE: The source starts outputting as soon as an edge is connected.
