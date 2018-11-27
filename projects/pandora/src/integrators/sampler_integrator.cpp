@@ -134,6 +134,8 @@ void SamplerIntegrator::spawnNextSampleTillSuccess()
             samplerPtr
         };
 
+        //m_sensor.addPixelContribution(pixel, glm::vec3(0,0,1));
+
         // Disgusting hack to prevent miss shader of primary rays to spawn new samples when
         // spawnNextSampleTillSuccess is used to spawn new samples. All this trickery is needed
         // because otherwise empty pixels will keep recursing through miss shader -> spawnNextSample
@@ -217,6 +219,8 @@ void SamplerIntegrator::spawnNextSample(bool initialRay)
         pixel,
         samplerPtr
     };
+
+    //m_sensor.addPixelContribution(pixel, glm::vec3(0,0,1));
 
     Ray ray = m_cameraThisFrame->generateRay(cameraSample);
     m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));

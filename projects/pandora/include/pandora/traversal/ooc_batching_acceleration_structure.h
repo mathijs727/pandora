@@ -28,6 +28,7 @@
 #include <string>
 #include <tbb/concurrent_vector.h>
 #include <tbb/enumerable_thread_specific.h>
+#include <tbb/concurrent_queue.h>
 #include <tbb/flow_graph.h>
 #include <tbb/mutex.h>
 #include <tbb/parallel_for_each.h>
@@ -85,6 +86,7 @@ private:
         void setNext(RayBlock* nextPtr) { m_nextPtr = nextPtr; }
         RayBlock* next() { return m_nextPtr; }
         const RayBlock* next() const { return m_nextPtr; }
+        bool empty() const { return m_data.empty(); }
         bool full() const { return m_data.full(); }
 
         bool tryPush(const Ray& ray, const RayHit& rayHit, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
@@ -231,7 +233,7 @@ private:
 
         void forceLoad() { m_accelerationStructurePtr->m_geometryCache.template getBlocking<CachedBlockingPoint>(m_geometryDataCacheID); }
         bool inCache() const { return m_accelerationStructurePtr->m_geometryCache.inCache(m_geometryDataCacheID); }
-        bool hasBatchedRays() { return m_immutableRayBlockList.load() != nullptr; }
+        bool hasBatchedRays() { return !m_immutableRayBlockList.empty(); }
         bool forwardPartiallyFilledBlocks(); // Adds the active blocks to the list of immutable blocks (even if they are not full)
         // Flush a whole range of nodes at a time as opposed to a non-static flush member function which would require a
         // separate tbb flow graph for each node that is processed.
@@ -261,9 +263,10 @@ private:
         const EvictableResourceID m_geometryDataCacheID;
         const Bounds m_bounds;
 
-        std::atomic_int m_numFullBlocks;
         tbb::enumerable_thread_specific<RayBlock*> m_threadLocalActiveBlock;
-        std::atomic<RayBlock*> m_immutableRayBlockList;
+        //std::atomic_int m_numFullBlocks;
+        //std::atomic<RayBlock*> m_immutableRayBlockList;
+        tbb::concurrent_queue<RayBlock*> m_immutableRayBlockList;
         OOCBatchingAccelerationStructure<UserState, BlockSize>* m_accelerationStructurePtr;
 
         std::pair<SparseVoxelDAG, SVDAGRayOffset> m_svdagAndTransform;
@@ -481,9 +484,9 @@ inline OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode:
     OOCBatchingAccelerationStructure<UserState, BlockSize>* accelerationStructure)
     : m_geometryDataCacheID(generateCachedBVH(diskDataBatcher, sceneObjects, baseSceneObjectCacheHandles, geometryCache))
     , m_bounds(computeBounds(sceneObjects))
-    , m_numFullBlocks(0)
     , m_threadLocalActiveBlock([]() { return nullptr; })
-    , m_immutableRayBlockList(nullptr)
+    //, m_numFullBlocks(0)
+    //, m_immutableRayBlockList(nullptr)
     , m_accelerationStructurePtr(accelerationStructure)
     , m_svdagAndTransform(computeSVDAG(sceneObjects))
 {
@@ -493,9 +496,9 @@ template <typename UserState, size_t BlockSize>
 inline OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::TopLevelLeafNode(TopLevelLeafNode&& other)
     : m_geometryDataCacheID(other.m_geometryDataCacheID)
     , m_bounds(std::move(other.m_bounds))
-    , m_numFullBlocks(other.m_numFullBlocks.load())
     , m_threadLocalActiveBlock(std::move(other.m_threadLocalActiveBlock))
-    , m_immutableRayBlockList(other.m_immutableRayBlockList.load())
+    //, m_numFullBlocks(other.m_numFullBlocks.load())
+    //, m_immutableRayBlockList(other.m_immutableRayBlockList.load())
     , m_accelerationStructurePtr(other.m_accelerationStructurePtr)
     , m_svdagAndTransform(std::move(other.m_svdagAndTransform))
 {
@@ -708,13 +711,14 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BlockSize
     RayBlock* block = mutThisPtr->m_threadLocalActiveBlock.local();
     if (!block || block->full()) {
         if (block) {
-            // Block was full, move it to the list of immutable blocks
+            /*// Block was full, move it to the list of immutable blocks
             auto* oldHead = mutThisPtr->m_immutableRayBlockList.load();
             do {
                 block->setNext(oldHead);
             } while (!mutThisPtr->m_immutableRayBlockList.compare_exchange_weak(oldHead, block));
+            mutThisPtr->m_numFullBlocks.fetch_add(1);*/
 
-            mutThisPtr->m_numFullBlocks.fetch_add(1);
+            mutThisPtr->m_immutableRayBlockList.push(block);
         }
 
         // Allocate a new block and set it as the new active block
@@ -761,13 +765,14 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BlockSize
     RayBlock* block = mutThisPtr->m_threadLocalActiveBlock.local();
     if (!block || block->full()) {
         if (block) {
-            // Block was full, move it to the list of immutable blocks
+            /*// Block was full, move it to the list of immutable blocks
             auto* oldHead = mutThisPtr->m_immutableRayBlockList.load();
             do {
                 block->setNext(oldHead);
             } while (!mutThisPtr->m_immutableRayBlockList.compare_exchange_weak(oldHead, block));
+            mutThisPtr->m_numFullBlocks.fetch_add(1);*/
 
-            mutThisPtr->m_numFullBlocks.fetch_add(1);
+            mutThisPtr->m_immutableRayBlockList.push(block);
         }
 
         // Allocate a new block and set it as the new active block
@@ -787,18 +792,26 @@ inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeaf
 {
     bool forwardedBlocks = false;
 
-    OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock* outBlock = m_immutableRayBlockList;
+    //OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock* outBlock = m_immutableRayBlockList;
+
+    auto* mem = m_accelerationStructurePtr->m_blockAllocator.allocate();
+    auto* outBlock = new (mem) RayBlock();
+
     int forwardedRays = 0;
     for (auto& block : m_threadLocalActiveBlock) {
         if (block) {
             for (const auto& [ray, hitInfoOpt, userState, insertHandle] : *block) {
-                if (!outBlock || outBlock->full()) {
+                if (outBlock->full()) {
+                    m_immutableRayBlockList.push(outBlock);
+
                     auto* mem = m_accelerationStructurePtr->m_blockAllocator.allocate();
+                    outBlock = new (mem) RayBlock();
+                    /*auto* mem = m_accelerationStructurePtr->m_blockAllocator.allocate();
                     auto* newBlock = new (mem) RayBlock();
 
                     newBlock->setNext(outBlock);
                     outBlock = newBlock;
-                    m_numFullBlocks.fetch_add(1);
+                    m_numFullBlocks.fetch_add(1);*/
                 }
 
                 if (hitInfoOpt) {
@@ -814,7 +827,9 @@ inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeaf
         }
         block = nullptr; // Reset thread-local block
     }
-    m_immutableRayBlockList = outBlock;
+
+    if (!outBlock->empty())
+        m_immutableRayBlockList.push(outBlock);
 
     return forwardedBlocks;
 }
@@ -868,7 +883,7 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
         std::begin(nodesWithBatchedRays) + partitionPoint,
         std::end(nodesWithBatchedRays),
         [](const auto* node1, const auto* node2) {
-            return node1->m_numFullBlocks.load() < node2->m_numFullBlocks.load(); // Ascending order
+            return node1->m_immutableRayBlockList.unsafe_size() < node2->m_immutableRayBlockList.unsafe_size(); // Ascending order
         });
 
     // Pick 50% of the remaining nodes randomly so that rays reaching a batching point with a low probability are also flushed once in a while
@@ -900,11 +915,11 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
     flushInfo.numBatchingPointsWithRays = static_cast<int>(nodesWithBatchedRays.size());
 
     std::atomic_size_t currentNodeIndex = startPoint; // source_node is always run sequentially
-    using BlockWithoutGeom = std::pair<RayBlock*, EvictableResourceID>;
+    using RayBatchWithoutGeom = std::pair<tbb::concurrent_queue<RayBlock*>*, EvictableResourceID>;
     tbb::flow::graph g;
-    tbb::flow::source_node<BlockWithoutGeom> sourceNode(
+    tbb::flow::source_node<RayBatchWithoutGeom> sourceNode(
         g,
-        [&](BlockWithoutGeom& out) -> bool {
+        [&](RayBatchWithoutGeom& out) -> bool {
             auto nodeIndex = currentNodeIndex.fetch_add(1);
             if (nodeIndex >= nodesWithBatchedRays.size()) {
                 // All nodes processed
@@ -912,39 +927,39 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
             }
 
             auto* node = nodesWithBatchedRays[nodeIndex];
-            if (node->m_numFullBlocks.load() < blocksThreshold) {
+            if (node->m_immutableRayBlockList.unsafe_size() < blocksThreshold) {
                 // Don't process nodes with very little rays batched (probably not it to load nodes from disk)
                 return false;
             }
 
             {
                 std::scoped_lock l(flushInfoMutex);
-                flushInfo.approximateRaysPerFlushedBatchingPoint.push_back(node->m_numFullBlocks.load() * BlockSize);
+                flushInfo.approximateRaysPerFlushedBatchingPoint.push_back(node->m_immutableRayBlockList.unsafe_size() * BlockSize);
             }
 
-            RayBlock* block = node->m_immutableRayBlockList.exchange(nullptr);
-            node->m_numFullBlocks.store(0);
-            out = { block, node->m_geometryDataCacheID };
+            //RayBlock* block = node->m_immutableRayBlockList.exchange(nullptr);
+            //node->m_numFullBlocks.store(0);
+            out = { &node->m_immutableRayBlockList, node->m_geometryDataCacheID };
             return true;
         });
 
     // Prevent TBB from loading all items from the cache before starting traversal
-    tbb::flow::limiter_node<BlockWithoutGeom> flowLimiterNode(g, flowConcurrency);
+    tbb::flow::limiter_node<RayBatchWithoutGeom> flowLimiterNode(g, flowConcurrency);
 
     // For each of those leaf nodes, load the geometry (asynchronously)
-    auto cacheSubGraph = std::move(accelerationStructurePtr->m_geometryCache.template getFlowGraphNode<RayBlock*, CachedBlockingPoint>(g));
+    auto cacheSubGraph = std::move(accelerationStructurePtr->m_geometryCache.template getFlowGraphNode<tbb::concurrent_queue<RayBlock*>*, CachedBlockingPoint>(g));
 
     // Create a task for each block associated with that leaf node (for increased parallelism)
-    using BlockWithGeom = std::pair<RayBlock*, std::shared_ptr<CachedBlockingPoint>>;
+    using BatchWithGeom = std::pair<tbb::concurrent_queue<RayBlock*>*, std::shared_ptr<CachedBlockingPoint>>;
     using BlockWithGeomLimited = std::pair<std::pair<std::shared_ptr<std::atomic_int>, RayBlock*>, std::shared_ptr<CachedBlockingPoint>>;
-    using BlockNodeType = tbb::flow::multifunction_node<BlockWithGeom, tbb::flow::tuple<BlockWithGeomLimited>>;
+    using BlockNodeType = tbb::flow::multifunction_node<BatchWithGeom, tbb::flow::tuple<BlockWithGeomLimited>>;
     BlockNodeType blockNode(
         g,
         tbb::flow::unlimited,
-        [&](const BlockWithGeom& v, typename BlockNodeType::output_ports_type& op) {
-            auto [firstBlock, geometry] = v;
+        [&](const BatchWithGeom& v, typename BlockNodeType::output_ports_type& op) {
+            auto [blocksQueuePointer, geometry] = v;
 
-            // Count the number of blocks
+            /*// Count the number of blocks
             int numBlocks = 0;
             const auto* tmpBlock = firstBlock;
             while (tmpBlock) {
@@ -953,17 +968,25 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
             }
             if (numBlocks == 0) {
                 return;
+            }*/
+            std::vector<RayBlock*> blocksToProcess;
+            RayBlock* block;
+            while (blocksQueuePointer->try_pop(block)) {
+                blocksToProcess.push_back(block);
             }
 
             // Flow limitter
-            auto unprocessedBlocksCounter = std::make_shared<std::atomic_int>(numBlocks);
-            size_t raysProcessed = 0;
-            auto* block = firstBlock;
+            auto unprocessedBlocksCounter = std::make_shared<std::atomic_int>((int)blocksToProcess.size());
+            for (auto* block : blocksToProcess) {
+                bool success = std::get<0>(op).try_put({ { unprocessedBlocksCounter, block }, geometry });
+                ALWAYS_ASSERT(success);
+            }
+            /*auto* block = firstBlock;
             while (block) {
                 bool success = std::get<0>(op).try_put({ { unprocessedBlocksCounter, block }, geometry });
                 assert(success);
                 block = block->next();
-            }
+            }*/
         });
 
     using TraverseNodeType = tbb::flow::multifunction_node<BlockWithGeomLimited, tbb::flow::tuple<tbb::flow::continue_msg>>;
