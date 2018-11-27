@@ -49,10 +49,6 @@ protected:
     virtual void rayAnyHit(const Ray& r, const RayState& s) override = 0;
     virtual void rayMiss(const Ray& r, const RayState& s) override = 0;
 
-    // Keep spawning samples until the camera ray does not miss all geometry. Usefull to prevent
-    // stack overflow from the recursion caused by the miss shader (calling spawnNextSample) for 
-    // pixels that do not cover any geometry.
-    void spawnNextSampleTillSuccess();
     void spawnNextSample(bool initialRay = false);
 
     void specularReflect(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const RayState& rayState);

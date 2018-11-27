@@ -75,7 +75,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
         // when a path ends so that a new path can be spawned.
         tbb::parallel_for(tbb::blocked_range(0, PARALLEL_PATHS), [&](tbb::blocked_range<int> localRange) {
             for (int i = localRange.begin(); i < localRange.end(); i++) {
-                spawnNextSampleTillSuccess();
+                spawnNextSample();
             }
         });
     }
@@ -84,23 +84,31 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     m_accelerationStructure.flush();
 }
 
-// Keep spawning samples until the camera ray does not miss all geometry. Usefull to prevent
-// stack overflow from the recursion caused by the miss shader (calling spawnNextSample) for 
-// pixels that do not cover any geometry.
-static thread_local bool isProcessingCameraRay = false;
-void SamplerIntegrator::spawnNextSampleTillSuccess()
+void SamplerIntegrator::spawnNextSample(bool initialRay)
 {
     assert(m_cameraThisFrame != nullptr);
 
+    // If we are using an acceleration structure that recursively calls the integrator than we should
+    // spawn all samples direclty and ignore spawnNextSample calls inside the integrator. If we would
+    // not do this than we will get a stack overflow for any non trivial sample count.
+    if constexpr (AccelerationStructure<int>::recurseTillCompletion) {
+        if (!initialRay) {
+            return;
+        }
+    }
+
+    // Try spawning a new ray untill we succeed
     bool success = false;
     do {
+        // Unique sample number
         size_t pixelSampleIndex = m_currentPixelSample.fetch_add(1);
-        size_t sampleNumber = pixelSampleIndex % m_maxSampleCount;
+        size_t sampleNumber = pixelSampleIndex % m_maxSampleCount; // Sample in pixel
 
-        size_t globalPixelIndex = pixelSampleIndex / m_maxSampleCount;
-        size_t blockIndex = globalPixelIndex / s_pixelsInTile;
-        size_t pixelInBlockIndex = globalPixelIndex % s_pixelsInTile;
+        size_t globalPixelIndex = pixelSampleIndex / m_maxSampleCount; // Pixel number
+        size_t blockIndex = globalPixelIndex / s_pixelsInTile; // Screen tile in which the pixel resides
+        size_t pixelInBlockIndex = globalPixelIndex % s_pixelsInTile; // Index of the pixel inside the tile
 
+        // All pixels on the screen are processed
         if (blockIndex >= m_blockStartLUT.size())
             return;
 
@@ -108,6 +116,7 @@ void SamplerIntegrator::spawnNextSampleTillSuccess()
         glm::ivec2 pixelInBlock = glm::ivec2(pixelInBlockIndex % s_tileSize, pixelInBlockIndex / s_tileSize);
         glm::ivec2 pixel = blockStart + pixelInBlock;
 
+        // Skip if the pixel lies outside the screen
         if (pixel.x >= m_resolution.x || pixel.y >= m_resolution.y)
             continue;
 
@@ -134,96 +143,9 @@ void SamplerIntegrator::spawnNextSampleTillSuccess()
             samplerPtr
         };
 
-        //m_sensor.addPixelContribution(pixel, glm::vec3(0,0,1));
-
-        // Disgusting hack to prevent miss shader of primary rays to spawn new samples when
-        // spawnNextSampleTillSuccess is used to spawn new samples. All this trickery is needed
-        // because otherwise empty pixels will keep recursing through miss shader -> spawnNextSample
-        // resulting in stack overflow.
-        // This hack only works if placeIntersectRequestsReturnOnMiss always returns before running a hit shader
-        assert(!AccelerationStructure<int>::recurseTillCompletion);// static_assert will never compile with in-core traverser
-        isProcessingCameraRay = true;
         Ray ray = m_cameraThisFrame->generateRay(cameraSample);
         success = m_accelerationStructure.placeIntersectRequestReturnOnMiss(ray, rayState);
-        isProcessingCameraRay = false;
     } while (!success);
-}
-
-void SamplerIntegrator::spawnNextSample(bool initialRay)
-{
-    assert(m_cameraThisFrame != nullptr);
-
-    if constexpr (AccelerationStructure<int>::recurseTillCompletion) {
-        if (!initialRay) {
-            return;
-        }
-    } else {
-        // Disgusting hack to prevent miss shader of primary rays to spawn new samples when
-        // spawnNextSampleTillSuccess is used to spawn new samples. All this trickery is needed
-        // because otherwise empty pixels will keep recursing through miss shader -> spawnNextSample
-        // resulting in stack overflow.
-        if (isProcessingCameraRay) {
-            return;
-        }
-    }
-
-    glm::ivec2 pixel;
-    size_t pixelSampleIndex;
-    while (true) {
-        pixelSampleIndex = m_currentPixelSample.fetch_add(1);
-        size_t sampleNumber = pixelSampleIndex % m_maxSampleCount;
-
-        size_t globalPixelIndex = pixelSampleIndex / m_maxSampleCount;
-        size_t blockIndex = globalPixelIndex / s_pixelsInTile;
-        size_t pixelInBlockIndex = globalPixelIndex % s_pixelsInTile;
-
-        if (blockIndex >= m_blockStartLUT.size())
-            return;
-
-        glm::ivec2 blockStart = m_blockStartLUT[blockIndex];
-        glm::ivec2 pixelInBlock = glm::ivec2(pixelInBlockIndex % s_tileSize, pixelInBlockIndex / s_tileSize);
-        pixel = blockStart + pixelInBlock;
-
-        if (pixel.x >= m_resolution.x || pixel.y >= m_resolution.y)
-            continue;
-
-        break;
-    }
-    /*size_t pixelSampleIndex = m_currentPixelSample.fetch_add(1);
-    if (pixelSampleIndex >= m_maxPixelSample)
-        return;
-
-    size_t sampleNumber = pixelSampleIndex % m_maxSampleCount;
-    size_t pixelIndex = pixelSampleIndex / m_maxSampleCount;
-    glm::ivec2 pixel = indexToPixel(pixelIndex);*/
-
-    unsigned seed = 0;
-    if constexpr (USE_RANDOM_SEEDS) {
-        static thread_local std::random_device rd = std::random_device();
-        seed = rd();
-    } else {
-        seed = static_cast<unsigned>(pixelSampleIndex);
-    }
-
-    // Custom deleter
-    // https://stackoverflow.com/questions/12340810/using-custom-deleter-with-stdshared-ptr
-    void* samplerSpace = m_samplerAllocator.allocate(1);
-    auto* samplerRawPtr = new (samplerSpace) UniformSampler(seed);
-    auto samplerPtr = std::shared_ptr<UniformSampler>(samplerRawPtr, [this](UniformSampler* ptr) {
-        m_samplerAllocator.deallocate(ptr, 1);
-    });
-
-    CameraSample cameraSample = samplerPtr->getCameraSample(pixel);
-    RayState rayState {
-        { ContinuationRayState { glm::vec3(1.0f), 0, false } },
-        pixel,
-        samplerPtr
-    };
-
-    //m_sensor.addPixelContribution(pixel, glm::vec3(0,0,1));
-
-    Ray ray = m_cameraThisFrame->generateRay(cameraSample);
-    m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));
 }
 
 void SamplerIntegrator::specularReflect(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const RayState& prevRayState)
