@@ -1,11 +1,11 @@
 #pragma once
 #include "pandora/core/pandora.h"
-#include <string_view>
-#include <mio/mmap.hpp>
 #include <filesystem>
-#include <memory>
-#include <mutex>
 #include <fstream>
+#include <memory>
+#include <mio/mmap.hpp>
+#include <mutex>
+#include <string_view>
 
 // Use posix stuff so we can bypass the file caching on Linux
 #ifdef __linux__
@@ -16,9 +16,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 #endif
+#ifdef WIN32
+#include <windows.h>
+#include <stdlib.h>
+#endif
 
-namespace pandora
-{
+namespace pandora {
 
 class DiskDataBatcher {
 public:
@@ -37,9 +40,7 @@ public:
     public:
         RAIIBuffer(std::filesystem::path filePath, size_t offset, size_t size)
         {
-            // Linux does not support O_DIRECT in combination with memory mapped I/O (meaning we cannot bypass the
-            // OS file cache). So instead we use posix I/O on Linux giving us the option to bypass the file cache at
-            // the cost of an extra allocation & copy.
+            // Use Posix file I/O with O_DIRECT to bypass the operating system file cache
             int flags = O_RDONLY;
             if constexpr (OUT_OF_CORE_DISABLE_FILE_CACHING) {
                 flags |= O_DIRECT;
@@ -70,10 +71,74 @@ public:
         }
 
     private:
-        struct RAIIPointer
-        {
-            ~RAIIPointer() {
+        struct RAIIPointer {
+            ~RAIIPointer()
+            {
                 free(ptr);
+            }
+            std::byte* ptr;
+        };
+        RAIIPointer m_raiiPtr;
+        void* m_dataPtr;
+    };
+
+#elif defined(WIN32)
+
+    struct RAIIBuffer {
+    public:
+        RAIIBuffer(std::filesystem::path filePath, size_t offset, size_t size)
+        {
+            // Use Windows file I/O with FILE_FLAG_NO_BUFFERING to bypass the operating system file cache.
+            // https://support.microsoft.com/en-us/help/99794/info-file-flag-write-through-and-file-flag-no-buffering
+            int flags = 0;
+            if constexpr (OUT_OF_CORE_DISABLE_FILE_CACHING) {
+                flags |= FILE_FLAG_NO_BUFFERING;
+            }
+            auto fileHandle = CreateFile(
+                filePath.string().c_str(),
+                GENERIC_READ,
+                FILE_SHARE_READ,
+                nullptr,
+                OPEN_EXISTING,
+                flags,
+                nullptr);
+            ALWAYS_ASSERT(fileHandle != INVALID_HANDLE_VALUE);
+
+            // Ensure that the offset and size are multiples of the sector/block size
+            constexpr int blockSize = 512; // Sector size
+            size_t offsetInBlock = offset % blockSize;
+            size_t blockAlignedOffset = offset - offsetInBlock;
+            size_t offsetAdjustedSize = size + offsetInBlock;
+
+            size_t r = offsetAdjustedSize % blockSize;
+            size_t bufferSize = r ? offsetAdjustedSize - r + blockSize : offsetAdjustedSize;
+
+            m_raiiPtr.ptr = reinterpret_cast<std::byte*>(_aligned_malloc(bufferSize, blockSize));
+            DWORD bytesRead = 0;
+            bool readSuccess = ReadFile(
+                fileHandle,
+                m_raiiPtr.ptr,
+                static_cast<DWORD>(bufferSize),
+                &bytesRead,
+                nullptr);
+            ALWAYS_ASSERT(readSuccess);
+            //lseek(fileDesc, blockAlignedOffset, SEEK_SET);
+            //ALWAYS_ASSERT(read(fileDesc, m_raiiPtr.ptr, bufferSize) >= 0);
+            CloseHandle(fileHandle);
+
+            m_dataPtr = m_raiiPtr.ptr + offsetInBlock;
+        }
+
+        const void* data() const
+        {
+            return m_dataPtr;
+        }
+
+    private:
+        struct RAIIPointer {
+            ~RAIIPointer()
+            {
+                _aligned_free(ptr);
             }
             std::byte* ptr;
         };
@@ -86,8 +151,9 @@ public:
     public:
         RAIIBuffer(std::filesystem::path filePath, size_t offset, size_t size)
         {
-            int fileFlags = OUT_OF_CORE_DISABLE_FILE_CACHING ? mio::access_flags::no_buffering : 0;
-            m_data = mio::mmap_source(filePath.string(), offset, size, fileFlags);
+            static_assert(!OUT_OF_CORE_DISABLE_FILE_CACHING, "Disabling the file system cache is not supported on this platform")
+                m_data
+                = mio::mmap_source(filePath.string(), offset, size);
         }
 
         const void* data() const

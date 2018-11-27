@@ -42,7 +42,7 @@ add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/ms-gsl/")
 
 # https://github.com/mandreyel/mio
 add_library(mio INTERFACE)
-target_include_directories(mio INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/mio_buffering_flags/include/")
+target_include_directories(mio INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/mio/include/")
 
 # https://github.com/Forceflow/libmorton
 add_library(libmorton INTERFACE)
