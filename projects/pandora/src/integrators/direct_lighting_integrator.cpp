@@ -45,11 +45,12 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
             THROW_ERROR("Unknown light strategy");
         }
 
-        if (contRayState.bounces + 1 < m_maxDepth) {
+        /*if (contRayState.bounces + 1 < m_maxDepth) {
             // Trace rays for specular reflection and refraction
             specularReflect(si, *rayState.sampler, memoryArena, rayState);
             specularTransmit(si, *rayState.sampler, memoryArena, rayState);
-        }
+        }*/
+        spawnNextSample();
     } else if (std::holds_alternative<ShadowRayState>(rayState.data)) {
         const auto& shadowRayState = std::get<ShadowRayState>(rayState.data);
 
@@ -59,8 +60,6 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
             Spectrum li = si.Le(-r.direction);
             m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight * li);
         }
-
-        spawnNextSample();
     }
 }
 
@@ -87,8 +86,6 @@ void DirectLightingIntegrator::rayMiss(const Ray& r, const RayState& rayState)
             // Ray created by light sampling (PBRTv3 page 858) - contains radiance
             m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight);
         }
-
-        spawnNextSample();
     } else if (std::holds_alternative<ContinuationRayState>(rayState.data)) {
         const auto& shadowRayState = std::get<ContinuationRayState>(rayState.data);
 

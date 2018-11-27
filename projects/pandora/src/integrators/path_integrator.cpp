@@ -26,6 +26,9 @@ PathIntegrator::PathIntegrator(int maxDepth, const Scene& scene, Sensor& sensor,
 void PathIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& rayState)
 {
     ShadingMemoryArena memoryArena(s_freeList);
+    m_sensor.addPixelContribution(rayState.pixel, glm::vec3(0,1,0));
+    spawnNextSample();
+    return;
 
     if (std::holds_alternative<ContinuationRayState>(rayState.data)) {
         const auto& contRayState = std::get<ContinuationRayState>(rayState.data);
@@ -109,6 +112,10 @@ void PathIntegrator::rayAnyHit(const Ray& r, const RayState& s)
 
 void PathIntegrator::rayMiss(const Ray& r, const RayState& rayState)
 {
+    m_sensor.addPixelContribution(rayState.pixel, glm::vec3(1,0,0));
+    spawnNextSample();
+    return;
+
     if (std::holds_alternative<ContinuationRayState>(rayState.data)) {
         const auto& contRayState = std::get<ContinuationRayState>(rayState.data);
 
