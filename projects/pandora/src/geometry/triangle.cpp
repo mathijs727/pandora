@@ -61,6 +61,12 @@ TriangleMesh::TriangleMesh(
     , m_tangents(std::move(tangents))
     , m_uvCoords(std::move(uvCoords))
 {
+    m_triangles.shrink_to_fit();
+    m_positions.shrink_to_fit();
+    m_normals.shrink_to_fit();
+    m_tangents.shrink_to_fit();
+    m_uvCoords.shrink_to_fit();
+    
     for (const glm::vec3& p : m_positions) {
         m_bounds.grow(p);
     }
@@ -79,6 +85,7 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
         [](const serialization::Vec3i* t) {
             return deserialize(*t);
         });
+    m_triangles.shrink_to_fit();
 
     m_positions.resize(serializedTriangleMesh->positions()->size());
     std::transform(
@@ -88,6 +95,7 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
         [](const serialization::Vec3* p) {
             return deserialize(*p);
         });
+    m_positions.shrink_to_fit();
 
     m_normals.clear();
     if (serializedTriangleMesh->normals()) {
@@ -100,6 +108,7 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
                 return deserialize(*n);
             });
     }
+    m_normals.shrink_to_fit();
 
     m_tangents.clear();
     if (serializedTriangleMesh->tangents()) {
@@ -112,6 +121,7 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
                 return deserialize(*t);
             });
     }
+    m_tangents.shrink_to_fit();
 
     m_uvCoords.clear();
     if (serializedTriangleMesh->uvCoords()) {
@@ -124,6 +134,7 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
                 return deserialize(*uv);
             });
     }
+    m_uvCoords.shrink_to_fit();
 
     m_bounds = Bounds(*serializedTriangleMesh->bounds());
 
@@ -142,6 +153,7 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
         [&](const serialization::Vec3i* t) {
             return deserialize(*t);
         });
+    m_triangles.shrink_to_fit();
 
     m_positions.resize(serializedTriangleMesh->positions()->size());
     std::transform(
@@ -151,6 +163,7 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
         [&](const serialization::Vec3* p) {
             return transform.transformPoint(deserialize(*p));
         });
+    m_positions.shrink_to_fit();
 
     m_normals.clear();
     if (serializedTriangleMesh->normals()) {
@@ -163,6 +176,7 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
                 return transform.transformNormal(deserialize(*n));
             });
     }
+    m_normals.shrink_to_fit();
 
     m_tangents.clear();
     if (serializedTriangleMesh->tangents()) {
@@ -175,6 +189,7 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
                 return transform.transformNormal(deserialize(*t));
             });
     }
+    m_tangents.shrink_to_fit();
 
     m_uvCoords.clear();
     if (serializedTriangleMesh->uvCoords()) {
@@ -187,6 +202,7 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
                 return deserialize(*uv);
             });
     }
+    m_uvCoords.shrink_to_fit();
 
     m_bounds = Bounds(*serializedTriangleMesh->bounds());
 
