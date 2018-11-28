@@ -77,43 +77,45 @@ py::object PandoraMeshBatch::addTriangleMesh(
 
     pandora::ALWAYS_ASSERT(triangles.size() < std::numeric_limits<unsigned>::max());
     pandora::ALWAYS_ASSERT(positions.size() < std::numeric_limits<unsigned>::max());
-    unsigned numTriangles = static_cast<unsigned>(triangles.size());
-    unsigned numVertices = static_cast<unsigned>(positions.size());
 
-    auto owningTriangles = std::make_unique<glm::ivec3[]>(numTriangles);
-    std::copy(std::begin(triangles), std::end(triangles), owningTriangles.get());
-    auto owningPositions = std::make_unique<glm::vec3[]>(numVertices);
-    std::transform(std::begin(positions), std::end(positions), std::next(owningPositions.get(), 0), [&](auto p){
-        return transform.transformPoint(p);
-    });
+    std::vector<glm::ivec3> outTriangles;
+    std::copy(std::begin(triangles), std::end(triangles), std::back_inserter(outTriangles));
+    std::vector<glm::vec3> outPositions;
+    std::transform(std::begin(positions), std::end(positions), std::back_inserter(outPositions),
+        [&](auto p) {
+            return transform.transformPoint(p);
+        });
 
-    std::unique_ptr<glm::vec3[]> owningNormals = nullptr;
+    std::vector<glm::vec3> outNormals;
     if (!normals.empty()) {
         pandora::ALWAYS_ASSERT(normals.size() == triangles.size());
-        owningNormals = std::make_unique<glm::vec3[]>(numTriangles);
-        std::transform(std::begin(normals), std::end(normals), std::next(owningNormals.get(), 0), [&](auto n){
+        std::transform(std::begin(normals), std::end(normals), std::back_inserter(outNormals),
+         [&](auto n) {
             return transform.transformNormal(n);
         });
     }
 
-    std::unique_ptr<glm::vec3[]> owningTangents = nullptr;
+    std::vector<glm::vec3> outTangents;
     if (!tangents.empty()) {
         pandora::ALWAYS_ASSERT(tangents.size() == triangles.size());
-        owningTangents = std::make_unique<glm::vec3[]>(numTriangles);
-        std::transform(std::begin(tangents), std::end(tangents), std::next(owningTangents.get(), 0), [&](auto t) {
-            return transform.transformNormal(t);// Is this the correct transform?
+        std::transform(std::begin(tangents), std::end(tangents), std::back_inserter(outTangents),
+            [&](auto t) {
+            return transform.transformNormal(t); // Is this the correct transform?
         });
     }
 
-    std::unique_ptr<glm::vec2[]> owningUVCoords = nullptr;
+    std::vector<glm::vec2> outUVCoords;
     if (!uvCoords.empty()) {
         pandora::ALWAYS_ASSERT(uvCoords.size() == triangles.size());
-        owningUVCoords = std::make_unique<glm::vec2[]>(numTriangles);
-        std::copy(std::begin(uvCoords), std::end(uvCoords), std::next(owningUVCoords.get(), 0));
+        std::copy(std::begin(uvCoords), std::end(uvCoords), std::back_inserter(outUVCoords));
     }
 
-    pandora::TriangleMesh pandoraMesh = pandora::TriangleMesh(numTriangles, numVertices,
-        std::move(owningTriangles), std::move(owningPositions), std::move(owningNormals), std::move(owningTangents), std::move(owningUVCoords));
+    pandora::TriangleMesh pandoraMesh = pandora::TriangleMesh(
+        std::move(outTriangles),
+        std::move(outPositions),
+        std::move(outNormals),
+        std::move(outTangents),
+        std::move(outUVCoords));
 
     flatbuffers::FlatBufferBuilder fbb;
     auto serializedMesh = pandoraMesh.serialize(fbb);
