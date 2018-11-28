@@ -8,6 +8,9 @@ namespace pandora {
 inline void __THROW_ERROR(std::string_view errorMessage, std::string_view fileName, int line)
 {
     std::cout << fileName << ":" << line << " ==> " << errorMessage << std::endl;
+#ifdef _WIN32
+    system("pause");
+#endif
     throw std::runtime_error("");
 }
 

@@ -144,7 +144,12 @@ void SamplerIntegrator::spawnNextSample(bool initialRay)
         };
 
         Ray ray = m_cameraThisFrame->generateRay(cameraSample);
-        success = m_accelerationStructure.placeIntersectRequestReturnOnMiss(ray, rayState);
+        if constexpr (AccelerationStructure<int>::recurseTillCompletion) {
+            m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));
+            success = true;
+        } else {
+            success = m_accelerationStructure.placeIntersectRequestReturnOnMiss(ray, rayState);
+        }
     } while (!success);
 }
 

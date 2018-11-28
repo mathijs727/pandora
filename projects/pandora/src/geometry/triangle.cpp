@@ -61,12 +61,14 @@ TriangleMesh::TriangleMesh(
     , m_tangents(std::move(tangents))
     , m_uvCoords(std::move(uvCoords))
 {
+    ALWAYS_ASSERT(normals.empty() || normals.size() == positions.size());
+
     m_triangles.shrink_to_fit();
     m_positions.shrink_to_fit();
     m_normals.shrink_to_fit();
     m_tangents.shrink_to_fit();
     m_uvCoords.shrink_to_fit();
-    
+
     for (const glm::vec3& p : m_positions) {
         m_bounds.grow(p);
     }
@@ -297,6 +299,33 @@ TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
 
 void TriangleMesh::subdivide()
 {
+    ALWAYS_ASSERT(m_normals.empty() || m_normals.size() == m_positions.size());
+    ALWAYS_ASSERT(m_tangents.empty());
+    ALWAYS_ASSERT(m_uvCoords.empty());
+
+    std::vector<glm::ivec3> outTriangles;
+    outTriangles.reserve(m_triangles.size() * 3);
+    for (const auto& triangle : m_triangles) {
+        glm::vec3 v0 = m_positions[triangle[0]];
+        glm::vec3 v1 = m_positions[triangle[1]];
+        glm::vec3 v2 = m_positions[triangle[2]];
+        glm::vec3 v3 = (v0 + v1 + v2) / 3.0f;
+
+        int newVertexID = static_cast<int>(m_positions.size());
+        m_positions.push_back(v3);
+        if (!m_normals.empty()) {
+            m_normals.push_back(
+                glm::normalize(
+                    m_normals[triangle[0]] + m_normals[triangle[1]] + m_normals[triangle[2]]));
+        }
+        outTriangles.push_back({ triangle[0], triangle[1], newVertexID });
+        outTriangles.push_back({ triangle[1], triangle[2], newVertexID });
+        outTriangles.push_back({ triangle[2], triangle[0], newVertexID });
+    }
+    m_triangles = std::move(outTriangles);
+    m_triangles.shrink_to_fit();
+    m_positions.shrink_to_fit();
+    m_normals.shrink_to_fit();
 }
 
 TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& matrix, bool ignoreVertexNormals)

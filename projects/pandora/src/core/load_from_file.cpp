@@ -1,4 +1,7 @@
 #include "pandora/core/load_from_file.h"
+#include "pandora/core/stats.h"
+#include "pandora/eviction/fifo_cache.h"
+#include "pandora/eviction/lru_cache.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/lights/distant_light.h"
 #include "pandora/lights/environment_light.h"
@@ -9,22 +12,19 @@
 #include "pandora/textures/constant_texture.h"
 #include "pandora/textures/image_texture.h"
 #include "pandora/utility/error_handling.h"
-#include "pandora/core/stats.h"
-#include "pandora/eviction/lru_cache.h"
-#include "pandora/eviction/fifo_cache.h"
 #include <array>
 #include <atomic>
 #include <fstream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <memory>
+#include <mio/shared_mmap.hpp>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <tbb/concurrent_vector.h>
 #include <tbb/task_group.h>
 #include <tuple>
 #include <vector>
-#include <mio/shared_mmap.hpp>
 
 using namespace std::string_literals;
 
@@ -197,17 +197,24 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                     std::optional<TriangleMesh> meshOpt = TriangleMesh(
                         serialization::GetTriangleMesh(mappedFile.data()), transform);
                     ALWAYS_ASSERT(meshOpt.has_value());
+                    for (int subDiv = 0; subDiv < SUBDIVIDE_LEVEL; subDiv++) {
+                        meshOpt->subdivide();
+                    }
                     geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
                 } else {
                     std::optional<TriangleMesh> meshOpt = TriangleMesh(
                         serialization::GetTriangleMesh(mappedFile.data()));
                     ALWAYS_ASSERT(meshOpt.has_value());
+                    for (int subDiv = 0; subDiv < SUBDIVIDE_LEVEL; subDiv++) {
+                        meshOpt->subdivide();
+                    }
                     geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
                 }
             } else {
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                 std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, transform);
                 ALWAYS_ASSERT(meshOpt.has_value());
+
                 geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
             }
         }
@@ -418,7 +425,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                     const auto& kd = getColorTexture(arguments["kd"].get<int>());
                     const auto& sigma = getFloatTexture(arguments["sigma"].get<int>());
                     materials.push_back(std::make_shared<MatteMaterial>(kd, sigma));
-                } else if(materialType == "translucent") {
+                } else if (materialType == "translucent") {
                     auto kd = getColorTexture(arguments["kd"].get<int>());
                     auto ks = getColorTexture(arguments["ks"].get<int>());
                     auto roughness = getFloatTexture(arguments["roughness"].get<int>());
@@ -459,6 +466,9 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                         auto mappedFile = mio::mmap_source(geometryFile.string(), startByte, sizeBytes);
                         std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(mappedFile.data()), transform);
                         ALWAYS_ASSERT(meshOpt.has_value());
+                        for (int subDiv = 0; subDiv < SUBDIVIDE_LEVEL; subDiv++) {
+                            meshOpt->subdivide();
+                        }
                         return std::move(*meshOpt);
                     });
                 } else {
@@ -466,16 +476,22 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                         auto mappedFile = mio::mmap_source(geometryFile.string(), startByte, sizeBytes);
                         std::optional<TriangleMesh> meshOpt = TriangleMesh(serialization::GetTriangleMesh(mappedFile.data()));
                         ALWAYS_ASSERT(meshOpt.has_value());
+                        for (int subDiv = 0; subDiv < SUBDIVIDE_LEVEL; subDiv++) {
+                            meshOpt->subdivide();
+                        }
                         return std::move(*meshOpt);
                     });
                 }
-                
+
                 geometry.push_back(resourceID);
             } else {
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                 auto resourceID = geometryCache->emplaceFactoryUnsafe<TriangleMesh>([=]() -> TriangleMesh {
                     std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, transform);
                     ALWAYS_ASSERT(meshOpt.has_value());
+                    for (int subDiv = 0; subDiv < SUBDIVIDE_LEVEL; subDiv++) {
+                        meshOpt->subdivide();
+                    }
                     return std::move(*meshOpt);
                 });
                 geometry.push_back(resourceID);
@@ -496,7 +512,8 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 material = defaultMaterial;
 
             if (jsonSceneObject.find("area_light") != jsonSceneObject.end()) {
-                std::cout << "AREA LIGHT" << "\n";
+                std::cout << "AREA LIGHT"
+                          << "\n";
                 glm::vec3 lightEmitted = readVec3(jsonSceneObject["area_light"]["L"]);
 
                 return [=]() {
@@ -532,7 +549,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
         taskGroup.wait();
 
         std::cout << "Geometry loaded: " << static_cast<size_t>(g_stats.memory.geometryLoaded) / 1000000 << std::endl;
-        std::cout << "Geometry evicted: " << static_cast<size_t>(g_stats.memory.geometryEvicted) / 1000000<< std::endl;
+        std::cout << "Geometry evicted: " << static_cast<size_t>(g_stats.memory.geometryEvicted) / 1000000 << std::endl;
 
         // Create scene objects
         // NOTE: create in parallel but make sure to add them to the scene in a fixed order. This ensures that the

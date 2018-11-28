@@ -322,8 +322,6 @@ inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::placeInterse
     const Ray& ray,
     const UserState& userState)
 {
-    assert(perRayUserData.size() == rays.size());
-
     RayHit rayHit;
     Ray mutRay = ray; // Copy so we can mutate it
 
