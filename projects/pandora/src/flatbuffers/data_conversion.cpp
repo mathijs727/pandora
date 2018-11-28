@@ -4,9 +4,19 @@
 namespace pandora
 {
 
+serialization::Vec2 serialize(const glm::vec2& v)
+{
+    return serialization::Vec2(v.x, v.y);
+}
+
 serialization::Vec3 serialize(const glm::vec3& v)
 {
     return serialization::Vec3(v.x, v.y, v.z);
+}
+
+serialization::Vec3i serialize(const glm::ivec3& v)
+{
+    return serialization::Vec3i(v.x, v.y, v.z);
 }
 
 serialization::Mat4 serialize(const glm::mat4& m)
@@ -18,9 +28,19 @@ serialization::Mat4 serialize(const glm::mat4& m)
         m[3][0], m[3][1], m[3][2], m[3][3]);
 }
 
+glm::vec2 deserialize(const serialization::Vec2& v)
+{
+    return glm::vec2(v.x(), v.y());
+}
+
 glm::vec3 deserialize(const serialization::Vec3& v)
 {
     return glm::vec3(v.x(), v.y(), v.z());
+}
+
+glm::ivec3 deserialize(const serialization::Vec3i& v)
+{
+    return glm::ivec3(v.x(), v.y(), v.z());
 }
 
 glm::mat4 deserialize(const serialization::Mat4& m)

@@ -115,6 +115,7 @@ public:
 
             m_raiiPtr.ptr = reinterpret_cast<std::byte*>(_aligned_malloc(bufferSize, blockSize));
             DWORD bytesRead = 0;
+            SetFilePointer(fileHandle, static_cast<DWORD>(blockAlignedOffset), 0, FILE_BEGIN);
             bool readSuccess = ReadFile(
                 fileHandle,
                 m_raiiPtr.ptr,
@@ -151,9 +152,8 @@ public:
     public:
         RAIIBuffer(std::filesystem::path filePath, size_t offset, size_t size)
         {
-            static_assert(!OUT_OF_CORE_DISABLE_FILE_CACHING, "Disabling the file system cache is not supported on this platform")
-                m_data
-                = mio::mmap_source(filePath.string(), offset, size);
+            static_assert(!OUT_OF_CORE_DISABLE_FILE_CACHING, "Disabling the file system cache is not supported on this platform");
+            m_data = mio::mmap_source(filePath.string(), offset, size);
         }
 
         const void* data() const
