@@ -910,7 +910,11 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
 
     std::mutex flushInfoMutex;
     RenderStats::FlushInfo& flushInfo = g_stats.flushInfos.emplace_back();
+    flushInfo.approximateRaysInSystem = 0;
+    for (const auto* node : nodesWithBatchedRays)// TODO: replace this with std::transform_reduce when gcc/stdlib (finally) supports full C++17
+        flushInfo.approximateRaysInSystem += node->m_immutableRayBlockList.unsafe_size() * BlockSize;
     flushInfo.numBatchingPointsWithRays = static_cast<int>(nodesWithBatchedRays.size());
+    auto scopedTimer = flushInfo.processingTime.getScopedStopwatch();
 
     std::atomic_size_t currentNodeIndex = startPoint; // source_node is always run sequentially
     using RayBatchWithoutGeom = std::pair<tbb::concurrent_queue<RayBlock*>*, EvictableResourceID>;

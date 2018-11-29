@@ -19,6 +19,12 @@ ScopedStopwatch<Unit>::~ScopedStopwatch()
 }
 
 template <typename Unit>
+Stopwatch<Unit>::Stopwatch(Stopwatch&& other) :
+    m_value(other.m_value.load())
+{
+}
+
+template <typename Unit>
 ScopedStopwatch<Unit> Stopwatch<Unit>::getScopedStopwatch()
 {
     return ScopedStopwatch(*this);
@@ -39,7 +45,7 @@ Stopwatch<Unit>::operator nlohmann::json() const
     else if constexpr (std::is_same_v<Unit, std::chrono::nanoseconds>)
         json["unit"] = "nanoseconds";
     else
-        assert(false);// static_assert always fails on clang-cl (6.0.1)
+        assert(false); // static_assert always fails on clang-cl (6.0.1)
     return json;
 }
 

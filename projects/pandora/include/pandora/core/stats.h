@@ -50,8 +50,10 @@ struct RenderStats : public metrics::Stats {
 
     metrics::Gauge<int> numTopLevelLeafNodes { "nodes" };
     struct FlushInfo {
+        size_t approximateRaysInSystem;
         int numBatchingPointsWithRays; // Stats about all batching points
         std::vector<size_t> approximateRaysPerFlushedBatchingPoint; // Stats only of flushed batching points
+        metrics::Stopwatch<std::chrono::nanoseconds> processingTime;
     };
     std::vector<FlushInfo> flushInfos;
 

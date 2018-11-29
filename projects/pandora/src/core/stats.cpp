@@ -43,8 +43,10 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
     for (const auto& flushInfo : flushInfos) {
         // clang-format off
         nlohmann::json flushInfoJSON{
+            { "approximate_rays_in_system", flushInfo.approximateRaysInSystem },
             { "num_batching_points_with_rays", flushInfo.numBatchingPointsWithRays },
-            { "approximate_rays_per_flushed_batching_point", flushInfo.approximateRaysPerFlushedBatchingPoint }
+            { "approximate_rays_per_flushed_batching_point", flushInfo.approximateRaysPerFlushedBatchingPoint },
+            { "processing_time", flushInfo.processingTime.operator nlohmann::json() }
         };
         // clang-format on
         ret["flush_info"].push_back(flushInfoJSON);
