@@ -103,7 +103,7 @@ int main(int argc, char** argv)
 
     if constexpr (pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE) {
         try {
-            renderConfig.scene.splitLargeOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 8);
+            renderConfig.scene.splitLargeOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 2);
         }
         catch (std::error_code e) {
             std::cout << "Error splitting ooc scene objects: " << e << std::endl;
@@ -111,7 +111,7 @@ int main(int argc, char** argv)
         }
     } else {
         try {
-            renderConfig.scene.splitLargeInCoreSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 8);
+            renderConfig.scene.splitLargeInCoreSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 2);
         }
         catch (std::error_code e) {
             std::cout << "Error splitting in-core scene objects: " << e << std::endl;
