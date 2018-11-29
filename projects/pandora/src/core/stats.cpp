@@ -13,6 +13,7 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
 {
     nlohmann::json ret;
     ret["config"]["scene"] = config.sceneFile;
+    ret["config"]["subdiv"] = SUBDIVIDE_LEVEL;
     ret["config"]["integrator"] = config.integrator;
     ret["config"]["spp"] = config.spp;
 
