@@ -874,8 +874,8 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
 
     std::cout << "Number of nodes with batched rays: " << nodesWithBatchedRays.size() << "\n";
 
-    // Select the top 50% of the batching points (in terms of batched rays)
-    auto partitionPoint = nodesWithBatchedRays.size() / 2;
+    // Select the top 25% of the batching points (in terms of batched rays)
+    auto partitionPoint = nodesWithBatchedRays.size() / 4 * 3;
     std::nth_element(
         std::begin(nodesWithBatchedRays),
         std::begin(nodesWithBatchedRays) + partitionPoint,
@@ -884,8 +884,8 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
             return node1->m_immutableRayBlockList.unsafe_size() < node2->m_immutableRayBlockList.unsafe_size(); // Ascending order
         });
 
-    // Pick 50% of the remaining nodes randomly so that rays reaching a batching point with a low probability are also flushed once in a while
-    auto startPoint = partitionPoint - partitionPoint / 2;
+    // Pick 10% of the remaining nodes randomly so that rays reaching a batching point with a low probability are also flushed once in a while
+    auto startPoint = partitionPoint - partitionPoint / 10;
     std::random_device randomDevice;
     std::mt19937 randomGen { randomDevice() };
     std::shuffle(
