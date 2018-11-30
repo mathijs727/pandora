@@ -333,7 +333,7 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
 
     // Argument is the size of the geometry cache. This is just a temporary cache because the batched
     // acceleration structure creates its own for rendering (clearing this cache).
-    RenderConfig config(64llu * 1024llu * 1024llu * 1024llu);
+    RenderConfig config(128llu * 1024llu * 1024llu * 1024llu);
     {
         std::cout << "Getting config" << std::endl;
         auto configJson = json["config"];

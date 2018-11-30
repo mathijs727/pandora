@@ -84,6 +84,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     m_accelerationStructure.flush();
 }
 
+static thread_local bool inPrimaryRayTraversal = true;
 void SamplerIntegrator::spawnNextSample(bool initialRay)
 {
     assert(m_cameraThisFrame != nullptr);
@@ -95,6 +96,11 @@ void SamplerIntegrator::spawnNextSample(bool initialRay)
         if (!initialRay) {
             return;
         }
+    } else {
+        // Prevent miss shader from recursively spawning new rays (that also miss) because that will
+        // cause a stack overflow.
+        if (inPrimaryRayTraversal)
+            return;
     }
 
     // Try spawning a new ray untill we succeed
@@ -148,7 +154,9 @@ void SamplerIntegrator::spawnNextSample(bool initialRay)
             m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));
             success = true;
         } else {
+            inPrimaryRayTraversal = true;
             success = m_accelerationStructure.placeIntersectRequestReturnOnMiss(ray, rayState);
+            inPrimaryRayTraversal = false;
         }
     } while (!success);
 }

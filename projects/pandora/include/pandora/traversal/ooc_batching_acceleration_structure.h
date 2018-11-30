@@ -328,6 +328,7 @@ inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::placeInterse
     auto optResult = m_bvh.intersect(mutRay, rayHit, userState);
     if (optResult && *optResult == false) {
         // If we get a result directly it must be because we missed the scene
+        m_missCallback(ray, userState);
         return false;
     } else {
         return true;
@@ -899,15 +900,6 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
         std::end(nodesWithBatchedRays),
         randomGen);
 
-    const int blocksThreshold = 0;
-
-    /*std::sort(std::begin(nodesWithBatchedRays), std::end(nodesWithBatchedRays), [](const auto* node1, const auto* node2) {
-        return node1->m_numFullBlocks.load() > node2->m_numFullBlocks.load(); // Sort from big to small
-    });
-
-    // Only flush nodes that have a lot of flushed blocks, wait for other nodes for their blocks to fill up.
-    const int blocksThreshold = nodesWithBatchedRays.empty() ? 0 : nodesWithBatchedRays[0]->m_numFullBlocks.load() / 5;*/
-
     std::mutex flushInfoMutex;
     RenderStats::FlushInfo& flushInfo = g_stats.flushInfos.emplace_back();
     flushInfo.approximateRaysInSystem = 0;
@@ -929,10 +921,7 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
             }
 
             auto* node = nodesWithBatchedRays[nodeIndex];
-            if (node->m_immutableRayBlockList.unsafe_size() < blocksThreshold) {
-                // Don't process nodes with very little rays batched (probably not it to load nodes from disk)
-                return false;
-            }
+
 
             {
                 std::scoped_lock l(flushInfoMutex);
@@ -961,16 +950,6 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
         [&](const BatchWithGeom& v, typename BlockNodeType::output_ports_type& op) {
             auto [blocksQueuePointer, geometry] = v;
 
-            /*// Count the number of blocks
-            int numBlocks = 0;
-            const auto* tmpBlock = firstBlock;
-            while (tmpBlock) {
-                numBlocks++;
-                tmpBlock = tmpBlock->next();
-            }
-            if (numBlocks == 0) {
-                return;
-            }*/
             std::vector<RayBlock*> blocksToProcess;
             RayBlock* block;
             while (blocksQueuePointer->try_pop(block)) {
@@ -983,12 +962,6 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
                 bool success = std::get<0>(op).try_put({ { unprocessedBlocksCounter, block }, geometry });
                 ALWAYS_ASSERT(success);
             }
-            /*auto* block = firstBlock;
-            while (block) {
-                bool success = std::get<0>(op).try_put({ { unprocessedBlocksCounter, block }, geometry });
-                assert(success);
-                block = block->next();
-            }*/
         });
 
     using TraverseNodeType = tbb::flow::multifunction_node<BlockWithGeomLimited, tbb::flow::tuple<tbb::flow::continue_msg>>;
