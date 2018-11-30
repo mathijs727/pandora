@@ -84,7 +84,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera)
     m_accelerationStructure.flush();
 }
 
-static thread_local bool inPrimaryRayTraversal = true;
+static thread_local bool inPrimaryRayTraversal = false;
 void SamplerIntegrator::spawnNextSample(bool initialRay)
 {
     assert(m_cameraThisFrame != nullptr);
