@@ -255,6 +255,7 @@ private:
 
         struct SVDAGRayOffset {
             glm::vec3 gridBoundsMin;
+            glm::vec3 gridBoundsExtent;
             glm::vec3 invGridBoundsExtent;
         };
         static std::pair<SparseVoxelDAG, SVDAGRayOffset> computeSVDAG(gsl::span<const OOCSceneObject*> sceneObjects);
@@ -665,7 +666,7 @@ inline std::pair<SparseVoxelDAG, typename OOCBatchingAccelerationStructure<UserS
 
     // SVDAG compression occurs after all top level leaf nodes have been created
     SparseVoxelDAG svdag(voxelGrid);
-    return { std::move(svdag), SVDAGRayOffset { gridBounds.min, glm::vec3(1.0f / maxDim) } };
+    return { std::move(svdag), SVDAGRayOffset { gridBounds.min, glm::vec3(maxDim), glm::vec3(1.0f / maxDim) } };
 }
 
 template <typename UserState, size_t BlockSize>
@@ -690,17 +691,30 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BlockSize
             auto svdagRay = ray;
             svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
             auto tOpt = svdag.intersectScalar(svdagRay);
-            if (!tOpt) {
+            if (tOpt) {
+                glm::vec3 intersectionSVDAGSpace = (svdagRay.origin + *tOpt * svdagRay.direction);
+                glm::vec3 intersection = svdagRayOffset.gridBoundsMin + svdagRayOffset.gridBoundsExtent * (intersectionSVDAGSpace - glm::vec3(1.0f));
+                if (glm::dot(intersection - ray.origin, intersection - ray.origin) > ray.tfar * ray.tfar) {
+                    g_stats.svdag.numRaysCulled++;
+                    return false; // Intersection behind tfar
+                }
+            } else {
                 g_stats.svdag.numRaysCulled++;
-                return false; // Missed, continue traversal
+                return false;
             }
         } else {
             const auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
             auto svdagRay = ray;
             svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
             auto tOpt = svdag.intersectScalar(svdagRay);
-            if (!tOpt) {
-                return false; // Missed, continue traversal
+            if (tOpt) {
+                glm::vec3 intersectionSVDAGSpace = (svdagRay.origin + *tOpt * svdagRay.direction);
+                glm::vec3 intersection = svdagRayOffset.gridBoundsMin + svdagRayOffset.gridBoundsExtent * (intersectionSVDAGSpace - glm::vec3(1.0f));
+                if (glm::dot(intersection - ray.origin, intersection - ray.origin) > ray.tfar * ray.tfar) {
+                    return false; // Intersection behind tfar
+                }
+            } else {
+                return false;
             }
         }
     }
@@ -744,17 +758,30 @@ inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BlockSize
             auto svdagRay = ray;
             svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
             auto tOpt = svdag.intersectScalar(svdagRay);
-            if (!tOpt) {
+            if (tOpt) {
+                glm::vec3 intersectionSVDAGSpace = (svdagRay.origin + *tOpt * svdagRay.direction);
+                glm::vec3 intersection = svdagRayOffset.gridBoundsMin + svdagRayOffset.gridBoundsExtent * (intersectionSVDAGSpace - glm::vec3(1.0f));
+                if (glm::dot(intersection - ray.origin, intersection - ray.origin) > ray.tfar * ray.tfar) {
+                    g_stats.svdag.numRaysCulled++;
+                    return false; // Intersection behind tfar
+                }
+            } else {
                 g_stats.svdag.numRaysCulled++;
-                return false; // Missed, continue traversal
+                return false;
             }
         } else {
             auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
             auto svdagRay = ray;
             svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
             auto tOpt = svdag.intersectScalar(svdagRay);
-            if (!tOpt) {
-                return false; // Missed, continue traversal
+            if (tOpt) {
+                glm::vec3 intersectionSVDAGSpace = (svdagRay.origin + *tOpt * svdagRay.direction);
+                glm::vec3 intersection = svdagRayOffset.gridBoundsMin + svdagRayOffset.gridBoundsExtent * (intersectionSVDAGSpace - glm::vec3(1.0f));
+                if (glm::dot(intersection - ray.origin, intersection - ray.origin) > ray.tfar * ray.tfar) {
+                    return false; // Intersection behind tfar
+                }
+            } else {
+                return false;
             }
         }
     }
