@@ -237,7 +237,7 @@ private:
         bool forwardPartiallyFilledBlocks(); // Adds the active blocks to the list of immutable blocks (even if they are not full)
         // Flush a whole range of nodes at a time as opposed to a non-static flush member function which would require a
         // separate tbb flow graph for each node that is processed.
-        static void flushRange(
+        static bool flushRange(
             gsl::span<TopLevelLeafNode*> nodes,
             OOCBatchingAccelerationStructure<UserState, BlockSize>* accelerationStructurePtr);
 
@@ -853,14 +853,15 @@ inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::flush()
         if (done)
             break;
 
-        TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
+        if (!TopLevelLeafNode::flushRange(m_bvh.leafs(), this))
+            break;
     }
 
     std::cout << "FLUSH COMPLETE" << std::endl;
 }
 
 template <typename UserState, size_t BlockSize>
-void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::flushRange(
+bool OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::flushRange(
     gsl::span<TopLevelLeafNode*> nodes,
     OOCBatchingAccelerationStructure<UserState, BlockSize>* accelerationStructurePtr)
 {
@@ -907,6 +908,9 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
         flushInfo.approximateRaysInSystem += node->m_immutableRayBlockList.unsafe_size() * BlockSize;
     flushInfo.numBatchingPointsWithRays = static_cast<int>(nodesWithBatchedRays.size());
     auto scopedTimer = flushInfo.processingTime.getScopedStopwatch();
+
+    if (flushInfo.approximateRaysInSystem < CUTOFF_RAY_COUNT)
+        return false;
 
     std::atomic_size_t currentNodeIndex = startPoint; // source_node is always run sequentially
     using RayBatchWithoutGeom = std::pair<tbb::concurrent_queue<RayBlock*>*, EvictableResourceID>;
@@ -1029,6 +1033,8 @@ void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::f
     tbb::flow::make_edge(tbb::flow::output_port<0>(traversalNode), flowLimiterNode.decrement);
     tbb::flow::make_edge(sourceNode, flowLimiterNode);
     g.wait_for_all();
+
+    return true;
 }
 
 template <typename UserState, size_t BlockSize>
