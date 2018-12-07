@@ -215,6 +215,10 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 std::optional<TriangleMesh> meshOpt = TriangleMesh::loadFromFileSingleMesh(geometryFile, transform);
                 ALWAYS_ASSERT(meshOpt.has_value());
 
+                for (int subDiv = 0; subDiv < SUBDIVIDE_LEVEL; subDiv++) {
+                    meshOpt->subdivide();
+                }
+
                 geometry.push_back(std::make_shared<TriangleMesh>(std::move(*meshOpt)));
             }
         }
