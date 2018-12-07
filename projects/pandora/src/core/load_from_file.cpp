@@ -241,7 +241,9 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         // Create instanced base objects
         std::vector<std::shared_ptr<InCoreGeometricSceneObject>> baseSceneObjects;
         for (const auto jsonSceneObject : sceneJson["instance_base_scene_objects"]) {
-            baseSceneObjects.emplace_back(makeGeomSceneObject(jsonSceneObject)); // Converts to shared_ptr
+            auto sceneObject = makeGeomSceneObject(jsonSceneObject);
+            g_stats.scene.uniquePrimitives += sceneObject->numPrimitives();
+            baseSceneObjects.emplace_back(std::move(sceneObject)); // Converts to shared_ptr
         }
 
         std::cout << "Creating final scene objects" << std::endl;
@@ -254,12 +256,17 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 auto instancedSceneObject = std::make_unique<InCoreInstancedSceneObject>(transform, baseSceneObject);
 
                 if (instancedSceneObject) {
+                    g_stats.scene.totalPrimitives += instancedSceneObject->numPrimitives();
+
                     instancedSceneObject->sceneObjectID = sceneObjectID++;
                     config.scene.addSceneObject(std::move(instancedSceneObject));
                 }
             } else {
                 auto sceneObject = makeGeomSceneObject(jsonSceneObject);
                 if (sceneObject) {
+                    g_stats.scene.uniquePrimitives += sceneObject->numPrimitives();
+                    g_stats.scene.totalPrimitives += sceneObject->numPrimitives();
+
                     sceneObject->sceneObjectID = sceneObjectID++;
                     config.scene.addSceneObject(std::move(sceneObject));
                 }
@@ -543,6 +550,8 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 auto sceneObject = geomSceneObjectFactory();
                 ALWAYS_ASSERT(sceneObject != nullptr);
                 baseSceneObjects[i] = std::move(sceneObject); // Converts to shared_ptr
+
+                g_stats.scene.uniquePrimitives += baseSceneObjects[i]->numPrimitives();
             });
         }
         std::cout << "Wait till completion..." << std::endl;
@@ -578,10 +587,15 @@ RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials)
                 auto baseSceneObject = baseSceneObjects[jsonSceneObject["base_scene_object_id"].get<int>()];
                 auto instancedSceneObject = std::make_unique<OOCInstancedSceneObject>(transform, baseSceneObject);
                 sceneObjects[i] = std::move(instancedSceneObject);
+
+                g_stats.scene.totalPrimitives += sceneObjects[i]->numPrimitives();
             } else {
                 auto sceneObjectFactory = geomSceneObjectFactoryFunc(jsonSceneObject);
                 taskGroup.run([&sceneObjects, i, sceneObjectFactory]() {
                     sceneObjects[i] = sceneObjectFactory();
+
+                    g_stats.scene.uniquePrimitives += sceneObjects[i]->numPrimitives();
+                    g_stats.scene.totalPrimitives += sceneObjects[i]->numPrimitives();
                 });
             }
         }

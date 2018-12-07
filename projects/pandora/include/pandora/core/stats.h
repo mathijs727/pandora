@@ -21,6 +21,11 @@ struct RenderStats : public metrics::Stats {
     } config;
 
     struct {
+        metrics::Counter<size_t> uniquePrimitives { "primitives" }; // Only count instances once
+        metrics::Counter<size_t> totalPrimitives { "primitives" }; // Count each individual instance
+    } scene;
+
+    struct {
         metrics::Stopwatch<std::chrono::milliseconds> totalRenderTime;
         metrics::Stopwatch<std::chrono::nanoseconds> svdagTraversalTime;
     } timings;
