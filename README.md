@@ -3,31 +3,11 @@ Pandora is an out-of-core path tracer developed for my master thesis at Utrecht 
 
 This project aims at improving the rendering performance of existing worked based on memory-coherent ray tracing (Rendering Complex Scenes with Memory-Coherent Ray Tracing by Pharr et al). The acceleration structure consists of a two level BVH scheme. Leaf nodes of the top level BVH (containing geometry & a bottom level BVH) can be stored to disk when memory runs out. The goal of this project is to experiment with storing a simplified representation of this geometry and using it as an early-out test for rays passing through the bounding volume of a top level leaf node. Additionally, the approximate intersection points found may be used to sort rays for extra coherence.
 
-A lot of parts of the code are directly based on, or inspired by [PBRTv3](https://github.com/mmp/pbrt-v3) and the corresponding book ([Physically Based Rendering from Theory to Implementation, Third Edition](http://www.pbrt.org/)). The bottom level BVH traversal code is based on [Accelerated single ray tracing for wide vector units](https://dl.acm.org/citation.cfm?id=3105785) (Embree's traversal kernels cannot be used because they do not support storing the BVH to disk). The top level BVH traversal will be based on the following work: [Fast Divergent Ray Traversal by Batching Rays in a BVH](https://dspace.library.uu.nl/handle/1874/343844). The early-out testing geometry will be represented using a [Sparse Voxel DAG](https://dl.acm.org/citation.cfm?id=2462024).
-
-## Notes
-Rendering scenes out-of-core by lowering the goemetry limit will not actually access the disk if the system contains enough RAM. The operating system will cache file reads resulting in subsequent file reads resulting in a memcpy from a system buffer. This is much faster than actual disk reads so be aware when benchmarking. To disable file system caching one should update `third_party/mio/include/mio/detail/basic_mmap.ipp`.
-On Windows add `FILE_FLAG_NO_BUFFERING`:
-```
-    const auto handle = ::CreateFile(c_str(path),
-        mode == access_mode::read ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
-        FILE_SHARE_READ | FILE_SHARE_WRITE,
-        0,
-        OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_NO_BUFFERING,
-        0);
-```
-
-On Linux (untested):
-```
-    const auto handle = ::open(c_str(path),
-        mode == access_mode::read ? O_RDONLY | O_DIRECT : O_RDWR);
-```
-
-Your disk may also apply caching (in a RAM or SLC NAND cache). As far as I know this cannot be disabled.
+Some parts of the code are directly based on, or inspired by, [PBRTv3](https://github.com/mmp/pbrt-v3) and the corresponding book ([Physically Based Rendering from Theory to Implementation, Third Edition](http://www.pbrt.org/)). The bottom level BVH traversal code (using AVX2) is based on [Accelerated single ray tracing for wide vector units](https://dl.acm.org/citation.cfm?id=3105785) (Embree's traversal kernels cannot be used because they do not support storing the BVH to disk). The top level BVH traversal (using SSE) is based on the following work: [Fast Divergent Ray Traversal by Batching Rays in a BVH](https://dspace.library.uu.nl/handle/1874/343844). The (conservative) voxelization and SVO construction code are implementated based on the  algorithms presented in [Fast Parallel Surface and Solid Voxelization on GPUs](http://research.michael-schwarz.com/publ/files/vox-siga10.pdf). SVO to SVDAG compression is an implementation of [
+Exploiting self-similarity in geometry for voxel based solid modeling](https://dl.acm.org/citation.cfm?id=781631). Finally, SVDAG traversal was implemented using SSE instructions based on a stripped down version of the GPU traversal algorithm presented in [Efficient Sparse Voxel Octrees](https://research.nvidia.com/publication/efficient-sparse-voxel-octrees).
 
 ## Dependencies
-To build Pandora, CMake and a C++17 compiler are required. The user is responsible for installing all the required libraries except for GSL, EASTL, mio, libmorton and tinylpy (which are included as git submodules because they are not commonly found in package managers).
+To build Pandora, CMake and a C++17 compliant compiler and standard library are needed. The user is responsible for installing all the required libraries except for GSL, EASTL, mio, libmorton and tinylpy (which are included as git submodules because they are not commonly found in package managers).
 
 Pandora uses the following third-party libraries:
  - [Guideline Support Library](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md) ([implemented by Microsoft](https://github.com/Microsoft/GSL))
@@ -74,4 +54,22 @@ ninja install
 
 All dependencies can be installed through pacman and yaourt (to access the Arch User Repository). Travis currently also uses Arch Linux (in a Docker container) to install all the dependencies.
 
-At the time of writing, the latest release of OpenEXR (included by OpenImageIO) contains header files that are not C++17 ISO compliant. A work-around is to replace the problematic files with updated copies from the OpenImageIO master branch (see Travis as a reference).
+At the time of writing, the latest release of OpenEXR (included by OpenImageIO) contains header files that are not C++17 compliant. A work-around is to replace the problematic files with updated copies from the OpenImageIO master branch (see Travis as a reference).
+
+
+## Projects
+The code base is divided into several smaller projects such that code can be reused more easily:
+
+- atlas:		``real-time'' viewer based on Pandora
+- diskbench:	very simple file (read) performance benchmark (to diagnose file caching)
+- metrics:		a simple metrics library that supports outputting run-time data to a JSON file
+- **pandora**:	library containing the core renderer code
+- simd:		an collection of (hand written) SSE/AVX wrapper classes
+- Torque:		command-line (offline) renderer based on Pandora
+- Voxel:		mini project to test and experiment with the voxelization code
+
+
+## Notes
+Rendering scenes out-of-core by lowering the goemetry limit will not actually access the disk if the computer contains enough RAM to store the whole scene. The operating system will cache recently accessed files, resulting in subsequent accesses to be a simple memcpy from a system buffer. This is much faster than actual disk reads so be aware when benchmarking. In an effort to disable this behavior, Pandora optionally uses Direct I/O to bypass this file cache (see ```pandora/projects/pandora/include/pandora/utility/file_batcher.h```). This feature can be toggled in the config header file (```pandora/projects/pandora/include/pandora/```).
+
+Your disk may also apply caching (in a RAM or SLC NAND cache). As far as I know this cannot be disabled in any way.
