@@ -1,5 +1,16 @@
 namespace pandora.serialization;
 
+struct Vec3i {
+	x: int;
+	y: int;
+	z: int;
+}
+
+struct Vec2 {
+	x: float;
+	y: float;
+}
+
 struct Vec3 {
 	x: float;
 	y: float;

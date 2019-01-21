@@ -1,4 +1,6 @@
 #include "pandora/scene/geometric_scene_object.h"
+#include "pandora/eviction/fifo_cache.h"
+#include "pandora/eviction/lru_cache.h"
 #include <fstream>
 #include <mio/mmap.hpp>
 
@@ -24,6 +26,7 @@ InCoreGeometricSceneObject::InCoreGeometricSceneObject(
 
 Bounds InCoreGeometricSceneObject::worldBounds() const
 {
+    ALWAYS_ASSERT(m_geometricProperties.m_mesh != nullptr);
     return m_geometricProperties.m_mesh->getBounds();
 }
 
@@ -106,6 +109,7 @@ GeometricSceneObjectGeometry::GeometricSceneObjectGeometry(const serialization::
 
 Bounds GeometricSceneObjectGeometry::worldBoundsPrimitive(unsigned primitiveID) const
 {
+    ALWAYS_ASSERT(m_mesh != nullptr);
     return m_mesh->getPrimitiveBounds(primitiveID);
 }
 
@@ -180,7 +184,7 @@ gsl::span<const AreaLight> GeometricSceneObjectMaterial::areaLights() const
 }
 
 OOCGeometricSceneObject::OOCGeometricSceneObject(
-    const EvictableResourceHandle<TriangleMesh>& geometryHandle,
+    const EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>>& geometryHandle,
     const std::shared_ptr<const Material>& material)
     : m_geometryHandle(geometryHandle)
     , m_material(material)
@@ -191,7 +195,7 @@ OOCGeometricSceneObject::OOCGeometricSceneObject(
 }
 
 OOCGeometricSceneObject::OOCGeometricSceneObject(
-    const EvictableResourceHandle<TriangleMesh>& geometryHandle,
+    const EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>>& geometryHandle,
     const std::shared_ptr<const Material>& material,
     const Spectrum& lightEmitted)
     : m_geometryHandle(geometryHandle)
@@ -217,28 +221,28 @@ unsigned OOCGeometricSceneObject::numPrimitives() const
     return m_numPrimitives;
 }
 
-std::unique_ptr<SceneObjectGeometry> OOCGeometricSceneObject::getGeometryBlocking() const
+std::shared_ptr<SceneObjectGeometry> OOCGeometricSceneObject::getGeometryBlocking() const
 {
     // Can't use std::make_unique because GeometricSceneObjectGeometry constructor is private (OOCGeometricSceneObject is a friend)
-    return std::unique_ptr<GeometricSceneObjectGeometry>(
+    return std::shared_ptr<GeometricSceneObjectGeometry>(
         new GeometricSceneObjectGeometry(m_geometryHandle.getBlocking()));
 }
 
-std::unique_ptr<SceneObjectMaterial> OOCGeometricSceneObject::getMaterialBlocking() const
+std::shared_ptr<SceneObjectMaterial> OOCGeometricSceneObject::getMaterialBlocking() const
 {
     if (m_areaLightMeshOwner) {
-        return std::unique_ptr<GeometricSceneObjectMaterial>(
+        return std::shared_ptr<GeometricSceneObjectMaterial>(
             new GeometricSceneObjectMaterial(
                 m_material,
                 m_areaLights));
     } else {
-        return std::unique_ptr<GeometricSceneObjectMaterial>(
+        return std::shared_ptr<GeometricSceneObjectMaterial>(
             new GeometricSceneObjectMaterial(
                 m_material));
     }
 }
 
-OOCGeometricSceneObject OOCGeometricSceneObject::geometricSplit(FifoCache<TriangleMesh>* cache, std::filesystem::path filePath, gsl::span<unsigned> primitiveIDs)
+OOCGeometricSceneObject OOCGeometricSceneObject::geometricSplit(CacheT<TriangleMesh>* cache, std::filesystem::path filePath, gsl::span<unsigned> primitiveIDs)
 {
     // Splitting of area light meshes is not supported yet (requires some work / refactoring)
     ALWAYS_ASSERT(m_areaLights.empty() && !m_areaLightMeshOwner);
@@ -260,17 +264,20 @@ OOCGeometricSceneObject OOCGeometricSceneObject::geometricSplit(FifoCache<Triang
 
     std::cout << filePath << ": " << subGeometry.numTriangles() << " - " << primitiveIDs.size() << std::endl;
 
-    auto resourceID = cache->emplaceFactoryUnsafe([filePath, numPrims = primitiveIDs.size()]() {
+    auto resourceID = cache->emplaceFactoryUnsafe<TriangleMesh>([filePath, numPrims = primitiveIDs.size()]() {
         auto mmapFile = mio::mmap_source(filePath.string(), 0, mio::map_entire_file);
         auto serializedMesh = serialization::GetTriangleMesh(mmapFile.data());
         return TriangleMesh(serializedMesh);
     });
-    EvictableResourceHandle<TriangleMesh> subGeometryHandle(cache, resourceID);
-
+    EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>> subGeometryHandle(cache, resourceID);
     return OOCGeometricSceneObject(subBounds, subNumPrimitives, subGeometryHandle, m_material);
 }
 
-OOCGeometricSceneObject::OOCGeometricSceneObject(const Bounds& bounds, unsigned numPrimitives, const EvictableResourceHandle<TriangleMesh>& geometryHandle, const std::shared_ptr<const Material>& material)
+OOCGeometricSceneObject::OOCGeometricSceneObject(
+    const Bounds& bounds,
+    unsigned numPrimitives,
+    const EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>>& geometryHandle,
+    const std::shared_ptr<const Material>& material)
     : m_worldBounds(bounds)
     , m_numPrimitives(numPrimitives)
     , m_geometryHandle(geometryHandle)

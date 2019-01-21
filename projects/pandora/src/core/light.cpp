@@ -15,8 +15,13 @@ bool Light::isDeltaLight() const
 
 Spectrum Light::Le(const Ray& ray) const
 {
-	(void)ray;
+    (void)ray;
     return Spectrum(0.0f);
+}
+
+InfiniteLight::InfiniteLight(int flags, int numSamples)
+    : Light(flags, numSamples)
+{
 }
 
 }

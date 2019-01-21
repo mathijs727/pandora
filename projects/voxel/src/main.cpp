@@ -1,8 +1,8 @@
 #include "pandora/geometry/triangle.h"
-#include "pandora/svo/mesh_to_voxel.h"
 #include "pandora/svo/sparse_voxel_dag.h"
 #include "pandora/svo/sparse_voxel_octree.h"
 #include "pandora/svo/voxel_grid.h"
+#include "pandora/core/transform.h"
 #include <array>
 #include <cassert>
 #include <chrono>
@@ -18,7 +18,7 @@ using namespace std::string_literals;
 using namespace tinyply;
 using namespace pandora;
 
-const std::string projectBasePath = "../../"s;
+const std::string projectBasePath = "../../../../"s;
 const int resolution = 128;
 
 using SVO = SparseVoxelDAG;
@@ -29,7 +29,6 @@ void testDAGCompressionSeparate(const gsl::span<std::pair<std::string, std::stri
 
 int main()
 {
-    const std::string projectBasePath = "../../"s;
     std::string dragonFile = projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply";
     std::string bunnyFile = projectBasePath + "assets/3dmodels/stanford/bun_zipper.ply";
     std::string cornellBoxFile = projectBasePath + "assets/3dmodels/cornell_box.obj";
@@ -41,8 +40,12 @@ int main()
             { cornellBoxFile, "dag_cornell.ply" }
         };
 
-        testDAGCompressionSeparate(files);
+        testDAGCompressionTogether(files);
     }
+
+    /*auto bunnySVDAG = createSVO(bunnyFile);
+    auto[positions, triangles] = bunnySVDAG.generateSurfaceMesh();
+    exportMesh(positions, triangles, "mesh.ply");*/
 
     std::cout << "INPUT CHARACTER AND PRESS ENTER TO EXIT:" << std::endl;
     char x;
@@ -58,15 +61,27 @@ void testDAGCompressionTogether(const gsl::span<std::pair<std::string, std::stri
         DAGs.emplace_back(std::move(createSVO(filePath)));
     }
 
+    {
+        size_t sizeBeforeCompression = 0;
+        for (const auto& svdag : DAGs) {
+            sizeBeforeCompression += svdag.sizeBytes();
+        }
+        std::cout << "Combined size before compression: " << sizeBeforeCompression << " bytes" << std::endl;
+    }
+
     using clock = std::chrono::high_resolution_clock;
     auto start = clock::now();
 
-    compressDAGs(DAGs);
+    std::vector<SparseVoxelDAG*> dagPointers;
+    for (auto& svdag : DAGs) {
+        dagPointers.push_back(&svdag);
+    }
+    SparseVoxelDAG::compressDAGs(dagPointers);
 
     auto end = clock::now();
     auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     std::cout << "\nTime to compress SVOs to DAGs: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
-    std::cout << "Combined size after compression: " << DAGs[0].size() << " bytes" << std::endl;
+    std::cout << "Combined size after compression: " << DAGs[0].sizeBytes() << " bytes" << std::endl;
 
     for (int i = 0; i < files.size(); i++) {
         auto [vertices, triangles] = DAGs[i].generateSurfaceMesh();
@@ -84,12 +99,18 @@ void testDAGCompressionSeparate(const gsl::span<std::pair<std::string, std::stri
         using clock = std::chrono::high_resolution_clock;
         auto start = clock::now();
 
-        compressDAGs(DAGs);
+        std::cout << "Size before compression: " << DAGs[0].sizeBytes() << " bytes" << std::endl;
+
+        std::vector<SparseVoxelDAG*> dagPointers;
+        for (auto& svdag : DAGs) {
+            dagPointers.push_back(&svdag);
+        }
+        SparseVoxelDAG::compressDAGs(dagPointers);
 
         auto end = clock::now();
         auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         std::cout << "Time to compress SVOs to DAGs: " << timeDelta.count() / 1000.0f << "ms" << std::endl;
-        std::cout << "Size after compression: " << DAGs[0].size() << " bytes\n"
+        std::cout << "Size after compression: " << DAGs[0].sizeBytes() << " bytes\n"
                   << std::endl;
 
         auto [vertices, triangles] = DAGs[0].generateSurfaceMesh();
@@ -103,14 +124,15 @@ SVO createSVO(std::string_view meshFile)
 
     Bounds gridBounds;
     for (const auto& mesh : meshes)
-        gridBounds.extend(mesh->getBounds());
+        gridBounds.extend(mesh.getBounds());
 
     VoxelGrid voxelGrid(resolution);
     using clock = std::chrono::high_resolution_clock;
     {
         auto start = clock::now();
         for (const auto& mesh : meshes) {
-            meshToVoxelGrid(voxelGrid, gridBounds, *mesh);
+            //meshToVoxelGrid(voxelGrid, gridBounds, mesh);
+            mesh.voxelize(voxelGrid, gridBounds, Transform(glm::mat4(1.0f)));
         }
         auto end = clock::now();
         auto timeDelta = std::chrono::duration_cast<std::chrono::microseconds>(end - start);

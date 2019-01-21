@@ -11,15 +11,17 @@ class PandoraMeshBatch
 {
 public:
     PandoraMeshBatch(std::string filename);
-    ~PandoraMeshBatch() = default;
+    ~PandoraMeshBatch();
 
     boost::python::object addTriangleMesh(
         ndarray npTriangles,
         ndarray npPositions,
         ndarray npNormals,
         ndarray npTangents,
-        ndarray npUVCoords);
+        ndarray npUVCoords,
+        boost::python::list transform);
 private:
+    size_t m_currentPos = 0;
     std::string m_filename;
     std::ofstream m_file;
 };

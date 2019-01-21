@@ -31,8 +31,10 @@ static constexpr bool ENABLE_BATCHING = true;
 template <typename UserState, size_t BatchSize = 64>
 class InCoreBatchingAccelerationStructure {
 public:
+    constexpr static bool recurseTillCompletion = false; // Rays are batched, so paths are not traced untill completion
+
     using InsertHandle = void*;
-    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&, const InsertHandle&)>;
+    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&)>;
     using AnyHitCallback = std::function<void(const Ray&, const UserState&)>;
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
@@ -199,7 +201,7 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
                 const auto* sceneObject = std::get<const InCoreSceneObject*>(hitInfo.sceneObjectVariant);
                 SurfaceInteraction si = sceneObject->fillSurfaceInteraction(ray, hitInfo);
                 si.sceneObjectMaterial = sceneObject;
-                m_hitCallback(ray, si, userState, nullptr);
+                m_hitCallback(ray, si, userState);
             } else {
                 m_missCallback(ray, userState);
             }
@@ -499,7 +501,7 @@ inline size_t InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLeve
                             // Compute the full surface interaction
                             SurfaceInteraction si = sceneObject->fillSurfaceInteraction(ray, *hitInfo);
                             si.sceneObjectMaterial = sceneObject;
-                            m_accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
+                            m_accelerationStructurePtr->m_hitCallback(ray, si, userState);
                         } else {
                             m_accelerationStructurePtr->m_missCallback(ray, userState);
                         }

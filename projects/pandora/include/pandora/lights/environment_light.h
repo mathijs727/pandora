@@ -4,11 +4,9 @@
 
 namespace pandora {
 
-class EnvironmentLight : public Light {
+class EnvironmentLight : public InfiniteLight {
 public:
     EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum& l, int numSamples, const std::shared_ptr<Texture<glm::vec3>>& texture);
-
-    //glm::vec3 power() const final;
 
     LightSample sampleLi(const Interaction& ref, const glm::vec2& randomSample) const final;
 	float pdfLi(const Interaction& ref, const glm::vec3& wi) const final;
@@ -20,7 +18,7 @@ private:
     glm::vec3 worldToLight(const glm::vec3& v) const;
 
 private:
-    const Spectrum m_l;
+    Spectrum m_l;
     std::shared_ptr<Texture<glm::vec3>> m_texture;
 
     const glm::mat4 m_lightToWorld, m_worldToLight;

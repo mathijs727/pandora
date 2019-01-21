@@ -34,7 +34,7 @@ target_link_libraries(embree INTERFACE "${EMBREE_LIBRARY}")
 
 find_package(Threads REQUIRED)
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/TBBGet.cmake")
-tbb_get(TBB_ROOT tbb_root CONFIG TBB_DIR)
+tbb_get(TBB_ROOT tbb_root CONFIG TBB_DIR RELEASE_TAG 2018_U6)
 set(CMAKE_PREFIX_PATH "${TBB_ROOT};${tbb_root}")
 find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
 
@@ -42,7 +42,7 @@ add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/ms-gsl/")
 
 # https://github.com/mandreyel/mio
 add_library(mio INTERFACE)
-target_include_directories(mio INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/mio_buffering_flags/include/")
+target_include_directories(mio INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/mio/include/")
 
 # https://github.com/Forceflow/libmorton
 add_library(libmorton INTERFACE)
@@ -89,7 +89,7 @@ if (PANDORA_BUILD_ATLAS)
 endif()
 include("projects/torque/CMakeLists.txt")
 
-add_subdirectory("projects/diskbench/")
+#add_subdirectory("projects/diskbench/")
 #if (BUILD_VOXEL_EXPORT)
 #    include("projects/voxel/CMakeLists.txt")
 #endif()

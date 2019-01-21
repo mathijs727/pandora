@@ -15,6 +15,7 @@ namespace pandora {
 template <class T>
 ImageTexture<T>::ImageTexture(std::filesystem::path filePath)
 {
+    ALWAYS_ASSERT(std::filesystem::exists(filePath));
     auto in = OIIO::ImageInput::open(filePath.string());
     if (!in) {
         THROW_ERROR("Could not open texture file "s + filePath.string());
@@ -34,7 +35,6 @@ ImageTexture<T>::ImageTexture(std::filesystem::path filePath)
 
     // Convert input to linear color space
     if constexpr (std::is_same_v<T, Spectrum>) {
-
         if (auto paramValue = spec.find_attribute("oiio:ColorSpace"); paramValue) {
             auto colorSpace = paramValue->get_string();
 			LOG_INFO("Color space: "s + colorSpace);
@@ -45,6 +45,11 @@ ImageTexture<T>::ImageTexture(std::filesystem::path filePath)
                 float gamma = spec.get_float_attribute("oiio:Gamma");
                 conversionFunction = [gamma](const Spectrum& p) {
                     return gammaCorrectedToLinear(p, gamma);
+                };
+                doConversion = true;
+            } else if (colorSpace == "GammaCorrected2.2") {
+                conversionFunction = [](const Spectrum& p) {
+                    return gammaCorrectedToLinear(p, 2.2f);
                 };
                 doConversion = true;
             } else if (colorSpace == "sRGB") {

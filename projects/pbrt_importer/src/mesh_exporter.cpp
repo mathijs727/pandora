@@ -1,13 +1,15 @@
 #include "mesh_exporter.h"
+#include <cassert>
 #include <fstream>
 #include <glm/glm.hpp>
 #include <gsl/gsl>
 #include <iostream>
-#include <cassert>
 //#include <tinyply.h>
 #include <algorithm>
-#include <vector>
+#include <pandora/core/transform.h>
 #include <pandora/geometry/triangle.h>
+#include <pandora/utility/error_handling.h>
+#include <vector>
 
 namespace py = boost::python;
 namespace np = boost::python::numpy;
@@ -36,10 +38,17 @@ static std::vector<T> castArray(gsl::span<S> in)
     return ret;
 }
 
-PandoraMeshBatch::PandoraMeshBatch(std::string filename) :
-    m_filename(filename),
-    m_file(filename)
+PandoraMeshBatch::PandoraMeshBatch(std::string filename)
+    : m_filename(filename)
+    , m_file(filename)
+    , m_currentPos(0)
 {
+    std::cout << "PandoraMeshBatch(" << filename << ")" << std::endl;
+}
+
+PandoraMeshBatch::~PandoraMeshBatch()
+{
+    std::cout << "~PandoraMeshBatch() => " << m_filename << std::endl;
 }
 
 py::object PandoraMeshBatch::addTriangleMesh(
@@ -47,84 +56,74 @@ py::object PandoraMeshBatch::addTriangleMesh(
     np::ndarray npPositions,
     np::ndarray npNormals,
     np::ndarray npTangents,
-    np::ndarray npUVCoords)
+    np::ndarray npUVCoords,
+    boost::python::list pythonTransform)
 {
     // NOTE: convert back to 32 bit numbers because assimp requires a recompile to support doubles.
     // Using 32 bit floats everywhere is also not an option because ujson and rapidjson (Python bindings) cannot serialize them.
-    auto triangles = reinterpretNumpyArray<glm::ivec3>(npTriangles);
+    auto triangles = reinterpretNumpyArray<glm::i64vec3>(npTriangles);
     auto positions = reinterpretNumpyArray<glm::dvec3>(npPositions);
     auto normals = reinterpretNumpyArray<glm::dvec3>(npNormals);
     auto tangents = reinterpretNumpyArray<glm::dvec3>(npTangents);
     auto uvCoords = reinterpretNumpyArray<glm::dvec2>(npUVCoords);
 
-    assert(triangles.size() < std::numeric_limits<unsigned>::max());
-    assert(positions.size() < std::numeric_limits<unsigned>::max());
-    unsigned numTriangles = static_cast<unsigned>(triangles.size());
-    unsigned numVertices = static_cast<unsigned>(positions.size());
+    glm::mat4 transformMatrix;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            transformMatrix[i][j] = py::extract<double>(pythonTransform[j][i]);
+        }
+    }
+    pandora::Transform transform(transformMatrix);
 
-    auto owningTriangles = std::make_unique<glm::ivec3[]>(numTriangles);
-    std::copy(std::begin(triangles), std::end(triangles), owningTriangles.get());
-    auto owningPositions = std::make_unique<glm::vec3[]>(numTriangles);
-    std::copy(std::begin(positions), std::end(positions), std::next(owningPositions.get(), 0));
+    pandora::ALWAYS_ASSERT(triangles.size() < std::numeric_limits<unsigned>::max());
+    pandora::ALWAYS_ASSERT(positions.size() < std::numeric_limits<unsigned>::max());
 
+    std::vector<glm::ivec3> outTriangles;
+    std::copy(std::begin(triangles), std::end(triangles), std::back_inserter(outTriangles));
+    std::vector<glm::vec3> outPositions;
+    std::transform(std::begin(positions), std::end(positions), std::back_inserter(outPositions),
+        [&](auto p) {
+            return transform.transformPoint(p);
+        });
 
-    std::unique_ptr<glm::vec3[]> owningNormals = nullptr;
+    std::vector<glm::vec3> outNormals;
     if (!normals.empty()) {
-        owningNormals = std::make_unique<glm::vec3[]>(numTriangles);
-        std::copy(std::begin(normals), std::end(normals), std::next(owningNormals.get(), 0));
+        pandora::ALWAYS_ASSERT(normals.size() == triangles.size());
+        std::transform(std::begin(normals), std::end(normals), std::back_inserter(outNormals),
+         [&](auto n) {
+            return transform.transformNormal(n);
+        });
     }
 
-    std::unique_ptr<glm::vec3[]> owningTangents = nullptr;
+    std::vector<glm::vec3> outTangents;
     if (!tangents.empty()) {
-        owningTangents = std::make_unique<glm::vec3[]>(numTriangles);
-        std::copy(std::begin(tangents), std::end(tangents), std::next(owningTangents.get(), 0));
+        pandora::ALWAYS_ASSERT(tangents.size() == triangles.size());
+        std::transform(std::begin(tangents), std::end(tangents), std::back_inserter(outTangents),
+            [&](auto t) {
+            return transform.transformNormal(t); // Is this the correct transform?
+        });
     }
 
-    std::unique_ptr<glm::vec2[]> owningUVCoords = nullptr;
+    std::vector<glm::vec2> outUVCoords;
     if (!uvCoords.empty()) {
-        owningUVCoords = std::make_unique<glm::vec2[]>(numTriangles);
-        std::copy(std::begin(uvCoords), std::end(uvCoords), std::next(owningUVCoords.get(), 0));
+        pandora::ALWAYS_ASSERT(uvCoords.size() == triangles.size());
+        std::copy(std::begin(uvCoords), std::end(uvCoords), std::back_inserter(outUVCoords));
     }
 
-    pandora::TriangleMesh pandoraMesh = pandora::TriangleMesh(numTriangles, numVertices,
-        std::move(owningTriangles), std::move(owningPositions), std::move(owningNormals), std::move(owningTangents), std::move(owningUVCoords));
+    pandora::TriangleMesh pandoraMesh = pandora::TriangleMesh(
+        std::move(outTriangles),
+        std::move(outPositions),
+        std::move(outNormals),
+        std::move(outTangents),
+        std::move(outUVCoords));
 
     flatbuffers::FlatBufferBuilder fbb;
     auto serializedMesh = pandoraMesh.serialize(fbb);
     fbb.Finish(serializedMesh);
 
-    size_t startByte = m_file.tellp();
     m_file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
+    size_t startByte = m_currentPos;
+    m_currentPos += fbb.GetSize();
 
-    /*m_file << "o PandoraMesh\n";
-    for (auto p : positions)
-        m_file << "v " << p.x << " " << p.y << " " << p.z << "\n";
-
-    int numChannels = 1;
-    if (!normals.empty()) {
-        for (auto n : normals)
-            m_file << "vn " << n.x << " " << n.y << " " << n.z << "\n";
-        numChannels++;
-    }
-
-    if (!uvCoords.empty()) {
-        for (auto uv : uvCoords)
-            m_file << "vt " << uv.x << " " << uv.y << "\n";
-        numChannels++;
-    }
-
-    for (auto t : triangles) {
-        m_file << "f";
-        for (int i = 0; i < 3; i++) {
-            auto index = t[i] + 1;// OBJ starts counting at 1...
-            m_file << " " << index;
-            for (int c = 1; c < numChannels; c++) {
-                m_file << "/" << index;
-            }
-        }
-        m_file << "\n";
-    }*/
-
-    size_t sizeBytes = static_cast<size_t>(m_file.tellp()) - startByte;
-    return py::make_tuple(m_filename, startByte, sizeBytes);
+    return py::make_tuple(m_filename, startByte, fbb.GetSize());
 }

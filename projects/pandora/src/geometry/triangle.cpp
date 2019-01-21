@@ -5,6 +5,7 @@
 #include "glm/mat4x4.hpp"
 #include "pandora/core/stats.h"
 #include "pandora/core/transform.h"
+#include "pandora/flatbuffers/data_conversion.h"
 #include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
 #include <cassert>
@@ -49,23 +50,27 @@ static glm::vec3 assimpVec(const aiVector3D& v)
 namespace pandora {
 
 TriangleMesh::TriangleMesh(
-    unsigned numTriangles,
-    unsigned numVertices,
-    std::unique_ptr<glm::ivec3[]>&& triangles,
-    std::unique_ptr<glm::vec3[]>&& positions,
-    std::unique_ptr<glm::vec3[]>&& normals,
-    std::unique_ptr<glm::vec3[]>&& tangents,
-    std::unique_ptr<glm::vec2[]>&& uvCoords)
-    : m_numTriangles(numTriangles)
-    , m_numVertices(numVertices)
-    , m_triangles(std::move(triangles))
+    std::vector<glm::ivec3>&& triangles,
+    std::vector<glm::vec3>&& positions,
+    std::vector<glm::vec3>&& normals,
+    std::vector<glm::vec3>&& tangents,
+    std::vector<glm::vec2>&& uvCoords)
+    : m_triangles(std::move(triangles))
     , m_positions(std::move(positions))
     , m_normals(std::move(normals))
     , m_tangents(std::move(tangents))
     , m_uvCoords(std::move(uvCoords))
 {
-    for (unsigned v = 0; v < numVertices; v++) {
-        m_bounds.grow(m_positions[v]);
+    ALWAYS_ASSERT(normals.empty() || normals.size() == positions.size());
+
+    m_triangles.shrink_to_fit();
+    m_positions.shrink_to_fit();
+    m_normals.shrink_to_fit();
+    m_tangents.shrink_to_fit();
+    m_uvCoords.shrink_to_fit();
+
+    for (const glm::vec3& p : m_positions) {
+        m_bounds.grow(p);
     }
 
     // Ignore memory required by the class itself
@@ -74,29 +79,132 @@ TriangleMesh::TriangleMesh(
 
 TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh)
 {
-    m_numTriangles = serializedTriangleMesh->numTriangles();
-    m_numVertices = serializedTriangleMesh->numVertices();
+    m_triangles.resize(serializedTriangleMesh->triangles()->size());
+    std::transform(
+        serializedTriangleMesh->triangles()->begin(),
+        serializedTriangleMesh->triangles()->end(),
+        std::begin(m_triangles),
+        [](const serialization::Vec3i* t) {
+            return deserialize(*t);
+        });
+    m_triangles.shrink_to_fit();
 
-    m_triangles = std::make_unique<glm::ivec3[]>(m_numTriangles);
-    std::memcpy(m_triangles.get(), serializedTriangleMesh->triangles()->data(), serializedTriangleMesh->triangles()->size());
+    m_positions.resize(serializedTriangleMesh->positions()->size());
+    std::transform(
+        serializedTriangleMesh->positions()->begin(),
+        serializedTriangleMesh->positions()->end(),
+        std::begin(m_positions),
+        [](const serialization::Vec3* p) {
+            return deserialize(*p);
+        });
+    m_positions.shrink_to_fit();
 
-    m_positions = std::make_unique<glm::vec3[]>(m_numVertices);
-    std::memcpy(m_positions.get(), serializedTriangleMesh->positions()->data(), serializedTriangleMesh->positions()->size());
-
+    m_normals.clear();
     if (serializedTriangleMesh->normals()) {
-        m_normals = std::make_unique<glm::vec3[]>(m_numVertices);
-        std::memcpy(m_normals.get(), serializedTriangleMesh->normals()->data(), serializedTriangleMesh->normals()->size());
+        m_normals.resize(serializedTriangleMesh->normals()->size());
+        std::transform(
+            serializedTriangleMesh->normals()->begin(),
+            serializedTriangleMesh->normals()->end(),
+            std::begin(m_normals),
+            [](const serialization::Vec3* n) {
+                return deserialize(*n);
+            });
     }
+    m_normals.shrink_to_fit();
 
+    m_tangents.clear();
     if (serializedTriangleMesh->tangents()) {
-        m_tangents = std::make_unique<glm::vec3[]>(m_numVertices);
-        std::memcpy(m_tangents.get(), serializedTriangleMesh->tangents()->data(), serializedTriangleMesh->tangents()->size());
+        m_tangents.resize(serializedTriangleMesh->tangents()->size());
+        std::transform(
+            serializedTriangleMesh->tangents()->begin(),
+            serializedTriangleMesh->tangents()->end(),
+            std::begin(m_tangents),
+            [](const serialization::Vec3* t) {
+                return deserialize(*t);
+            });
     }
+    m_tangents.shrink_to_fit();
 
+    m_uvCoords.clear();
     if (serializedTriangleMesh->uvCoords()) {
-        m_uvCoords = std::make_unique<glm::vec2[]>(m_numVertices);
-        std::memcpy(m_uvCoords.get(), serializedTriangleMesh->uvCoords()->data(), serializedTriangleMesh->uvCoords()->size());
+        m_uvCoords.resize(serializedTriangleMesh->uvCoords()->size());
+        std::transform(
+            serializedTriangleMesh->uvCoords()->begin(),
+            serializedTriangleMesh->uvCoords()->end(),
+            std::begin(m_uvCoords),
+            [](const serialization::Vec2* uv) {
+                return deserialize(*uv);
+            });
     }
+    m_uvCoords.shrink_to_fit();
+
+    m_bounds = Bounds(*serializedTriangleMesh->bounds());
+
+    g_stats.memory.geometryLoaded += sizeBytes() - sizeof(decltype(*this));
+}
+
+TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh, const glm::mat4& transformMatrix)
+{
+    Transform transform(transformMatrix);
+
+    m_triangles.resize(serializedTriangleMesh->triangles()->size());
+    std::transform(
+        serializedTriangleMesh->triangles()->begin(),
+        serializedTriangleMesh->triangles()->end(),
+        std::begin(m_triangles),
+        [&](const serialization::Vec3i* t) {
+            return deserialize(*t);
+        });
+    m_triangles.shrink_to_fit();
+
+    m_positions.resize(serializedTriangleMesh->positions()->size());
+    std::transform(
+        serializedTriangleMesh->positions()->begin(),
+        serializedTriangleMesh->positions()->end(),
+        std::begin(m_positions),
+        [&](const serialization::Vec3* p) {
+            return transform.transformPoint(deserialize(*p));
+        });
+    m_positions.shrink_to_fit();
+
+    m_normals.clear();
+    if (serializedTriangleMesh->normals()) {
+        m_normals.resize(serializedTriangleMesh->normals()->size());
+        std::transform(
+            serializedTriangleMesh->normals()->begin(),
+            serializedTriangleMesh->normals()->end(),
+            std::begin(m_normals),
+            [&](const serialization::Vec3* n) {
+                return transform.transformNormal(deserialize(*n));
+            });
+    }
+    m_normals.shrink_to_fit();
+
+    m_tangents.clear();
+    if (serializedTriangleMesh->tangents()) {
+        m_tangents.resize(serializedTriangleMesh->tangents()->size());
+        std::transform(
+            serializedTriangleMesh->tangents()->begin(),
+            serializedTriangleMesh->tangents()->end(),
+            std::begin(m_tangents),
+            [&](const serialization::Vec3* t) {
+                return transform.transformNormal(deserialize(*t));
+            });
+    }
+    m_tangents.shrink_to_fit();
+
+    m_uvCoords.clear();
+    if (serializedTriangleMesh->uvCoords()) {
+        m_uvCoords.resize(serializedTriangleMesh->uvCoords()->size());
+        std::transform(
+            serializedTriangleMesh->uvCoords()->begin(),
+            serializedTriangleMesh->uvCoords()->end(),
+            std::begin(m_uvCoords),
+            [&](const serialization::Vec2* uv) {
+                return deserialize(*uv);
+            });
+    }
+    m_uvCoords.shrink_to_fit();
 
     m_bounds = Bounds(*serializedTriangleMesh->bounds());
 
@@ -110,31 +218,28 @@ TriangleMesh::~TriangleMesh()
 
 flatbuffers::Offset<serialization::TriangleMesh> TriangleMesh::serialize(flatbuffers::FlatBufferBuilder& builder) const
 {
-    size_t estimatedSize = 1024 + m_numTriangles * sizeof(glm::ivec3) + m_numVertices * sizeof(glm::vec3);
-    if (m_normals)
-        estimatedSize += m_numVertices * sizeof(glm::vec3);
-    if (m_tangents)
-        estimatedSize += m_numVertices * sizeof(glm::vec3);
-    if (m_uvCoords)
-        estimatedSize += m_numVertices * sizeof(glm::vec2);
+    /*size_t estimatedSize = sizeof(this);
+    estimatedSize += m_triangles.size() * sizeof(glm::ivec3)j;
+    estimatedSize += m_positions.size() * sizeof(glm::vec3);
+    estimatedSize += m_normals.size() * sizeof(glm::vec3);
+    estimatedSize += m_tangents.size() * sizeof(glm::vec3);
+    estimatedSize += m_uvCoords.size() * sizeof(glm::vec2);*/
 
-    auto triangles = builder.CreateVector(reinterpret_cast<const int8_t*>(m_triangles.get()), m_numTriangles * sizeof(glm::ivec3));
-    auto positions = builder.CreateVector(reinterpret_cast<const int8_t*>(m_positions.get()), m_numVertices * sizeof(glm::vec3));
-    flatbuffers::Offset<flatbuffers::Vector<int8_t>> normals = 0;
-    if (m_normals)
-        normals = builder.CreateVector(reinterpret_cast<const int8_t*>(m_normals.get()), m_numVertices * sizeof(glm::vec3));
-    flatbuffers::Offset<flatbuffers::Vector<int8_t>> tangents = 0;
-    if (m_tangents)
-        tangents = builder.CreateVector(reinterpret_cast<const int8_t*>(m_tangents.get()), m_numVertices * sizeof(glm::vec3));
-    flatbuffers::Offset<flatbuffers::Vector<int8_t>> uvCoords = 0;
-    if (m_uvCoords)
-        uvCoords = builder.CreateVector(reinterpret_cast<const int8_t*>(m_uvCoords.get()), m_numVertices * sizeof(glm::vec2));
+    auto triangles = builder.CreateVectorOfStructs(reinterpret_cast<const serialization::Vec3i*>(m_triangles.data()), m_triangles.size());
+    auto positions = builder.CreateVectorOfStructs(reinterpret_cast<const serialization::Vec3*>(m_positions.data()), m_positions.size());
+    flatbuffers::Offset<flatbuffers::Vector<const serialization::Vec3*>> normals = 0;
+    if (!m_normals.empty())
+        normals = builder.CreateVectorOfStructs(reinterpret_cast<const serialization::Vec3*>(m_normals.data()), m_normals.size());
+    flatbuffers::Offset<flatbuffers::Vector<const serialization::Vec3*>> tangents = 0;
+    if (!m_tangents.empty())
+        tangents = builder.CreateVectorOfStructs(reinterpret_cast<const serialization::Vec3*>(m_tangents.data()), m_tangents.size());
+    flatbuffers::Offset<flatbuffers::Vector<const serialization::Vec2*>> uvCoords = 0;
+    if (!m_uvCoords.empty())
+        uvCoords = builder.CreateVectorOfStructs(reinterpret_cast<const serialization::Vec2*>(m_uvCoords.data()), m_uvCoords.size());
 
     auto bounds = m_bounds.serialize();
     return serialization::CreateTriangleMesh(
         builder,
-        m_numTriangles,
-        m_numVertices,
         triangles,
         positions,
         normals,
@@ -162,8 +267,7 @@ TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
         }
     }
 
-    std::unique_ptr<glm::ivec3[]> triangles = std::make_unique<glm::ivec3[]>(primitives.size());
-    unsigned currentTriangle = 0;
+    std::vector<glm::ivec3> triangles;
     for (unsigned triangleIndex : primitives) {
         glm::ivec3 originalTriangle = m_triangles[triangleIndex];
         glm::ivec3 triangle = {
@@ -171,29 +275,57 @@ TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
             vertexIndexMapping[originalTriangle[1]],
             vertexIndexMapping[originalTriangle[2]]
         };
-        triangles[currentTriangle++] = triangle;
+        triangles.push_back(triangle);
     }
 
-    std::unique_ptr<glm::vec3[]> positions = std::make_unique<glm::vec3[]>(numUsedVertices);
-    std::unique_ptr<glm::vec3[]> normals = m_normals ? std::make_unique<glm::vec3[]>(numUsedVertices) : nullptr;
-    std::unique_ptr<glm::vec3[]> tangents = m_tangents ? std::make_unique<glm::vec3[]>(numUsedVertices) : nullptr;
-    std::unique_ptr<glm::vec2[]> uvCoords = m_uvCoords ? std::make_unique<glm::vec2[]>(numUsedVertices) : nullptr;
-    unsigned currentVertex = 0;
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec3> tangents;
+    std::vector<glm::vec2> uvCoords;
     for (unsigned vertexIndex = 0; vertexIndex < numVertices(); vertexIndex++) {
         if (usedVertices[vertexIndex]) {
-            positions[currentVertex] = m_positions[vertexIndex];
-            if (normals)
-                normals[currentVertex] = m_normals[vertexIndex];
-            if (tangents)
-                tangents[currentVertex] = m_tangents[vertexIndex];
-            if (uvCoords)
-                uvCoords[currentVertex] = m_uvCoords[vertexIndex];
-            currentVertex++;
+            positions.push_back(m_positions[vertexIndex]);
+            if (!m_normals.empty())
+                normals.push_back(m_normals[vertexIndex]);
+            if (!m_tangents.empty())
+                tangents.push_back(m_tangents[vertexIndex]);
+            if (!m_uvCoords.empty())
+                uvCoords.push_back(m_uvCoords[vertexIndex]);
         }
     }
-    assert(currentVertex <= currentTriangle * 3);
 
-    return TriangleMesh(currentTriangle, currentVertex, std::move(triangles), std::move(positions), std::move(normals), std::move(tangents), std::move(uvCoords));
+    return TriangleMesh(std::move(triangles), std::move(positions), std::move(normals), std::move(tangents), std::move(uvCoords));
+}
+
+void TriangleMesh::subdivide()
+{
+    ALWAYS_ASSERT(m_normals.empty() || m_normals.size() == m_positions.size());
+    ALWAYS_ASSERT(m_tangents.empty());
+    ALWAYS_ASSERT(m_uvCoords.empty());
+
+    std::vector<glm::ivec3> outTriangles;
+    outTriangles.reserve(m_triangles.size() * 3);
+    for (const auto& triangle : m_triangles) {
+        glm::vec3 v0 = m_positions[triangle[0]];
+        glm::vec3 v1 = m_positions[triangle[1]];
+        glm::vec3 v2 = m_positions[triangle[2]];
+        glm::vec3 v3 = (v0 + v1 + v2) / 3.0f;
+
+        int newVertexID = static_cast<int>(m_positions.size());
+        m_positions.push_back(v3);
+        if (!m_normals.empty()) {
+            m_normals.push_back(
+                glm::normalize(
+                    m_normals[triangle[0]] + m_normals[triangle[1]] + m_normals[triangle[2]]));
+        }
+        outTriangles.push_back({ triangle[0], triangle[1], newVertexID });
+        outTriangles.push_back({ triangle[1], triangle[2], newVertexID });
+        outTriangles.push_back({ triangle[2], triangle[0], newVertexID });
+    }
+    m_triangles = std::move(outTriangles);
+    m_triangles.shrink_to_fit();
+    m_positions.shrink_to_fit();
+    m_normals.shrink_to_fit();
 }
 
 TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& matrix, bool ignoreVertexNormals)
@@ -205,11 +337,11 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
     if (mesh->mNumVertices == 0 || mesh->mNumFaces == 0)
         THROW_ERROR("Empty mesh");
 
-    auto indices = std::make_unique<glm::ivec3[]>(mesh->mNumFaces);
-    auto positions = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
-    std::unique_ptr<glm::vec3[]> normals = nullptr; // Shading normals
-    std::unique_ptr<glm::vec3[]> tangents = nullptr;
-    std::unique_ptr<glm::vec2[]> uvCoords = nullptr;
+    std::vector<glm::ivec3> triangles;
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec3> tangents;
+    std::vector<glm::vec2> uvCoords;
 
     // Triangles
     for (unsigned i = 0; i < mesh->mNumFaces; i++) {
@@ -219,19 +351,18 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
         }
 
         auto aiIndices = face.mIndices;
-        indices[i] = { aiIndices[0], aiIndices[1], aiIndices[2] };
+        triangles.push_back({ aiIndices[0], aiIndices[1], aiIndices[2] });
     }
 
     // Positions
     for (unsigned i = 0; i < mesh->mNumVertices; i++) {
-        positions[i] = transform.transformPoint(assimpVec(mesh->mVertices[i]));
+        positions.push_back(transform.transformPoint(assimpVec(mesh->mVertices[i])));
     }
 
     // Normals
     if (mesh->HasNormals() && !ignoreVertexNormals) {
-        normals = std::make_unique<glm::vec3[]>(mesh->mNumVertices);
         for (unsigned i = 0; i < mesh->mNumVertices; i++) {
-            normals[i] = transform.transformNormal(assimpVec(mesh->mNormals[i]));
+            normals.push_back(transform.transformNormal(assimpVec(mesh->mNormals[i])));
         }
     }
 
@@ -244,9 +375,7 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
     }*/
 
     return TriangleMesh(
-        mesh->mNumFaces,
-        mesh->mNumVertices,
-        std::move(indices),
+        std::move(triangles),
         std::move(positions),
         std::move(normals),
         std::move(tangents),
@@ -298,7 +427,7 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem
     }
 
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(filePath.string().data(), aiProcess_GenNormals);
+    const aiScene* scene = importer.ReadFile(filePath.string().data(), aiProcess_GenNormals | aiProcess_Triangulate);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
         LOG_WARNING("Failed to load mesh file: "s + filePath.string());
@@ -312,10 +441,10 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem
 
 std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals)
 {
-    std::vector<glm::ivec3> indices;
+    std::vector<glm::ivec3> triangles;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
-    indices.reserve(scene->mMeshes[0]->mNumFaces);
+    triangles.reserve(scene->mMeshes[0]->mNumFaces);
     positions.reserve(scene->mMeshes[0]->mNumVertices * 3);
     normals.reserve(scene->mMeshes[0]->mNumVertices * 3);
 
@@ -344,7 +473,7 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const aiScene* 
                 }
 
                 auto aiIndices = face.mIndices;
-                indices.push_back(glm::ivec3 {
+                triangles.push_back(glm::ivec3 {
                     aiIndices[0] + indexOffset,
                     aiIndices[1] + indexOffset,
                     aiIndices[2] + indexOffset });
@@ -375,24 +504,12 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const aiScene* 
         }
     }
 
-    ALWAYS_ASSERT(positions.size() == normals.size());
-    std::unique_ptr<glm::ivec3[]> pIndices = std::make_unique<glm::ivec3[]>(indices.size());
-    std::copy(std::begin(indices), std::end(indices), pIndices.get());
-    std::unique_ptr<glm::vec3[]> pPositions = std::make_unique<glm::vec3[]>(positions.size());
-    std::copy(std::begin(positions), std::end(positions), pPositions.get());
-    std::unique_ptr<glm::vec3[]> pNormals = std::make_unique<glm::vec3[]>(normals.size());
-    std::copy(std::begin(normals), std::end(normals), pNormals.get());
-    std::unique_ptr<glm::vec3[]> pTangents = nullptr;
-    std::unique_ptr<glm::vec2[]> pUvCoords = nullptr;
-
     return TriangleMesh(
-        static_cast<unsigned>(indices.size()),
-        static_cast<unsigned>(positions.size()),
-        std::move(pIndices),
-        std::move(pPositions),
-        std::move(pNormals),
-        std::move(pTangents),
-        std::move(pUvCoords));
+        std::move(triangles),
+        std::move(positions),
+        std::move(normals),
+        {},
+        {});
 }
 
 std::vector<TriangleMesh> TriangleMesh::loadFromFile(std::filesystem::path filePath, glm::mat4 modelTransform, bool ignoreVertexNormals)
@@ -406,7 +523,7 @@ std::vector<TriangleMesh> TriangleMesh::loadFromFile(std::filesystem::path fileP
     //const aiScene* scene = importer.ReadFile(filePath.string().data(),
     //    aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_JoinIdenticalVertices | aiProcess_RemoveRedundantMaterials | aiProcess_Triangulate | aiProcess_GenNormals);
     //importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
-    const aiScene* scene = importer.ReadFile(filePath.string().data(), aiProcess_GenNormals);
+    const aiScene* scene = importer.ReadFile(filePath.string().data(), aiProcess_GenNormals | aiProcess_Triangulate);
 
     if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
         LOG_WARNING("Failed to load mesh file: "s + filePath.string());
@@ -440,52 +557,47 @@ std::vector<TriangleMesh> TriangleMesh::loadFromFile(std::filesystem::path fileP
 size_t TriangleMesh::sizeBytes() const
 {
     size_t size = sizeof(TriangleMesh);
-    if (m_triangles)// nullptr if moved
-        size += m_numTriangles * sizeof(glm::ivec3); // triangles
-    if (m_positions)// nullptr if moved
-        size += m_numVertices * sizeof(glm::vec3); // positions
-    if (m_normals)
-        size += m_numVertices * sizeof(glm::vec3); // normals
-    if (m_tangents)
-        size += m_numVertices * sizeof(glm::vec3); // tangents
-    if (m_uvCoords)
-        size += m_numVertices * sizeof(glm::vec2); // uv coords
+    size += m_triangles.size() * sizeof(glm::ivec3); // triangles
+    size += m_positions.size() * sizeof(glm::vec3); // positions
+    size += m_normals.size() * sizeof(glm::vec3); // normals
+    size += m_tangents.size() * sizeof(glm::vec3); // tangents
+    size += m_uvCoords.size() * sizeof(glm::vec2); // uv coords
     return size;
 }
 
 unsigned TriangleMesh::numTriangles() const
 {
-    return m_numTriangles;
+    return static_cast<unsigned>(m_triangles.size());
 }
 
 unsigned TriangleMesh::numVertices() const
 {
-    return m_numVertices;
+    return static_cast<unsigned>(m_positions.size());
 }
 
 gsl::span<const glm::ivec3> TriangleMesh::getTriangles() const
 {
-    return gsl::make_span(m_triangles.get(), m_numTriangles);
+    return m_triangles;
 }
 
 gsl::span<const glm::vec3> TriangleMesh::getPositions() const
 {
-    return gsl::make_span(m_positions.get(), m_numVertices);
+    return m_positions;
 }
 
 gsl::span<const glm::vec3> TriangleMesh::getNormals() const
 {
-    return gsl::make_span(m_normals.get(), m_numVertices);
+    return m_normals;
 }
 
 gsl::span<const glm::vec3> TriangleMesh::getTangents() const
 {
-    return gsl::make_span(m_tangents.get(), m_numVertices);
+    return m_tangents;
 }
 
 gsl::span<const glm::vec2> TriangleMesh::getUVCoords() const
 {
-    return gsl::make_span(m_uvCoords.get(), m_numVertices);
+    return m_uvCoords;
 }
 
 Bounds TriangleMesh::getBounds() const
@@ -566,7 +678,7 @@ float TriangleMesh::pdfPrimitive(unsigned primitiveID, const Interaction& ref, c
 
 void TriangleMesh::getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const
 {
-    if (m_uvCoords) {
+    if (!m_uvCoords.empty()) {
         glm::ivec3 indices = m_triangles[primitiveID];
         uv[0] = m_uvCoords[indices[0]];
         uv[1] = m_uvCoords[indices[1]];
@@ -604,8 +716,7 @@ void TriangleMesh::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Tra
 
     const glm::ivec3 maxGridVoxel(grid.resolution() - 1);
 
-    for (unsigned t = 0; t < m_numTriangles; t++) {
-        const auto& triangle = m_triangles[t];
+    for (const auto& triangle : m_triangles) {
         glm::vec3 v[3] = {
             transform.transformPoint(m_positions[triangle[0]]),
             transform.transformPoint(m_positions[triangle[1]]),

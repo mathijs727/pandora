@@ -16,7 +16,7 @@ using namespace std::string_literals;
 namespace pandora {
 
 Scene::Scene(size_t geometryCacheSize)
-    : m_geometryCache(std::make_unique<FifoCache<TriangleMesh>>(geometryCacheSize, 2 * std::thread::hardware_concurrency()))
+    : m_geometryCache(std::make_unique<CacheT<TriangleMesh>>(geometryCacheSize, 2 * std::thread::hardware_concurrency()))
 {
 }
 
@@ -27,6 +27,7 @@ void Scene::addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneObject)
             m_lights.push_back(light);
         }
     }
+    m_bounds.extend(sceneObject->worldBounds());
     m_inCoreSceneObjects.emplace_back(std::move(sceneObject));
 }
 
@@ -37,10 +38,11 @@ void Scene::addSceneObject(std::unique_ptr<OOCSceneObject>&& sceneObject)
     for (const auto& light : material->areaLights()) {
         m_lights.push_back(&light);
     }
+    m_bounds.extend(sceneObject->worldBounds());
     m_oocSceneObjects.emplace_back(std::move(sceneObject));
 }
 
-void Scene::addInfiniteLight(const std::shared_ptr<Light>& light)
+void Scene::addInfiniteLight(const std::shared_ptr<InfiniteLight>& light)
 {
     m_lights.push_back(light.get());
     m_infiniteLights.push_back(light.get());
@@ -77,17 +79,17 @@ gsl::span<const Light* const> Scene::getLights() const
     return m_lights;
 }
 
-gsl::span<const Light* const> Scene::getInfiniteLights() const
+gsl::span<const InfiniteLight* const> Scene::getInfiniteLights() const
 {
     return m_infiniteLights;
 }
 
-const FifoCache<TriangleMesh>* Scene::geometryCache() const
+const CacheT<TriangleMesh>* Scene::geometryCache() const
 {
     return m_geometryCache.get();
 }
 
-FifoCache<TriangleMesh>* Scene::geometryCache()
+CacheT<TriangleMesh>* Scene::geometryCache()
 {
     return m_geometryCache.get();
 }
@@ -143,7 +145,6 @@ void Scene::splitLargeInCoreSceneObjects(unsigned approximatePrimsPerObject)
         // lights array. We should than also make sure that the new lights are always added in the same order
         // to prevent race conditions.
         ALWAYS_ASSERT(sceneObject->areaLights().empty());
-
 
         std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
         embreeBuildPrimitives.reserve(sceneObject->numPrimitives());
@@ -295,7 +296,8 @@ void Scene::splitLargeOOCSceneObjects(unsigned approximatePrimsPerObject)
         // Build the BVH using the Embree BVH builder API
         RTCBVH bvh = rtcNewBVH(device);
 
-        tbb::concurrent_vector<gsl::span<unsigned>> primitiveGroups;
+        tbb::concurrent_vector<std::vector<unsigned>> primitiveGroups;
+
         RTCBuildArguments arguments = rtcDefaultBuildArguments();
         arguments.byteSize = sizeof(arguments);
         arguments.buildFlags = RTC_BUILD_FLAG_NONE;
@@ -314,15 +316,13 @@ void Scene::splitLargeOOCSceneObjects(unsigned approximatePrimsPerObject)
         arguments.setNodeChildren = [](void* voidNodePtr, void** childPtr, unsigned numChildren, void* userPtr) {};
         arguments.setNodeBounds = [](void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr) {};
         arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
-            auto* primsMem = rtcThreadLocalAlloc(alloc, numPrims * sizeof(unsigned), 8);
-            unsigned* primitiveIDs = reinterpret_cast<unsigned*>(primsMem);
-
+            std::vector<unsigned> primitiveIDs(numPrims);
             for (size_t i = 0; i < numPrims; i++) {
                 primitiveIDs[i] = prims[i].primID;
             }
 
-            auto primitiveGroups = reinterpret_cast<tbb::concurrent_vector<gsl::span<unsigned>>*>(userPtr);
-            primitiveGroups->push_back(gsl::make_span(primitiveIDs, numPrims));
+            auto primitiveGroups = reinterpret_cast<tbb::concurrent_vector<std::vector<unsigned>>*>(userPtr);
+            primitiveGroups->emplace_back(std::move(primitiveIDs));
             return nullptr;
         };
 
@@ -377,51 +377,48 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     };
 
     struct BVHNode {
-        virtual std::pair<std::vector<const T*>, std::unordered_set<const T*>> group(
+        virtual std::vector<const T*> group(
             unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const = 0;
     };
 
     struct BVHInnerNode : public BVHNode {
-        virtual std::pair<std::vector<const T*>, std::unordered_set<const T*>> group(
-            unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const
+        std::vector<const T*> group(unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const override final
         {
-            auto[leftObjects, leftUniqueAndBaseObjects] = leftChild->group(minPrimsPerGroup, out);
-            auto[rightObjects, rightUniqueAndBaseObjects] = rightChild->group(minPrimsPerGroup, out);
+            auto leftObjects = leftChild->group(minPrimsPerGroup, out);
+            auto rightObjects = rightChild->group(minPrimsPerGroup, out);
             if (!leftObjects.empty() && rightObjects.empty()) {
-                return { std::move(leftObjects), std::move(leftUniqueAndBaseObjects) };
+                return std::move(leftObjects);
             } else if (leftObjects.empty() && !rightObjects.empty()) {
-                return { std::move(rightObjects), std::move(rightUniqueAndBaseObjects) };
+                return std::move(rightObjects);
             } else if (!leftObjects.empty() && !rightObjects.empty()) {
                 std::vector<const T*> objects = std::move(leftObjects);
                 objects.insert(std::end(objects), std::begin(rightObjects), std::end(rightObjects));
 
-                std::unordered_set<const T*> uniqueAndBaseObjects = std::move(leftUniqueAndBaseObjects);
-                uniqueAndBaseObjects.insert(std::begin(rightUniqueAndBaseObjects), std::end(rightUniqueAndBaseObjects));
-
 #ifdef _MSC_VER
-                unsigned numUniqueAndBasePrims = std::transform_reduce(
-                    std::begin(uniqueAndBaseObjects),
-                    std::end(uniqueAndBaseObjects),
+                unsigned numPrimitives = std::transform_reduce(
+                    std::begin(objects),
+                    std::end(objects),
                     0u,
                     [](unsigned l, unsigned r) {
-                    return l + r;
-                },
+                        return l + r;
+                    },
                     [](const T* object) {
-                    return object->numPrimitives();
-                });
-#else // GCC 8.2.1 stdlib does not support the standardization of parallelism TS
-                unsigned numUniqueAndBasePrims = 0;
-                for (const auto* object : uniqueAndBaseObjects)
-                    numUniqueAndBasePrims += object->numPrimitives();
+                        return object->numPrimitives();
+                    });
+#else // GCC 8.2.1 stdlibc++ does not support the standardization of parallelism TS
+                unsigned numPrimitives = 0;
+                for (const auto* object : objects)
+                    numPrimitives += object->numPrimitives();
 #endif
-                if (numUniqueAndBasePrims >= minPrimsPerGroup) {
+
+                if (numPrimitives >= minPrimsPerGroup) {
                     out.emplace_back(std::move(objects));
-                    return { {}, {} };
+                    return {};
                 } else {
-                    return { std::move(objects), std::move(uniqueAndBaseObjects) };
+                    return std::move(objects);
                 }
             } else {
-                return { {}, {} };
+                return {};
             }
         }
 
@@ -430,20 +427,15 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     };
 
     struct BVHLeafNode : public BVHNode {
-        virtual std::pair<std::vector<const T*>, std::unordered_set<const T*>> group(
-            unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const
+        std::vector<const T*> group(unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const override final
         {
             if (sceneObject->numPrimitives() > minPrimsPerGroup) {
                 std::cout << "Add single scene object because prims " << sceneObject->numPrimitives() << " > " << minPrimsPerGroup << std::endl;
                 out.emplace_back(std::vector<const T*> { sceneObject });
-                return { {}, {} };
+                return {};
             }
 
-            if (const auto* instancedSceneObject = dynamic_cast<const InstancedT*>(sceneObject)) {
-                return { { sceneObject }, { instancedSceneObject->getBaseObject() } };
-            } else {
-                return { { sceneObject }, { sceneObject } };
-            }
+            return { sceneObject };
         }
         const T* sceneObject;
     };
@@ -478,6 +470,7 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     arguments.maxBranchingFactor = 2;
     arguments.minLeafSize = 1;
     arguments.maxLeafSize = 1;
+    arguments.maxDepth = 48;
     arguments.bvh = bvh;
     arguments.primitives = embreeBuildPrimitives.data();
     arguments.primitiveCount = embreeBuildPrimitives.size();
@@ -509,7 +502,7 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     const auto* rootNode = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
 
     std::vector<std::vector<const T*>> ret;
-    auto[leftOverObjects, leftOverUniqueAndBaseObject] = rootNode->group(uniquePrimsPerGroup, ret);
+    auto leftOverObjects = rootNode->group(uniquePrimsPerGroup, ret);
     if (!leftOverObjects.empty()) {
         ret.emplace_back(std::move(leftOverObjects));
     }
@@ -523,7 +516,6 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     rtcReleaseDevice(device);
     return ret;
 }
-
 
 std::vector<std::vector<const OOCSceneObject*>> Scene::groupOOCSceneObjects(unsigned uniquePrimsPerGroup) const
 {

@@ -5,7 +5,7 @@
 
 namespace pandora {
 
-class DistantLight : public Light {
+class DistantLight : public InfiniteLight {
 public:
     DistantLight(const glm::mat4& lightToWorld, const Spectrum& L, const glm::vec3& wLight);
 

@@ -29,8 +29,10 @@ static constexpr size_t IN_CORE_SVDAG_RESOLUTION = 32;
 template <typename UserState, size_t BatchSize = 384>
 class InCoreBatchingAccelerationStructure {
 public:
+    constexpr static bool recurseTillCompletion = false; // Rays are batched, so paths are not traced untill completion
+
     using InsertHandle = void*;
-    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&, const InsertHandle&)>;
+    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&)>;
     using AnyHitCallback = std::function<void(const Ray&, const UserState&)>;
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
@@ -39,6 +41,9 @@ public:
         const Scene& scene,
         HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
     ~InCoreBatchingAccelerationStructure() = default;
+
+    // Dummy
+    bool placeIntersectRequestReturnOnMiss(const Ray& ray, const UserState& userState) { return false; }
 
     void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
     void placeIntersectAnyRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
@@ -231,7 +236,7 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
     for (int i = 0; i < rays.size(); i++) {
         Ray ray = rays[i]; // Copy so we can mutate it
         RayHit rayHit;
-        UserState userState = perRayUserData[i];// Copy so we can move items to a batch
+        UserState userState = perRayUserData[i]; // Copy so we can move items to a batch
 
         auto optResult = m_bvh.intersect(ray, rayHit, userState);
         if (optResult && *optResult == false) {
@@ -252,7 +257,7 @@ inline void InCoreBatchingAccelerationStructure<UserState, BatchSize>::placeInte
 
     for (int i = 0; i < rays.size(); i++) {
         Ray ray = rays[i];
-        UserState userState = perRayUserData[i];// Copy so we can mutate it
+        UserState userState = perRayUserData[i]; // Copy so we can mutate it
 
         auto optResult = m_bvh.intersectAny(ray, userState);
         if (optResult) {
@@ -467,7 +472,7 @@ bool InCoreBatchingAccelerationStructure<UserState, BatchSize>::TopLevelLeafNode
                         if (hitSceneObject) {
                             auto si = hitSceneObject->fillSurfaceInteraction(ray, *rayHitOpt);
                             si.sceneObjectMaterial = hitSceneObject;
-                            accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
+                            accelerationStructurePtr->m_hitCallback(ray, si, userState);
                         } else {
                             accelerationStructurePtr->m_missCallback(ray, userState);
                         }

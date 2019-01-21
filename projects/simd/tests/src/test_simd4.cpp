@@ -49,6 +49,25 @@ void simd4Tests()
             ASSERT_EQ_T(values[i], (T)-2 - i);
     }
 
+    if constexpr (std::is_same_v<T, float>) {
+        {
+            std::array<T, 4> values;
+            auto v3 = -v2;
+            v3.store(values);
+            for (int i = 0; i < 4; i++)
+                ASSERT_EQ_T(values[i], (T)(-4 - i));
+        }
+
+        {
+            std::array<T, 4> values;
+            auto v3 = -v2;
+            auto v4 = v3.abs();
+            v3.store(values);
+            for (int i = 0; i < 4; i++)
+                ASSERT_EQ_T(values[i], (T)(4 + i));
+        }
+    }
+
     {
         std::array<T, 4> values;
         std::array<T, 4> values1;
@@ -127,14 +146,66 @@ void simd4Tests()
             ASSERT_EQ_T(values[i], (4 + i) >> 2);
     }
 
+    // Test bitwise operations
     if constexpr (std::is_same_v<T, uint32_t>) {
-        simd::_vec4<uint32_t, S> mask(0xFF, 0x0F, 0xF0, 0x0);
-        simd::_vec4<uint32_t, S> source(123, 0xF3, 0xDD, 0xFFFFFFFF);
-        std::array<uint32_t, 4> expectedResults = { 123, 0x3, 0xD0, 0x0 };
-        std::array<T, 4> values;
-        (source & mask).store(values);
-        for (int i = 0; i < 4; i++)
-            ASSERT_EQ_T(values[i], expectedResults[i]);
+        // Bitwise AND
+        {
+            simd::_vec4<uint32_t, S> mask(0xFF, 0x0F, 0xF0, 0b000110);
+            simd::_vec4<uint32_t, S> source(123, 0xF3, 0xDD, 0b101100);
+            std::array<uint32_t, 4> expectedResults = { 255, 255, 253, 0b101110 };
+            std::array<T, 4> values;
+            (source & mask).store(values);
+            for (int i = 0; i < 4; i++)
+                ASSERT_EQ_T(values[i], expectedResults[i]);
+        }
+
+        // Bitwise OR
+        {
+            simd::_vec4<uint32_t, S> mask(0xFF, 0x0F, 0xF0, 0x0);
+            simd::_vec4<uint32_t, S> source(123, 0xF3, 0xDD, 0xFFFFFFFF);
+            std::array<uint32_t, 4> expectedResults = { 123, 0x3, 0xD0, 0x0 };
+            std::array<T, 4> values;
+            (source & mask).store(values);
+            for (int i = 0; i < 4; i++)
+                ASSERT_EQ_T(values[i], expectedResults[i]);
+        }
+
+        // Bitwise XOR
+        {
+            simd::_vec4<uint32_t, S> mask(0xFF, 0x0F, 0xF0, 0x0);
+            simd::_vec4<uint32_t, S> source(123, 0xF3, 0xDD, 0xFFFFFFFF);
+            std::array<uint32_t, 4> expectedResults = { 132, 252, 45, 4294967295 };
+            std::array<T, 4> values;
+            (source & mask).store(values);
+            for (int i = 0; i < 4; i++)
+                ASSERT_EQ_T(values[i], expectedResults[i]);
+        }
+    }
+
+    // Test reinterpret casts
+    {
+        std::array<uint32_t, 4> source = { 0, 236454, 258348, 892333 };
+        std::array<float, 4> dest;
+
+        simd::_vec4<uint32_t, S> v1;
+        v1.load(source);
+        simd::_vec4<float, S> v2 = simd::intBitsToFloat(v1);
+        v2.store(dest);
+
+        static_assert(sizeof(float) == sizeof(uint32_t));
+        std::memcmp(source.data(), dest.data(), 4 * sizeof(float));
+    }
+    {
+        std::array<float, 4> source = { 0, 236454, 258348, 892333 };
+        std::array<uint32_t, 4> dest;
+
+        simd::_vec4<float, S> v1;
+        v1.load(source);
+        simd::_vec4<uint32_t, S> v2 = simd::floatBitsToInt(v1);
+        v2.store(dest);
+
+        static_assert(sizeof(float) == sizeof(uint32_t));
+        std::memcmp(source.data(), dest.data(), 4 * sizeof(uint32_t));
     }
 
     {

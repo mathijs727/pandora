@@ -23,18 +23,13 @@ public:
     virtual void render(const PerspectiveCamera& camera) = 0;
 
 protected:
-    using InsertHandle = typename InCoreAccelerationStructure<IntegratorState>::InsertHandle;
-    virtual void rayHit(const Ray& r, SurfaceInteraction si, const IntegratorState& s, const InsertHandle& h) = 0;
+    virtual void rayHit(const Ray& r, SurfaceInteraction si, const IntegratorState& s) = 0;
     virtual void rayAnyHit(const Ray& r, const IntegratorState& s) = 0;
     virtual void rayMiss(const Ray& r, const IntegratorState& s) = 0;
 
 protected:
     const Scene& m_scene;
-
     AccelerationStructure<IntegratorState> m_accelerationStructure;
-    //InCoreAccelerationStructure<IntegratorState> m_accelerationStructure;
-    //InCoreBatchingAccelerationStructure<IntegratorState> m_accelerationStructure;
-    //OOCBatchingAccelerationStructure<IntegratorState, LRUCache> m_accelerationStructure;
 
     Sensor& m_sensor;
 };
@@ -44,8 +39,8 @@ inline Integrator<IntegratorState>::Integrator(const Scene& scene, Sensor& senso
     : m_scene(scene)
     , m_accelerationStructure(
           scene,
-          [this](const Ray& r, const SurfaceInteraction& si, const IntegratorState& s, const InsertHandle& h) {
-              rayHit(r, si, s, h);
+          [this](const Ray& r, const SurfaceInteraction& si, const IntegratorState& s) {
+              rayHit(r, si, s);
           },
           [this](const Ray& r, const IntegratorState& s) {
               rayAnyHit(r, s);

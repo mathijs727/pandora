@@ -14,18 +14,7 @@ TEST(Triangle, Intersect1)
     std::vector<glm::ivec3> triangles = { glm::ivec3(0, 1, 2) };
     std::vector<glm::vec3> positions = { glm::vec3(-2, 0, 0), glm::vec3(0, 2, 0), glm::vec3(2, 0, 0) };
 
-    auto trianglesPtr = std::make_unique<glm::ivec3[]>(triangles.size());
-    auto positionsPtr = std::make_unique<glm::vec3[]>(positions.size());
-#if MSVC
-	// Prevent MSVC from nagging about unsafe copy
-	std::copy(std::begin(triangles), std::end(triangles), stdext::checked_array_iterator<glm::ivec3*>(trianglesPtr.get(), triangles.size()));
-	std::copy(std::begin(positions), std::end(positions), stdext::checked_array_iterator<glm::vec3*>(positionsPtr.get(), positions.size()));
-#else
-    std::copy(std::begin(triangles), std::end(triangles), trianglesPtr.get());
-    std::copy(std::begin(positions), std::end(positions), positionsPtr.get());
-#endif
-
-    TriangleMesh mesh((unsigned)triangles.size(), (unsigned)positions.size(), std::move(trianglesPtr), std::move(positionsPtr), nullptr, nullptr, nullptr);
+    TriangleMesh mesh(std::move(triangles), std::move(positions), {}, {}, {});
     {
         Ray ray = Ray(glm::vec3(0, 0, -1), glm::vec3(0, 0, 1));
         RayHit rayHit;
@@ -59,18 +48,7 @@ TEST(Triangle, AreaCorrect)
     std::vector<glm::ivec3> triangles = { glm::ivec3(0, 1, 2) };
     std::vector<glm::vec3> positions = { glm::vec3(-2, 0, 0), glm::vec3(0, 0, 2), glm::vec3(2, 0, 0) };
 
-    auto trianglesPtr = std::make_unique<glm::ivec3[]>(triangles.size());
-    auto positionsPtr = std::make_unique<glm::vec3[]>(positions.size());
-#if MSVC
-	// Prevent MSVC from nagging about unsafe copy
-	std::copy(std::begin(triangles), std::end(triangles), stdext::checked_array_iterator<glm::ivec3*>(trianglesPtr.get(), triangles.size()));
-	std::copy(std::begin(positions), std::end(positions), stdext::checked_array_iterator<glm::vec3*>(positionsPtr.get(), positions.size()));
-#else
-	std::copy(std::begin(triangles), std::end(triangles), trianglesPtr.get());
-	std::copy(std::begin(positions), std::end(positions), positionsPtr.get());
-#endif
-
-    TriangleMesh mesh((unsigned)triangles.size(), (unsigned)positions.size(), std::move(trianglesPtr), std::move(positionsPtr), nullptr, nullptr, nullptr);
+    TriangleMesh mesh(std::move(triangles), std::move(positions), {}, {}, {});
 
     float scanLine = 1.0f;
     int totalSampleCount = 0;
@@ -94,18 +72,7 @@ TEST(Triangle, Sample)
 		positions.push_back(glm::vec3(sampler.get1D(), sampler.get1D(), sampler.get1D()));
 	}
 
-    auto trianglesPtr = std::make_unique<glm::ivec3[]>(triangles.size());
-    auto positionsPtr = std::make_unique<glm::vec3[]>(positions.size());
-#if MSVC
-	// Prevent MSVC from nagging about unsafe copy
-	std::copy(std::begin(triangles), std::end(triangles), stdext::checked_array_iterator<glm::ivec3*>(trianglesPtr.get(), triangles.size()));
-	std::copy(std::begin(positions), std::end(positions), stdext::checked_array_iterator<glm::vec3*>(positionsPtr.get(), positions.size()));
-#else
-	std::copy(std::begin(triangles), std::end(triangles), trianglesPtr.get());
-	std::copy(std::begin(positions), std::end(positions), positionsPtr.get());
-#endif
-
-    TriangleMesh mesh((unsigned)triangles.size(), (unsigned)positions.size(), std::move(trianglesPtr), std::move(positionsPtr), nullptr, nullptr, nullptr);
+    TriangleMesh mesh(std::move(triangles), std::move(positions), {}, {}, {});
 
 	for (int p = 0; p < 2; p++)
 	{
@@ -129,18 +96,7 @@ TEST(Triangle, SampleFromReference)
 		positions.push_back(glm::vec3(sampler.get1D(), sampler.get1D(), sampler.get1D()));
 	}
 
-	auto trianglesPtr = std::make_unique<glm::ivec3[]>(triangles.size());
-	auto positionsPtr = std::make_unique<glm::vec3[]>(positions.size());
-#if MSVC
-	// Prevent MSVC from nagging about unsafe copy
-	std::copy(std::begin(triangles), std::end(triangles), stdext::checked_array_iterator<glm::ivec3*>(trianglesPtr.get(), triangles.size()));
-	std::copy(std::begin(positions), std::end(positions), stdext::checked_array_iterator<glm::vec3*>(positionsPtr.get(), positions.size()));
-#else
-	std::copy(std::begin(triangles), std::end(triangles), trianglesPtr.get());
-	std::copy(std::begin(positions), std::end(positions), positionsPtr.get());
-#endif
-
-	TriangleMesh mesh((unsigned)triangles.size(), (unsigned)positions.size(), std::move(trianglesPtr), std::move(positionsPtr), nullptr, nullptr, nullptr);
+    TriangleMesh mesh(std::move(triangles), std::move(positions), {}, {}, {});
 
 	Interaction ref;
 	ref.position = glm::vec3(-23, 45, 34);

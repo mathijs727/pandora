@@ -5,6 +5,7 @@
 #include "pandora/core/scene.h"
 #include "pandora/core/stats.h"
 #include "pandora/eviction/evictable.h"
+#include "pandora/flatbuffers/ooc_batching2_generated.h"
 #include "pandora/flatbuffers/ooc_batching_generated.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/scene/geometric_scene_object.h"
@@ -13,7 +14,9 @@
 #include "pandora/svo/voxel_grid.h"
 #include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
+#include "pandora/utility/file_batcher.h"
 #include "pandora/utility/growing_free_list_ts.h"
+#include <algorithm>
 #include <atomic>
 #include <filesystem>
 #include <gsl/gsl>
@@ -21,9 +24,11 @@
 #include <mutex>
 #include <numeric>
 #include <optional>
+#include <random>
 #include <string>
 #include <tbb/concurrent_vector.h>
 #include <tbb/enumerable_thread_specific.h>
+#include <tbb/concurrent_queue.h>
 #include <tbb/flow_graph.h>
 #include <tbb/mutex.h>
 #include <tbb/parallel_for_each.h>
@@ -31,16 +36,7 @@
 #include <tbb/scalable_allocator.h>
 #include <tbb/task_group.h>
 #include <thread>
-
-// For file I/O
-#ifdef __linux__
-#include <cstring>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <unistd.h>
-#endif
+#include <unordered_set>
 
 using namespace std::string_literals;
 
@@ -56,11 +52,13 @@ static const std::filesystem::path OUT_OF_CORE_CACHE_FOLDER(STR(D_OUT_OF_CORE_CA
 static const std::filesystem::path OUT_OF_CORE_CACHE_FOLDER("ooc_node_cache/");
 #endif
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize = 32>
+template <typename UserState, size_t BlockSize = 32>
 class OOCBatchingAccelerationStructure {
 public:
+    constexpr static bool recurseTillCompletion = false; // Rays are batched, so paths are not traced untill completion
+
     using InsertHandle = void*;
-    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&, const InsertHandle&)>;
+    using HitCallback = std::function<void(const Ray&, const SurfaceInteraction&, const UserState&)>;
     using AnyHitCallback = std::function<void(const Ray&, const UserState&)>;
     using MissCallback = std::function<void(const Ray&, const UserState&)>;
 
@@ -70,21 +68,25 @@ public:
         HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback);
     ~OOCBatchingAccelerationStructure() = default;
 
-    void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
-    void placeIntersectAnyRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData, const InsertHandle& insertHandle = nullptr);
+    // Ignore missing rays to prevent stack overflows
+    bool placeIntersectRequestReturnOnMiss(const Ray& ray, const UserState& userState);
+
+    void placeIntersectRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData);
+    void placeIntersectAnyRequests(gsl::span<const Ray> rays, gsl::span<const UserState> perRayUserData);
 
     void flush();
 
 private:
-    struct RayBatch {
+    struct RayBlock {
     public:
-        RayBatch(RayBatch* nextPtr = nullptr)
+        RayBlock(RayBlock* nextPtr = nullptr)
             : m_nextPtr(nextPtr)
         {
         }
-        void setNext(RayBatch* nextPtr) { m_nextPtr = nextPtr; }
-        RayBatch* next() { return m_nextPtr; }
-        const RayBatch* next() const { return m_nextPtr; }
+        void setNext(RayBlock* nextPtr) { m_nextPtr = nextPtr; }
+        RayBlock* next() { return m_nextPtr; }
+        const RayBlock* next() const { return m_nextPtr; }
+        bool empty() const { return m_data.empty(); }
         bool full() const { return m_data.full(); }
 
         bool tryPush(const Ray& ray, const RayHit& rayHit, const UserState& state, const PauseableBVHInsertHandle& insertHandle);
@@ -109,7 +111,7 @@ private:
             using pointer = value_type*;
             using reference = value_type&;
 
-            explicit iterator(RayBatch* batch, size_t index);
+            explicit iterator(RayBlock* block, size_t index);
             iterator& operator++(); // pre-increment
             iterator operator++(int); // post-increment
             bool operator==(iterator other) const;
@@ -117,7 +119,7 @@ private:
             value_type operator*();
 
         private:
-            RayBatch* m_rayBatch;
+            RayBlock* m_rayBlock;
             size_t m_index;
         };
 
@@ -125,17 +127,17 @@ private:
         const iterator end();
 
     private:
-        // NOTE: using a std::array here is expensive because the default constructor of all items will be called when the batch is created
-        // The larger the batches, the more expensive this becomes
-        struct BatchItem {
-            BatchItem(const Ray& ray, const UserState& userState, const PauseableBVHInsertHandle& insertHandle)
+        // NOTE: using a std::array here is expensive because the default constructor of all items will be called when the block is created
+        // The larger the blocks, the more expensive this becomes
+        struct BlockItem {
+            BlockItem(const Ray& ray, const UserState& userState, const PauseableBVHInsertHandle& insertHandle)
                 : ray(ray)
                 , hitInfo({})
                 , userState(userState)
                 , insertHandle(insertHandle)
             {
             }
-            BatchItem(const Ray& ray, const RayHit& hitInfo, const UserState& userState, const PauseableBVHInsertHandle& insertHandle)
+            BlockItem(const Ray& ray, const RayHit& hitInfo, const UserState& userState, const PauseableBVHInsertHandle& insertHandle)
                 : ray(ray)
                 , hitInfo(hitInfo)
                 , userState(userState)
@@ -147,9 +149,9 @@ private:
             UserState userState;
             PauseableBVHInsertHandle insertHandle;
         };
-        eastl::fixed_vector<BatchItem, BatchSize> m_data;
+        eastl::fixed_vector<BlockItem, BlockSize> m_data;
 
-        RayBatch* m_nextPtr;
+        RayBlock* m_nextPtr;
     };
 
     class BotLevelLeafNodeInstanced {
@@ -188,84 +190,100 @@ private:
         std::variant<Regular, Instance> m_data;
     };
 
+    //using CachedInstanceData = std::pair<std::shared_ptr<GeometricSceneObjectGeometry>, std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>>;
+    struct CachedInstanceData {
+        size_t sizeBytes() const
+        {
+            return sizeof(decltype(*this)) + geometry->sizeBytes() + bvh->sizeBytes();
+        }
+
+        std::shared_ptr<GeometricSceneObjectGeometry> geometry;
+        std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>> bvh;
+    };
+    struct CachedBlockingPoint {
+        size_t sizeBytes() const
+        {
+            size_t size = sizeof(decltype(*this));
+            size += geometrySize;
+            size += leafBVH.sizeBytes();
+            size += geometryOwningPointers.size() * sizeof(typename decltype(geometryOwningPointers)::value_type);
+            return size;
+        }
+
+        size_t geometrySize = 0; // Simply iterating over geometryOwningPointers is incorrect because we would count instanced geometry multiple times
+        WiVeBVH8Build8<BotLevelLeafNode> leafBVH;
+        std::vector<std::shared_ptr<SceneObjectGeometry>> geometryOwningPointers;
+    };
+    using MyCacheT = CacheT<CachedInstanceData, CachedBlockingPoint>;
+
     class TopLevelLeafNode {
     public:
-        struct GeometryData {
-            size_t sizeBytes() const
-            {
-                size_t size = sizeof(decltype(*this));
-                size += leafBVH.sizeBytes();
-                size += geometrySize;
-                return size;
-            }
-
-            size_t geometrySize = 0; // Simply iterating over geometryOwningPointers is incorrect because we would count instanced geometry multiple times
-            WiVeBVH8Build8<BotLevelLeafNode> leafBVH;
-            std::vector<std::shared_ptr<SceneObjectGeometry>> geometryOwningPointers;
-        };
-
         TopLevelLeafNode(
-            std::filesystem::path cacheFile,
+            DiskDataBatcher& outputWriter,
             gsl::span<const OOCSceneObject*> sceneObjects,
-            Cache<GeometryData>* geometryCache,
-            OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr);
+            const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CachedInstanceData, MyCacheT>>& serializedInstanceBaseSceneObject,
+            MyCacheT* geometryCache,
+            OOCBatchingAccelerationStructure<UserState, BlockSize>* accelerationStructurePtr);
         TopLevelLeafNode(TopLevelLeafNode&& other);
 
         Bounds getBounds() const;
 
-        std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
-        std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Batches rays. This function is thread safe.
+        std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Blocks rays. This function is thread safe.
+        std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const; // Blocks rays. This function is thread safe.
 
+        void forceLoad() { m_accelerationStructurePtr->m_geometryCache.template getBlocking<CachedBlockingPoint>(m_geometryDataCacheID); }
         bool inCache() const { return m_accelerationStructurePtr->m_geometryCache.inCache(m_geometryDataCacheID); }
-        bool hasFullBatches() { return m_immutableRayBatchList.load() != nullptr; }
-        bool forwardPartiallyFilledBatches(); // Adds the active batches to the list of immutable batches (even if they are not full)
+        bool hasBatchedRays() { return !m_immutableRayBlockList.empty(); }
+        bool forwardPartiallyFilledBlocks(); // Adds the active blocks to the list of immutable blocks (even if they are not full)
         // Flush a whole range of nodes at a time as opposed to a non-static flush member function which would require a
         // separate tbb flow graph for each node that is processed.
-        static void flushRange(
+        static bool flushRange(
             gsl::span<TopLevelLeafNode*> nodes,
-            OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr);
+            OOCBatchingAccelerationStructure<UserState, BlockSize>* accelerationStructurePtr);
 
         static void compressSVDAGs(gsl::span<TopLevelLeafNode*> nodes);
 
         size_t sizeBytes() const;
-        size_t diskSizeBytes() const;
 
     private:
         static EvictableResourceID generateCachedBVH(
-            std::filesystem::path cacheFile,
+            DiskDataBatcher& outputWriter,
             gsl::span<const OOCSceneObject*> sceneObjects,
-            Cache<GeometryData>* cache);
+            const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CachedInstanceData, MyCacheT>>& serializedInstanceBaseSceneObject,
+            MyCacheT* cache);
+        static Bounds computeBounds(gsl::span<const OOCSceneObject*> sceneObjects);
 
         struct SVDAGRayOffset {
             glm::vec3 gridBoundsMin;
+            glm::vec3 gridBoundsExtent;
             glm::vec3 invGridBoundsExtent;
         };
         static std::pair<SparseVoxelDAG, SVDAGRayOffset> computeSVDAG(gsl::span<const OOCSceneObject*> sceneObjects);
 
     private:
-        EvictableResourceID m_geometryDataCacheID;
-        std::vector<const OOCSceneObject*> m_sceneObjects;
-        const size_t m_diskSize;
+        const EvictableResourceID m_geometryDataCacheID;
+        const Bounds m_bounds;
 
-        std::atomic_int m_numFullBatches;
-        tbb::enumerable_thread_specific<RayBatch*> m_threadLocalActiveBatch;
-        std::atomic<RayBatch*> m_immutableRayBatchList;
-        OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* m_accelerationStructurePtr;
+        tbb::enumerable_thread_specific<RayBlock*> m_threadLocalActiveBlock;
+        //std::atomic_int m_numFullBlocks;
+        //std::atomic<RayBlock*> m_immutableRayBlockList;
+        tbb::concurrent_queue<RayBlock*> m_immutableRayBlockList;
+        OOCBatchingAccelerationStructure<UserState, BlockSize>* m_accelerationStructurePtr;
 
         std::pair<SparseVoxelDAG, SVDAGRayOffset> m_svdagAndTransform;
     };
 
     static PauseableBVH4<TopLevelLeafNode, UserState> buildBVH(
-        Cache<typename TopLevelLeafNode::GeometryData>* cache,
+        MyCacheT* cache,
         const Scene& scene,
-        OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr);
+        OOCBatchingAccelerationStructure<UserState, BlockSize>* accelerationStructurePtr);
 
 private:
     const int m_numLoadingThreads;
-    Cache<typename TopLevelLeafNode::GeometryData> m_geometryCache;
+    MyCacheT m_geometryCache;
 
-    GrowingFreeListTS<RayBatch> m_batchAllocator;
-    //tbb::scalable_allocator<RayBatch> m_batchAllocator;
+    GrowingFreeListTS<RayBlock> m_blockAllocator;
+    //tbb::scalable_allocator<RayBlock> m_blockAllocator;
 
     PauseableBVH4<TopLevelLeafNode, UserState> m_bvh;
 
@@ -274,8 +292,8 @@ private:
     MissCallback m_missCallback;
 };
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::OOCBatchingAccelerationStructure(
+template <typename UserState, size_t BlockSize>
+inline OOCBatchingAccelerationStructure<UserState, BlockSize>::OOCBatchingAccelerationStructure(
     const Scene& scene,
     HitCallback hitCallback, AnyHitCallback anyHitCallback, MissCallback missCallback)
     : m_numLoadingThreads(2 * std::thread::hardware_concurrency())
@@ -284,13 +302,13 @@ inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::OOCBatchin
           m_numLoadingThreads,
           [](size_t bytes) { g_stats.memory.botLevelLoaded += bytes; },
           [](size_t bytes) { g_stats.memory.botLevelEvicted += bytes; })
-    , m_batchAllocator()
+    , m_blockAllocator()
     , m_bvh(std::move(buildBVH(&m_geometryCache, scene, this)))
     , m_hitCallback(hitCallback)
     , m_anyHitCallback(anyHitCallback)
     , m_missCallback(missCallback)
 {
-    // Clean the scenes geometry cache because it won't be used anymore. The batches recreate the geometry
+    // Clean the scenes geometry cache because it won't be used anymore. The blocks recreate the geometry
     // and use their own cache to manage it.
     scene.geometryCache()->evictAllUnsafe();
 
@@ -300,13 +318,29 @@ inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::OOCBatchin
     }
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::placeIntersectRequests(
-    gsl::span<const Ray> rays,
-    gsl::span<const UserState> perRayUserData,
-    const InsertHandle& insertHandle)
+template <typename UserState, size_t BlockSize>
+inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::placeIntersectRequestReturnOnMiss(
+    const Ray& ray,
+    const UserState& userState)
 {
-    (void)insertHandle;
+    RayHit rayHit;
+    Ray mutRay = ray; // Copy so we can mutate it
+
+    auto optResult = m_bvh.intersect(mutRay, rayHit, userState);
+    if (optResult && *optResult == false) {
+        // If we get a result directly it must be because we missed the scene
+        m_missCallback(ray, userState);
+        return false;
+    } else {
+        return true;
+    }
+}
+
+template <typename UserState, size_t BlockSize>
+inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::placeIntersectRequests(
+    gsl::span<const Ray> rays,
+    gsl::span<const UserState> perRayUserData)
+{
     assert(perRayUserData.size() == rays.size());
 
     for (int i = 0; i < rays.size(); i++) {
@@ -322,13 +356,11 @@ inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::place
     }
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::placeIntersectAnyRequests(
+template <typename UserState, size_t BlockSize>
+inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::placeIntersectAnyRequests(
     gsl::span<const Ray> rays,
-    gsl::span<const UserState> perRayUserData,
-    const InsertHandle& insertHandle)
+    gsl::span<const UserState> perRayUserData)
 {
-    (void)insertHandle;
     assert(perRayUserData.size() == rays.size());
 
     for (int i = 0; i < rays.size(); i++) {
@@ -343,11 +375,11 @@ inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::place
     }
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode, UserState> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::buildBVH(
-    Cache<typename TopLevelLeafNode::GeometryData>* cache,
+template <typename UserState, size_t BlockSize>
+inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode, UserState> OOCBatchingAccelerationStructure<UserState, BlockSize>::buildBVH(
+    MyCacheT* cache,
     const Scene& scene,
-    OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr)
+    OOCBatchingAccelerationStructure<UserState, BlockSize>* accelerationStructurePtr)
 {
     if (!std::filesystem::exists(OUT_OF_CORE_CACHE_FOLDER)) {
         std::cout << "Create cache folder: " << OUT_OF_CORE_CACHE_FOLDER << std::endl;
@@ -355,83 +387,22 @@ inline PauseableBVH4<typename OOCBatchingAccelerationStructure<UserState, Cache,
     }
     ALWAYS_ASSERT(std::filesystem::is_directory(OUT_OF_CORE_CACHE_FOLDER));
 
-    auto sceneObjectGroups = scene.groupOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF);
+    std::cout << "Building BVHs for all instanced geometry and storing them to disk\n";
 
-    std::mutex m;
-    std::vector<TopLevelLeafNode> leafs;
-    tbb::parallel_for(tbb::blocked_range<size_t>(0llu, sceneObjectGroups.size()), [&](tbb::blocked_range<size_t> localRange) {
-        for (size_t i = localRange.begin(); i < localRange.end(); i++) {
-            std::filesystem::path cacheFile = OUT_OF_CORE_CACHE_FOLDER / ("node"s + std::to_string(i) + ".bin"s);
-            TopLevelLeafNode leaf(cacheFile, sceneObjectGroups[i], cache, accelerationStructurePtr);
-            {
-                std::scoped_lock<std::mutex> l(m);
-                leafs.push_back(std::move(leaf));
-            }
-        }
-    });
-
-    g_stats.numTopLevelLeafNodes += leafs.size();
-
-    auto ret = PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
-    TopLevelLeafNode::compressSVDAGs(ret.leafs());
-    return std::move(ret);
-}
-
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(
-    std::filesystem::path cacheFile,
-    gsl::span<const OOCSceneObject*> sceneObjects,
-    Cache<GeometryData>* geometryCache,
-    OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructure)
-    : m_geometryDataCacheID(generateCachedBVH(cacheFile, sceneObjects, geometryCache))
-    , m_diskSize(std::filesystem::file_size(cacheFile))
-    , m_numFullBatches(0)
-    , m_threadLocalActiveBatch([]() { return nullptr; })
-    , m_immutableRayBatchList(nullptr)
-    , m_accelerationStructurePtr(accelerationStructure)
-    , m_svdagAndTransform(computeSVDAG(sceneObjects))
-{
-    m_sceneObjects.insert(std::end(m_sceneObjects), std::begin(sceneObjects), std::end(sceneObjects));
-}
-
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::TopLevelLeafNode(TopLevelLeafNode&& other)
-    : m_geometryDataCacheID(other.m_geometryDataCacheID)
-    , m_sceneObjects(std::move(other.m_sceneObjects))
-    , m_diskSize(other.m_diskSize)
-    , m_numFullBatches(other.m_numFullBatches.load())
-    , m_threadLocalActiveBatch(std::move(other.m_threadLocalActiveBatch))
-    , m_immutableRayBatchList(other.m_immutableRayBatchList.load())
-    , m_accelerationStructurePtr(other.m_accelerationStructurePtr)
-    , m_svdagAndTransform(std::move(other.m_svdagAndTransform))
-{
-}
-
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::generateCachedBVH(
-    std::filesystem::path cacheFilePath,
-    gsl::span<const OOCSceneObject*> sceneObjects,
-    Cache<GeometryData>* cache)
-{
-    // Collect the list of [unique] geometric scene objects that are referenced by instanced scene objects
-    std::set<const OOCGeometricSceneObject*> instancedBaseObjects;
-    for (const auto* sceneObject : sceneObjects) {
+    // Collect scene objects that are referenced by instanced scene objects.
+    std::unordered_set<const OOCGeometricSceneObject*> instancedBaseSceneObjects;
+    for (const auto* sceneObject : scene.getOOCSceneObjects()) {
         if (const auto* instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(sceneObject)) {
-            instancedBaseObjects.insert(instancedSceneObject->getBaseObject());
+            instancedBaseSceneObjects.insert(instancedSceneObject->getBaseObject());
         }
     }
 
-    flatbuffers::FlatBufferBuilder fbb;
-
-    // Used for serialization to index into the list of instance base objects
-    std::unordered_map<const OOCGeometricSceneObject*, uint32_t> instanceBaseObjectIDs;
-    std::vector<flatbuffers::Offset<serialization::GeometricSceneObjectGeometry>> serializedInstanceBaseGeometry;
-    std::vector<flatbuffers::Offset<serialization::WiVeBVH8>> serializedInstanceBaseBVHs;
-
-    // Build BVHs for instanced scene objects
-    std::unordered_map<const OOCGeometricSceneObject*, std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>> instancedBVHs;
-    for (const auto* instancedGeometricSceneObject : instancedBaseObjects) {
-        auto geometry = instancedGeometricSceneObject->getGeometryBlocking();
+    // For each of those objects build a BVH and store the object+BVH on disk
+    DiskDataBatcher fileBatcher(OUT_OF_CORE_CACHE_FOLDER, "instanced_object", 500 * 1024 * 1024); // Block instanced geometry into files of 500MB
+    std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CachedInstanceData, MyCacheT>> instancedBVHs;
+    int instanceBaseFileNum = 0;
+    for (const auto* instancedBaseSceneObject : instancedBaseSceneObjects) { // TODO: parallelize
+        auto geometry = instancedBaseSceneObject->getGeometryBlocking();
 
         std::vector<BotLevelLeafNodeInstanced> leafs;
         leafs.reserve(geometry->numPrimitives());
@@ -441,15 +412,106 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
 
         // NOTE: the "geometry" variable ensures that the geometry pointed to stays in memory for the BVH build
         //       (which requires the geometry to determine the leaf node bounds).
-        auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>(leafs);
-        instancedBVHs[instancedGeometricSceneObject] = bvh;
+        WiVeBVH8Build8<BotLevelLeafNodeInstanced> bvh(leafs);
 
+        // Serialize
+        flatbuffers::FlatBufferBuilder fbb;
         const auto* rawGeometry = dynamic_cast<const GeometricSceneObjectGeometry*>(geometry.get());
-        instanceBaseObjectIDs[instancedGeometricSceneObject] = static_cast<uint32_t>(serializedInstanceBaseGeometry.size());
-        serializedInstanceBaseGeometry.push_back(rawGeometry->serialize(fbb));
-        serializedInstanceBaseBVHs.push_back(bvh->serialize(fbb));
-    }
+        ALWAYS_ASSERT(rawGeometry != nullptr);
+        auto serializedGeometry = rawGeometry->serialize(fbb);
+        auto serializedBVH = bvh.serialize(fbb);
+        auto serializedBaseSceneObject = serialization::CreateOOCBatchingBaseSceneObject(
+            fbb,
+            serializedGeometry,
+            serializedBVH);
+        fbb.Finish(serializedBaseSceneObject);
 
+        // Write to disk
+        auto filePart = fileBatcher.writeData(fbb);
+
+        // Callback to restore the data we have just written to disk
+        auto resourceID = cache->template emplaceFactoryThreadSafe<CachedInstanceData>([filePart]() -> CachedInstanceData {
+            g_stats.memory.oocTotalDiskRead += filePart.size;
+            auto buffer = filePart.load();
+            auto serializedBaseSceneObject = serialization::GetOOCBatchingBaseSceneObject(buffer.data());
+            auto geometry = std::make_shared<GeometricSceneObjectGeometry>(serializedBaseSceneObject->base_geometry());
+
+            std::vector<BotLevelLeafNodeInstanced> leafs;
+            leafs.reserve(geometry->numPrimitives());
+            for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
+                leafs.push_back(BotLevelLeafNodeInstanced(geometry.get(), primitiveID));
+            }
+
+            auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>(serializedBaseSceneObject->bvh(), std::move(leafs));
+            return CachedInstanceData { geometry, bvh };
+        });
+        instancedBVHs.insert({ instancedBaseSceneObject, EvictableResourceHandle<CachedInstanceData, MyCacheT>(cache, resourceID) });
+    }
+    fileBatcher.flush();
+
+    std::cout << "Creating scene object groups" << std::endl;
+    auto sceneObjectGroups = scene.groupOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF);
+
+    std::cout << "Creating leaf nodes" << std::endl;
+    // Use disk batcher (for code reuse) with a file size limit of 0 so that it creates a new file every time.
+    DiskDataBatcher nodeCacheDiskBatcher(OUT_OF_CORE_CACHE_FOLDER, "node", 0);
+    std::mutex m;
+    std::vector<TopLevelLeafNode> leafs;
+    tbb::parallel_for(tbb::blocked_range<size_t>(0llu, sceneObjectGroups.size()), [&](tbb::blocked_range<size_t> localRange) {
+        for (size_t i = localRange.begin(); i < localRange.end(); i++) {
+            TopLevelLeafNode leaf(nodeCacheDiskBatcher, sceneObjectGroups[i], instancedBVHs, cache, accelerationStructurePtr);
+            {
+                std::scoped_lock<std::mutex> l(m);
+                leafs.push_back(std::move(leaf));
+            }
+        }
+    });
+
+    g_stats.numTopLevelLeafNodes = static_cast<int>(leafs.size());
+
+    std::cout << "Building top-level BVH \n";
+    auto ret = PauseableBVH4<TopLevelLeafNode, UserState>(leafs);
+    TopLevelLeafNode::compressSVDAGs(ret.leafs());
+    return std::move(ret);
+}
+
+template <typename UserState, size_t BlockSize>
+inline OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::TopLevelLeafNode(
+    DiskDataBatcher& diskDataBatcher,
+    gsl::span<const OOCSceneObject*> sceneObjects,
+    const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CachedInstanceData, MyCacheT>>& baseSceneObjectCacheHandles,
+    MyCacheT* geometryCache,
+    OOCBatchingAccelerationStructure<UserState, BlockSize>* accelerationStructure)
+    : m_geometryDataCacheID(generateCachedBVH(diskDataBatcher, sceneObjects, baseSceneObjectCacheHandles, geometryCache))
+    , m_bounds(computeBounds(sceneObjects))
+    , m_threadLocalActiveBlock([]() { return nullptr; })
+    //, m_numFullBlocks(0)
+    //, m_immutableRayBlockList(nullptr)
+    , m_accelerationStructurePtr(accelerationStructure)
+    , m_svdagAndTransform(computeSVDAG(sceneObjects))
+{
+}
+
+template <typename UserState, size_t BlockSize>
+inline OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::TopLevelLeafNode(TopLevelLeafNode&& other)
+    : m_geometryDataCacheID(other.m_geometryDataCacheID)
+    , m_bounds(std::move(other.m_bounds))
+    , m_threadLocalActiveBlock(std::move(other.m_threadLocalActiveBlock))
+    //, m_numFullBlocks(other.m_numFullBlocks.load())
+    //, m_immutableRayBlockList(other.m_immutableRayBlockList.load())
+    , m_accelerationStructurePtr(other.m_accelerationStructurePtr)
+    , m_svdagAndTransform(std::move(other.m_svdagAndTransform))
+{
+}
+
+template <typename UserState, size_t BlockSize>
+inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::generateCachedBVH(
+    DiskDataBatcher& diskDataBatcher,
+    gsl::span<const OOCSceneObject*> sceneObjects,
+    const std::unordered_map<const OOCGeometricSceneObject*, EvictableResourceHandle<CachedInstanceData, MyCacheT>>& instanceBaseSceneObjectHandleMapping,
+    MyCacheT* cache)
+{
+    flatbuffers::FlatBufferBuilder fbb;
     std::vector<flatbuffers::Offset<serialization::GeometricSceneObjectGeometry>> serializedUniqueGeometry;
     std::vector<flatbuffers::Offset<serialization::InstancedSceneObjectGeometry>> serializedInstancedGeometry;
 
@@ -460,7 +522,7 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
     std::vector<BotLevelLeafNode> leafs;
     std::vector<const OOCGeometricSceneObject*> geometricSceneObjects;
     std::vector<const OOCInstancedSceneObject*> instancedSceneObjects;
-    std::vector<unsigned> serializedInstancedSceneObjectBaseIDs;
+    std::vector<EvictableResourceHandle<CachedInstanceData, MyCacheT>> instanceBaseResourceHandles; // ResourceID into the cache to load an instanced base scene object
     for (const auto* sceneObject : sceneObjects) {
         if (const auto* geometricSceneObject = dynamic_cast<const OOCGeometricSceneObject*>(sceneObject)) {
             // Serialize
@@ -480,116 +542,57 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
     }
     for (const auto* sceneObject : sceneObjects) {
         if (const auto* instancedSceneObject = dynamic_cast<const OOCInstancedSceneObject*>(sceneObject)) {
-            // Serialize
-            std::shared_ptr<SceneObjectGeometry> geometryOwningPointer = instancedSceneObject->getGeometryBlocking();
-            const auto* geometry = dynamic_cast<const InstancedSceneObjectGeometry*>(geometryOwningPointer.get());
-            unsigned baseGeometryID = instanceBaseObjectIDs[instancedSceneObject->getBaseObject()];
-            serializedInstancedSceneObjectBaseIDs.push_back(baseGeometryID);
-            serializedInstancedGeometry.push_back(
-                geometry->serialize(fbb));
-            instancedSceneObjects.push_back(instancedSceneObject);
+            const auto* baseObject = instancedSceneObject->getBaseObject();
+            assert(instanceBaseSceneObjectHandleMapping.find(baseObject) != instanceBaseSceneObjectHandleMapping.end());
+
+            // Remember how to construct the base object geometry
+            instanceBaseResourceHandles.push_back(instanceBaseSceneObjectHandleMapping.find(baseObject)->second);
+
+            // Store the instancing geometry (which does not store the base object geometry but relies on us to do so)
+            auto dummyGeometry = instancedSceneObject->getDummyGeometryBlocking();
+            serializedInstancedGeometry.push_back(dummyGeometry.serialize(fbb));
 
             // Create bot-level node
-            auto bvh = instancedBVHs[instancedSceneObject->getBaseObject()];
-            leafs.push_back(BotLevelLeafNode(instancedSceneObject, geometryOwningPointer, bvh));
-
-            geometryOwningPointers.emplace_back(geometryOwningPointer);
+            leafs.push_back(BotLevelLeafNode(instancedSceneObject, nullptr, nullptr)); // No need to load the underlying geometry & BVH
+            instancedSceneObjects.push_back(instancedSceneObject);
         }
     }
 
+    // Build a BVH over all leafs
     WiVeBVH8Build8<BotLevelLeafNode> bvh(leafs);
     auto serializedBVH = bvh.serialize(fbb);
 
-    // Don't write if it only exists,
+    // Combine the serialized geometric scene objects, instanced scene objects (transform only, no geometry) and bvh
+    //  into a single object.
     auto serializedTopLevelLeafNode = serialization::CreateOOCBatchingTopLevelLeafNode(
         fbb,
         fbb.CreateVector(serializedUniqueGeometry),
-        fbb.CreateVector(serializedInstanceBaseGeometry),
-        fbb.CreateVector(serializedInstanceBaseBVHs),
-        fbb.CreateVector(serializedInstancedSceneObjectBaseIDs),
         fbb.CreateVector(serializedInstancedGeometry),
         serializedBVH,
         static_cast<uint32_t>(leafs.size()));
     fbb.Finish(serializedTopLevelLeafNode);
 
-    g_stats.memory.botLevelTotalSize += fbb.GetSize();
+    // Write the serialized representation to disk
+    auto filePart = diskDataBatcher.writeData(fbb);
 
-    // Re-use existing cache files and prevent unnecessary writes (reduces SSD lifespan)
-    if (!std::filesystem::exists(cacheFilePath)) {
-        std::ofstream file;
-        file.open(cacheFilePath, std::ios::out | std::ios::binary | std::ios::trunc);
-        file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
-        file.close();
-    }
-
-    auto resourceID = cache->emplaceFactoryThreadSafe([cacheFilePath, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects)]() -> GeometryData {
-#ifdef __linux__
-        // Linux does not support O_DIRECT in combination with memory mapped I/O (meaning we cannot bypass the
-        // OS file cache). So instead we use posix I/O on Linux giving us the option to bypass the file cache at
-        // the cost of an extra allocation & copy.
-        int flags = O_RDONLY;
-        if constexpr (OUT_OF_CORE_DISABLE_FILE_CACHING) {
-            flags |= O_DIRECT;
-        }
-        auto filedesc = open(cacheFilePath.string().c_str(), flags);
-        ALWAYS_ASSERT(filedesc >= 0);
-
-        constexpr int alignment = 512; // Block size
-        size_t fileSize = std::filesystem::file_size(cacheFilePath);
-        size_t r = fileSize % alignment;
-        size_t bufferSize = r ? fileSize - r + alignment : fileSize;
-
-        auto deleter = [](char* ptr) {
-            free(ptr);
-        };
-        std::unique_ptr<char[], decltype(deleter)> buffer((char*)aligned_alloc(alignment, bufferSize), deleter);
-        ALWAYS_ASSERT(read(filedesc, buffer.get(), bufferSize) >= 0);
-        close(filedesc);
-
-        auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(buffer.get());
-
-        /*std::ifstream file(cacheFilePath, std::ios::binary | std::ios::ate);
-        assert(file.is_open());
-        auto pos = file.tellg();
-        
-        auto chars = std::make_unique<char[]>(pos);
-        file.seekg(0, std::ios::beg);
-        file.read(chars.get(), pos);
-        file.close();
-
-        auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(chars.get());*/
-#else
-        int fileFlags = OUT_OF_CORE_DISABLE_FILE_CACHING ? mio::access_flags::no_buffering : 0;
-        auto mmapFile = mio::mmap_source(cacheFilePath.string(), 0, mio::map_entire_file, fileFlags);
-        auto serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(mmapFile.data());
-#endif
-
-        const auto* serializedInstanceBaseBVHs = serializedTopLevelLeafNode->instance_base_bvh();
-        const auto* serializedInstanceBaseGeometry = serializedTopLevelLeafNode->instance_base_geometry();
+    auto resourceID = cache->template emplaceFactoryThreadSafe<CachedBlockingPoint>([filePart, geometricSceneObjects = std::move(geometricSceneObjects), instancedSceneObjects = std::move(instancedSceneObjects),
+                                                                                        instanceBaseResourceHandles = std::move(instanceBaseResourceHandles)]() -> CachedBlockingPoint {
+        g_stats.memory.oocTotalDiskRead += filePart.size;
+        auto buffer = filePart.load(); // Needs to stay alive as long as serializedTopLevelLeafNode exists
+        const auto* serializedTopLevelLeafNode = serialization::GetOOCBatchingTopLevelLeafNode(buffer.data());
 
         size_t geometrySize = 0;
         std::vector<std::shared_ptr<SceneObjectGeometry>> geometryOwningPointers;
 
         // Load geometry/BVH of geometric nodes that are referenced by instancing nodes
-        std::vector<std::pair<const GeometricSceneObjectGeometry*, std::shared_ptr<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>>> instanceBaseObjects;
-        for (unsigned i = 0; i < serializedInstanceBaseBVHs->size(); i++) {
-            auto geometry = std::make_shared<GeometricSceneObjectGeometry>(serializedInstanceBaseGeometry->Get(i));
-
-            std::vector<BotLevelLeafNodeInstanced> leafs;
-            leafs.reserve(geometry->numPrimitives());
-            for (unsigned primitiveID = 0; primitiveID < geometry->numPrimitives(); primitiveID++) {
-                leafs.push_back(BotLevelLeafNodeInstanced(geometry.get(), primitiveID));
-            }
-
-            auto bvh = std::make_shared<WiVeBVH8Build8<BotLevelLeafNodeInstanced>>(serializedInstanceBaseBVHs->Get(i), std::move(leafs));
-            instanceBaseObjects.push_back({ geometry.get(), bvh });
-
-            // The BVH leaf nodes point directly to geometry so we should keep them alive (they point to the same mesh though)
-            geometrySize += geometry->sizeBytes();
-            geometryOwningPointers.emplace_back(std::move(geometry));
+        assert(instancedSceneObjects.size() == instanceBaseResourceHandles.size());
+        std::vector<std::shared_ptr<CachedInstanceData>> instanceBaseObjects;
+        for (const auto resourceHandle : instanceBaseResourceHandles) {
+            std::shared_ptr<CachedInstanceData> cachedInstanceBaseData = resourceHandle.getBlocking();
+            instanceBaseObjects.push_back(cachedInstanceBaseData);
         }
 
-        // Load unique geometry
+        // Load unique geometric scene objects
         const auto* serializedUniqueGeometry = serializedTopLevelLeafNode->unique_geometry();
         const auto* serializedInstancedGeometry = serializedTopLevelLeafNode->instanced_geometry();
         std::vector<BotLevelLeafNode> leafs;
@@ -605,22 +608,26 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
             geometryOwningPointers.emplace_back(std::move(geometry));
         }
 
-        // Load instanced geometry
-        const auto* serializedInstancedIDs = serializedTopLevelLeafNode->instanced_ids();
-        for (unsigned i = 0; i < instancedSceneObjects.size(); i++) {
-            auto geometryBaseID = serializedInstancedIDs->Get(i);
-            const auto& [baseGeometry, baseBVH] = instanceBaseObjects[geometryBaseID];
+        // Load instanced scene objects
+        assert(instanceBaseObjects.size() == serializedInstancedGeometry->Length());
+        for (size_t i = 0; i < instanceBaseObjects.size(); i++) {
+            const auto& [baseGeometry, baseBVH] = *instanceBaseObjects[i];
+
+            // Make sure to count the instance geometry class itself towards the memory limit. Although the base objects (the objects
+            // being pointed to) are already accounted for (they are stored in the cache separately), we need to make sure that we do
+            // count the instance objects themselves (because of the transform class, they are actually quite big).
+            geometrySize += sizeof(InstancedSceneObjectGeometry);
 
             auto geometry = std::make_shared<InstancedSceneObjectGeometry>(
-                serializedInstancedGeometry->Get(i),
-                std::make_unique<GeometricSceneObjectGeometry>(*baseGeometry));
+                serializedInstancedGeometry->Get(static_cast<flatbuffers::uoffset_t>(i)),
+                baseGeometry);
             leafs.push_back(BotLevelLeafNode(instancedSceneObjects[i], geometry, baseBVH));
 
             geometryOwningPointers.emplace_back(std::move(geometry));
         }
 
         auto bvh = WiVeBVH8Build8<BotLevelLeafNode>(serializedTopLevelLeafNode->bvh(), std::move(leafs));
-        return GeometryData {
+        return CachedBlockingPoint {
             geometrySize,
             std::move(bvh),
             std::move(geometryOwningPointers)
@@ -629,8 +636,19 @@ inline EvictableResourceID OOCBatchingAccelerationStructure<UserState, Cache, Ba
     return resourceID;
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline std::pair<SparseVoxelDAG, typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::SVDAGRayOffset> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::computeSVDAG(gsl::span<const OOCSceneObject*> sceneObjects)
+template <typename UserState, size_t BlockSize>
+inline Bounds OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::computeBounds(
+    gsl::span<const OOCSceneObject*> sceneObjects)
+{
+    Bounds ret;
+    for (const auto* sceneObject : sceneObjects) {
+        ret.extend(sceneObject->worldBounds());
+    }
+    return ret;
+}
+
+template <typename UserState, size_t BlockSize>
+inline std::pair<SparseVoxelDAG, typename OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::SVDAGRayOffset> OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::computeSVDAG(gsl::span<const OOCSceneObject*> sceneObjects)
 {
     Bounds gridBounds;
     for (const auto* sceneObject : sceneObjects) {
@@ -646,302 +664,346 @@ inline std::pair<SparseVoxelDAG, typename OOCBatchingAccelerationStructure<UserS
     // SVO is at (1, 1, 1) to (2, 2, 2)
     float maxDim = maxComponent(gridBounds.extent());
 
+    // SVDAG compression occurs after all top level leaf nodes have been created
     SparseVoxelDAG svdag(voxelGrid);
-    // NOTE: the svdags are already being compressed together. Compressing here too will cost more compute power but will reduce memory usage.
-    /*{
-        std::vector svdags = { &svdag };
-        compressDAGs(svdags);
-    }*/
-    return { std::move(svdag), SVDAGRayOffset { gridBounds.min, glm::vec3(1.0f / maxDim) } };
+    return { std::move(svdag), SVDAGRayOffset { gridBounds.min, glm::vec3(maxDim), glm::vec3(1.0f / maxDim) } };
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline Bounds OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::getBounds() const
+template <typename UserState, size_t BlockSize>
+inline Bounds OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::getBounds() const
 {
-    Bounds ret;
-    for (const auto* sceneObject : m_sceneObjects) {
-        ret.extend(sceneObject->worldBounds());
-    }
-    return ret;
+    return m_bounds;
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::intersect(
+template <typename UserState, size_t BlockSize>
+inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::intersect(
     Ray& ray,
     RayHit& hitInfo,
     const UserState& userState,
     PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
-        //auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        if constexpr (ENABLE_ADDITIONAL_STATISTICS) {
+            auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+            g_stats.svdag.numIntersectionTests += 1;
 
-        const auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
-        auto svdagRay = ray;
-        svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
-        auto tOpt = svdag.intersectScalar(svdagRay);
-        if (!tOpt)
-            return false; // Missed, continue traversal
+            const auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
+            auto svdagRay = ray;
+            svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
+            auto tOpt = svdag.intersectScalar(svdagRay);
+            if (tOpt) {
+                glm::vec3 intersectionSVDAGSpace = (svdagRay.origin + *tOpt * svdagRay.direction);
+                glm::vec3 intersection = svdagRayOffset.gridBoundsMin + svdagRayOffset.gridBoundsExtent * (intersectionSVDAGSpace - glm::vec3(1.0f));
+                if (glm::dot(intersection - ray.origin, intersection - ray.origin) > ray.tfar * ray.tfar) {
+                    g_stats.svdag.numRaysCulled++;
+                    return false; // Intersection behind tfar
+                }
+            } else {
+                g_stats.svdag.numRaysCulled++;
+                return false;
+            }
+        } else {
+            const auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
+            auto svdagRay = ray;
+            svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
+            auto tOpt = svdag.intersectScalar(svdagRay);
+            if (tOpt) {
+                glm::vec3 intersectionSVDAGSpace = (svdagRay.origin + *tOpt * svdagRay.direction);
+                glm::vec3 intersection = svdagRayOffset.gridBoundsMin + svdagRayOffset.gridBoundsExtent * (intersectionSVDAGSpace - glm::vec3(1.0f));
+                if (glm::dot(intersection - ray.origin, intersection - ray.origin) > ray.tfar * ray.tfar) {
+                    return false; // Intersection behind tfar
+                }
+            } else {
+                return false;
+            }
+        }
     }
 
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
-    RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
-    if (!batch || batch->full()) {
-        if (batch) {
-            // Batch was full, move it to the list of immutable batches
-            auto* oldHead = mutThisPtr->m_immutableRayBatchList.load();
+    RayBlock* block = mutThisPtr->m_threadLocalActiveBlock.local();
+    if (!block || block->full()) {
+        if (block) {
+            /*// Block was full, move it to the list of immutable blocks
+            auto* oldHead = mutThisPtr->m_immutableRayBlockList.load();
             do {
-                batch->setNext(oldHead);
-            } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
+                block->setNext(oldHead);
+            } while (!mutThisPtr->m_immutableRayBlockList.compare_exchange_weak(oldHead, block));
+            mutThisPtr->m_numFullBlocks.fetch_add(1);*/
 
-            mutThisPtr->m_numFullBatches.fetch_add(1);
+            mutThisPtr->m_immutableRayBlockList.push(block);
         }
 
-        // Allocate a new batch and set it as the new active batch
-        auto* mem = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
-        batch = new (mem) RayBatch();
-        mutThisPtr->m_threadLocalActiveBatch.local() = batch;
+        // Allocate a new block and set it as the new active block
+        auto* mem = mutThisPtr->m_accelerationStructurePtr->m_blockAllocator.allocate();
+        block = new (mem) RayBlock();
+        mutThisPtr->m_threadLocalActiveBlock.local() = block;
     }
 
-    bool success = batch->tryPush(ray, hitInfo, userState, insertHandle);
+    bool success = block->tryPush(ray, hitInfo, userState, insertHandle);
     assert(success);
 
     return {}; // Paused
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
+template <typename UserState, size_t BlockSize>
+inline std::optional<bool> OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertHandle) const
 {
     if constexpr (OUT_OF_CORE_OCCLUSION_CULLING) {
-        //if (!inCache()) {
-        {
-            //auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        if constexpr (ENABLE_ADDITIONAL_STATISTICS) {
+            auto scopedTimings = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+            g_stats.svdag.numIntersectionTests++;
 
             auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
             auto svdagRay = ray;
             svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
             auto tOpt = svdag.intersectScalar(svdagRay);
-            if (!tOpt)
-                return false; // Missed, continue traversal
+            if (tOpt) {
+                glm::vec3 intersectionSVDAGSpace = (svdagRay.origin + *tOpt * svdagRay.direction);
+                glm::vec3 intersection = svdagRayOffset.gridBoundsMin + svdagRayOffset.gridBoundsExtent * (intersectionSVDAGSpace - glm::vec3(1.0f));
+                if (glm::dot(intersection - ray.origin, intersection - ray.origin) > ray.tfar * ray.tfar) {
+                    g_stats.svdag.numRaysCulled++;
+                    return false; // Intersection behind tfar
+                }
+            } else {
+                g_stats.svdag.numRaysCulled++;
+                return false;
+            }
+        } else {
+            auto& [svdag, svdagRayOffset] = m_svdagAndTransform;
+            auto svdagRay = ray;
+            svdagRay.origin = glm::vec3(1.0f) + (svdagRayOffset.invGridBoundsExtent * (ray.origin - svdagRayOffset.gridBoundsMin));
+            auto tOpt = svdag.intersectScalar(svdagRay);
+            if (tOpt) {
+                glm::vec3 intersectionSVDAGSpace = (svdagRay.origin + *tOpt * svdagRay.direction);
+                glm::vec3 intersection = svdagRayOffset.gridBoundsMin + svdagRayOffset.gridBoundsExtent * (intersectionSVDAGSpace - glm::vec3(1.0f));
+                if (glm::dot(intersection - ray.origin, intersection - ray.origin) > ray.tfar * ray.tfar) {
+                    return false; // Intersection behind tfar
+                }
+            } else {
+                return false;
+            }
         }
     }
 
     auto* mutThisPtr = const_cast<TopLevelLeafNode*>(this);
 
-    RayBatch* batch = mutThisPtr->m_threadLocalActiveBatch.local();
-    if (!batch || batch->full()) {
-        if (batch) {
-            // Batch was full, move it to the list of immutable batches
-            auto* oldHead = mutThisPtr->m_immutableRayBatchList.load();
+    RayBlock* block = mutThisPtr->m_threadLocalActiveBlock.local();
+    if (!block || block->full()) {
+        if (block) {
+            /*// Block was full, move it to the list of immutable blocks
+            auto* oldHead = mutThisPtr->m_immutableRayBlockList.load();
             do {
-                batch->setNext(oldHead);
-            } while (!mutThisPtr->m_immutableRayBatchList.compare_exchange_weak(oldHead, batch));
+                block->setNext(oldHead);
+            } while (!mutThisPtr->m_immutableRayBlockList.compare_exchange_weak(oldHead, block));
+            mutThisPtr->m_numFullBlocks.fetch_add(1);*/
 
-            mutThisPtr->m_numFullBatches.fetch_add(1);
+            mutThisPtr->m_immutableRayBlockList.push(block);
         }
 
-        // Allocate a new batch and set it as the new active batch
-        auto* mem = mutThisPtr->m_accelerationStructurePtr->m_batchAllocator.allocate();
-        batch = new (mem) RayBatch();
-        mutThisPtr->m_threadLocalActiveBatch.local() = batch;
+        // Allocate a new block and set it as the new active block
+        auto* mem = mutThisPtr->m_accelerationStructurePtr->m_blockAllocator.allocate();
+        block = new (mem) RayBlock();
+        mutThisPtr->m_threadLocalActiveBlock.local() = block;
     }
 
-    bool success = batch->tryPush(ray, userState, insertHandle);
+    bool success = block->tryPush(ray, userState, insertHandle);
     assert(success);
 
     return {}; // Paused
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::forwardPartiallyFilledBatches()
+template <typename UserState, size_t BlockSize>
+inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::forwardPartiallyFilledBlocks()
 {
-    bool forwardedBatches = false;
+    //OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock* outBlock = m_immutableRayBlockList;
 
-    OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch* outBatch = m_immutableRayBatchList;
-    for (auto& batch : m_threadLocalActiveBatch) {
-        if (batch) {
-            for (const auto& [ray, hitInfoOpt, userState, insertHandle] : *batch) {
-                if (!outBatch || outBatch->full()) {
-                    auto* mem = m_accelerationStructurePtr->m_batchAllocator.allocate();
-                    auto* newBatch = new (mem) RayBatch();
+    auto* mem = m_accelerationStructurePtr->m_blockAllocator.allocate();
+    auto* outBlock = new (mem) RayBlock();
 
-                    newBatch->setNext(outBatch);
-                    outBatch = newBatch;
-                    m_numFullBatches.fetch_add(1);
+    bool forwardedSomething = false;
+    for (auto& block : m_threadLocalActiveBlock) {
+        if (block) {
+            for (const auto& [ray, hitInfoOpt, userState, insertHandle] : *block) {
+                if (outBlock->full()) {
+                    m_immutableRayBlockList.push(outBlock);
+
+                    auto* mem = m_accelerationStructurePtr->m_blockAllocator.allocate();
+                    outBlock = new (mem) RayBlock();
+                    /*auto* mem = m_accelerationStructurePtr->m_blockAllocator.allocate();
+                    auto* newBlock = new (mem) RayBlock();
+
+                    newBlock->setNext(outBlock);
+                    outBlock = newBlock;
+                    m_numFullBlocks.fetch_add(1);*/
                 }
 
                 if (hitInfoOpt) {
-                    outBatch->tryPush(ray, *hitInfoOpt, userState, insertHandle);
+                    outBlock->tryPush(ray, *hitInfoOpt, userState, insertHandle);
                 } else {
-                    outBatch->tryPush(ray, userState, insertHandle);
+                    outBlock->tryPush(ray, userState, insertHandle);
                 }
+                forwardedSomething = true;
             }
 
-            m_accelerationStructurePtr->m_batchAllocator.deallocate(batch);
-            forwardedBatches = true;
+            m_accelerationStructurePtr->m_blockAllocator.deallocate(block);
+            block = nullptr; // Reset thread-local block
         }
-        batch = nullptr; // Reset thread-local batch
     }
-    m_immutableRayBatchList = outBatch;
 
-    return forwardedBatches;
+    if (!outBlock->empty()) {
+        m_immutableRayBlockList.push(outBlock);
+    } else {
+        m_accelerationStructurePtr->m_blockAllocator.deallocate(outBlock);
+    }
+
+    return forwardedSomething;
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::flush()
+template <typename UserState, size_t BlockSize>
+inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::flush()
 {
     int i = 0;
     while (true) {
         std::cout << "FLUSHING " << (i++) << std::endl;
-        TopLevelLeafNode::flushRange(m_bvh.leafs(), this);
 
         bool done = true;
         for (auto* node : m_bvh.leafs()) {
-            done = done && !node->hasFullBatches();
-            done = done && !node->forwardPartiallyFilledBatches();
+            done = done && !node->hasBatchedRays();
+
+            // Put this in a separate variable because doing the following will only execute when done is false:
+            // done = done && !forwardedBlocks()
+            bool forwardedBlocks = node->forwardPartiallyFilledBlocks();
+            done = done && !forwardedBlocks;
         }
 
         if (done)
+            break;
+
+        if (!TopLevelLeafNode::flushRange(m_bvh.leafs(), this))
             break;
     }
 
     std::cout << "FLUSH COMPLETE" << std::endl;
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::flushRange(
+template <typename UserState, size_t BlockSize>
+bool OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::flushRange(
     gsl::span<TopLevelLeafNode*> nodes,
-    OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>* accelerationStructurePtr)
+    OOCBatchingAccelerationStructure<UserState, BlockSize>* accelerationStructurePtr)
 {
     const size_t hwConcurrency = std::thread::hardware_concurrency();
     const size_t cacheConcurrency = accelerationStructurePtr->m_numLoadingThreads;
     const size_t flowConcurrency = 2 * cacheConcurrency;
 
-    std::vector<TopLevelLeafNode*> cachedNodes;
-    std::vector<TopLevelLeafNode*> nonCachedNodes;
-    std::copy_if(std::begin(nodes), std::end(nodes), std::back_inserter(cachedNodes), [](TopLevelLeafNode* n) {
-        return n->hasFullBatches() && n->inCache();
-    });
-    std::copy_if(std::begin(nodes), std::end(nodes), std::back_inserter(nonCachedNodes), [](TopLevelLeafNode* n) {
-        return n->hasFullBatches() && !n->inCache();
+    std::vector<TopLevelLeafNode*> nodesWithBatchedRays;
+    std::copy_if(std::begin(nodes), std::end(nodes), std::back_inserter(nodesWithBatchedRays), [](TopLevelLeafNode* n) {
+        return n->hasBatchedRays();
     });
 
-    std::sort(std::begin(cachedNodes), std::end(cachedNodes), [](const auto* node1, const auto* node2) {
-        return node1->m_numFullBatches.load() > node2->m_numFullBatches.load(); // Sort from big to small
-    });
-    std::sort(std::begin(nonCachedNodes), std::end(nonCachedNodes), [](const auto* node1, const auto* node2) {
-        return node1->m_numFullBatches.load() > node2->m_numFullBatches.load(); // Sort from big to small
-    });
+    std::cout << "Number of nodes with batched rays: " << nodesWithBatchedRays.size() << "\n";
 
-    // Only flush nodes that have a lot of flushed batches, wait for other nodes for their batches to fill up.
-    const int maxFullBatchesCached = cachedNodes.empty() ? 0 : cachedNodes[0]->m_numFullBatches.load();
-    const int maxFullBatchesNonCached = nonCachedNodes.empty() ? 0 : nonCachedNodes[0]->m_numFullBatches.load();
-    //const int batchesThreshold = std::max(maxFullBatchesCached, maxFullBatchesNonCached) / 8;
-    const int batchesThreshold = maxFullBatchesNonCached / 8;
+    // Select the top 25% of the batching points (in terms of batched rays)
+    auto partitionPoint = nodesWithBatchedRays.size() / 4 * 3;
+    std::nth_element(
+        std::begin(nodesWithBatchedRays),
+        std::begin(nodesWithBatchedRays) + partitionPoint,
+        std::end(nodesWithBatchedRays),
+        [](const auto* node1, const auto* node2) {
+            return node1->m_immutableRayBlockList.unsafe_size() < node2->m_immutableRayBlockList.unsafe_size(); // Ascending order
+        });
 
+    // Pick 10% of the remaining nodes randomly so that rays reaching a batching point with a low probability are also flushed once in a while
+    auto startPoint = partitionPoint - partitionPoint / 10;
+    std::random_device randomDevice;
+    std::mt19937 randomGen { randomDevice() };
+    std::shuffle(
+        std::begin(nodesWithBatchedRays) + startPoint,
+        std::begin(nodesWithBatchedRays) + partitionPoint,
+        randomGen);
+
+    // Shuffle the nodes that are to be processed so that the work is divided more evenly (compared to starting with the smallest nodes and working our way up)
+    std::shuffle(
+        std::begin(nodesWithBatchedRays) + startPoint,
+        std::end(nodesWithBatchedRays),
+        randomGen);
+
+    std::mutex flushInfoMutex;
+    RenderStats::FlushInfo& flushInfo = g_stats.flushInfos.emplace_back();
+    flushInfo.approximateRaysInSystem = 0;
+    for (const auto* node : nodesWithBatchedRays)// TODO: replace this with std::transform_reduce when gcc/stdlib (finally) supports full C++17
+        flushInfo.approximateRaysInSystem += node->m_immutableRayBlockList.unsafe_size() * BlockSize;
+    flushInfo.numBatchingPointsWithRays = static_cast<int>(nodesWithBatchedRays.size());
+    auto scopedTimer = flushInfo.processingTime.getScopedStopwatch();
+
+    if (flushInfo.approximateRaysInSystem < CUTOFF_RAY_COUNT)
+        return false;
+
+    std::atomic_size_t currentNodeIndex = startPoint; // source_node is always run sequentially
+    using RayBatchWithoutGeom = std::pair<tbb::concurrent_queue<RayBlock*>*, EvictableResourceID>;
     tbb::flow::graph g;
-
-    //std::cout << "=====================" << std::endl;
-
-    // Generate a task for each top-level leaf node that is in cache OR has enough full batches
-    static constexpr float traversalCostPerRay = 1.0f; // Magic number based on CPU IPC & clock speed (ignore core count)
-    static constexpr float diskSpeedBytesPerSecond = 300.0f * 1000000.0f; // Disk speed in b/s
-    std::atomic_int traversalMargin = 0;
-
-    std::atomic_size_t cachedNodeIndex = 0; // source_node is always run sequentially
-    std::atomic_size_t nonCachedNodeIndex = 0;
-    using BatchWithoutGeom = std::pair<RayBatch*, EvictableResourceID>;
-    tbb::flow::source_node<BatchWithoutGeom> sourceNode(
+    tbb::flow::source_node<RayBatchWithoutGeom> sourceNode(
         g,
-        [&](BatchWithoutGeom& out) -> bool {
-            TopLevelLeafNode* node = nullptr;
-
-            /*const bool canDoNonCached = (nonCachedNodeIndex < nonCachedNodes.size() &&
-                nonCachedNodes[nonCachedNodeIndex]->m_numFullBatches.load() >= batchesThreshold);
-            if ((traversalMargin <= 0 || !canDoNonCached) && cachedNodeIndex < cachedNodes.size()) {
-                node = cachedNodes[cachedNodeIndex.fetch_add(1)];
-                const float traversalCost = node->m_numFullBatches.load() * BatchSize * traversalCostPerRay / hwConcurrency;
-                traversalMargin.fetch_add(static_cast<int>(traversalCost));
-            } else if (canDoNonCached) {
-                node = nonCachedNodes[nonCachedNodeIndex.fetch_add(1)];
-                const float loadCost = node->diskSizeBytes() / diskSpeedBytesPerSecond;
-                const float traversalCost = node->m_numFullBatches.load() * BatchSize * traversalCostPerRay / hwConcurrency;
-                const int nettoCost = static_cast<int>(loadCost - traversalCost);
-                traversalMargin.fetch_sub(nettoCost);
-            } else {
+        [&](RayBatchWithoutGeom& out) -> bool {
+            auto nodeIndex = currentNodeIndex.fetch_add(1);
+            if (nodeIndex >= nodesWithBatchedRays.size()) {
+                // All nodes processed
                 return false;
-            }*/
-
-            if (cachedNodeIndex != cachedNodes.size()) {
-                // Process nodes that are in cache first
-                node = cachedNodes[cachedNodeIndex.fetch_add(1)];
-            } else {
-                // Then process nodes that were not in cache AND have enough full batches
-                while (true) {
-                    // All nodes processed
-                    if (nonCachedNodeIndex == nonCachedNodes.size()) {
-                        return false;
-                    }
-
-                    node = nonCachedNodes[nonCachedNodeIndex.fetch_add(1)];
-                    if (node->m_numFullBatches.load() >= batchesThreshold) {
-                        break;
-                    }
-                }
             }
 
-            RayBatch* batch = node->m_immutableRayBatchList.exchange(nullptr);
-            node->m_numFullBatches.store(0);
-            out = { batch, node->m_geometryDataCacheID };
+            auto* node = nodesWithBatchedRays[nodeIndex];
+
+
+            {
+                std::scoped_lock l(flushInfoMutex);
+                flushInfo.approximateRaysPerFlushedBatchingPoint.push_back(node->m_immutableRayBlockList.unsafe_size() * BlockSize);
+            }
+
+            //RayBlock* block = node->m_immutableRayBlockList.exchange(nullptr);
+            //node->m_numFullBlocks.store(0);
+            out = { &node->m_immutableRayBlockList, node->m_geometryDataCacheID };
             return true;
         });
 
     // Prevent TBB from loading all items from the cache before starting traversal
-    tbb::flow::limiter_node<BatchWithoutGeom> flowLimiterNode(g, flowConcurrency);
+    tbb::flow::limiter_node<RayBatchWithoutGeom> flowLimiterNode(g, flowConcurrency);
 
     // For each of those leaf nodes, load the geometry (asynchronously)
-    auto cacheSubGraph = std::move(accelerationStructurePtr->m_geometryCache.template getFlowGraphNode<RayBatch*>(g));
+    auto cacheSubGraph = std::move(accelerationStructurePtr->m_geometryCache.template getFlowGraphNode<tbb::concurrent_queue<RayBlock*>*, CachedBlockingPoint>(g));
 
-    // Create a task for each batch associated with that leaf node (for increased parallelism)
-    using BatchWithGeom = std::pair<RayBatch*, std::shared_ptr<GeometryData>>;
-    using BatchWithGeomLimited = std::pair<std::pair<std::shared_ptr<std::atomic_int>, RayBatch*>, std::shared_ptr<GeometryData>>;
-    using BatchNodeType = tbb::flow::multifunction_node<BatchWithGeom, tbb::flow::tuple<BatchWithGeomLimited>>;
-    BatchNodeType batchNode(
+    // Create a task for each block associated with that leaf node (for increased parallelism)
+    using BatchWithGeom = std::pair<tbb::concurrent_queue<RayBlock*>*, std::shared_ptr<CachedBlockingPoint>>;
+    using BlockWithGeomLimited = std::pair<std::pair<std::shared_ptr<std::atomic_int>, RayBlock*>, std::shared_ptr<CachedBlockingPoint>>;
+    using BlockNodeType = tbb::flow::multifunction_node<BatchWithGeom, tbb::flow::tuple<BlockWithGeomLimited>>;
+    BlockNodeType blockNode(
         g,
         tbb::flow::unlimited,
-        [&](const BatchWithGeom& v, typename BatchNodeType::output_ports_type& op) {
-            auto [firstBatch, geometry] = v;
+        [&](const BatchWithGeom& v, typename BlockNodeType::output_ports_type& op) {
+            auto [blocksQueuePointer, geometry] = v;
 
-            // Count the number of batches
-            int numBatches = 0;
-            const auto* tmpBatch = firstBatch;
-            while (tmpBatch) {
-                numBatches++;
-                tmpBatch = tmpBatch->next();
-            }
-            if (numBatches == 0) {
-                return;
+            std::vector<RayBlock*> blocksToProcess;
+            RayBlock* block;
+            while (blocksQueuePointer->try_pop(block)) {
+                blocksToProcess.push_back(block);
             }
 
             // Flow limitter
-            auto unprocessedBatchesCounter = std::make_shared<std::atomic_int>(numBatches);
-            size_t raysProcessed = 0;
-            auto* batch = firstBatch;
-            while (batch) {
-                ALWAYS_ASSERT(std::get<0>(op).try_put({ { unprocessedBatchesCounter, batch }, geometry }));
-                batch = batch->next();
+            auto unprocessedBlocksCounter = std::make_shared<std::atomic_int>((int)blocksToProcess.size());
+            for (auto* block : blocksToProcess) {
+                bool success = std::get<0>(op).try_put({ { unprocessedBlocksCounter, block }, geometry });
+                ALWAYS_ASSERT(success);
             }
         });
 
-    using TraverseNodeType = tbb::flow::multifunction_node<BatchWithGeomLimited, tbb::flow::tuple<tbb::flow::continue_msg>>;
+    using TraverseNodeType = tbb::flow::multifunction_node<BlockWithGeomLimited, tbb::flow::tuple<tbb::flow::continue_msg>>;
     TraverseNodeType traversalNode(
         g,
         tbb::flow::unlimited,
-        [&](const BatchWithGeomLimited& v, typename TraverseNodeType::output_ports_type& op) {
-            auto [batchInfo, geometryData] = v;
-            auto [unprocessedBatchCounter, batch] = batchInfo;
+        [&](const BlockWithGeomLimited& v, typename TraverseNodeType::output_ports_type& op) {
+            auto [blockInfo, geometryData] = v;
+            auto [unprocessedBlockCounter, block] = blockInfo;
 
-            for (auto [ray, rayHitOpt, userState, insertHandle] : *batch) {
+            for (auto [ray, rayHitOpt, userState, insertHandle] : *block) {
                 // Intersect with the bottom-level BVH
                 if (rayHitOpt) {
                     RayHit& rayHit = *rayHitOpt;
@@ -951,7 +1013,7 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
                 }
             }
 
-            for (auto [ray, rayHitOpt, userState, insertHandle] : *batch) {
+            for (auto [ray, rayHitOpt, userState, insertHandle] : *block) {
                 if (rayHitOpt) {
                     // Insert the ray back into the top-level  BVH
                     auto optResult = accelerationStructurePtr->m_bvh.intersect(ray, *rayHitOpt, userState, insertHandle);
@@ -963,7 +1025,7 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
                             si.sceneObject = hitSceneObjectInfo.sceneObject;
                             auto material = hitSceneObjectInfo.sceneObject->getMaterialBlocking();
                             si.sceneObjectMaterial = material.get();
-                            accelerationStructurePtr->m_hitCallback(ray, si, userState, nullptr);
+                            accelerationStructurePtr->m_hitCallback(ray, si, userState);
                         } else {
                             accelerationStructurePtr->m_missCallback(ray, userState);
                         }
@@ -982,55 +1044,56 @@ void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeaf
                 }
             }
 
-            if (unprocessedBatchCounter->fetch_sub(1) == 1) {
-                ALWAYS_ASSERT(std::get<0>(op).try_put(tbb::flow::continue_msg()));
+            if (unprocessedBlockCounter->fetch_sub(1) == 1) {
+                auto success = std::get<0>(op).try_put(tbb::flow::continue_msg());
+                assert(success);
             }
 
-            accelerationStructurePtr->m_batchAllocator.deallocate(batch);
+            accelerationStructurePtr->m_blockAllocator.deallocate(block);
         });
 
     // NOTE: The source starts outputting as soon as an edge is connected.
     //       So make sure it is the last edge that we connect.
     cacheSubGraph.connectInput(flowLimiterNode);
-    cacheSubGraph.connectOutput(batchNode);
-    tbb::flow::make_edge(batchNode, traversalNode);
+    cacheSubGraph.connectOutput(blockNode);
+    tbb::flow::make_edge(blockNode, traversalNode);
     tbb::flow::make_edge(tbb::flow::output_port<0>(traversalNode), flowLimiterNode.decrement);
     tbb::flow::make_edge(sourceNode, flowLimiterNode);
     g.wait_for_all();
+
+    return true;
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline void OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::compressSVDAGs(gsl::span<TopLevelLeafNode*> nodes)
+template <typename UserState, size_t BlockSize>
+inline void OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::compressSVDAGs(gsl::span<TopLevelLeafNode*> nodes)
 {
     std::vector<SparseVoxelDAG*> dags;
     for (auto* node : nodes) {
         dags.push_back(&std::get<0>(node->m_svdagAndTransform));
     }
+    
+    for (auto* dag : dags) {
+        g_stats.memory.svdagsBeforeCompression += dag->sizeBytes();
+    }
+
     SparseVoxelDAG::compressDAGs(dags);
 
-    for (const auto* dag : dags) {
-        g_stats.memory.svdags += dag->sizeBytes();
+    for (auto* dag : dags) {
+        g_stats.memory.svdagsAfterCompression += dag->sizeBytes();
     }
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline size_t OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::sizeBytes() const
+template <typename UserState, size_t BlockSize>
+inline size_t OOCBatchingAccelerationStructure<UserState, BlockSize>::TopLevelLeafNode::sizeBytes() const
 {
     size_t size = sizeof(decltype(*this));
-    size += m_sceneObjects.capacity() * sizeof(const OOCSceneObject*);
-    size += m_threadLocalActiveBatch.size() * sizeof(RayBatch*);
+    size += m_threadLocalActiveBlock.size() * sizeof(RayBlock*);
     size += std::get<0>(m_svdagAndTransform).sizeBytes();
     return size;
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline size_t OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::TopLevelLeafNode::diskSizeBytes() const
-{
-    return m_diskSize;
-}
-
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNodeInstanced::BotLevelLeafNodeInstanced(
+template <typename UserState, size_t BlockSize>
+inline OOCBatchingAccelerationStructure<UserState, BlockSize>::BotLevelLeafNodeInstanced::BotLevelLeafNodeInstanced(
     const SceneObjectGeometry* baseSceneObjectGeometry,
     unsigned primitiveID)
     : m_baseSceneObjectGeometry(baseSceneObjectGeometry)
@@ -1038,21 +1101,20 @@ inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLe
 {
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline Bounds OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNodeInstanced::getBounds() const
+template <typename UserState, size_t BlockSize>
+inline Bounds OOCBatchingAccelerationStructure<UserState, BlockSize>::BotLevelLeafNodeInstanced::getBounds() const
 {
     return m_baseSceneObjectGeometry->worldBoundsPrimitive(m_primitiveID);
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNodeInstanced::intersect(Ray& ray, RayHit& hitInfo) const
+template <typename UserState, size_t BlockSize>
+inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::BotLevelLeafNodeInstanced::intersect(Ray& ray, RayHit& hitInfo) const
 {
-    auto ret = m_baseSceneObjectGeometry->intersectPrimitive(ray, hitInfo, m_primitiveID);
-    return ret;
+    return m_baseSceneObjectGeometry->intersectPrimitive(ray, hitInfo, m_primitiveID);
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNode::BotLevelLeafNode(
+template <typename UserState, size_t BlockSize>
+inline OOCBatchingAccelerationStructure<UserState, BlockSize>::BotLevelLeafNode::BotLevelLeafNode(
     const OOCGeometricSceneObject* sceneObject,
     const std::shared_ptr<SceneObjectGeometry>& sceneObjectGeometry,
     unsigned primitiveID)
@@ -1060,17 +1122,17 @@ inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLe
 {
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNode::BotLevelLeafNode(
+template <typename UserState, size_t BlockSize>
+inline OOCBatchingAccelerationStructure<UserState, BlockSize>::BotLevelLeafNode::BotLevelLeafNode(
     const OOCInstancedSceneObject* sceneObject,
     const std::shared_ptr<SceneObjectGeometry>& sceneObjectGeometry,
-    const std::shared_ptr<WiVeBVH8Build8<OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNodeInstanced>>& bvh)
+    const std::shared_ptr<WiVeBVH8Build8<OOCBatchingAccelerationStructure<UserState, BlockSize>::BotLevelLeafNodeInstanced>>& bvh)
     : m_data(Instance { sceneObject, sceneObjectGeometry, bvh })
 {
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline Bounds OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNode::getBounds() const
+template <typename UserState, size_t BlockSize>
+inline Bounds OOCBatchingAccelerationStructure<UserState, BlockSize>::BotLevelLeafNode::getBounds() const
 {
     if (std::holds_alternative<Regular>(m_data)) {
         const auto& data = std::get<Regular>(m_data);
@@ -1080,8 +1142,8 @@ inline Bounds OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::Bot
     }
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLevelLeafNode::intersect(Ray& ray, RayHit& hitInfo) const
+template <typename UserState, size_t BlockSize>
+inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::BotLevelLeafNode::intersect(Ray& ray, RayHit& hitInfo) const
 {
     if (std::holds_alternative<Regular>(m_data)) {
         const auto& data = std::get<Regular>(m_data);
@@ -1108,72 +1170,72 @@ inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::BotLe
     }
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::tryPush(const Ray& ray, const RayHit& rayHit, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
+template <typename UserState, size_t BlockSize>
+inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::tryPush(const Ray& ray, const RayHit& rayHit, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
     m_data.emplace_back(ray, rayHit, state, insertHandle);
     return true;
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::tryPush(const Ray& ray, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
+template <typename UserState, size_t BlockSize>
+inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::tryPush(const Ray& ray, const UserState& state, const PauseableBVHInsertHandle& insertHandle)
 {
     m_data.emplace_back(ray, state, insertHandle);
     return true;
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline const typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::begin()
+template <typename UserState, size_t BlockSize>
+inline const typename OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::begin()
 {
     return iterator(this, 0);
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline const typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::end()
+template <typename UserState, size_t BlockSize>
+inline const typename OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::end()
 {
     return iterator(this, m_data.size());
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::iterator(OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch* batch, size_t index)
-    : m_rayBatch(batch)
+template <typename UserState, size_t BlockSize>
+inline OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator::iterator(OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock* block, size_t index)
+    : m_rayBlock(block)
     , m_index(index)
 {
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator& OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::operator++()
+template <typename UserState, size_t BlockSize>
+inline typename OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator& OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator::operator++()
 {
     m_index++;
     return *this;
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::operator++(int)
+template <typename UserState, size_t BlockSize>
+inline typename OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator::operator++(int)
 {
     auto r = *this;
     m_index++;
     return r;
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::operator==(OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator other) const
+template <typename UserState, size_t BlockSize>
+inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator::operator==(OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator other) const
 {
-    assert(m_rayBatch == other.m_rayBatch);
+    assert(m_rayBlock == other.m_rayBlock);
     return m_index == other.m_index;
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline bool OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::operator!=(OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator other) const
+template <typename UserState, size_t BlockSize>
+inline bool OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator::operator!=(OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator other) const
 {
-    assert(m_rayBatch == other.m_rayBatch);
+    assert(m_rayBlock == other.m_rayBlock);
     return m_index != other.m_index;
 }
 
-template <typename UserState, template <typename T> typename Cache, size_t BatchSize>
-inline typename OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::value_type OOCBatchingAccelerationStructure<UserState, Cache, BatchSize>::RayBatch::iterator::operator*()
+template <typename UserState, size_t BlockSize>
+inline typename OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator::value_type OOCBatchingAccelerationStructure<UserState, BlockSize>::RayBlock::iterator::operator*()
 {
-    auto& [ray, rayHitOpt, userState, insertHandle] = m_rayBatch->m_data[m_index];
+    auto& [ray, rayHitOpt, userState, insertHandle] = m_rayBlock->m_data[m_index];
     return { ray, rayHitOpt, userState, insertHandle };
 }
 }

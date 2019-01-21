@@ -1,6 +1,8 @@
 #pragma once
-#include "glm/glm.hpp"
 #include <algorithm>
+#include <glm/glm.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/component_wise.hpp>
 
 namespace pandora {
 
@@ -92,43 +94,45 @@ inline float absDot(const glm::vec3& v0, const glm::vec3& v1)
 
 inline float minComponent(const glm::vec3& v)
 {
-    return std::min(v.x, std::min(v.y, v.z));
+    //return std::min(v.x, std::min(v.y, v.z));
+    return glm::compMin(v);
 }
 
 inline float maxComponent(const glm::vec3& v)
 {
-    return std::max(v.x, std::max(v.y, v.z));
+    //return std::max(v.x, std::max(v.y, v.z));
+    return glm::compMax(v);
 }
 
 inline int maxDimension(const glm::vec3& v)
 {
     if (v.x > v.y) {
-		if (v.x > v.z)
-			return 0;
-		else
-			return 2;
+        if (v.x > v.z)
+            return 0;
+        else
+            return 2;
     } else {
-		if (v.y > v.z)
-			return 1;
-		else
-			return 2;
+        if (v.y > v.z)
+            return 1;
+        else
+            return 2;
     }
 }
 
 template <typename T>
 inline int minDimension(const glm::vec<3, T>& v)
 {
-	if (v.x < v.y) {
-		if (v.x < v.z)
-			return 0;
-		else
-			return 2;
-	} else {
-		if (v.y < v.z)
-			return 1;
-		else
-			return 2;
-	}
+    if (v.x < v.y) {
+        if (v.x < v.z)
+            return 0;
+        else
+            return 2;
+    } else {
+        if (v.y < v.z)
+            return 1;
+        else
+            return 2;
+    }
 }
 
 inline glm::vec3 permute(const glm::vec3& p, int x, int y, int z)
@@ -138,99 +142,98 @@ inline glm::vec3 permute(const glm::vec3& p, int x, int y, int z)
 
 inline bool isPowerOf2(int n)
 {
-	// https://stackoverflow.com/questions/108318/whats-the-simplest-way-to-test-whether-a-number-is-a-power-of-2-in-c
-	return (n & (n - 1)) == 0;
+    // https://stackoverflow.com/questions/108318/whats-the-simplest-way-to-test-whether-a-number-is-a-power-of-2-in-c
+    return (n & (n - 1)) == 0;
 }
 
 inline int intLog2(int n)
 {
-	assert(isPowerOf2(n));
+    assert(isPowerOf2(n));
 
-	int shift = 0;
-	while ((n >> shift) != 0x1)
-	{
-		shift++;
-	}
+    int shift = 0;
+    while ((n >> shift) != 0x1) {
+        shift++;
+    }
 
-	return shift;
+    return shift;
 }
 
 // https://github.com/mmp/pbrt-v3/blob/aaecc9112522cf8a791a3ecb5e3efe716ce30793/src/core/pbrt.h
-inline float erfInv(float x) {
-	float w, p;
-	x = std::clamp(x, -.99999f, .99999f);
-	w = -std::log((1 - x) * (1 + x));
-	if (w < 5) {
-		w = w - 2.5f;
-		p = 2.81022636e-08f;
-		p = 3.43273939e-07f + p * w;
-		p = -3.5233877e-06f + p * w;
-		p = -4.39150654e-06f + p * w;
-		p = 0.00021858087f + p * w;
-		p = -0.00125372503f + p * w;
-		p = -0.00417768164f + p * w;
-		p = 0.246640727f + p * w;
-		p = 1.50140941f + p * w;
-	}
-	else {
-		w = std::sqrt(w) - 3;
-		p = -0.000200214257f;
-		p = 0.000100950558f + p * w;
-		p = 0.00134934322f + p * w;
-		p = -0.00367342844f + p * w;
-		p = 0.00573950773f + p * w;
-		p = -0.0076224613f + p * w;
-		p = 0.00943887047f + p * w;
-		p = 1.00167406f + p * w;
-		p = 2.83297682f + p * w;
-	}
-	return p * x;
+inline float erfInv(float x)
+{
+    float w, p;
+    x = std::clamp(x, -.99999f, .99999f);
+    w = -std::log((1 - x) * (1 + x));
+    if (w < 5) {
+        w = w - 2.5f;
+        p = 2.81022636e-08f;
+        p = 3.43273939e-07f + p * w;
+        p = -3.5233877e-06f + p * w;
+        p = -4.39150654e-06f + p * w;
+        p = 0.00021858087f + p * w;
+        p = -0.00125372503f + p * w;
+        p = -0.00417768164f + p * w;
+        p = 0.246640727f + p * w;
+        p = 1.50140941f + p * w;
+    } else {
+        w = std::sqrt(w) - 3;
+        p = -0.000200214257f;
+        p = 0.000100950558f + p * w;
+        p = 0.00134934322f + p * w;
+        p = -0.00367342844f + p * w;
+        p = 0.00573950773f + p * w;
+        p = -0.0076224613f + p * w;
+        p = 0.00943887047f + p * w;
+        p = 1.00167406f + p * w;
+        p = 2.83297682f + p * w;
+    }
+    return p * x;
 }
 
 // https://github.com/mmp/pbrt-v3/blob/aaecc9112522cf8a791a3ecb5e3efe716ce30793/src/core/pbrt.h
-inline float erf(float x) {
-	// constants
-	float a1 = 0.254829592f;
-	float a2 = -0.284496736f;
-	float a3 = 1.421413741f;
-	float a4 = -1.453152027f;
-	float a5 = 1.061405429f;
-	float p = 0.3275911f;
+inline float erf(float x)
+{
+    // constants
+    float a1 = 0.254829592f;
+    float a2 = -0.284496736f;
+    float a3 = 1.421413741f;
+    float a4 = -1.453152027f;
+    float a5 = 1.061405429f;
+    float p = 0.3275911f;
 
-	// Save the sign of x
-	int sign = 1;
-	if (x < 0) sign = -1;
-	x = std::abs(x);
+    // Save the sign of x
+    int sign = 1;
+    if (x < 0)
+        sign = -1;
+    x = std::abs(x);
 
-	// A&S formula 7.1.26
-	float t = 1 / (1 + p * x);
-	float y =
-		1 -
-		(((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * std::exp(-x * x);
+    // A&S formula 7.1.26
+    float t = 1 / (1 + p * x);
+    float y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * std::exp(-x * x);
 
-	return sign * y;
+    return sign * y;
 }
 
 inline int floatAsInt(float v)
 {
-	static_assert(sizeof(float) == sizeof(unsigned));
+    static_assert(sizeof(float) == sizeof(unsigned));
 
-	// Using reinterpret_cast might lead to undefined behavior because of illegal type aliasing, use memcpy instead
-	// https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing
-	unsigned r;
-	std::memcpy(&r, &v, sizeof(float));
-	return r;
+    // Using reinterpret_cast might lead to undefined behavior because of illegal type aliasing, use memcpy instead
+    // https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing
+    unsigned r;
+    std::memcpy(&r, &v, sizeof(float));
+    return r;
 }
 
 inline float intAsFloat(int v)
 {
-	static_assert(sizeof(float) == sizeof(int));
+    static_assert(sizeof(float) == sizeof(int));
 
-	// Using reinterpret_cast might lead to undefined behavior because of illegal type aliasing, use memcpy instead
-	// https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing
-	float r;
-	std::memcpy(&r, &v, sizeof(float));
-	return r;
+    // Using reinterpret_cast might lead to undefined behavior because of illegal type aliasing, use memcpy instead
+    // https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing
+    float r;
+    std::memcpy(&r, &v, sizeof(float));
+    return r;
 }
 
 }

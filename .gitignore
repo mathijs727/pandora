@@ -42,3 +42,5 @@ workspace.code-workspace
 projects/pbrt_importer/python/parsing/parsetab.py
 projects/pbrt_importer/python/parsing/lextab.py
 projects/pbrt_importer/python/stats.json
+projects/pbrt_importer/python/parsing/parser.out
+projects/pbrt_importer/python/parsing/parsetab.py

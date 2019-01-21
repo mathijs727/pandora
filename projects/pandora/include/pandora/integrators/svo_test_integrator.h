@@ -12,10 +12,11 @@ public:
 	// WARNING: do not modify the scene in any way while the integrator is alive
 	SVOTestIntegrator(const Scene& scene, Sensor& sensor, int spp);
 
+    void reset() override final {};
 	void render(const PerspectiveCamera& camera) override final;
 
 private:
-	void rayHit(const Ray& r, SurfaceInteraction si, const int& s, const InsertHandle& h) override final {};
+	void rayHit(const Ray& r, SurfaceInteraction si, const int& s) override final {};
     void rayAnyHit(const Ray& r, const int& s) override final {};
 	void rayMiss(const Ray& r, const int& s) override final {};
 private:

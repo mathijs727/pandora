@@ -68,7 +68,7 @@ if __name__ == "__main__":
                         help="Either the PBRT scene file OR the intermediate file that was outputted on a previous run")
     parser.add_argument("--out", type=str, required=True,
                         help="Path/name of output Pandora scene description file")
-    parser.add_argument("--intermediate", type=bool, required=False, default=False,
+    parser.add_argument("--intermediate", default=False, action="store_true",
                         help="Whether to output intermediate files")
     args = parser.parse_args()
 
@@ -76,8 +76,7 @@ if __name__ == "__main__":
         print("Error: pbrt scene file not found")
         exit(1)
     if not os.path.exists(os.path.dirname(args.out)):
-        print("Error: output path does not exist")
-        exit(1)
+        os.makedirs(os.path.dirname(args.out))
 
     # Replaces forward slashes by backward slashes on Windows
     args.file = os.path.normpath(args.file)
@@ -118,9 +117,9 @@ if __name__ == "__main__":
         ujson.dump(pandora_data, f)# No formatting saves a lot of disk space
 
 
-    if not args.intermediate:
+    """if not args.intermediate:
         shutil.rmtree(os.path.join(out_folder, "pbrt_meshes"))
 
         # Remove the temporary list files created for the json export
-        shutil.rmtree(os.path.join(out_folder, "tmp_lists"))
+        shutil.rmtree(os.path.join(out_folder, "tmp_lists"))"""
 

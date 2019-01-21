@@ -3,7 +3,7 @@
 #include <iostream>
 
 namespace pandora {
-BSDF::BSDF(const SurfaceInteraction& si)//, float eta)
+BSDF::BSDF(const SurfaceInteraction& si) //, float eta)
     : // m_eta(eta),
     m_ns(si.shading.normal)
     , m_ng(si.normal)
@@ -109,7 +109,7 @@ std::optional<BSDF::Sample> BSDF::sampleF(const glm::vec3& woWorld, const glm::v
                 f += tmpBxdf->f(wo, wi);
             }
     }
-    return Sample{
+    return Sample {
         wiWorld,
         pdf,
         f,

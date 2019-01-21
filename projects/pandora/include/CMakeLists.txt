@@ -36,6 +36,7 @@ PUBLIC
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/direct_lighting_integrator.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/naive_direct_lighting_integrator.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/normal_debug_integrator.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/path_integrator.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/sampler_integrator.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/svo_depth_test_integrator.h"
@@ -59,7 +60,7 @@ PUBLIC
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/shading/lambert_material.h"
 
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/mesh_to_voxel.h"
+    #"${CMAKE_CURRENT_LIST_DIR}/pandora/svo/mesh_to_voxel.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/sparse_voxel_dag.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/sparse_voxel_octree.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/voxel_grid.h"
@@ -87,6 +88,7 @@ PUBLIC
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/contiguous_allocator_ts.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/error_handling.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/file_batcher.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/free_list_backed_memory_arena.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/growing_free_list_ts.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/math.h"

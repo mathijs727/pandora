@@ -43,4 +43,9 @@ protected:
     const int m_numSamples;
 };
 
+class InfiniteLight : public Light {
+public:
+    InfiniteLight(int flags, int numSamples = 1);
+};
+
 }

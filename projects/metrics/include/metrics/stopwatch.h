@@ -26,6 +26,8 @@ template <typename Unit>
 class Stopwatch : public Metric
 {
 public:
+    Stopwatch() = default;
+    Stopwatch(Stopwatch&& other);
     ScopedStopwatch<Unit> getScopedStopwatch();
 
     operator nlohmann::json() const override final;

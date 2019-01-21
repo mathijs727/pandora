@@ -3,6 +3,7 @@
 #include "pandora/core/pandora.h"
 #include <atomic>
 #include <tbb/scalable_allocator.h>
+#include <tbb/flow_graph.h>
 #include <variant>
 
 namespace pandora {
@@ -31,10 +32,9 @@ namespace sampler_integrator {
 }
 
 class SamplerIntegrator : public Integrator<sampler_integrator::RayState> {
-    static constexpr bool RANDOM_SEEDS = false;
 public:
     // WARNING: do not modify the scene in any way while the integrator is alive
-    SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples = 1);
+    SamplerIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp);
     SamplerIntegrator(const SamplerIntegrator&) = delete;
 
     void reset() override final;
@@ -45,11 +45,11 @@ protected:
     using ContinuationRayState = sampler_integrator::ContinuationRayState;
     using ShadowRayState = sampler_integrator::ShadowRayState;
 
-    virtual void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s, const InsertHandle& h) override = 0;
+    virtual void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s) override = 0;
     virtual void rayAnyHit(const Ray& r, const RayState& s) override = 0;
     virtual void rayMiss(const Ray& r, const RayState& s) override = 0;
 
-    void spawnNextSample(const glm::ivec2& pixel);
+    void spawnNextSample(bool initialRay = false);
 
     void specularReflect(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const RayState& rayState);
     void specularTransmit(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const RayState& rayState);
@@ -58,7 +58,9 @@ protected:
     void spawnShadowRay(const Ray& ray, bool anyHit, const RayState& s, const Spectrum& weight, const Light& light);
 
 private:
-    int pixelToIndex(const glm::ivec2& pixel) const;
+    // Compute a Z-order (morton) curve over the screen tiles
+    static std::vector<glm::ivec2> computeBlockStartLUT(const glm::ivec2& resolution);
+    //glm::ivec2 indexToPixel(size_t pixelIndex) const;
 
 protected:
     const int m_maxDepth;
@@ -68,9 +70,15 @@ private:
     tbb::scalable_allocator<UniformSampler> m_samplerAllocator;
 
     const glm::ivec2 m_resolution;
-    std::vector<std::atomic_int> m_pixelSampleCount;
     const int m_maxSampleCount;
-    const int m_parallelSamples;
+
+    static constexpr size_t s_tileSize = 8;
+    static constexpr size_t s_pixelsInTile = s_tileSize * s_tileSize;
+    const std::vector<glm::ivec2> m_blockStartLUT;
+
+    //std::vector<std::atomic_int> m_pixelSampleCount;
+    //const size_t m_maxPixelSample;
+    std::atomic_size_t m_currentPixelSample;
 };
 
 }

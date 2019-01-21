@@ -8,12 +8,12 @@ namespace pandora {
 
 static GrowingFreeListTS<ShadingMemoryArena::MemoryBlock> s_freeList;
 
-NaiveDirectLightingIntegrator::NaiveDirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, int parallelSamples)
-    : SamplerIntegrator(maxDepth, scene, sensor, spp, parallelSamples)
+NaiveDirectLightingIntegrator::NaiveDirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp)
+    : SamplerIntegrator(maxDepth, scene, sensor, spp)
 {
 }
 
-void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& rayState, const InsertHandle& h)
+void NaiveDirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& rayState)
 {
     ShadingMemoryArena memoryArena(s_freeList);
 
@@ -63,7 +63,7 @@ void NaiveDirectLightingIntegrator::rayMiss(const Ray& r, const RayState& raySta
         for (const auto light : m_scene.getInfiniteLights())
             m_sensor.addPixelContribution(rayState.pixel, shadowRayState.radianceOrWeight * light->Le(r));
 
-        spawnNextSample(rayState.pixel);
+        spawnNextSample();
     } else if (std::holds_alternative<ContinuationRayState>(rayState.data)) {
         const auto& contRayState = std::get<ContinuationRayState>(rayState.data);
 
@@ -78,7 +78,7 @@ void NaiveDirectLightingIntegrator::rayMiss(const Ray& r, const RayState& raySta
         assert(!std::isnan(glm::dot(contRayState.weight, contRayState.weight)) && glm::dot(contRayState.weight, contRayState.weight) > 0.0f);
         m_sensor.addPixelContribution(rayState.pixel, contRayState.weight * radiance);
 
-        spawnNextSample(rayState.pixel);
+        spawnNextSample();
     }
 }
 

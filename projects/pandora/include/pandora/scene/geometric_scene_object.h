@@ -103,17 +103,17 @@ private:
 class OOCInstancedSceneObject;
 class OOCGeometricSceneObject : public OOCSceneObject {
 public:
-    OOCGeometricSceneObject(const EvictableResourceHandle<TriangleMesh>& geometryHandle, const std::shared_ptr<const Material>& material);
-    OOCGeometricSceneObject(const EvictableResourceHandle<TriangleMesh>& geometryHandle, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
+    OOCGeometricSceneObject(const EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>>& geometryHandle, const std::shared_ptr<const Material>& material);
+    OOCGeometricSceneObject(const EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>>& geometryHandle, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
     ~OOCGeometricSceneObject() override final = default;
 
     Bounds worldBounds() const override final;
     unsigned numPrimitives() const override final;
 
-    std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
-    std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
+    std::shared_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
+    std::shared_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
 
-    OOCGeometricSceneObject geometricSplit(FifoCache<TriangleMesh>* cache, std::filesystem::path filePath, gsl::span<unsigned> primitiveIDs);
+    OOCGeometricSceneObject geometricSplit(CacheT<TriangleMesh>* cache, std::filesystem::path filePath, gsl::span<unsigned> primitiveIDs);
 
 private:
     friend class OOCInstancedSceneObject;
@@ -121,12 +121,12 @@ private:
     OOCGeometricSceneObject(
         const Bounds& bounds,
         unsigned numPrimitives,
-        const EvictableResourceHandle<TriangleMesh>& geometryHandle,
+        const EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>>& geometryHandle,
         const std::shared_ptr<const Material>& material);
 private:
     Bounds m_worldBounds;
     unsigned m_numPrimitives = 0;
-    const EvictableResourceHandle<TriangleMesh> m_geometryHandle;
+    const EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>> m_geometryHandle;
 
     std::shared_ptr<const Material> m_material;
 

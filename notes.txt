@@ -172,3 +172,32 @@ Small change, big impact: only flush nodes that have at least 1/8th the amount o
 
 ==== Disabling file caching ====
 Is it even possible to disable file caching on Windows? Disabling min/max limit does not disable file caching. Setting both to 0 is also not allowed. Adding FILE_FLAG_NO_BUFFERING seems to work, Windows shows 200MB/s with peaks of 600MB/s reads (Samsung 970 EVO 500GB) compared to 0MB/s with buffering enabled. Be warned that disk caching (like SLC cache on MLC/TLC SSD drives) is also at work and cannot be disabled.
+
+
+==== Instancing & batching ====
+So my OOC renders of the Island scene would keep crashing before rendering even started. The issue was that the system would run out of disk space (only a limited amount of ~170Gb available). Instancing had a big say in this: even though all instances in a group would be saved once, duplication between groups resulted in too much data. The system has not been reworked (currently on the "out-of-core-instancing" branch) to store instances seperately in the cache. To ensure that file system indexing doesnt become a bottleneck, instances are batched into files of 500MB (similar to the PBRT importer). The LRU cache class has been adjusted to be able to store different types of objects at once (thank god I can use C++17: variadic templates + std::variant).
+
+
+==== Improving SVDAG traversal performance ====
+SVDAG traversal performance is important to show that the bandwidth savings result in actual savings in render time. So it is very important that SVDAG traversal is implemented efficiently. The current implementation, which is a direct port from the code provided with the Efficient Sparse Voxel Octree paper, was originally designed for GPUs. It contains many bit casts between floats and integers. Although this might be efficient on the GPU, it creates bottlenecks in the CPU pipeline because the integer and floating point units have to wait for eachothers results. 
+
+Update:
+Profiling showed that the generated code was suboptimal because it only partially vectorized. Trying to express the algorithm using glm functions didnt help because glm seems to rely on auto vectorization (bitwise AND for example performs the operation as scalars). With some extra functions added to simd library I rewrote the algorithm by executing x, y, z operations in different SSE lanes. The profiler also showed that the branches for the voxel block traversal were quite expensive. Going back to the old design where descriptors describe the leafs gave a sizeable speed improvement.
+Release mode bunny at 256x256x256 resolution:
+ - Before: ~43ms
+ - SIMD:   ~38ms
+ - Leafs:  ~34ms
+
+Going back to the old descriptors makes the SVO construction, SVDAG compression and SVO/SVDAG traversal code cleaner. And although it might use more memory, having deeper trees will mean that we will save more by using SVDAG compression because the chance of 64-bit leafs matching is very small.
+
+UPDATE:
+After fixing bugs in both SVO construction & traversal + switching to bitscan instead of reinterpret casts of floats, performance of the traversal is now hovering between 33ms and 34ms.
+
+
+==== Update to scheduling ====
+Good scheduling is probably one of the most important factors. Adding statistics on the flush iterations showed that a lot of iterations in the end are spent on almost empty nodes. Rays that reach almost empty areas of the scene will stay batched there until the end of the render. At that point they need to be traversed further and may need to spawn one or more new camera paths (recursively). So I updated the scheduling to do the following:
+- The top 50% of the nodes are always flushed
+- From the bottom 50%, half of the nodes are flushed (selected randomly)
+- To ensure better load balance the nodes to be flushed are shuffled
+
+This does not take away that the new sample spawning needs an update. Instead of spawning new samples recursively, we should be able to have multiple samples of the same pixel in flight. This could improve coherence and maybe we can get rid of the recursion which is hampering the in-core traverser right now (only at extremely low sample counts will it not crash due to stack overflow).

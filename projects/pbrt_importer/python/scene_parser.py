@@ -9,6 +9,7 @@ import sys
 import tempfile
 import pathlib
 import shutil
+import tempfile
 
 
 def constant_texture(v):
@@ -143,6 +144,10 @@ class SceneParser:
 
     def _create_light_sources(self, pbrt_scene):
         for light_source in pbrt_scene["light_sources"]:
+            scale = [1.0, 1.0, 1.0]
+            if "scale" in light_source.arguments:
+                scale = light_source.arguments["scale"]["value"]
+
             if light_source.type == "infinite":
                 if "samples" in light_source.arguments:
                     num_samples = light_source.arguments["samples"]["value"]
@@ -154,9 +159,7 @@ class SceneParser:
                         light_source.arguments["L"]["value"])
                 else:
                     L = [1.0, 1.0, 1.0]
-
-                if "scale" in light_source.arguments:
-                    L *= light_source.arguments["scale"]["value"]
+                L = list(np.array(L) * np.array(scale))
 
                 if "mapname" in light_source.arguments:
                     texture_id = self._create_texture_id(
@@ -182,6 +185,7 @@ class SceneParser:
                         light_source.arguments["L"]["value"])
                 else:
                     L = [1, 1, 1]
+                L = list(np.array(L) * np.array(scale))
 
                 self._light_sources.append({
                     "type": "distant",
@@ -198,13 +202,15 @@ class SceneParser:
         arguments = {}
         for key, value in texture.arguments.items():
             v = value["value"]
-            """if key == "filename":
+
+            if key == "filename":
                 # Copy to the destination folder so that we can use relative paths
-                handle, filename = tempfile.mkstemp(
-                    suffix=".ply", dir=self._out_ply_mesh_folder)
-                os.close(handle)
-                shutil.copyfile(v, filename)
-                v = os.path.relpath(filename, start=self._out_folder)"""
+                suffix = pathlib.PurePath(v).suffix
+                with tempfile.NamedTemporaryFile("wb+", dir=self._out_texture_folder, suffix=suffix, delete=False) as out_file:
+                    with open(v, "rb") as in_file:
+                        out_file.write(in_file.read())
+                    v = os.path.relpath(out_file.name, self._out_folder)
+                    #print(f"{out_file.name} is {v} relative to {self._out_folder}")
 
             arguments[key] = v
 
@@ -217,12 +223,14 @@ class SceneParser:
             print(f"Unknown texture type \"{texture.type}\"")
 
         texture_class = texture.texture_class
+        """
         if "filename" in arguments:
             if texture_type == "float":
                 arguments = { "value": 0.5 }
             else:
                 arguments = { "value": np.array([0.5, 0.5, 0.5]) }
             texture_class = "constant"
+        """
 
         texture_dict = {
             "type": texture_type,
@@ -289,8 +297,6 @@ class SceneParser:
             })
 
     def _create_geometric_scene_object(self, shape):
-        #transform_matrix = np.reshape(shape.transform, (4, 4))
-        #shape_bounds = None
         if shape.type == "plymesh":
             handle, filename = tempfile.mkstemp(
                 suffix=".ply", dir=self._out_ply_mesh_folder)
@@ -310,26 +316,29 @@ class SceneParser:
                 string = f.read(shape.arguments["num_bytes"])
                 triangle_mesh_data = pickle.loads(string)
                 filename, start_byte, size_bytes = self._export_triangle_mesh(
-                    triangle_mesh_data)
+                    triangle_mesh_data, shape.transform)
 
             filename = os.path.relpath(filename, start=self._out_folder)
             geometry_id = self._geometry.add_item({
                 "type": "triangle",
                 "filename": filename,
                 "start_byte": start_byte,
-                "size_bytes": size_bytes,
-                "transform": self._create_transform(shape.transform)
+                "size_bytes": size_bytes
+                #"transform": self._create_transform(shape.transform)
             })
         else:
-            #print(f"Ignoring shape of unsupported type {shape.type}")
+            # print(f"Ignoring shape of unsupported type {shape.type}")
             return None
 
         material_id = self._create_material_id(shape.material)
 
         if shape.area_light is not None:
+            L =  _replace_black_body(shape.area_light.arguments["L"]["value"])
+            if "scale" in shape.area_light.arguments:
+                L = list(np.array(L) * np.array(shape.area_light.arguments["scale"]["value"]))
             area_light = {
                 # get_argument_with_default(shape.area_light.arguments, "L", [1,1,1]),
-                "L": _replace_black_body(shape.area_light.arguments["L"]["value"]),
+                "L": L,
                 "num_samples": get_argument_with_default(shape.area_light.arguments, "nsamples", 1),
                 "two_sided": get_argument_with_default(shape.area_light.arguments, "twosided", False)
             }
@@ -378,7 +387,7 @@ class SceneParser:
                     "transform": self._create_transform(instance.transform)
                 })
 
-    def _export_triangle_mesh(self, geometry):
+    def _export_triangle_mesh(self, geometry, transform):
         triangles = geometry["indices"]["value"]
         positions = geometry["P"]["value"]
 
@@ -397,7 +406,7 @@ class SceneParser:
         else:
             uv_coords = np.empty((0))
 
-        return self._out_mesh_exporter.add_triangle_mesh(triangles, positions, normals, tangents, uv_coords)
+        return self._out_mesh_exporter.add_triangle_mesh(triangles, positions, normals, tangents, uv_coords, transform)
 
     def data(self):
         self._transforms.finish()

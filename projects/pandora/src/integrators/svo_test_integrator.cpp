@@ -18,13 +18,16 @@ OctreeType buildSVO(const Scene& scene)
         gridBounds.extend(sceneObject->worldBounds());
     }
 
-    VoxelGrid voxelGrid(128);
+    VoxelGrid voxelGrid(256);
     for (const auto& sceneObject : scene.getInCoreSceneObjects()) {
         sceneObject->voxelize(voxelGrid, gridBounds);
     }
 
+
     auto result =  OctreeType(voxelGrid);
     if constexpr (std::is_same_v<OctreeType, SparseVoxelDAG>) {
+        std::cout << "Size of SVDAG before compression: " << result.sizeBytes() << " bytes\n";
+
         std::vector svdags = { &result };
 		SparseVoxelDAG::compressDAGs(svdags);
     }
@@ -61,6 +64,7 @@ void SVOTestIntegrator::render(const PerspectiveCamera& camera)
 			auto pixel = glm::ivec2(x, y);
 			CameraSample cameraSample = { pixel };
 			Ray ray = camera.generateRay(cameraSample);
+            ray.origin = m_worldToSVO * glm::vec4(ray.origin, 1.0f);
 
 			auto distanceOpt = m_sparseVoxelOctree.intersectScalar(ray);
 			if (distanceOpt) {

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstring> // Memcpy
 #include <emmintrin.h> // SSE2
 #include <functional>
 #include <gsl/span>

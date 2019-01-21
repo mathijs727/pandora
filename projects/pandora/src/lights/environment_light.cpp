@@ -17,7 +17,7 @@ static float sphericalPhi(const glm::vec3& v)
 namespace pandora {
 
 EnvironmentLight::EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum& l, int numSamples, const std::shared_ptr<Texture<glm::vec3>>& texture)
-    : Light((int)LightFlags::Infinite, numSamples)
+    : InfiniteLight((int)LightFlags::Infinite, numSamples)
     , m_l(l)
     , m_texture(texture)
     , m_lightToWorld(lightToWorld)

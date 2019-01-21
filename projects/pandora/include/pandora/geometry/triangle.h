@@ -25,19 +25,19 @@ namespace pandora {
 class TriangleMesh {
 public:
     TriangleMesh(
-        unsigned numTriangles,
-        unsigned numVertices,
-        std::unique_ptr<glm::ivec3[]>&& triangles,
-        std::unique_ptr<glm::vec3[]>&& positions,
-        std::unique_ptr<glm::vec3[]>&& normals,
-        std::unique_ptr<glm::vec3[]>&& tangents,
-        std::unique_ptr<glm::vec2[]>&& uvCoords);
+        std::vector<glm::ivec3>&& triangles,
+        std::vector<glm::vec3>&& positions,
+        std::vector<glm::vec3>&& normals,
+        std::vector<glm::vec3>&& tangents,
+        std::vector<glm::vec2>&& uvCoords);
     TriangleMesh(const TriangleMesh&) = delete;
     TriangleMesh(TriangleMesh&&) = default;
     TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh);
+    TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh, const glm::mat4& transform);
     ~TriangleMesh();
 
     TriangleMesh subMesh(gsl::span<const unsigned> primitives) const;
+    void subdivide(); // Subdivide mesh to make it more complex (to artificially make scenes more complex)
 
     static std::optional<TriangleMesh> loadFromFileSingleMesh(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
     //static std::optional<TriangleMesh> loadFromFileSingleMesh(gsl::span<std::byte> buffer, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
@@ -83,13 +83,11 @@ private:
     void getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
 
 private:
-    unsigned m_numTriangles, m_numVertices;
-
-    std::unique_ptr<glm::ivec3[]> m_triangles;
-    std::unique_ptr<glm::vec3[]> m_positions;
-    std::unique_ptr<glm::vec3[]> m_normals;
-    std::unique_ptr<glm::vec3[]> m_tangents;
-    std::unique_ptr<glm::vec2[]> m_uvCoords;
+    std::vector<glm::ivec3> m_triangles;
+    std::vector<glm::vec3> m_positions;
+    std::vector<glm::vec3> m_normals;
+    std::vector<glm::vec3> m_tangents;
+    std::vector<glm::vec2> m_uvCoords;
 
     Bounds m_bounds;
 };
@@ -235,7 +233,7 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
     // Compute barycentric coordinates and t value for triangle intersection
     float b0 = hitInfo.geometricUV.x;
     float b1 = hitInfo.geometricUV.y;
-    float b2 = 1.0f - hitInfo.geometricUV.x - hitInfo.geometricUV.y;
+    float b2 = std::max(0.0f, std::min(1.0f, 1.0f - hitInfo.geometricUV.x - hitInfo.geometricUV.y));
     assert(b2 >= 0.0f && b2 <= 1.0f);
 #else
     float b0 = 1 - hitInfo.geometricUV.u - hitInfo.geometricUV.v;
@@ -276,19 +274,19 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
     isect.normal = isect.shading.normal = glm::normalize(glm::cross(dp02, dp12));
 
     // Shading normals / tangents
-    if (m_normals || m_tangents) {
+    if (!m_normals.empty() || !m_tangents.empty()) {
         glm::ivec3 v = m_triangles[hitInfo.primitiveID];
 
         // Compute shading normal ns for triangle
         glm::vec3 ns;
-        if (m_normals)
+        if (!m_normals.empty())
             ns = glm::normalize(b0 * m_normals[v[0]] + b1 * m_normals[v[1]] + b2 * m_normals[v[2]]);
         else
             ns = isect.normal;
 
         // Compute shading tangent ss for triangle
         glm::vec3 ss;
-        if (m_tangents)
+        if (!m_tangents.empty())
             ss = glm::normalize(b0 * m_tangents[v[0]] + b1 * m_tangents[v[1]] + b2 * m_tangents[v[2]]);
         else
             ss = glm::normalize(isect.dpdu);
@@ -304,7 +302,7 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
 
         // Compute dndu and dndv for triangle shading geometry
         glm::vec3 dndu, dndv;
-        if (m_normals) {
+        if (!m_normals.empty()) {
             //glm::vec2 duv02 = uv[0] - uv[2];
             //glm::vec2 duv12 = uv[1] - uv[2];
             glm::vec3 dn1 = m_normals[v[0]] - m_normals[v[2]];
@@ -325,7 +323,7 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
     }
 
     // Ensure correct orientation of the geometric normal
-    if (m_normals)
+    if (!m_normals.empty())
         isect.normal = faceForward(isect.normal, isect.shading.normal);
     //else if (reverseOrientation ^ transformSwapsHandedness)
     //	isect.normal = isect.shading.normal = -isect.normal;

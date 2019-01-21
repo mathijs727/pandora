@@ -13,12 +13,17 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
 {
     nlohmann::json ret;
     ret["config"]["scene"] = config.sceneFile;
+    ret["config"]["subdiv"] = SUBDIVIDE_LEVEL;
     ret["config"]["integrator"] = config.integrator;
     ret["config"]["spp"] = config.spp;
 
     ret["config"]["ooc"]["memory_limit_bytes"] = OUT_OF_CORE_MEMORY_LIMIT;
     ret["config"]["ooc"]["prims_per_leaf"] = OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF;
     ret["config"]["ooc"]["svdag_resolution"] = OUT_OF_CORE_SVDAG_RESOLUTION;
+    ret["config"]["ooc"]["additional_stats"] = ENABLE_ADDITIONAL_STATISTICS;
+
+    ret["scene"]["unique_primitives"] = scene.uniquePrimitives;
+    ret["scene"]["total_primitives"] = scene.totalPrimitives;
 
     ret["timings"]["total_render_time"] = timings.totalRenderTime;
     ret["timings"]["svdag_traversal_time"] = timings.svdagTraversalTime;
@@ -28,11 +33,12 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
 
     ret["memory"]["bot_level_loaded"] = memory.botLevelLoaded;
     ret["memory"]["bot_level_evicted"] = memory.botLevelEvicted;
-    ret["memory"]["bot_level_total_size"] = memory.botLevelTotalSize;// Total size of bottom leaf nodes
+    ret["memory"]["ooc_total_disk_read"] = memory.oocTotalDiskRead;
 
     ret["memory"]["top_bvh"] = memory.topBVH;
     ret["memory"]["top_bvh_leafs"] = memory.topBVHLeafs;
-    ret["memory"]["svdags"] = memory.svdags;
+    ret["memory"]["svdags_before_compression"] = memory.svdagsBeforeCompression;
+    ret["memory"]["svdags_after_compression"] = memory.svdagsAfterCompression;
 
     ret["ooc"]["num_top_leaf_nodes"] = numTopLevelLeafNodes;
     ret["ooc"]["prims_per_leaf"] = OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF;
@@ -42,12 +48,18 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
     for (const auto& flushInfo : flushInfos) {
         // clang-format off
         nlohmann::json flushInfoJSON{
-            { "leafs_flushed", flushInfo.leafsFlushed.operator nlohmann::json() },
-            { "batches_per_leaf", flushInfo.batchesPerLeaf.operator nlohmann::json()}
+            { "approximate_rays_in_system", flushInfo.approximateRaysInSystem },
+            { "num_batching_points_with_rays", flushInfo.numBatchingPointsWithRays },
+            { "approximate_rays_per_flushed_batching_point", flushInfo.approximateRaysPerFlushedBatchingPoint },
+            { "processing_time", flushInfo.processingTime.operator nlohmann::json() }
         };
         // clang-format on
         ret["flush_info"].push_back(flushInfoJSON);
     }
+
+    ret["svdag"]["num_intersection_tests"] = svdag.numIntersectionTests;
+    ret["svdag"]["num_rays_culled"] = svdag.numRaysCulled;
+
     return ret;
 }
 

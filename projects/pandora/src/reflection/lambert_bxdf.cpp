@@ -67,6 +67,7 @@ BxDF::Sample LambertianTransmission::sampleF(const glm::vec3& wo, const glm::vec
 
 	float pdf = this->pdf(wo, wi);
 	Spectrum f = this->f(wo, wi);
+    ALWAYS_ASSERT(glm::any(glm::greaterThanEqual(f, glm::vec3(0.0f))));
 
 	return Sample{
 		wi,

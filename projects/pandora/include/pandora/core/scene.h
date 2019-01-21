@@ -5,6 +5,7 @@
 #include "pandora/geometry/triangle.h"
 #include "pandora/lights/area_light.h"
 #include "pandora/traversal/bvh.h"
+#include "pandora/eviction/lru_cache.h"
 #include "pandora/eviction/fifo_cache.h"
 #include "pandora/eviction/evictable.h"
 #include <glm/glm.hpp>
@@ -38,6 +39,9 @@ public:
 class SceneObjectMaterial
 {
 public:
+    size_t sceneObjectID = 0;
+    
+public:
     virtual ~SceneObjectMaterial() {};
 
     virtual void computeScatteringFunctions(
@@ -64,8 +68,8 @@ public:
     virtual Bounds worldBounds() const = 0;
     virtual unsigned numPrimitives() const = 0;
 
-    virtual std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const = 0;
-    virtual std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const = 0;
+    virtual std::shared_ptr<SceneObjectGeometry> getGeometryBlocking() const = 0;
+    virtual std::shared_ptr<SceneObjectMaterial> getMaterialBlocking() const = 0;
 
 };
 
@@ -76,9 +80,11 @@ public:
     Scene(Scene&&) = default;
     ~Scene() = default;
 
+    void finalize();
+
     void addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneNode);
     void addSceneObject(std::unique_ptr<OOCSceneObject>&& sceneNode);
-    void addInfiniteLight(const std::shared_ptr<Light>& light);
+    void addInfiniteLight(const std::shared_ptr<InfiniteLight>& light);
 
     void splitLargeInCoreSceneObjects(unsigned maxPrimitivesPerSceneObject);
     void splitLargeOOCSceneObjects(unsigned maxPrimitivesPerSceneObject);
@@ -86,23 +92,25 @@ public:
     std::vector<const InCoreSceneObject*> getInCoreSceneObjects() const;
     std::vector<const OOCSceneObject*> getOOCSceneObjects() const;
     gsl::span<const Light* const> getLights() const;
-    gsl::span<const Light* const> getInfiniteLights() const;
+    gsl::span<const InfiniteLight* const> getInfiniteLights() const;
 
-    const FifoCache<TriangleMesh>* geometryCache() const;
-    FifoCache<TriangleMesh>* geometryCache();
+    const CacheT<TriangleMesh>* geometryCache() const;
+    CacheT<TriangleMesh>* geometryCache();
 
     std::vector<std::vector<const OOCSceneObject*>> groupOOCSceneObjects(unsigned uniquePrimsPerGroup) const;
     std::vector<std::vector<const InCoreSceneObject*>> groupInCoreSceneObjects(unsigned uniquePrimsPerGroup) const;
 
 private:
-    std::unique_ptr<FifoCache<TriangleMesh>> m_geometryCache;
+    std::unique_ptr<CacheT<TriangleMesh>> m_geometryCache;
 
     std::vector<std::unique_ptr<InCoreSceneObject>> m_inCoreSceneObjects;
     std::vector<std::unique_ptr<OOCSceneObject>> m_oocSceneObjects;
     std::vector<const Light*> m_lights;
-    std::vector<const Light*> m_infiniteLights;
+    std::vector<InfiniteLight*> m_infiniteLights;
 
     std::vector<std::shared_ptr<Light>> m_lightOwningPointers;
+
+    Bounds m_bounds;
 };
 
 }

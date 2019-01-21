@@ -44,7 +44,7 @@ class InstancedSceneObjectGeometry : public SceneObjectGeometry {
 public:
     InstancedSceneObjectGeometry(
         const serialization::InstancedSceneObjectGeometry* serialized,
-        std::unique_ptr<SceneObjectGeometry>&& baseObjectGeometry);// Map handle to geometry pointer
+        const std::shared_ptr<SceneObjectGeometry>& baseObjectGeometry);// Map handle to geometry pointer
     flatbuffers::Offset<serialization::InstancedSceneObjectGeometry> serialize(
         flatbuffers::FlatBufferBuilder& builder) const;
 
@@ -62,11 +62,11 @@ private:
     friend class OOCInstancedSceneObject;
     InstancedSceneObjectGeometry(
         const Transform& worldTransform,
-        std::unique_ptr<SceneObjectGeometry>&& baseObjectGeometry);
+        const std::shared_ptr<SceneObjectGeometry>& baseObjectGeometry);
 
 private:
     const Transform m_worldTransform;
-    std::unique_ptr<SceneObjectGeometry> m_baseObjectGeometry;
+    std::shared_ptr<SceneObjectGeometry> m_baseObjectGeometry;
 };
 
 class OOCInstancedSceneObject : public OOCSceneObject {
@@ -78,8 +78,9 @@ public:
     Bounds worldBounds() const override final;
     unsigned numPrimitives() const override final;
     
-    std::unique_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
-    std::unique_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
+    std::shared_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
+    InstancedSceneObjectGeometry getDummyGeometryBlocking() const;
+    std::shared_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
 
     Ray transformRayToInstanceSpace(const Ray& ray) const;
     const OOCGeometricSceneObject* getBaseObject() const { return m_baseObject.get(); }
