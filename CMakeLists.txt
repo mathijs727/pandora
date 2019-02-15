@@ -33,9 +33,9 @@ target_include_directories(embree INTERFACE "${EMBREE_INCLUDE_DIRS}")
 target_link_libraries(embree INTERFACE "${EMBREE_LIBRARY}")
 
 find_package(Threads REQUIRED)
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/TBBGet.cmake")
-tbb_get(TBB_ROOT tbb_root CONFIG TBB_DIR RELEASE_TAG 2018_U6)
-set(CMAKE_PREFIX_PATH "${TBB_ROOT};${tbb_root}")
+#include("${CMAKE_CURRENT_LIST_DIR}/cmake/TBBGet.cmake")
+#tbb_get(TBB_ROOT tbb_root CONFIG TBB_DIR RELEASE_TAG 2018_U6)
+#set(CMAKE_PREFIX_PATH "${TBB_ROOT};${tbb_root}")
 find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
 
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/ms-gsl/")

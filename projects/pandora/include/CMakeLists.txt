@@ -22,12 +22,13 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/eviction/fifo_cache.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/eviction/lru_cache.h"
 
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/contiguous_allocator_generated.h"
+    # Files have to be generated before CMake can find them
+	#"${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/contiguous_allocator_generated.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/data_conversion.h"
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/ooc_batching_generated.h"
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/scene_generated.h"
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/triangle_mesh_generated.h"
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/wive_bvh8_generated.h"
+    #"${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/ooc_batching_generated.h"
+    #"${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/scene_generated.h"
+    #"${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/triangle_mesh_generated.h"
+    #"${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/wive_bvh8_generated.h"
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/geometry/bounds.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/geometry/group.h"
