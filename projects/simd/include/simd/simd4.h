@@ -28,8 +28,8 @@ class _vec4_base;
 template <typename T, int S>
 class _vec4;
 
-#include "simd/simd4_avx2.h"
-#include "simd/simd4_scalar.h"
+#include "simd/simd4_avx2.ipp"
+#include "simd/simd4_scalar.ipp"
 
 using mask4 = _mask4<SIMD4_WIDTH>;
 using vec4_f32 = _vec4<float, SIMD4_WIDTH>;

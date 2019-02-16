@@ -62,7 +62,7 @@ void simd4Tests()
             std::array<T, 4> values;
             auto v3 = -v2;
             auto v4 = v3.abs();
-            v3.store(values);
+            v4.store(values);
             for (int i = 0; i < 4; i++)
                 ASSERT_EQ_T(values[i], (T)(4 + i));
         }
@@ -148,18 +148,18 @@ void simd4Tests()
 
     // Test bitwise operations
     if constexpr (std::is_same_v<T, uint32_t>) {
-        // Bitwise AND
+        // Bitwise OR
         {
             simd::_vec4<uint32_t, S> mask(0xFF, 0x0F, 0xF0, 0b000110);
             simd::_vec4<uint32_t, S> source(123, 0xF3, 0xDD, 0b101100);
             std::array<uint32_t, 4> expectedResults = { 255, 255, 253, 0b101110 };
             std::array<T, 4> values;
-            (source & mask).store(values);
+            (source | mask).store(values);
             for (int i = 0; i < 4; i++)
                 ASSERT_EQ_T(values[i], expectedResults[i]);
         }
 
-        // Bitwise OR
+        // Bitwise AND
         {
             simd::_vec4<uint32_t, S> mask(0xFF, 0x0F, 0xF0, 0x0);
             simd::_vec4<uint32_t, S> source(123, 0xF3, 0xDD, 0xFFFFFFFF);
@@ -176,7 +176,7 @@ void simd4Tests()
             simd::_vec4<uint32_t, S> source(123, 0xF3, 0xDD, 0xFFFFFFFF);
             std::array<uint32_t, 4> expectedResults = { 132, 252, 45, 4294967295 };
             std::array<T, 4> values;
-            (source & mask).store(values);
+            (source ^ mask).store(values);
             for (int i = 0; i < 4; i++)
                 ASSERT_EQ_T(values[i], expectedResults[i]);
         }

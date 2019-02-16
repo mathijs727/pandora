@@ -24,8 +24,8 @@ class _vec8_base;
 template <typename T, int S>
 class _vec8;
 
-#include "simd/simd8_avx2.h"
-#include "simd/simd8_scalar.h"
+#include "simd/simd8_avx2.ipp"
+#include "simd/simd8_scalar.ipp"
 
 using mask8 = _mask8<SIMD8_WIDTH>;
 using vec8_f32 = _vec8<float, SIMD8_WIDTH>;

@@ -1,9 +1,9 @@
 target_sources(simd
 PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/simd/intrinsics.h"
-    "${CMAKE_CURRENT_LIST_DIR}/simd/simd4_avx2.h"
-    "${CMAKE_CURRENT_LIST_DIR}/simd/simd4_scalar.h"
+    "${CMAKE_CURRENT_LIST_DIR}/simd/simd4_avx2.ipp"
+    "${CMAKE_CURRENT_LIST_DIR}/simd/simd4_scalar.ipp"
     "${CMAKE_CURRENT_LIST_DIR}/simd/simd4.h"
-    "${CMAKE_CURRENT_LIST_DIR}/simd/simd8_avx2.h"
-    "${CMAKE_CURRENT_LIST_DIR}/simd/simd8_scalar.h"
+    "${CMAKE_CURRENT_LIST_DIR}/simd/simd8_avx2.ipp"
+    "${CMAKE_CURRENT_LIST_DIR}/simd/simd8_scalar.ipp"
     "${CMAKE_CURRENT_LIST_DIR}/simd/simd8.h")
