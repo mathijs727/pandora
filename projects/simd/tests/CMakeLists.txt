@@ -10,4 +10,5 @@ if (MSVC)
 endif()
 
 enable_testing()
-gtest_add_tests(TARGET simd_test)
+add_test(AllTestsInSIMD simd_test)
+#gtest_add_tests(TARGET simd_test)

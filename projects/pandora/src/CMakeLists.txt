@@ -1,17 +1,16 @@
 target_sources(libPandora
 	PRIVATE
-        "${CMAKE_CURRENT_LIST_DIR}/core/bxdf.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/interaction.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/light.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/load_from_file.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/material.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/perspective_camera.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/sampler.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/spectrum.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/scene.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/sensor.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/stats.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/transform.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/bxdf.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/interaction.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/light.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/load_from_file.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/material.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/perspective_camera.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/sampler.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/spectrum.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/scene.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/sensor.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/transform.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/flatbuffers/data_conversion.cpp"
 
@@ -65,7 +64,6 @@ target_sources(libPandora
 
         "${CMAKE_CURRENT_LIST_DIR}/utility/eastl_malloc.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena_ts.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/utility/thread_pool.cpp"
 )
 

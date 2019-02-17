@@ -1,11 +1,8 @@
 #pragma once
 #include <glm/glm.hpp>
 #include "pandora/core/spectrum.h"
-#include "pandora/utility/free_list_backed_memory_arena.h"
 
 namespace pandora {
-
-using ShadingMemoryArena = FreeListBackedMemoryArena<1024>;
 
 // Forward declares
 struct Interaction;
@@ -13,11 +10,11 @@ struct SurfaceInteraction;
 struct LightSample;
 class Transform;
 
-class InMemoryResource;
+//class InMemoryResource;
 //template <typename T>
 //class FifoCache;
-template <typename... T>
-class LRUCache;
+//template <typename... T>
+//class LRUCache;
 
 class Light;
 class DistantLight;
@@ -51,7 +48,7 @@ struct Ray;
 struct RayHit;
 
 class MemoryArena;
-class MemoryArenaTS;
+//class MemoryArenaTS;
 
 class PathIntegrator;
 class PerspectiveCamera;
@@ -60,11 +57,11 @@ class Sensor;
 class VoxelGrid;
 class SparseVoxelOctree;
 
-template <typename, size_t>
+/*template <typename, size_t>
 class OOCBatchingAccelerationStructure;
 template <typename T, size_t>
 class InCoreBatchingAccelerationStructure;
 template <typename T>
-class InCoreAccelerationStructure;
+class InCoreAccelerationStructure;*/
 
 }
