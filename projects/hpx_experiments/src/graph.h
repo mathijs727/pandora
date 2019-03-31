@@ -3,7 +3,7 @@
 #include <functional>
 #include <gsl/span>
 
-namespace stream {
+namespace tasking {
 
 template <typename T>
 using StreamRef = gsl::span<T>;
@@ -11,8 +11,8 @@ using StreamRef = gsl::span<T>;
 template <typename T>
 struct RegularOutput {
     using Type = T;
-    
-	StreamRef<T> dataStream;
+
+    StreamRef<T> dataStream;
 };
 
 template <typename T>
@@ -53,7 +53,6 @@ private:
 template <int PortID, typename Task1, typename Task2>
 void connectPort(const Task1& t1, const Task2& t2)
 {
-
 }
 
 }

@@ -8,6 +8,7 @@ option(PANDORA_BUILD_VOXEL_EXPORTER "Build voxel exporter" OFF)
 option(PANDORA_BUILD_PBRT_IMPORTER "Build voxel exporter" OFF)
 option(LINK_STDCXX_FILESYSTEM "Add libstdc++ filesystem to the linker flags" OFF)
 option(LINK_CXX_FILESYSTEM "Add libc++ filesystem to the linker flags" OFF)
+option(HPX_CUDART_LINK_FIX_WIN64 "Fix cudadevrt.lib not found error when HPX is installed with VCPKG on Windows" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
 if (PANDORA_ISPC_SUPPORT)
@@ -37,6 +38,21 @@ find_package(Threads REQUIRED)
 #tbb_get(TBB_ROOT tbb_root CONFIG TBB_DIR RELEASE_TAG 2018_U6)
 #set(CMAKE_PREFIX_PATH "${TBB_ROOT};${tbb_root}")
 find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
+
+#if (HPX_CUDART_LINK_FIX_WIN64)
+#	find_package(CUDA REQUIRED)
+#	link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib/x64/")
+#endif()
+
+# HPX does not use targets properly. HPX_INCLUDE_DIRS contains non-existent directories (error target_include_directories).
+# So instead do it like this until HPX is updated to use modern CMake (it's 2019 guys...)
+find_package(HPX CONFIG REQUIRED)
+include_directories("${HPX_INCLUDE_DIRS}")
+set_target_properties(hpx hpx_init iostreams_component
+	PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO RELEASE)
+if (MSVC)
+	target_compile_definitions(hpx INTERFACE "_CRT_SECURE_NO_WARNINGS")
+endif()
 
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/ms-gsl/")
 
@@ -81,8 +97,8 @@ if (PANDORA_BUILD_TESTS)
 	set(SIMD_BUILD_TESTS ON)
 endif()
 
-include("projects/stream/CMakeLists.txt")
-include("projects/simd/CMakeLists.txt")
+include("projects/hpx_experiments/CMakeLists.txt")
+#include("projects/simd/CMakeLists.txt")
 #include("projects/metrics/CMakeLists.txt")
 #include("projects/pandora/CMakeLists.txt")
 #if (PANDORA_BUILD_ATLAS)
