@@ -9,10 +9,14 @@ int main()
     //testGraphBuilder();
     using namespace tasking;
 
+    constexpr int stepSize = 1024;
     int streamSize = 1024 * 1024 * 1024;
-    DataStream<int> stream { static_cast<size_t>(streamSize / 8) };
-    for (int i = 0; i < streamSize; i++) {
-        stream.push(i);
+    DataStream<int> stream { static_cast<size_t>(streamSize / 2) };
+    for (int i = 0; i < streamSize; i += stepSize) {
+        std::array<int, stepSize> tmpArray;
+        for (int j = 0, k = i; j < stepSize; j++, k++)
+            tmpArray[j] = k;
+        stream.push(tmpArray);
     }
 
     int sum = 0;

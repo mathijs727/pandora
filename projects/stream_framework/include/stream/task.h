@@ -34,7 +34,7 @@ private:
     DataStream<T>& getInputStreamReference();
 
 private:
-    DataStream<T> m_inputStream { 32 * 1024 * 1024 };
+    DataStream<T> m_inputStream { 2 * 1024 * 1024 };
 };
 
 template <typename T>

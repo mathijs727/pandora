@@ -3,15 +3,17 @@
 #include <gsl/gsl>
 #include <list>
 #include <mutex>
+#include <mio/mmap.hpp>
+#include <filesystem>
 
 namespace tasking {
 
-class DataStreamBlockImplWindows {
+class DataStreamBlockImpl{
 public:
-    DataStreamBlockImplWindows(size_t maxSize);
-    DataStreamBlockImplWindows(const DataStreamBlockImplWindows&) = delete;
-    DataStreamBlockImplWindows(DataStreamBlockImplWindows&&) noexcept;
-    ~DataStreamBlockImplWindows();
+    DataStreamBlockImpl(size_t maxSize);
+    DataStreamBlockImpl(const DataStreamBlockImpl&) = delete;
+    DataStreamBlockImpl(DataStreamBlockImpl&&) = default;
+    ~DataStreamBlockImpl();
 
     void* getData()
     {
@@ -19,10 +21,9 @@ public:
     }
 
 private:
-    std::array<char, 260> m_fileName;
-    void* m_fileHandle = nullptr;
-    void* m_fileMappingHandle = nullptr;
-    void* m_data = nullptr;
+    std::filesystem::path m_filePath;
+    mio::mmap_sink m_memoryMapping;
+    void* m_data;
 };
 
 template <typename T>
@@ -43,7 +44,7 @@ private:
     T* m_end;
     T* m_current;
 
-    DataStreamBlockImplWindows m_implementation;
+    DataStreamBlockImpl m_implementation;
 };
 
 template <typename T>
@@ -85,17 +86,15 @@ inline void DataStream<T>::push(gsl::span<const T> items)
 {
     std::scoped_lock<std::mutex> l(m_mutex);
 
-    int itemsPushed = 0;
+    std::ptrdiff_t itemsPushed = 0;
     while (itemsPushed < items.size()) {
         if (m_blocks.empty() || m_blocks.front().full())
             m_blocks.emplace_front(m_blockSize);
 
-        int itemsToPush = std::min(m_blocks.front().spaceLeft(), items.size() - itemsPushed);
-        m_blocks.front().push(items.make_subspan(itemsPushed, itemsToPush));
-        itemsPushed -= itemsToPush;
+        auto itemsToPush = std::min(static_cast<std::ptrdiff_t>(m_blocks.front().spaceLeft()), items.size() - itemsPushed);
+        m_blocks.front().push(items.subspan(itemsPushed, itemsToPush));
+        itemsPushed += itemsToPush;
     }
-
-    m_blocks.front().push(items);
 }
 
 template <typename T>

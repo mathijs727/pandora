@@ -8,15 +8,11 @@ option(PANDORA_BUILD_VOXEL_EXPORTER "Build voxel exporter" OFF)
 option(PANDORA_BUILD_PBRT_IMPORTER "Build voxel exporter" OFF)
 option(LINK_STDCXX_FILESYSTEM "Add libstdc++ filesystem to the linker flags" OFF)
 option(LINK_CXX_FILESYSTEM "Add libc++ filesystem to the linker flags" OFF)
-option(HPX_CUDART_LINK_FIX_WIN64 "Fix cudadevrt.lib not found error when HPX is installed with VCPKG on Windows" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
 if (PANDORA_ISPC_SUPPORT)
 	include("${CMAKE_CURRENT_LIST_DIR}/cmake/ispc.cmake")
 endif()
-
-find_package(glm REQUIRED)
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/eastl" EXCLUDE_FROM_ALL)
 
 find_package(OpenImageIO REQUIRED)
 add_library(OpenImageIO INTERFACE)
@@ -34,24 +30,21 @@ target_include_directories(embree INTERFACE "${EMBREE_INCLUDE_DIRS}")
 target_link_libraries(embree INTERFACE "${EMBREE_LIBRARY}")
 
 find_package(Threads REQUIRED)
-#include("${CMAKE_CURRENT_LIST_DIR}/cmake/TBBGet.cmake")
-#tbb_get(TBB_ROOT tbb_root CONFIG TBB_DIR RELEASE_TAG 2018_U6)
-#set(CMAKE_PREFIX_PATH "${TBB_ROOT};${tbb_root}")
 find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
 
+# Although these packages are shipped with vcpkg, they do not export any CMake files so we have to include
+# them as subdirectory.
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/ms-gsl/")
-
-# https://github.com/mandreyel/mio
-add_library(mio INTERFACE)
-target_include_directories(mio INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/mio/include/")
-
-# https://github.com/Forceflow/libmorton
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/eastl/")
 add_library(libmorton INTERFACE)
 target_include_directories(libmorton INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/libmorton/libmorton/include/")
 
+find_package(glm REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)
-
-find_package(nlohmann_json)
+find_package(nlohmann_json REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
+find_package(mio CONFIG REQUIRED)
 
 #if (PANDORA_BUILD_VOXEL_EXPORTER)
 #	add_library(tinyply "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/tinyply.cpp")
