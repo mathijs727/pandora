@@ -12,4 +12,7 @@ target_compile_features(stream PUBLIC cxx_std_17)
 target_link_libraries(stream PUBLIC fmt::fmt spdlog::spdlog mio::mio TBB::tbb)
 
 add_subdirectory("example")
-add_subdirectory("tests")
+
+if (STREAM_BUILD_TESTS)
+	add_subdirectory("tests")
+endif()

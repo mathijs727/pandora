@@ -73,6 +73,7 @@ endif()
 
 if (PANDORA_BUILD_TESTS)
 	set(SIMD_BUILD_TESTS ON)
+	set(STREAM_BUILD_TESTS ON)
 endif()
 
 enable_testing()

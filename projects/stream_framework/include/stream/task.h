@@ -28,7 +28,7 @@ private:
     void execute();
 
 private:
-    DataStream<T> m_inputStream { 2 * 1024 * 1024 };
+    DataStream<T> m_inputStream;
 };
 
 template <typename T>
@@ -46,8 +46,8 @@ inline void Task<T>::pushInputData(gsl::span<const T> data)
 template <typename T>
 inline void Task<T>::execute()
 {
-    while (const auto inputStreamChunkOpt = m_inputStream.popChunk()) {
-        this->execute(inputStreamChunkOpt->getData());
+    for (const auto data : m_inputStream.consume()) {
+        this->execute(data);
     }
 }
 
