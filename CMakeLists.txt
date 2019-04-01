@@ -75,8 +75,10 @@ if (PANDORA_BUILD_TESTS)
 	set(SIMD_BUILD_TESTS ON)
 endif()
 
+enable_testing()
+
 add_subdirectory("projects/stream_framework/")
-#include("projects/simd/CMakeLists.txt")
+include("projects/simd/CMakeLists.txt")
 #include("projects/metrics/CMakeLists.txt")
 #include("projects/pandora/CMakeLists.txt")
 #if (PANDORA_BUILD_ATLAS)

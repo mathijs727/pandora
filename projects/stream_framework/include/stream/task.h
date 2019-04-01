@@ -16,22 +16,16 @@ protected:
 
 template <typename T>
 class Task : public TaskBase {
+public:
+    void pushInputData(gsl::span<const T> data);
 protected:
-    virtual void execute() = 0;
+    virtual void execute(gsl::span<const T> input) = 0;
     size_t getStreamSize() override;
 
 private:
     // Called by TaskPool.
     friend class TaskPool;
-    void pushInputData(gsl::span<const T> data);
-
-    template <typename T1, typename T2>
-    friend class TransformTask;
-    template <typename T1, typename T2>
-    friend class FilteredTransformTask;
-    template <typename T1, typename T2>
-    friend class MultiTypeScatterTransformTask;
-    DataStream<T>& getInputStreamReference();
+    void execute();
 
 private:
     DataStream<T> m_inputStream { 2 * 1024 * 1024 };
@@ -50,9 +44,11 @@ inline void Task<T>::pushInputData(gsl::span<const T> data)
 }
 
 template <typename T>
-inline DataStream<T>& Task<T>::getInputStreamReference()
+inline void Task<T>::execute()
 {
-    return m_inputStream;
+    while (const auto inputStreamChunkOpt = m_inputStream.popChunk()) {
+        this->execute(inputStreamChunkOpt->getData());
+    }
 }
 
 }

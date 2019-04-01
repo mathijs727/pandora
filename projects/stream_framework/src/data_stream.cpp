@@ -10,7 +10,7 @@ namespace tasking {
 
 std::atomic_int s_dataStreamTempFileId{ 0 };
 
-DataStreamBlockImpl::DataStreamBlockImpl(size_t maxSize)
+DataStreamChunkImpl::DataStreamChunkImpl(size_t maxSize)
 {
     namespace fs = std::filesystem;
 
@@ -18,7 +18,7 @@ DataStreamBlockImpl::DataStreamBlockImpl(size_t maxSize)
     if (!fs::exists(tempDirPath))
         fs::create_directories(tempDirPath);
 
-    m_filePath = tempDirPath / fmt::format("stream_block{}.stream", s_dataStreamTempFileId.fetch_add(1));
+    m_filePath = tempDirPath / fmt::format("stream_chunk{}.stream", s_dataStreamTempFileId.fetch_add(1));
     if (fs::exists(m_filePath))
         fs::remove(m_filePath);
 
@@ -39,7 +39,7 @@ DataStreamBlockImpl::DataStreamBlockImpl(size_t maxSize)
     m_data = m_memoryMapping.data();
 }
 
-DataStreamBlockImpl::~DataStreamBlockImpl()
+DataStreamChunkImpl::~DataStreamChunkImpl()
 {
     namespace fs = std::filesystem;
 

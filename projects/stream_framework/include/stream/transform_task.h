@@ -1,5 +1,7 @@
 #pragma once
 #include "task.h"
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
 
 namespace tasking {
 
@@ -17,17 +19,21 @@ public:
 
     void connect(Task<OutputT>& task2)
     {
-        m_outputStream = &task2.getInputStreamReference();
+        m_outputTask = &task2;
     }
 
 protected:
-    void execute() override
+    void execute(gsl::span<const InputT> inputData) override
     {
+        /*tbb::blocked_range<int> range{ inputData.size() };
+        tbb::parallel_for(range, [&]() {
+
+        });*/
     }
 
 private:
     Kernel m_cpuKernel;
-    DataStream<OutputT>* m_outputStream = nullptr;
+    Task<OutputT>* m_outputTask = nullptr;
 };
 
 }

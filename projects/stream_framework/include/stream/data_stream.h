@@ -1,19 +1,22 @@
 #pragma once
 #include <array>
+#include <atomic>
+#include <filesystem>
 #include <gsl/gsl>
 #include <list>
-#include <mutex>
 #include <mio/mmap.hpp>
-#include <filesystem>
+#include <mutex>
+#include <optional>
+#include <spdlog/spdlog.h>
 
 namespace tasking {
 
-class DataStreamBlockImpl{
+class DataStreamChunkImpl {
 public:
-    DataStreamBlockImpl(size_t maxSize);
-    DataStreamBlockImpl(const DataStreamBlockImpl&) = delete;
-    DataStreamBlockImpl(DataStreamBlockImpl&&) = default;
-    ~DataStreamBlockImpl();
+    DataStreamChunkImpl(size_t maxSize);
+    DataStreamChunkImpl(const DataStreamChunkImpl&) = delete;
+    DataStreamChunkImpl(DataStreamChunkImpl&&) = default;
+    ~DataStreamChunkImpl();
 
     void* getData()
     {
@@ -27,12 +30,11 @@ private:
 };
 
 template <typename T>
-class DataStreamBlock {
+class DataStreamChunk {
 public:
-    DataStreamBlock(size_t maxSize);
+    DataStreamChunk(size_t maxSize);
 
-    void push(T item);
-    void push(gsl::span<const T> items);
+    gsl::span<T> reserveForWriting(size_t numItems);
 
     size_t spaceLeft() const;
     bool full() const;
@@ -44,41 +46,70 @@ private:
     T* m_end;
     T* m_current;
 
-    DataStreamBlockImpl m_implementation;
+    DataStreamChunkImpl m_implementation;
 };
 
 template <typename T>
 class DataStream {
 public:
-    DataStream(size_t blockSize);
+    DataStream(size_t chunkSize);
+    DataStream(DataStream&&) = delete;
+    DataStream(const DataStream&) = delete;
+    ~DataStream() = default;
 
-    void push(T item);
-    void push(gsl::span<const T> items);
+    struct WriteOp {
+    public:
+        gsl::span<T> data;
+
+        ~WriteOp();
+
+    private:
+        friend class DataStream<T>;
+        WriteOp(gsl::span<T> data, std::atomic_int& writeCount);
+
+        std::atomic_int& m_writeCount;
+    };
+    WriteOp reserveRangeForWriting(size_t numItems)
+    {
+        if (numItems > m_chunkSize) {
+            spdlog::critical("Trying to add to many items ({}) at once to a data stream (of size {})", numItems, m_chunkSize);
+            exit(1);
+        }
+
+        std::scoped_lock<std::mutex> l(m_mutex);
+
+        if (m_chunksAndWriteCounts.empty() || std::get<0>(m_chunksAndWriteCounts.front()).spaceLeft() < numItems)
+            m_chunksAndWriteCounts.emplace_front(m_chunkSize, 0);
+
+        auto& [chunk, writeCount] = m_chunksAndWriteCounts.front();
+        writeCount++;
+        return WriteOp(chunk.reserveForWriting(numItems), writeCount);
+    }
 
     bool isEmpty() const;
-    const DataStreamBlock<T> getBlock();
+    std::optional<const DataStreamChunk<T>> popChunk();
 
 private:
-    const size_t m_blockSize;
-    std::list<DataStreamBlock<T>> m_blocks;
+    const size_t m_chunkSize;
+    std::list<std::tuple<DataStreamChunk<T>, std::atomic_int>> m_chunksAndWriteCounts;
     mutable std::mutex m_mutex;
 };
 
 template <typename T>
-inline DataStream<T>::DataStream(size_t blockSize)
-    : m_blockSize(blockSize)
+inline DataStream<T>::DataStream(size_t chunkSize)
+    : m_chunkSize(chunkSize)
 {
 }
 
-template <typename T>
+/*template <typename T>
 inline void DataStream<T>::push(T item)
 {
     std::scoped_lock<std::mutex> l(m_mutex);
 
-    if (m_blocks.empty() || m_blocks.front().spaceLeft() == 0)
-        m_blocks.emplace_front(m_blockSize);
+    if (m_chunks.empty() || m_chunks.front().spaceLeft() == 0)
+        m_chunks.emplace_front(m_chunkSize);
 
-    m_blocks.front().push(item);
+    m_chunks.front().push(item);
 }
 
 template <typename T>
@@ -88,13 +119,26 @@ inline void DataStream<T>::push(gsl::span<const T> items)
 
     std::ptrdiff_t itemsPushed = 0;
     while (itemsPushed < items.size()) {
-        if (m_blocks.empty() || m_blocks.front().full())
-            m_blocks.emplace_front(m_blockSize);
+        if (m_chunks.empty() || m_chunks.front().full())
+            m_chunks.emplace_front(m_chunkSize);
 
-        auto itemsToPush = std::min(static_cast<std::ptrdiff_t>(m_blocks.front().spaceLeft()), items.size() - itemsPushed);
-        m_blocks.front().push(items.subspan(itemsPushed, itemsToPush));
+        auto itemsToPush = std::min(static_cast<std::ptrdiff_t>(m_chunks.front().spaceLeft()), items.size() - itemsPushed);
+        m_chunks.front().push(items.subspan(itemsPushed, itemsToPush));
         itemsPushed += itemsToPush;
     }
+}*/
+
+template <typename T>
+inline DataStream<T>::WriteOp::WriteOp(gsl::span<T> data, std::atomic_int& writeCount)
+    : data(data)
+    , m_writeCount(writeCount)
+{
+}
+
+template <typename T>
+inline DataStream<T>::WriteOp::~WriteOp()
+{
+    m_writeCount--;
 }
 
 template <typename T>
@@ -102,21 +146,28 @@ inline bool DataStream<T>::isEmpty() const
 {
     std::scoped_lock<std::mutex> l(m_mutex);
 
-    return m_blocks.empty();
+    return m_chunksAndWriteCounts.empty();
 }
 
 template <typename T>
-inline const DataStreamBlock<T> DataStream<T>::getBlock()
+inline std::optional<const DataStreamChunk<T>> DataStream<T>::popChunk()
 {
     std::scoped_lock<std::mutex> l(m_mutex);
 
-    auto tmp = std::move(m_blocks.back());
-    m_blocks.pop_back();
-    return tmp;
+    for (auto iter = std::begin(m_chunksAndWriteCounts); iter != std::end(m_chunksAndWriteCounts); iter++) {
+        auto& [chunkRef, writeCount] = *iter;
+        if (writeCount == 0) {
+            auto chunk = std::move(chunkRef);
+            m_chunksAndWriteCounts.erase(iter);
+            return { std::move(chunk) };
+        }
+    }
+
+    return { };
 }
 
 template <typename T>
-inline DataStreamBlock<T>::DataStreamBlock(size_t maxSize)
+inline DataStreamChunk<T>::DataStreamChunk(size_t maxSize)
     : m_implementation(maxSize * sizeof(T))
 {
     m_current = m_start = reinterpret_cast<T*>(m_implementation.getData());
@@ -124,37 +175,46 @@ inline DataStreamBlock<T>::DataStreamBlock(size_t maxSize)
 }
 
 template <typename T>
-inline void DataStreamBlock<T>::push(T item)
+inline gsl::span<T> DataStreamChunk<T>::reserveForWriting(size_t numItems)
+{
+    assert(numItems <= spaceLeft());
+
+    auto ret = gsl::make_span(m_current, m_current + numItems);
+    m_current += numItems;
+    return ret;
+}
+
+/*template <typename T>
+inline void DataStreamChunk<T>::push(T item)
 {
     assert(m_current < m_end);
     *(m_current++) = item;
 }
 
 template <typename T>
-inline void DataStreamBlock<T>::push(gsl::span<const T> items)
+inline void DataStreamChunk<T>::push(gsl::span<const T> items)
 {
     assert(sizeof(items) <= spaceLeft());
 
     std::copy(std::begin(items), std::end(items), m_current);
     m_current += items.size();
-}
+}*/
 
 template <typename T>
-inline gsl::span<const T> DataStreamBlock<T>::getData() const
+inline gsl::span<const T> DataStreamChunk<T>::getData() const
 {
     return gsl::span<const T>(m_start, m_current);
 }
 
 template <typename T>
-inline size_t DataStreamBlock<T>::spaceLeft() const
+inline size_t DataStreamChunk<T>::spaceLeft() const
 {
     return std::distance(m_current, m_end);
 }
 
 template <typename T>
-inline bool DataStreamBlock<T>::full() const
+inline bool DataStreamChunk<T>::full() const
 {
     return m_current >= m_end;
 }
-
 }
