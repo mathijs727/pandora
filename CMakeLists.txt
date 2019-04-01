@@ -39,21 +39,6 @@ find_package(Threads REQUIRED)
 #set(CMAKE_PREFIX_PATH "${TBB_ROOT};${tbb_root}")
 find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
 
-#if (HPX_CUDART_LINK_FIX_WIN64)
-#	find_package(CUDA REQUIRED)
-#	link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib/x64/")
-#endif()
-
-# HPX does not use targets properly. HPX_INCLUDE_DIRS contains non-existent directories (error target_include_directories).
-# So instead do it like this until HPX is updated to use modern CMake (it's 2019 guys...)
-find_package(HPX CONFIG REQUIRED)
-include_directories("${HPX_INCLUDE_DIRS}")
-set_target_properties(hpx hpx_init iostreams_component
-	PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO RELEASE)
-if (MSVC)
-	target_compile_definitions(hpx INTERFACE "_CRT_SECURE_NO_WARNINGS")
-endif()
-
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/ms-gsl/")
 
 # https://github.com/mandreyel/mio
@@ -97,7 +82,7 @@ if (PANDORA_BUILD_TESTS)
 	set(SIMD_BUILD_TESTS ON)
 endif()
 
-include("projects/hpx_experiments/CMakeLists.txt")
+add_subdirectory("projects/stream_framework/")
 #include("projects/simd/CMakeLists.txt")
 #include("projects/metrics/CMakeLists.txt")
 #include("projects/pandora/CMakeLists.txt")
