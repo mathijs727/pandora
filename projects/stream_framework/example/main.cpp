@@ -1,21 +1,18 @@
 #include "stream/source_task.h"
 #include "stream/task_pool.h"
 #include "stream/transform_task.h"
-#include <iostream>
 #include <spdlog/sinks/msvc_sink.h>
 #include <spdlog/spdlog.h>
+#include <thread>
 
-void testGraphBuilder();
-
-static constexpr int stepSize = 1024;
-static constexpr int streamSize = 8 * 1024 * 1024;
+void testTaskPool();
 
 int main()
 {
     auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
     spdlog::set_default_logger(vsLogger);
 
-    testGraphBuilder();
+    testTaskPool();
 }
 
 class RangeSource : public tasking::SourceTask {
@@ -54,7 +51,7 @@ private:
     gsl::not_null<tasking::Task<int>*> m_consumer;
 };
 
-void testGraphBuilder()
+void testTaskPool()
 {
     using namespace tasking;
 
@@ -63,6 +60,7 @@ void testGraphBuilder()
             output[i] = static_cast<float>(input[i]) + 0.1f;
             spdlog::info("{} => {}", input[i], output[i]);
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     };
     auto cpuKernel2 = [](gsl::span<const float> input, gsl::span<int> output) {
         for (int i = 0; i < input.size(); i++) {
@@ -73,10 +71,10 @@ void testGraphBuilder()
 
     TaskPool p {};
     TransformTask<int, float> intToFloat(p, cpuKernel1);
-    TransformTask<float, int> floatToInt(p, cpuKernel2);
-    intToFloat.connect(&floatToInt);
+    //TransformTask<float, int> floatToInt(p, cpuKernel2);
+    //intToFloat.connect(&floatToInt);
 
-    RangeSource source { p, &intToFloat, 0, 6, 2 };
+    RangeSource source { p, &intToFloat, 0, 100, 1 };
 
     p.run();
 }

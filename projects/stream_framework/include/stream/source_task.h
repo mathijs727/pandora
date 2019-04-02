@@ -1,5 +1,6 @@
 #pragma once
 #include "task_pool.h"
+#include <mutex>
 
 namespace tasking {
 
@@ -8,6 +9,7 @@ public:
     SourceTask(TaskPool& taskPool);
 
     int numInputStreams() const final;
+
 protected:
     virtual void produce() = 0;
     virtual size_t itemsToProduce() const = 0;
@@ -15,5 +17,8 @@ protected:
 private:
     size_t inputStreamSize(int streamID) const final;
     void consumeInputStream(int streamID) final;
+
+private:
+    std::mutex m_mutex;
 };
 }

@@ -1,18 +1,50 @@
 #include "stream/task_pool.h"
 #include "spdlog/spdlog.h"
+#include <tbb/flow_graph.h>
 
 namespace tasking {
 
 void TaskPool::run()
 {
-    while (true) {
-        auto taskOpt = getNextTaskToRun();
-        if (!taskOpt)
-            break;
+    tbb::flow::graph g;
+    std::atomic_int tasksInFlight { 0 };
 
-        auto [task, streamID] = *taskOpt;
-        task->consumeInputStream(streamID);
-    }
+    using TaskWithStream = std::tuple<TaskBase*, int>;
+    using SourceNode = tbb::flow::source_node<TaskWithStream>;
+    SourceNode sourceNode(g,
+        [&](TaskWithStream& out) {
+            // NOTE: source node will only run on a single thread at a time.
+            while (true) {
+                int runningTasks = tasksInFlight;
+
+                auto taskOpt = getNextTaskToRun();
+                if (!taskOpt) {
+                    if (runningTasks)
+                        continue; // Still have running tasks, try again
+                    else
+                        return false; // Program has finished
+                }
+
+                tasksInFlight++;
+                auto [taskNotNull, streamID] = *taskOpt;
+                out = { taskNotNull.get(), streamID };
+                return true;
+            }
+        });
+
+    using SinkNode = tbb::flow::function_node<TaskWithStream, tbb::flow::continue_msg>;
+    SinkNode sinkNode(
+        g,
+        tbb::flow::concurrency::unlimited,
+        [&](TaskWithStream in) -> tbb::flow::continue_msg {
+            auto [task, streamID] = in;
+            task->consumeInputStream(streamID);
+            tasksInFlight--;
+            return {};
+        });
+
+    tbb::flow::make_edge(sourceNode, sinkNode);
+    g.wait_for_all();
 }
 
 void TaskPool::registerTask(gsl::not_null<TaskBase*> task)

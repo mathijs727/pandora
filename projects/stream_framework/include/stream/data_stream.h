@@ -1,6 +1,5 @@
 #pragma once
 #include <gsl/gsl>
-#include <spdlog/spdlog.h>
 #include <tbb/concurrent_queue.h>
 #include <vector>
 

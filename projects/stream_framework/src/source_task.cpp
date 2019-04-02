@@ -19,6 +19,7 @@ size_t SourceTask::inputStreamSize(int) const
 
 void SourceTask::consumeInputStream(int)
 {
+    std::scoped_lock lock { m_mutex };
     produce();
 }
 
