@@ -1,8 +1,11 @@
 add_library(stream
-	"src/data_stream.cpp"
+	"src/source_task.cpp"
+	"src/task_pool.cpp"
+
 	"include/stream/data_stream.h"
-	"include/stream/filter_task.h"
-	"include/stream/multi_type_scatter_transform_task.h"
+	#"include/stream/filter_task.h"
+	#"include/stream/multi_type_scatter_transform_task.h"
+	"include/stream/source_task.h"
 	"include/stream/task.h"
 	"include/stream/task_pool.h"
 	"include/stream/transform_task.h")

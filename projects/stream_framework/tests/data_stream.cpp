@@ -11,7 +11,7 @@
 
 void testGraphBuilder();
 
-static constexpr int stepSize = 128;
+static constexpr int stepSize = 1024;
 static constexpr int streamSize = 8 * 1024 * 1024;
 
 TEST(DataStream, SingleThreaded)
@@ -47,7 +47,7 @@ TEST(DataStream, MultiThreadedPush)
         std::vector<int> data(localRange.size());
         for (int i = 0, j = localRange.begin(); j < localRange.end(); i++, j++)
             data[i] = j;
-        stream.push(data);
+        stream.push(std::move(data));
     });
 
     int sum = 0;

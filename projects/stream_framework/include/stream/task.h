@@ -1,12 +1,51 @@
 #pragma once
-#include "data_stream.h"
-#include <gsl/gsl>
+#include "task_pool.h"
 
 namespace tasking {
 
-class TaskPool;
+template <typename T>
+class Task : public TaskBase {
+public:
+    Task(TaskPool& taskPool, size_t numInputStreams)
+        : TaskBase(taskPool)
+        , m_inputStreams(numInputStreams)
+    {
+    }
 
-class TaskBase {
+    void push(int streamID, gsl::span<const T> data)
+    {
+        m_inputStreams[streamID].push(data);
+    }
+
+    void push(int streamID, std::vector<T>&& data)
+    {
+        m_inputStreams[streamID].push(data);
+    }
+
+    int numInputStreams() const final
+    {
+        return static_cast<int>(m_inputStreams.size());
+    }
+protected:
+    virtual void execute(DataStream<T>& data) = 0;
+
+private:
+
+    size_t inputStreamSize(int streamID) const final
+    {
+        return m_inputStreams[streamID].size();
+    }
+
+    void consumeInputStream(int streamID) final
+    {
+        execute(m_inputStreams[streamID]);
+    }
+
+private:
+    std::vector<DataStream<T>> m_inputStreams;
+};
+
+/*class TaskBase {
 protected:
     friend class TaskPool;
 
@@ -49,6 +88,5 @@ inline void Task<T>::execute()
     for (const auto data : m_inputStream.consume()) {
         this->execute(data);
     }
-}
-
+}*/
 }

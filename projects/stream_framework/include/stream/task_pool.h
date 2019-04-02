@@ -1,13 +1,37 @@
 #pragma once
-#include "task.h"
+#include "data_stream.h"
+#include <gsl/gsl>
+#include <optional>
+#include <tuple>
 
 namespace tasking {
 
-class TaskPool {
+class TaskPool;
+
+class TaskBase {
 public:
-private:
-    template <typename T>
-    void registerTask();
+    TaskBase(TaskPool& taskPool);
+
+    virtual int numInputStreams() const = 0;
+protected:
+    friend class TaskPool;
+
+    virtual size_t inputStreamSize(int streamID) const = 0;
+    virtual void consumeInputStream(int streamID) = 0;
 };
 
+class TaskPool {
+public:
+    void run();
+
+protected:
+    friend class TaskBase;
+    void registerTask(gsl::not_null<TaskBase*> task);
+
+private:
+    std::optional<std::tuple<gsl::not_null<TaskBase*>, int>> getNextTaskToRun() const;
+
+private:
+    std::vector<gsl::not_null<TaskBase*>> m_tasks;
+};
 }
