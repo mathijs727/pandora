@@ -11,6 +11,8 @@ public:
     int numInputStreams() const final;
 
 protected:
+    virtual StaticDataInfo staticDataLocalityEstimate() const override;
+
     virtual void produce() = 0;
     virtual size_t itemsToProduce() const = 0;
 

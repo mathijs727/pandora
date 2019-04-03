@@ -1,6 +1,8 @@
+#include "stream/resource_cache.h"
 #include "stream/source_task.h"
 #include "stream/task_pool.h"
 #include "stream/transform_task.h"
+#include <boost/callable_traits.hpp>
 #include <spdlog/sinks/msvc_sink.h>
 #include <spdlog/spdlog.h>
 #include <thread>
@@ -51,13 +53,19 @@ private:
     gsl::not_null<tasking::Task<int>*> m_consumer;
 };
 
+int xxx()
+{
+    return 1;
+}
+
 void testTaskPool()
 {
     using namespace tasking;
 
-    auto cpuKernel1 = [](gsl::span<const int> input, gsl::span<float> output) {
+    int sharedVar = 0;
+    auto cpuKernel1 = [sharedVar](gsl::span<const int> input, gsl::span<float> output) {
         for (int i = 0; i < input.size(); i++) {
-            output[i] = static_cast<float>(input[i]) + 0.1f;
+            output[i] = static_cast<float>(input[i] + sharedVar) + 0.1f;
             spdlog::info("{} => {}", input[i], output[i]);
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -70,11 +78,11 @@ void testTaskPool()
     };
 
     TaskPool p {};
-    TransformTask<int, float> intToFloat(p, cpuKernel1);
+    TransformTask intToFloat(p, cpuKernel1, defaultDataLocalityEstimate);
     //TransformTask<float, int> floatToInt(p, cpuKernel2);
     //intToFloat.connect(&floatToInt);
 
-    RangeSource source { p, &intToFloat, 0, 100, 1 };
+    RangeSource source = RangeSource(p, &intToFloat, 0, 100, 1);
 
     p.run();
 }

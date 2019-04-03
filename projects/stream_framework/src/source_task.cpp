@@ -12,6 +12,11 @@ int SourceTask::numInputStreams() const
     return 1;
 }
 
+StaticDataInfo SourceTask::staticDataLocalityEstimate() const
+{
+    return StaticDataInfo {};
+}
+
 size_t SourceTask::inputStreamSize(int) const
 {
     return itemsToProduce();

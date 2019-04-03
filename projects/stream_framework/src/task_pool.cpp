@@ -11,7 +11,8 @@ void TaskPool::run()
 
     using TaskWithStream = std::tuple<TaskBase*, int>;
     using SourceNode = tbb::flow::source_node<TaskWithStream>;
-    SourceNode sourceNode(g,
+    SourceNode sourceNode(
+        g,
         [&](TaskWithStream& out) {
             // NOTE: source node will only run on a single thread at a time.
             while (true) {

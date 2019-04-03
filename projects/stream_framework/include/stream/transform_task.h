@@ -1,18 +1,27 @@
 #pragma once
 #include "task.h"
+#include <boost/callable_traits.hpp>
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>
+#include <type_traits>
 
 namespace tasking {
 
-template <typename InputT, typename OutputT>
+auto defaultDataLocalityEstimate = []() { return StaticDataInfo {}; };
+
+template <
+    typename Kernel,
+    typename DataLocalityEstimator,
+    typename InputT = std::remove_const_t<std::tuple_element_t<0, boost::callable_traits::args_t<Kernel>>::element_type>,
+    typename OutputT = std::tuple_element_t<1, boost::callable_traits::args_t<std::decay_t<Kernel>>>::element_type,
+    typename = std::enable_if_t<
+        std::is_same_v<std::result_of_t<Kernel(gsl::span<const InputT>, gsl::span<OutputT>)>, void>>>
 class TransformTask : public Task<InputT> {
 public:
-    using Kernel = std::function<void(gsl::span<const InputT>, gsl::span<OutputT>)>;
-
-    TransformTask(TaskPool& pool, Kernel&& cpuKernel)
+    TransformTask(TaskPool& pool, Kernel cpuKernel, DataLocalityEstimator dataLocalityEstimator)
         : Task<InputT>(pool, 1)
-        , m_cpuKernel(std::move(cpuKernel))
+        , m_kernel(std::forward<Kernel>(cpuKernel))
+        , m_dataLocalityEstimator(std::forward<DataLocalityEstimator>(dataLocalityEstimator))
     {
     }
     TransformTask(const TransformTask&) = delete;
@@ -26,25 +35,27 @@ public:
     }
 
 protected:
-    void execute(DataStream<InputT>& dataStream) override
+    void execute(DataStream<InputT>& dataStream) final
     {
-        for (auto dataBlock: dataStream.consume())
-        {
+        for (auto dataBlock : dataStream.consume()) {
             std::vector<OutputT> output(dataBlock.size());
-            m_cpuKernel(dataBlock, output);
+            m_kernel(dataBlock, output);
 
             if (m_outputTask) {
                 m_outputTask->push(m_outputStreamID, output);
             }
         }
-        /*tbb::blocked_range<int> range{ inputData.size() };
-        tbb::parallel_for(range, [&]() {
-
-        });*/
     }
 
 private:
-    Kernel m_cpuKernel;
+    StaticDataInfo staticDataLocalityEstimate() const override
+    {
+        return m_dataLocalityEstimator();
+    }
+
+private:
+    Kernel m_kernel;
+    DataLocalityEstimator m_dataLocalityEstimator;
 
     Task<OutputT>* m_outputTask = nullptr;
     int m_outputStreamID = -1;
