@@ -18,9 +18,6 @@ protected:
 
 private:
     size_t inputStreamSize(int streamID) const final;
-    void consumeInputStream(int streamID) final;
-
-private:
-    std::mutex m_mutex;
+    void executeStream(int streamID) final;
 };
 }

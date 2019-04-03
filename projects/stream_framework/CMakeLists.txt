@@ -1,5 +1,5 @@
 add_library(stream
-	"src/source_task.cpp"
+	#"src/source_task.cpp"
 	"src/task_pool.cpp"
 
 	"include/stream/data_stream.h"
@@ -14,10 +14,15 @@ add_library(stream
 
 target_include_directories(stream PUBLIC "include")
 target_compile_features(stream PUBLIC cxx_std_17)
-target_link_libraries(stream PUBLIC fmt::fmt spdlog::spdlog mio::mio TBB::tbb TBB::tbbmalloc Boost::boost)
+target_link_libraries(stream PUBLIC
+	fmt::fmt
+	spdlog::spdlog
+	mio::mio
+	hpx hpx_init iostreams_component
+	Boost::boost)
 
 add_subdirectory("example")
 
 if (STREAM_BUILD_TESTS)
-	add_subdirectory("tests")
+	#add_subdirectory("tests")
 endif()

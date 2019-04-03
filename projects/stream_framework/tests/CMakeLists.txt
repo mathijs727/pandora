@@ -1,7 +1,7 @@
 add_executable(stream_test
     data_stream.cpp)
 
-target_link_libraries(stream_test PRIVATE GTest::GTest GTest::Main TBB::tbb stream)
+target_link_libraries(stream_test PRIVATE GTest::GTest GTest::Main stream)
 target_compile_features(stream_test PRIVATE cxx_std_17)
 
 if (MSVC)

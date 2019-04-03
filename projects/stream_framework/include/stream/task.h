@@ -28,8 +28,7 @@ public:
     }
 protected:
     virtual StaticDataInfo staticDataLocalityEstimate() const = 0;
-
-    virtual void execute(DataStream<T>& data) = 0;
+    virtual hpx::future<void> execute(DataStream<T>& data) const = 0;
 
 private:
 
@@ -38,9 +37,9 @@ private:
         return m_inputStreams[streamID].size();
     }
 
-    void consumeInputStream(int streamID) final
+    hpx::future<void> executeStream(int streamID) final
     {
-        execute(m_inputStreams[streamID]);
+        return execute(m_inputStreams[streamID]);
     }
 
 private:

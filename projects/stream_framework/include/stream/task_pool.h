@@ -3,6 +3,7 @@
 #include <gsl/gsl>
 #include <optional>
 #include <tuple>
+#include <hpx/include/async.hpp>
 
 namespace tasking {
 
@@ -28,7 +29,7 @@ protected:
     virtual StaticDataInfo staticDataLocalityEstimate() const = 0;
 
     virtual size_t inputStreamSize(int streamID) const = 0;
-    virtual void consumeInputStream(int streamID) = 0;
+    virtual hpx::future<void> executeStream(int streamID) = 0;
 };
 
 class TaskPool {
@@ -40,9 +41,10 @@ protected:
     void registerTask(gsl::not_null<TaskBase*> task);
 
 private:
-    std::optional<std::tuple<gsl::not_null<TaskBase*>, int>> getNextTaskToRun() const;
+    std::optional<std::tuple<gsl::not_null<TaskBase*>, int>> getNextTaskToRun();
 
 private:
+    std::pair<TaskBase*, int> m_previouslyRunTask{ nullptr, 0 };
     std::vector<gsl::not_null<TaskBase*>> m_tasks;
 };
 }

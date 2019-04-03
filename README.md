@@ -11,6 +11,7 @@ To build Pandora, CMake and a C++17 compliant compiler and standard library are 
 
 Pandora uses the following third-party libraries:
  - [Guideline Support Library](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md) ([implemented by Microsoft](https://github.com/Microsoft/GSL))
+ - [HPX](https://github.com/STEllAR-GROUP/hpx) (with coroutines TS => set HPX_WITH_AWAIT=ON)
  - [TBB](https://github.com/01org/tbb)
  - [Embree 3](https://embree.github.io)
  - [GLM](https://github.com/g-truc/glm)

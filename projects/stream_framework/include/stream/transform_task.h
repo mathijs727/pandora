@@ -1,8 +1,6 @@
 #pragma once
 #include "task.h"
 #include <boost/callable_traits.hpp>
-#include <tbb/blocked_range.h>
-#include <tbb/parallel_for.h>
 #include <type_traits>
 
 namespace tasking {
