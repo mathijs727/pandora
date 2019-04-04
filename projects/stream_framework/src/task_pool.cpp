@@ -16,12 +16,12 @@ void TaskPool::run(int numDevices)
     hpx::lcos::local::channel<int> taskRequestChannel;
     std::vector<hpx::lcos::local::channel<TaskStreamID>> taskReceiveChannels(numDevices);
 
-    // Spawn a single scheduler task
+    // Spawn a single scheduler task.
     auto schedulerFuture = hpx::async([&]() {
         std::unordered_set<TaskStreamID, boost::hash<TaskStreamID>> currentlyExecutingTasks;
         std::unordered_map<int, TaskStreamID> currentlyExecutingTaskPerDevice;
 
-        while (true) { // Keep scheduler running
+        while (true) { // Keep scheduler running.
             int deviceID = taskRequestChannel.get().get();
 
             // The previous task has finished executing.
@@ -69,7 +69,7 @@ void TaskPool::run(int numDevices)
         }
     });
 
-    // Spawn a worker task for each device
+    // Spawn a worker task for each device.
     std::vector<hpx::future<void>> deviceControlFutures(numDevices);
     for (int deviceID = 0; deviceID < numDevices; deviceID++) {
         deviceControlFutures[deviceID] = hpx::async(
@@ -88,6 +88,8 @@ void TaskPool::run(int numDevices)
 
     schedulerFuture.wait();
     hpx::wait_all(std::begin(deviceControlFutures), std::end(deviceControlFutures));
+
+    taskRequestChannel.close(true);// Clear any outstanding requests for more work to prevent assertion failure (channel must be empty when closed).
 }
 
 void TaskPool::registerTask(gsl::not_null<TaskBase*> task)
