@@ -44,7 +44,7 @@ target_link_libraries(libPandora PUBLIC
     OpenImageIO # Loading textures
 	glm # Vector math
     embree # BVH builder and reference BVH traversal
-	TBB::tbb # Multithreading
+	#TBB::tbb # Multithreading
 	Threads::Threads
 	EASTL # Stack based STL containers <3 
 	mio) # Memory-mapped file IO for serialization

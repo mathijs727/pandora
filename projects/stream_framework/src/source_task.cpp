@@ -19,7 +19,7 @@ StaticDataInfo SourceTask::staticDataLocalityEstimate(int) const
 
 size_t SourceTask::inputStreamSize(int) const
 {
-    return itemsToProduce();
+    return itemsToProduceUnsafe();
 }
 
 hpx::future<void> SourceTask::executeStream(int)

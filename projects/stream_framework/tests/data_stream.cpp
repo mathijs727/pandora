@@ -1,10 +1,10 @@
 #include "stream/task_pool.h"
 #include "stream/transform_task.h"
-#include <future>
+#include "stream/source_task.h"
 #include <gtest/gtest.h>
-#include <tbb/concurrent_vector.h>
-#include <tbb/parallel_for.h>
-#include <tbb/tbb.h>
+#include <hpx/parallel/algorithm.hpp>
+#include <hpx/hpx_init.hpp>
+#include <hpx/hpx_main.hpp>
 #include <thread>
 #include <memory>
 #include <atomic>
@@ -13,6 +13,11 @@ void testGraphBuilder();
 
 static constexpr int stepSize = 1024;
 static constexpr int streamSize = 8 * 1024 * 1024;
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
 
 TEST(DataStream, SingleThreaded)
 {
@@ -35,18 +40,20 @@ TEST(DataStream, SingleThreaded)
         }
     }
 
-    ASSERT_EQ(sum, -4194304);
+    static_assert(streamSize % 2 == 0);
+    ASSERT_EQ(sum, -streamSize / 2);
 }
 
 TEST(DataStream, MultiThreadedPush)
 {
     tasking::DataStream<int> stream;
-    
-    tbb::blocked_range<int> range = tbb::blocked_range<int>(0, streamSize, stepSize);
-    tbb::parallel_for(range, [&](tbb::blocked_range<int> localRange) {
-        std::vector<int> data(localRange.size());
-        for (int i = 0, j = localRange.begin(); j < localRange.end(); i++, j++)
-            data[i] = j;
+    static_assert(streamSize % stepSize == 0);
+    hpx::parallel::for_loop(0, streamSize / stepSize, [&](int block) {
+        int blockStart = block * stepSize;
+
+        std::vector<int> data(stepSize);
+        for (int i = 0; i < stepSize; i++)
+            data[i] = blockStart + i;
         stream.push(std::move(data));
     });
 
@@ -60,13 +67,16 @@ TEST(DataStream, MultiThreadedPush)
         }
     }
 
-    ASSERT_EQ(sum, -4194304);
+    static_assert(streamSize % 2 == 0);
+    ASSERT_EQ(sum, -streamSize / 2);
 }
 
 TEST(DataStream, ProducerConsumer)
 {
+    static_assert(streamSize % 2 == 0);
+
     tasking::DataStream<int> stream;
-    std::thread producer([&]() {
+    auto producer = hpx::async([&]() {
         for (int i = 0; i < streamSize; i += stepSize) {
             std::array<int, stepSize> data;
             for (int j = 0, k = i; j < stepSize; j++, k++)
@@ -75,10 +85,9 @@ TEST(DataStream, ProducerConsumer)
         }
     });
 
-    std::promise<int> sumPromise;
-    std::thread consumer([&]() {
+    auto consumer = hpx::async([&]() {
         int sum = 0;
-        while (sum != -4194304) {
+        while (sum != -streamSize / 2) {
             for (auto data : stream.consume()) {
                 for (int v : data) {
                     if ((v % 2) == 0)
@@ -88,12 +97,82 @@ TEST(DataStream, ProducerConsumer)
                 }
             }
         }
-        sumPromise.set_value(sum);
+        return sum;
     });
 
-    producer.join();
-    consumer.join();
-    int sum = sumPromise.get_future().get();
+    producer.wait();
+    int sum = consumer.get();
 
-    ASSERT_EQ(sum, -4194304);
+    ASSERT_EQ(sum, -streamSize / 2);
+}
+
+class RangeSource : public tasking::SourceTask {
+public:
+    RangeSource(tasking::TaskPool& taskPool, gsl::not_null<tasking::Task<int>*> consumer, int start, int end, int itemsPerBatch)
+        : SourceTask(taskPool)
+        , m_start(start)
+        , m_end(end)
+        , m_itemsPerBatch(itemsPerBatch)
+        , m_current(start)
+        , m_consumer(consumer)
+    {
+    }
+
+    hpx::future<void> produce() final
+    {
+        int numItems = static_cast<int>(itemsToProduceUnsafe());
+
+        std::vector<int> data(numItems);
+        for (int i = 0; i < numItems; i++) {
+            data[i] = m_current++;
+            //spdlog::info("Gen: {}", data[i]);
+        }
+        m_consumer->push(0, std::move(data));
+        co_return; // Important! Creates a coroutine.
+    }
+
+    size_t itemsToProduceUnsafe() const final
+    {
+        return std::min(m_end - m_current, m_itemsPerBatch);
+    }
+
+private:
+    const int m_start, m_end, m_itemsPerBatch;
+    int m_current;
+
+    std::atomic_int m_currentlyInPool;
+
+    gsl::not_null<tasking::Task<int>*> m_consumer;
+};
+
+TEST(TaskPool, Transform) {
+    using namespace tasking;
+
+    constexpr int problemSize = 1024;
+    constexpr int stepSize = 256;
+
+    std::atomic_int sum = 0;
+    auto cpuKernel1 = [&](gsl::span<const int> input, gsl::span<float> output) {
+        int localSum = 0;
+
+        for (int i = 0; i < input.size(); i++) {
+            output[i] = static_cast<float>(input[i]);
+
+            int v = input[i];
+            if (v % 2 == 0)
+                localSum += v;
+            else
+                localSum -= v;
+        }
+
+        sum += localSum;
+    };
+
+    TaskPool p {};
+    TransformTask intToFloat(p, cpuKernel1, defaultDataLocalityEstimate);
+    RangeSource source = RangeSource(p, &intToFloat, 0, problemSize, stepSize);
+    p.run();
+
+    static_assert(problemSize % 2 == 0);
+    ASSERT_EQ(sum, -problemSize / 2);
 }

@@ -24,5 +24,5 @@ target_link_libraries(stream PUBLIC
 add_subdirectory("example")
 
 if (STREAM_BUILD_TESTS)
-	#add_subdirectory("tests")
+	add_subdirectory("tests")
 endif()

@@ -4,16 +4,9 @@
 #include "stream/transform_task.h"
 #include <hpx/hpx_init.hpp>
 #include <hpx/hpx_main.hpp>
+#include <hpx/parallel/algorithm.hpp>
 #include <spdlog/sinks/msvc_sink.h>
 #include <spdlog/spdlog.h>
-
-int fibonacci(int n)
-{
-    if (n < 2)
-        return n;
-
-    return fibonacci(n - 1) + fibonacci(n - 2);
-}
 
 void testTaskPool();
 
@@ -41,7 +34,7 @@ public:
 
     hpx::future<void> produce() final
     {
-        int numItems = static_cast<int>(itemsToProduce());
+        int numItems = static_cast<int>(itemsToProduceUnsafe());
 
         std::vector<int> data(numItems);
         for (int i = 0; i < numItems; i++) {
@@ -52,7 +45,7 @@ public:
         co_return; // Important! Creates a coroutine.
     }
 
-    size_t itemsToProduce() const final
+    size_t itemsToProduceUnsafe() const final
     {
         return std::min(m_end - m_current, m_itemsPerBatch);
     }
@@ -66,12 +59,20 @@ private:
     gsl::not_null<tasking::Task<int>*> m_consumer;
 };
 
+int fibonacci(int n)
+{
+    if (n < 2)
+        return n;
+
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
 void testTaskPool()
 {
     using namespace tasking;
 
-    constexpr int problemSize = 1024 * 1024 * 1024;
-    constexpr int stepSize = 1024;
+    constexpr int problemSize = 1024;
+    constexpr int stepSize = 256;
 
     std::atomic_int sum = 0;
     auto cpuKernel1 = [&](gsl::span<const int> input, gsl::span<float> output) {

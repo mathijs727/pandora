@@ -14,7 +14,7 @@ protected:
     virtual StaticDataInfo staticDataLocalityEstimate(int streamID) const override;
 
     virtual hpx::future<void> produce() = 0;
-    virtual size_t itemsToProduce() const = 0;
+    virtual size_t itemsToProduceUnsafe() const = 0;
 
 private:
     size_t inputStreamSize(int streamID) const final;
