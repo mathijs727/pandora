@@ -5,7 +5,7 @@
 
 namespace tasking {
 
-auto defaultDataLocalityEstimate = []() { return StaticDataInfo {}; };
+auto defaultDataLocalityEstimate = [](int) { return StaticDataInfo {}; };
 
 template <
     typename Kernel,
@@ -13,7 +13,7 @@ template <
     typename InputT = std::remove_const_t<std::tuple_element_t<0, boost::callable_traits::args_t<Kernel>>::element_type>,
     typename OutputT = std::tuple_element_t<1, boost::callable_traits::args_t<std::decay_t<Kernel>>>::element_type,
     typename = std::enable_if_t<
-        std::is_same_v<std::result_of_t<Kernel(gsl::span<const InputT>, gsl::span<OutputT>)>, void>>>
+        std::is_same_v<std::result_of_t<Kernel(gsl::span<const InputT>, gsl::span<OutputT>)>, void> && std::is_same_v<std::result_of_t<DataLocalityEstimator(int)>, StaticDataInfo>>>
 class TransformTask : public Task<InputT> {
 public:
     TransformTask(TaskPool& pool, Kernel cpuKernel, DataLocalityEstimator dataLocalityEstimator)
@@ -32,8 +32,8 @@ public:
         assert(m_outputStreamID < m_outputTask->numInputStreams());
     }
 
-protected:
-    void execute(DataStream<InputT>& dataStream) final
+private:
+    hpx::future<void> execute(DataStream<InputT>& dataStream) const final
     {
         for (auto dataBlock : dataStream.consume()) {
             std::vector<OutputT> output(dataBlock.size());
@@ -43,12 +43,12 @@ protected:
                 m_outputTask->push(m_outputStreamID, output);
             }
         }
+        co_return;// Important! Creates a coroutine.
     }
 
-private:
-    StaticDataInfo staticDataLocalityEstimate() const override
+    StaticDataInfo staticDataLocalityEstimate(int streamID) const final
     {
-        return m_dataLocalityEstimator();
+        return m_dataLocalityEstimator(streamID);
     }
 
 private:

@@ -17,6 +17,11 @@ public:
 
     class Consumer {
     public:
+        Consumer(std::vector<std::vector<T>>&& dataBlocks)
+            : m_dataBlocks(std::move(dataBlocks))
+        {
+        }
+
         struct Iterator {
             using iterator_category = std::forward_iterator_tag;
             using value_type = gsl::span<const T>;
@@ -24,33 +29,34 @@ public:
             using pointer = gsl::span<const T>*;
             using reference = gsl::span<const T>&;
 
-            bool operator!=(const Iterator& other) { return m_index != other.m_index; }
-            bool operator++() { m_index++; }
-            gsl::span<const T> operator*() { return m_dataBlocks[m_index]; }
-
-        private:
-            Iterator(gsl::span<const std::vector<T>> dataBlocks, int index = 0)
+            Iterator(gsl::span<const std::vector<T>> dataBlocks, size_t index = 0)
                 : m_dataBlocks(dataBlocks)
                 , m_index(index)
             {
             }
 
+            bool operator!=(const Iterator& other) { return m_index != other.m_index; }
+            Iterator& operator++() // ++iterator
+            {
+                m_index++;
+                return *this;
+            }
+            Iterator operator++(int) // iterator++
+            {
+                return Iterator(m_dataBlocks, m_index++);
+            }
+            gsl::span<const T> operator*() { return m_dataBlocks[m_index]; }
+
         private:
             gsl::span<const std::vector<T>> m_dataBlocks;
-            int m_index;
+            size_t m_index;
         };
 
-        Iterator begin() const { return Iterator(m_dataBlocks, m_dataBlocks.size()); }
+        Iterator begin() const { return Iterator(m_dataBlocks, 0); }
         Iterator end() const { return Iterator(m_dataBlocks, m_dataBlocks.size()); }
 
     private:
-        Consumer(std::vector<const std::vector<T>>&& dataBlocks)
-            : m_dataBlocks(std::move(dataBlocks))
-        {
-        }
-
-    private:
-        const std::vector<const std::vector<T>> m_dataBlocks;
+        const std::vector<std::vector<T>> m_dataBlocks;
     };
 
     Consumer consume();
@@ -58,24 +64,25 @@ public:
 private:
     std::mutex m_mutex;
     std::atomic_size_t m_currentSize { 0 };
-    std::vector<const std::vector<T>> m_dataBlocks;
+    std::vector<std::vector<T>> m_dataBlocks;
 };
 
 template <typename T>
 bool DataStream<T>::isEmptyUnsafe() const
 {
-    return m_currentSize.load() == 0;
+    return m_currentSize.load(std::memory_order::memory_order_relaxed) == 0;
 }
 
 template <typename T>
 inline size_t DataStream<T>::sizeUnsafe() const
 {
-    return m_currentSize.load();
+    return m_currentSize.load(std::memory_order::memory_order_relaxed);
 }
 
 template <typename T>
 void DataStream<T>::push(std::vector<T>&& data)
 {
+    std::scoped_lock lock { m_mutex };
     m_currentSize += data.size();
     m_dataBlocks.push_back(std::move(data));
 }
@@ -83,11 +90,12 @@ void DataStream<T>::push(std::vector<T>&& data)
 template <typename T>
 void DataStream<T>::push(gsl::span<const T> data)
 {
+    std::scoped_lock lock { m_mutex };
     m_currentSize += data.size();
 
-    std::vector<T> dataOwner(static_cast<size_t>(data.size()));
-    std::copy(std::begin(data), std::end(data), std::begin(dataOwner));
-    m_data.emplace(std::move(dataOwner));
+    std::vector<T> dataBlock(static_cast<size_t>(data.size()));
+    std::copy(std::begin(data), std::end(data), std::begin(dataBlock));
+    m_dataBlocks.push_back(std::move(dataBlock));
 }
 
 template <typename T>

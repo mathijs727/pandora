@@ -1,11 +1,19 @@
 //#include "stream/resource_cache.h"
-//#include "stream/source_task.h"
+#include "stream/source_task.h"
 #include "stream/task_pool.h"
-//#include "stream/transform_task.h"
-#include <spdlog/sinks/msvc_sink.h>
-#include <spdlog/spdlog.h>
+#include "stream/transform_task.h"
 #include <hpx/hpx_init.hpp>
 #include <hpx/hpx_main.hpp>
+#include <spdlog/sinks/msvc_sink.h>
+#include <spdlog/spdlog.h>
+
+int fibonacci(int n)
+{
+    if (n < 2)
+        return n;
+
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
 
 void testTaskPool();
 
@@ -14,12 +22,12 @@ int main()
     auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
     spdlog::set_default_logger(vsLogger);
 
-    //testTaskPool();
+    testTaskPool();
 
     return 0;
 }
 
-/*class RangeSource : public tasking::SourceTask {
+class RangeSource : public tasking::SourceTask {
 public:
     RangeSource(tasking::TaskPool& taskPool, gsl::not_null<tasking::Task<int>*> consumer, int start, int end, int itemsPerBatch)
         : SourceTask(taskPool)
@@ -31,7 +39,7 @@ public:
     {
     }
 
-    void produce() final
+    hpx::future<void> produce() final
     {
         int numItems = static_cast<int>(itemsToProduce());
 
@@ -41,6 +49,7 @@ public:
             //spdlog::info("Gen: {}", data[i]);
         }
         m_consumer->push(0, std::move(data));
+        co_return; // Important! Creates a coroutine.
     }
 
     size_t itemsToProduce() const final
@@ -61,7 +70,7 @@ void testTaskPool()
 {
     using namespace tasking;
 
-    constexpr int problemSize = 1024 * 1024;
+    constexpr int problemSize = 1024 * 1024 * 1024;
     constexpr int stepSize = 1024;
 
     std::atomic_int sum = 0;
@@ -71,17 +80,21 @@ void testTaskPool()
         for (int i = 0; i < input.size(); i++) {
             output[i] = static_cast<float>(input[i]);
 
+            // Do some dummy work to keep the cores busy.
+            int n = fibonacci(4);
+            //int n = 0;
+
             int v = input[i];
             if (v % 2 == 0)
-                localSum += v;
+                localSum += v + n;
             else
-                localSum -= v;
+                localSum -= v + n;
         }
 
         // Emulate doing 1 microsecond of work for each item.
-        //std::this_thread::sleep_for(std::chrono::microseconds(stepSize));
+        //std::this_thread::sleep_for(std::chrono::nanoseconds(stepSize));
 
-        //sum += localSum;
+        sum += localSum;
     };
     auto cpuKernel2 = [](gsl::span<const float> input, gsl::span<int> output) {
         for (int i = 0; i < input.size(); i++) {
@@ -102,4 +115,4 @@ void testTaskPool()
         spdlog::info("CORRECT ANSWER");
     else
         spdlog::critical("INCORRECT ANSWER");
-}*/
+}

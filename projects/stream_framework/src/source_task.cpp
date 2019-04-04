@@ -12,7 +12,7 @@ int SourceTask::numInputStreams() const
     return 1;
 }
 
-StaticDataInfo SourceTask::staticDataLocalityEstimate() const
+StaticDataInfo SourceTask::staticDataLocalityEstimate(int) const
 {
     return StaticDataInfo {};
 }
@@ -22,9 +22,9 @@ size_t SourceTask::inputStreamSize(int) const
     return itemsToProduce();
 }
 
-void SourceTask::consumeInputStream(int)
+hpx::future<void> SourceTask::executeStream(int)
 {
-    produce();
+    return produce();
 }
 
 }

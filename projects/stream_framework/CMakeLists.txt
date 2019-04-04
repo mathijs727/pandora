@@ -1,5 +1,5 @@
 add_library(stream
-	#"src/source_task.cpp"
+	"src/source_task.cpp"
 	"src/task_pool.cpp"
 
 	"include/stream/data_stream.h"

@@ -26,7 +26,7 @@ protected:
 
     // Estimation of where the static data lives such that the scheduler can make educated decisions
     // on which tasks to run next.
-    virtual StaticDataInfo staticDataLocalityEstimate() const = 0;
+    virtual StaticDataInfo staticDataLocalityEstimate(int streamID) const = 0;
 
     virtual size_t inputStreamSize(int streamID) const = 0;
     virtual hpx::future<void> executeStream(int streamID) = 0;
@@ -34,7 +34,7 @@ protected:
 
 class TaskPool {
 public:
-    void run();
+    void run(int numDevices = std::thread::hardware_concurrency() - 1);
 
 protected:
     friend class TaskBase;

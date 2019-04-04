@@ -4,7 +4,9 @@
 namespace tasking {
 
 template <typename T>
-class Task : public TaskBase {
+class 
+    
+    Task : public TaskBase {
 public:
     Task(TaskPool& taskPool, size_t numInputStreams)
         : TaskBase(taskPool)
@@ -27,14 +29,14 @@ public:
         return static_cast<int>(m_inputStreams.size());
     }
 protected:
-    virtual StaticDataInfo staticDataLocalityEstimate() const = 0;
-    virtual hpx::future<void> execute(DataStream<T>& data) const = 0;
+    virtual StaticDataInfo staticDataLocalityEstimate(int streamID) const = 0;
+    virtual hpx::future<void> execute(DataStream<T>& dataStream) const = 0;
 
 private:
 
     size_t inputStreamSize(int streamID) const final
     {
-        return m_inputStreams[streamID].size();
+        return m_inputStreams[streamID].sizeUnsafe();
     }
 
     hpx::future<void> executeStream(int streamID) final

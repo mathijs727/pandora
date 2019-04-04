@@ -11,13 +11,13 @@ public:
     int numInputStreams() const final;
 
 protected:
-    virtual StaticDataInfo staticDataLocalityEstimate() const override;
+    virtual StaticDataInfo staticDataLocalityEstimate(int streamID) const override;
 
-    virtual void produce() = 0;
+    virtual hpx::future<void> produce() = 0;
     virtual size_t itemsToProduce() const = 0;
 
 private:
     size_t inputStreamSize(int streamID) const final;
-    void executeStream(int streamID) final;
+    hpx::future<void> executeStream(int streamID) final;
 };
 }
