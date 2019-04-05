@@ -30,7 +30,7 @@ target_include_directories(embree INTERFACE "${EMBREE_INCLUDE_DIRS}")
 target_link_libraries(embree INTERFACE "${EMBREE_LIBRARY}")
 
 find_package(Threads REQUIRED)
-#find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
+find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
 
 # Although these packages are shipped with vcpkg, they do not export any CMake files so we have to include
 # them as subdirectory.

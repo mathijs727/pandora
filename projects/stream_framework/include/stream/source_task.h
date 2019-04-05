@@ -1,6 +1,5 @@
 #pragma once
 #include "task_pool.h"
-#include <mutex>
 
 namespace tasking {
 
