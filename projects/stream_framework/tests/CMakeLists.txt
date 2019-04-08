@@ -1,5 +1,8 @@
 add_executable(stream_test
-    data_stream.cpp)
+    data_stream.cpp
+	main.cpp
+	static_data_cache.cpp
+	task_pool.cpp)
 
 target_link_libraries(stream_test PRIVATE GTest::GTest stream)
 target_compile_features(stream_test PRIVATE cxx_std_17)

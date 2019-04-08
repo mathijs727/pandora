@@ -3,6 +3,8 @@
 #include <condition_variable>
 #include <filesystem>
 #include <hpx/async.hpp>
+#include <hpx/lcos/local/condition_variable.hpp>
+#include <hpx/lcos/local/mutex.hpp>
 #include <mutex>
 #include <optional>
 #include <random>
@@ -18,6 +20,8 @@ class Resource {
 public:
     size_t sizeBytes() const;
     static hpx::future<Resource> readFromDisk();
+
+private:
 };
 
 // Based upon the new texture cache in PBRT:
@@ -29,11 +33,11 @@ public:
 
 private:
     struct Entry {
-        Entry(T* ptr)
+        Entry(std::shared_ptr<T> ptr)
             : pointer(ptr)
         {
         }
-        T* pointer { nullptr };
+        std::shared_ptr<T> pointer { nullptr };
         std::atomic_bool marked { false };
     };
     using HashMap = tbb::concurrent_unordered_map<ResourceID, Entry>;
@@ -61,26 +65,26 @@ public:
         return static_cast<ResourceID>(m_resourceFactories.size() - 1);
     }
 
-    hpx::future<T*> lookUp(ResourceID resourceID) const
+    hpx::future<std::shared_ptr<T>> lookUp(ResourceID resourceID) const
     {
         auto* mutThis = const_cast<VariableSizedResourceCache<T>*>(this);
         return mutThis->getResource(resourceID);
     }
 
 private:
-    hpx::future<T*> getResource(ResourceID resourceID)
+    hpx::future<std::shared_ptr<T>> getResource(ResourceID resourceID)
     {
         // Return resource if it's present in the hash table.
-        RCUBegin();
-        HashMap* hashMap = m_hashMap.load(std::memory_order_acquire);
-        if (auto iter = hashMap->find(resourceID); iter != hashMap->end()) {
-            T* resource = iter->second.pointer;
-            if (iter->second.marked.load(std::memory_order_relaxed))
-                iter->second.marked.store(false, std::memory_order_relaxed);
-            RCUEnd();
-            co_return resource;
+        {
+            RCU rcu { m_threadActiveFlags };
+            HashMap* hashMap = m_hashMap.load(std::memory_order_acquire);
+            if (auto iter = hashMap->find(resourceID); iter != hashMap->end()) {
+                std::shared_ptr<T> resource = iter->second.pointer;
+                if (iter->second.marked.load(std::memory_order_relaxed))
+                    iter->second.marked.store(false, std::memory_order_relaxed);
+                co_return resource;
+            }
         }
-        RCUEnd();
 
         // NOTE: possible race condition may occur where resource is not found but another thread
         //  just finished loading it before we start checking for outstanding reads. In that case
@@ -90,7 +94,7 @@ private:
 
         // Check to see if another thread is already loading this resource.
         {
-            std::scoped_lock lock { m_outstandingReadsMutex };
+            m_outstandingReadsMutex.lock();
             for (ResourceID readResourceID : m_outstandingReads) {
                 if (readResourceID == resourceID) {
                     // Wait for resourceID to be read before retrying lookup.
@@ -103,35 +107,38 @@ private:
 
             // Record that the current thread will read resourceID.
             m_outstandingReads.push_back(resourceID);
+            m_outstandingReadsMutex.unlock();
         }
 
         // Load resource from disk.
-        T* resource = getFreeResource();
-        m_resourceAllocator.construct(resource, await T::readFromDisk(m_resourceFactories[resourceID]));
+        std::shared_ptr<T> resource = getFreeResource(await T::readFromDisk(m_resourceFactories[resourceID]));
+        //m_resourceAllocator.construct(resource, await T::readFromDisk(m_resourceFactories[resourceID]));
+
         m_currentSizeBytes.fetch_add(resource->sizeBytes());
 
         // Add resource to hash table and return a pointer to it.
-        RCUBegin();
-        hashMap = m_hashMap.load(std::memory_order_relaxed);
-        hashMap->emplace(resourceID, resource);
-
-        // Update outstanding reads for read resource.
         {
-            std::scoped_lock lock { m_outstandingReadsMutex };
-            for (auto iter = std::begin(m_outstandingReads); iter != std::end(m_outstandingReads); ++iter) {
-                if (*iter == resourceID) {
-                    m_outstandingReads.erase(iter);
-                    break;
+            RCU rcu { m_threadActiveFlags };
+            HashMap* hashMap = m_hashMap.load(std::memory_order_relaxed);
+            hashMap->emplace(resourceID, resource);
+
+            // Update outstanding reads for read resource.
+            {
+                std::scoped_lock lock { m_outstandingReadsMutex };
+                for (auto iter = std::begin(m_outstandingReads); iter != std::end(m_outstandingReads); ++iter) {
+                    if (*iter == resourceID) {
+                        m_outstandingReads.erase(iter);
+                        break;
+                    }
                 }
             }
+            m_outstandingReadsCondition.notify_all();
         }
-        m_outstandingReadsCondition.notify_all();
-        RCUEnd();
 
         co_return resource;
     }
 
-    T* getFreeResource()
+    std::shared_ptr<T> getFreeResource(T&& resourceValue)
     {
         std::scoped_lock lock { m_freeResourcesMutex };
 
@@ -145,7 +152,7 @@ private:
         if (currentSizeBytes > m_maxSizeBytes)
             freeResources();
 
-        return m_resourceAllocator.allocate(1);
+        return std::make_shared<T>(std::move(resourceValue)); //m_resourceAllocator.allocate(1);
     }
 
     void markEntries()
@@ -171,9 +178,10 @@ private:
                 if (!entry.marked.load(std::memory_order_relaxed)) {
                     m_freeHashMap->emplace(resourceID, entry.pointer);
                 } else {
+                    // Not copied so the ref count is decreased and the resource will be freed once all accessing threads are done with it.
                     memoryFreedBytes += entry.pointer->sizeBytes();
-                    m_resourceAllocator.destroy(entry.pointer);
-                    m_resourceAllocator.deallocate(entry.pointer, 1);
+                    //m_resourceAllocator.destroy(entry.pointer);
+                    //m_resourceAllocator.deallocate(entry.pointer, 1);
                 }
             }
             m_currentSizeBytes.fetch_sub(memoryFreedBytes);
@@ -192,9 +200,10 @@ private:
                     if (i++ % 2 == 0) {
                         m_freeHashMap->emplace(resourceID, entry.pointer);
                     } else {
+                        // Not copied so the ref count is decreased and the resource will be freed once all accessing threads are done with it.
                         memoryFreedBytes += entry.pointer->sizeBytes();
-                        m_resourceAllocator.destroy(entry.pointer);
-                        m_resourceAllocator.deallocate(entry.pointer, 1);
+                        //m_resourceAllocator.destroy(entry.pointer);
+                        //m_resourceAllocator.deallocate(entry.pointer, 1);
                     }
                 }
                 m_currentSizeBytes.fetch_sub(memoryFreedBytes);
@@ -209,8 +218,9 @@ private:
         m_marked.store(false, std::memory_order_release);
 
         // Ensure that no threads are accessing the old hash map.
-        for (size_t i = 0; i < m_threadActiveFlags.size(); i++)
+        for (size_t i = 0; i < m_threadActiveFlags.size(); i++) {
             waitForQuiescent(i);
+        }
 
         // Add inactive resources in m_freeHashmap to free list.
         if (m_currentSizeBytes.load(std::memory_order_relaxed) > m_markFreeSizeBytes) {
@@ -218,7 +228,7 @@ private:
         }
     }
 
-    // Begin read-side critical section.
+    /*// Begin read-side critical section.
     void RCUBegin()
     {
         std::atomic<bool>& flag = m_threadActiveFlags[hpx::get_worker_thread_num()].flag;
@@ -231,7 +241,7 @@ private:
     {
         std::atomic<bool>& flag = m_threadActiveFlags[hpx::get_worker_thread_num()].flag;
         flag.store(false, std::memory_order_release);
-    }
+    }*/
 
     void waitForQuiescent(size_t thread)
     {
@@ -246,7 +256,7 @@ private:
     std::atomic<HashMap*> m_hashMap;
     HashMap* m_freeHashMap;
 
-    std::mutex m_freeResourcesMutex;
+    std::mutex m_freeResourcesMutex; // Do NOT use hpx::mutex because it will allow tasks to move threads (breaking RCU)
     tbb::scalable_allocator<T> m_resourceAllocator;
     const size_t m_markFreeSizeBytes;
     const size_t m_maxSizeBytes;
@@ -258,7 +268,31 @@ private:
     };
     std::vector<ActiveFlag> m_threadActiveFlags;
 
-    std::mutex m_outstandingReadsMutex;
+    // Read-side critical section
+    struct RCU {
+        RCU(std::vector<ActiveFlag>& flags)
+            : m_flags(flags)
+            , m_workerThreadID(hpx::get_worker_thread_num())
+        {
+            std::atomic<bool>& flag = flags[m_workerThreadID].flag;
+            flag.store(true, std::memory_order_relaxed);
+            atomic_thread_fence(std::memory_order_acquire);
+        }
+
+        ~RCU()
+        {
+            size_t workerID = hpx::get_worker_thread_num();
+            assert(m_workerThreadID == workerID);
+            std::atomic<bool>& flag = m_flags[m_workerThreadID].flag;
+            flag.store(false, std::memory_order_release);
+        }
+
+    private:
+        std::vector<ActiveFlag>& m_flags;
+        size_t m_workerThreadID;
+    };
+
+    std::mutex m_outstandingReadsMutex; // Do NOT use hpx::mutex because it will allow tasks to move threads (breaking RCU)
     std::condition_variable m_outstandingReadsCondition;
     std::vector<ResourceID> m_outstandingReads;
 };

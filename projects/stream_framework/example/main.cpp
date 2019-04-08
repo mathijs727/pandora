@@ -40,20 +40,35 @@ void testResourceCacheRandom()
     using namespace tasking;
 
     using Cache = VariableSizedResourceCache<DummyResource>;
-    Cache cache { 1024 * 5, 100 };
+    Cache cache { 1024 * 75, 100 };
 
     std::vector<Cache::ResourceID> resourceIDs;
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 100; i++)
         resourceIDs.push_back(cache.addResource(std::to_string(i)));
 
-    std::random_device dev {};
-    std::ranlux24 rng { dev() };
-    std::uniform_int_distribution dist { 0, 9 };
-    for (int i = 0; i < 5000; i++) {
-        Cache::ResourceID resourceID = rng() % 10;
-        auto resource = cache.lookUp(resourceID).get();
-        assert(resource->path == std::to_string(resourceID));
+    std::vector<hpx::future<void>> tasks;
+    for (int i = 0; i < 8; i++) {
+        tasks.push_back(hpx::async([&cache]() {
+            std::random_device dev {};
+            std::ranlux24 rng { dev() };
+            std::uniform_int_distribution dist { 0, 99 };
+            for (int i = 0; i < 5000; i++) {
+                Cache::ResourceID resourceID = rng() % 100;
+
+                auto resourceFuture = cache.lookUp(resourceID);
+                std::exception_ptr exception = resourceFuture.get_exception_ptr();
+                if (exception) {
+                    throw exception;
+                } else {
+                    auto resource = resourceFuture.get();
+                    assert(resource->path == std::to_string(resourceID));
+                }
+            }
+        }));
     }
+
+    for (auto& task : tasks)
+        task.wait();
 }
 
 void testResourceCacheLinear()
