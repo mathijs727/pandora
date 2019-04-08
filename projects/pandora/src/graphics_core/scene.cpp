@@ -1,26 +1,18 @@
-#include "pandora/core/scene.h"
-#include "pandora/geometry/triangle.h"
-#include "pandora/scene/geometric_scene_object.h"
-#include "pandora/scene/instanced_scene_object.h"
+#include "pandora/graphics_core/scene.h"
+#include "pandora/graphics_core/light.h"
+#include "pandora/lights/area_light.h"
+#include "pandora/utility/error_handling.h"
 #include <embree3/rtcore.h>
 #include <filesystem>
-#include <iostream>
 #include <numeric>
 #include <string>
-#include <tbb/concurrent_vector.h>
-#include <thread>
 #include <unordered_set>
 
 using namespace std::string_literals;
 
 namespace pandora {
 
-Scene::Scene(size_t geometryCacheSize)
-    : m_geometryCache(std::make_unique<CacheT<TriangleMesh>>(geometryCacheSize, 2 * std::thread::hardware_concurrency()))
-{
-}
-
-void Scene::addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneObject)
+void Scene::addSceneObject(std::unique_ptr<SceneObject>&& sceneObject)
 {
     for (unsigned primitiveID = 0; primitiveID < sceneObject->numPrimitives(); primitiveID++) {
         if (const auto* light = sceneObject->getPrimitiveAreaLight(primitiveID); light) {
@@ -28,18 +20,7 @@ void Scene::addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneObject)
         }
     }
     m_bounds.extend(sceneObject->worldBounds());
-    m_inCoreSceneObjects.emplace_back(std::move(sceneObject));
-}
-
-void Scene::addSceneObject(std::unique_ptr<OOCSceneObject>&& sceneObject)
-{
-    //std::cout << "(scene.cpp) addSceneObject cannot access area lights yet" << std::endl;
-    auto material = sceneObject->getMaterialBlocking();
-    for (const auto& light : material->areaLights()) {
-        m_lights.push_back(&light);
-    }
-    m_bounds.extend(sceneObject->worldBounds());
-    m_oocSceneObjects.emplace_back(std::move(sceneObject));
+    m_sceneObjects.emplace_back(std::move(sceneObject));
 }
 
 void Scene::addInfiniteLight(const std::shared_ptr<InfiniteLight>& light)
@@ -50,25 +31,13 @@ void Scene::addInfiniteLight(const std::shared_ptr<InfiniteLight>& light)
     m_lightOwningPointers.push_back(light);
 }
 
-std::vector<const InCoreSceneObject*> Scene::getInCoreSceneObjects() const
+std::vector<const SceneObject*> Scene::getSceneObjects() const
 {
-    std::vector<const InCoreSceneObject*> ret;
-    ret.reserve(m_inCoreSceneObjects.size());
+    std::vector<const SceneObject*> ret;
+    ret.reserve(m_sceneObjects.size());
     std::transform(
-        std::begin(m_inCoreSceneObjects),
-        std::end(m_inCoreSceneObjects),
-        std::back_inserter(ret),
-        [](const auto& uniquePtr) { return uniquePtr.get(); });
-    return ret;
-}
-
-std::vector<const OOCSceneObject*> Scene::getOOCSceneObjects() const
-{
-    std::vector<const OOCSceneObject*> ret;
-    ret.reserve(m_oocSceneObjects.size());
-    std::transform(
-        std::begin(m_oocSceneObjects),
-        std::end(m_oocSceneObjects),
+        std::begin(m_sceneObjects),
+        std::end(m_sceneObjects),
         std::back_inserter(ret),
         [](const auto& uniquePtr) { return uniquePtr.get(); });
     return ret;
@@ -84,17 +53,7 @@ gsl::span<const InfiniteLight* const> Scene::getInfiniteLights() const
     return m_infiniteLights;
 }
 
-const CacheT<TriangleMesh>* Scene::geometryCache() const
-{
-    return m_geometryCache.get();
-}
-
-CacheT<TriangleMesh>* Scene::geometryCache()
-{
-    return m_geometryCache.get();
-}
-
-void Scene::splitLargeInCoreSceneObjects(unsigned approximatePrimsPerObject)
+/*void Scene::splitLargeInCoreSceneObjects(unsigned approximatePrimsPerObject)
 {
     const auto embreeErrorFunc = [](void* userPtr, const RTCError code, const char* str) {
         switch (code) {
@@ -343,10 +302,9 @@ void Scene::splitLargeOOCSceneObjects(unsigned approximatePrimsPerObject)
     rtcReleaseDevice(device);
 
     m_oocSceneObjects = std::move(outSceneObjects);
-}
+}*/
 
-template <typename T, typename InstancedT>
-std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique_ptr<T>> objects, unsigned uniquePrimsPerGroup)
+std::vector<std::vector<const SceneObject*>> groupSceneObjects(gsl::span<const std::unique_ptr<SceneObject>> objects, unsigned uniquePrimsPerGroup)
 {
     const auto embreeErrorFunc = [](void* userPtr, const RTCError code, const char* str) {
         switch (code) {
@@ -377,12 +335,12 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     };
 
     struct BVHNode {
-        virtual std::vector<const T*> group(
-            unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const = 0;
+        virtual std::vector<const SceneObject*> group(
+            unsigned minPrimsPerGroup, std::vector<std::vector<const SceneObject*>>& out) const = 0;
     };
 
     struct BVHInnerNode : public BVHNode {
-        std::vector<const T*> group(unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const override final
+        std::vector<const SceneObject*> group(unsigned minPrimsPerGroup, std::vector<std::vector<const SceneObject*>>& out) const override final
         {
             auto leftObjects = leftChild->group(minPrimsPerGroup, out);
             auto rightObjects = rightChild->group(minPrimsPerGroup, out);
@@ -391,7 +349,7 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
             } else if (leftObjects.empty() && !rightObjects.empty()) {
                 return std::move(rightObjects);
             } else if (!leftObjects.empty() && !rightObjects.empty()) {
-                std::vector<const T*> objects = std::move(leftObjects);
+                std::vector<const SceneObject*> objects = std::move(leftObjects);
                 objects.insert(std::end(objects), std::begin(rightObjects), std::end(rightObjects));
 
 #ifdef _MSC_VER
@@ -402,7 +360,7 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
                     [](unsigned l, unsigned r) {
                         return l + r;
                     },
-                    [](const T* object) {
+                    [](const SceneObject* object) {
                         return object->numPrimitives();
                     });
 #else // GCC 8.2.1 stdlibc++ does not support the standardization of parallelism TS
@@ -427,17 +385,17 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     };
 
     struct BVHLeafNode : public BVHNode {
-        std::vector<const T*> group(unsigned minPrimsPerGroup, std::vector<std::vector<const T*>>& out) const override final
+        std::vector<const SceneObject*> group(unsigned minPrimsPerGroup, std::vector<std::vector<const SceneObject*>>& out) const override final
         {
             if (sceneObject->numPrimitives() > minPrimsPerGroup) {
                 std::cout << "Add single scene object because prims " << sceneObject->numPrimitives() << " > " << minPrimsPerGroup << std::endl;
-                out.emplace_back(std::vector<const T*> { sceneObject });
+                out.emplace_back(std::vector<const SceneObject*> { sceneObject });
                 return {};
             }
 
             return { sceneObject };
         }
-        const T* sceneObject;
+        const SceneObject* sceneObject;
     };
 
     std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
@@ -491,7 +449,7 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
         ALWAYS_ASSERT(numPrims == 1);
 
-        const auto& sceneObjects = *reinterpret_cast<gsl::span<std::unique_ptr<T>>*>(userPtr);
+        const auto& sceneObjects = *reinterpret_cast<gsl::span<std::unique_ptr<SceneObject>>*>(userPtr);
 
         auto* mem = rtcThreadLocalAlloc(alloc, sizeof(BVHLeafNode), 8);
         auto nodePtr = new (mem) BVHLeafNode();
@@ -501,7 +459,7 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
 
     const auto* rootNode = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
 
-    std::vector<std::vector<const T*>> ret;
+    std::vector<std::vector<const SceneObject*>> ret;
     auto leftOverObjects = rootNode->group(uniquePrimsPerGroup, ret);
     if (!leftOverObjects.empty()) {
         ret.emplace_back(std::move(leftOverObjects));
@@ -515,16 +473,6 @@ std::vector<std::vector<const T*>> groupSceneObjects(gsl::span<const std::unique
     rtcReleaseBVH(bvh);
     rtcReleaseDevice(device);
     return ret;
-}
-
-std::vector<std::vector<const OOCSceneObject*>> Scene::groupOOCSceneObjects(unsigned uniquePrimsPerGroup) const
-{
-    return groupSceneObjects<OOCSceneObject, OOCInstancedSceneObject>(m_oocSceneObjects, uniquePrimsPerGroup);
-}
-
-std::vector<std::vector<const InCoreSceneObject*>> Scene::groupInCoreSceneObjects(unsigned uniquePrimsPerGroup) const
-{
-    return groupSceneObjects<InCoreSceneObject, InCoreInstancedSceneObject>(m_inCoreSceneObjects, uniquePrimsPerGroup);
 }
 
 }

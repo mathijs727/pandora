@@ -1,6 +1,6 @@
 #include "pandora/materials/plastic_material.h"
 #include "glm/glm.hpp"
-#include "pandora/core/interaction.h"
+#include "pandora/graphics_core/interaction.h"
 #include "pandora/utility/memory_arena.h"
 #include "reflection/fresnel.h"
 #include "reflection/lambert_bxdf.h"

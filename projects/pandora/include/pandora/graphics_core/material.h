@@ -1,16 +1,17 @@
 #pragma once
-#include "EASTL/fixed_vector.h"
 #include "bxdf.h"
-#include "gsl/gsl"
-#include "pandora/core/pandora.h"
+#include "pandora/graphics_core/pandora.h"
+#include "pandora/utility/memory_arena.h"
+#include <EASTL/fixed_vector.h>
+#include <gsl/gsl>
 #include <optional>
 
 namespace pandora {
 
 class BSDF {
 public:
-    BSDF(const SurfaceInteraction& si);// , float eta = 1
-    ~BSDF() = delete;// Should never be called if BSDF is allocated (and freed) through a memory arena
+    BSDF(const SurfaceInteraction& si); // , float eta = 1
+    ~BSDF() = delete; // Should never be called if BSDF is allocated (and freed) through a memory arena
 
     void add(const BxDF* b);
     int numComponents(BxDFType flags = BSDF_ALL) const;
@@ -31,6 +32,7 @@ public:
     Spectrum rho(gsl::span<const glm::vec2> samples1, gsl::span<const glm::vec2> samples2, BxDFType flags = BSDF_ALL) const;
 
     float pdf(const glm::vec3& wo, const glm::vec3& wi, BxDFType flags = BSDF_ALL) const;
+
 private:
     //const float m_eta;
     const glm::vec3 m_ns, m_ng; // Shading & geometric normal
@@ -42,7 +44,7 @@ private:
 
 class Material {
 public:
-    virtual void computeScatteringFunctions(SurfaceInteraction& si, ShadingMemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const = 0;
+    virtual void computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const = 0;
 };
 
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include "pandora/core/pandora.h"
+#include "pandora/graphics_core/pandora.h"
 #include "pandora/svo/sparse_voxel_octree.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
 #ifdef PANDORA_ISPC_SUPPORT

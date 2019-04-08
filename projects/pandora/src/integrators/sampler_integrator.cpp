@@ -1,9 +1,9 @@
 #include "pandora/integrators/sampler_integrator.h"
 #include "pandora/config.h"
-#include "pandora/core/perspective_camera.h"
-#include "pandora/core/sampler.h"
-#include "pandora/core/sensor.h"
-#include "pandora/core/stats.h"
+#include "pandora/graphics_core/perspective_camera.h"
+#include "pandora/graphics_core/sampler.h"
+#include "pandora/graphics_core/sensor.h"
+#include "pandora/graphics_core/stats.h"
 #include "pandora/utility/memory_arena.h"
 #include "utility/fix_visitor.h"
 #include <gsl/gsl>

@@ -1,6 +1,6 @@
 #pragma once
-#include "pandora/core/bxdf.h"
-#include "pandora/core/pandora.h"
+#include "pandora/graphics_core/bxdf.h"
+#include "pandora/graphics_core/pandora.h"
 #include "reflection/fresnel.h"
 #include "reflection/microfacet.h"
 

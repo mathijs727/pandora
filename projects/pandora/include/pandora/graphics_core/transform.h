@@ -1,8 +1,8 @@
 #pragma once
-#include "pandora/core/pandora.h"
-#include "pandora/core/ray.h"
+#include "pandora/graphics_core/pandora.h"
+#include "pandora/graphics_core/ray.h"
 #include "pandora/geometry/bounds.h"
-#include "pandora/core/interaction.h"
+#include "pandora/graphics_core/interaction.h"
 #include "pandora/flatbuffers/data_types_generated.h"
 #include <glm/glm.hpp>
 

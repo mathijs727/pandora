@@ -1,5 +1,5 @@
 #pragma once
-#include "pandora/core/light.h"
+#include "pandora/graphics_core/light.h"
 #include "pandora/geometry/triangle.h"
 
 namespace pandora {

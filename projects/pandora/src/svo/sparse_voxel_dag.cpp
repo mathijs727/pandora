@@ -1,5 +1,5 @@
 #include "pandora/svo/sparse_voxel_dag.h"
-#include "pandora/core/ray.h"
+#include "pandora/graphics_core/ray.h"
 #include "pandora/svo/voxel_grid.h"
 #include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"

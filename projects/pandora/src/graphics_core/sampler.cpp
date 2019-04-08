@@ -1,4 +1,4 @@
-#include "pandora/core/sampler.h"
+#include "pandora/graphics_core/sampler.h"
 
 namespace pandora {
 

@@ -1,4 +1,4 @@
-#include "pandora/core/light.h"
+#include "pandora/graphics_core/light.h"
 
 namespace pandora {
 

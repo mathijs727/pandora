@@ -1,9 +1,9 @@
 #pragma once
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
-#include "pandora/core/ray.h"
-#include "pandora/core/sensor.h"
-#include "pandora/core/sampler.h"
+#include "pandora/graphics_core/ray.h"
+#include "pandora/graphics_core/sensor.h"
+#include "pandora/graphics_core/sampler.h"
 #include <gsl/span>
 
 namespace pandora {

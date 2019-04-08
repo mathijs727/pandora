@@ -1,6 +1,6 @@
 #pragma once
-#include "pandora/core/integrator.h"
-#include "pandora/core/pandora.h"
+#include "pandora/graphics_core/integrator.h"
+#include "pandora/graphics_core/pandora.h"
 #include <atomic>
 #include <tbb/scalable_allocator.h>
 #include <tbb/flow_graph.h>

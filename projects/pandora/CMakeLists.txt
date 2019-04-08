@@ -37,6 +37,7 @@ build_flatbuffers(
 add_dependencies(libPandora pandoraFlatbuffers)
 
 target_link_libraries(libPandora PUBLIC
+	stream
 	simd
 	#metrics
 	GSL
@@ -45,7 +46,7 @@ target_link_libraries(libPandora PUBLIC
 	glm # Vector math
     embree # BVH builder and reference BVH traversal
 	#TBB::tbb # Multithreading
-	Threads::Threads
+	#Threads::Threads
 	EASTL # Stack based STL containers <3 
 	mio) # Memory-mapped file IO for serialization
 

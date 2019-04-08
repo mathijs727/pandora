@@ -1,7 +1,7 @@
 #pragma once
-#include "pandora/core/interaction.h"
-#include "pandora/core/material.h"
-#include "pandora/core/ray.h"
+#include "pandora/graphics_core/interaction.h"
+#include "pandora/graphics_core/material.h"
+#include "pandora/graphics_core/ray.h"
 #include "pandora/flatbuffers/triangle_mesh_generated.h"
 #include "pandora/geometry/bounds.h"
 #include "pandora/svo/voxel_grid.h"

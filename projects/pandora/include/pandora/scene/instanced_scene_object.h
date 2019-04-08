@@ -1,44 +1,9 @@
 #pragma once
-#include "pandora/core/scene.h"
+#include "pandora/graphics_core/scene.h"
 #include "pandora/scene/geometric_scene_object.h"
 #include "pandora/flatbuffers/scene_generated.h"
 
 namespace pandora {
-
-class InCoreInstancedSceneObject : public InCoreSceneObject {
-public:
-    InCoreInstancedSceneObject(
-        const glm::mat4& instanceToWorld,
-        const std::shared_ptr<const InCoreGeometricSceneObject>& baseObject);
-    ~InCoreInstancedSceneObject() override final = default;
-
-    Bounds worldBounds() const override final;
-    Bounds worldBoundsPrimitive(unsigned primitiveID) const override final;
-
-    const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const override final;
-    gsl::span<const AreaLight> areaLights() const override final;
-
-    unsigned numPrimitives() const override final;
-    bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;
-    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const override final;
-
-    void computeScatteringFunctions(
-        SurfaceInteraction& si,
-        ShadingMemoryArena& memoryArena,
-        TransportMode mode,
-        bool allowMultipleLobes) const override final;
-
-    Ray transformRayToInstanceSpace(const Ray& ray) const;
-    const InCoreGeometricSceneObject* getBaseObject() const { return m_baseObject.get(); }
-
-    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const override final;
-
-    size_t sizeBytes() const override final;
-
-private:
-    Transform m_worldTransform;
-    std::shared_ptr<const InCoreGeometricSceneObject> m_baseObject;
-};
 
 class InstancedSceneObjectGeometry : public SceneObjectGeometry {
 public:
@@ -48,18 +13,17 @@ public:
     flatbuffers::Offset<serialization::InstancedSceneObjectGeometry> serialize(
         flatbuffers::FlatBufferBuilder& builder) const;
 
-    Bounds worldBoundsPrimitive(unsigned primitiveID) const override final;
+    unsigned numPrimitives() const final;
+    Bounds primitiveBounds(unsigned primitiveID) const final;
+    bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const final;
+    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const final;
 
-    unsigned numPrimitives() const override final;
-    bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;
-    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const override final;
+    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const final;
 
-    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const override final;
-
-    size_t sizeBytes() const override final;
+    size_t sizeBytes() const final;
 
 private:
-    friend class OOCInstancedSceneObject;
+    friend class InstancedSceneObject;
     InstancedSceneObjectGeometry(
         const Transform& worldTransform,
         const std::shared_ptr<SceneObjectGeometry>& baseObjectGeometry);
@@ -69,27 +33,33 @@ private:
     std::shared_ptr<SceneObjectGeometry> m_baseObjectGeometry;
 };
 
-class OOCInstancedSceneObject : public OOCSceneObject {
+class InstancedSceneObject : public SceneObject {
 public:
-    OOCInstancedSceneObject(const glm::mat4& transformMatrix, const std::shared_ptr<const OOCGeometricSceneObject>& baseObject);
-    //GeometricSceneObjectOOC(const Bounds& worldBounds, const EvictableResourceHandle<TriangleMesh>& meshHandle, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
-    ~OOCInstancedSceneObject() override final = default;
+    InstancedSceneObject(const glm::mat4& transformMatrix, const std::shared_ptr<const GeometricSceneObject>& baseObject);
+    ~InstancedSceneObject() final = default;
 
-    Bounds worldBounds() const override final;
-    unsigned numPrimitives() const override final;
+    Bounds worldBounds() const final;
+    unsigned numPrimitives() const final;
     
-    std::shared_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
-    InstancedSceneObjectGeometry getDummyGeometryBlocking() const;
-    std::shared_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
+    hpx::future<std::shared_ptr<SceneObjectGeometry>> getGeometry() const final;
+    InstancedSceneObjectGeometry getDummyGeometry() const;
 
     Ray transformRayToInstanceSpace(const Ray& ray) const;
-    const OOCGeometricSceneObject* getBaseObject() const { return m_baseObject.get(); }
+    const GeometricSceneObject* getBaseObject() const { return m_baseObject.get(); }
+
+    void computeScatteringFunctions(
+        SurfaceInteraction& si,
+        MemoryArena& memoryArena,
+        TransportMode mode,
+        bool allowMultipleLobes) const final;
+    const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const final;
+    gsl::span<const AreaLight> areaLights() const final;
 
 private:
-    friend class InstancedSceneObjectOOC;
-private:
     const Transform m_transform;
-    const std::shared_ptr<const OOCGeometricSceneObject> m_baseObject;
+    const std::shared_ptr<const GeometricSceneObject> m_baseObject;
+
+
 };
 
 }

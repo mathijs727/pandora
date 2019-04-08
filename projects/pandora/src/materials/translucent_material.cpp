@@ -1,6 +1,6 @@
 #include "pandora/materials/translucent_material.h"
 #include "glm/glm.hpp"
-#include "pandora/core/interaction.h"
+#include "pandora/graphics_core/interaction.h"
 #include "pandora/utility/memory_arena.h"
 #include "reflection/lambert_bxdf.h"
 #include "reflection/microfacet_bxdf.h"

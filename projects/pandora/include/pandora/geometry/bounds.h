@@ -1,6 +1,6 @@
 #pragma once
 #include "glm/glm.hpp"
-#include "pandora/core/ray.h"
+#include "pandora/graphics_core/ray.h"
 #include "pandora/flatbuffers/data_types_generated.h"
 
 namespace pandora {

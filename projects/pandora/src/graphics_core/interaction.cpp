@@ -1,7 +1,7 @@
-#include "pandora/core/interaction.h"
-#include "pandora/core/bxdf.h"
-#include "pandora/core/material.h"
-#include "pandora/core/scene.h"
+#include "pandora/graphics_core/interaction.h"
+#include "pandora/graphics_core/bxdf.h"
+#include "pandora/graphics_core/material.h"
+#include "pandora/graphics_core/scene.h"
 #include "pandora/lights/area_light.h"
 #include "pandora/utility/math.h"
 #include "pandora/utility/memory_arena.h"
@@ -57,7 +57,7 @@ void SurfaceInteraction::setShadingGeometry(
     shading.dndv = dndvs;
 }
 
-void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, ShadingMemoryArena& arena, TransportMode mode, bool allowMultipleLobes)
+void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes)
 {
     // TODO: compute ray differentials
     sceneObjectMaterial->computeScatteringFunctions(*this, arena, mode, allowMultipleLobes);

@@ -1,132 +1,80 @@
 #pragma once
-#include "pandora/core/scene.h"
+#include "pandora/graphics_core/pandora.h"
+#include "pandora/graphics_core/scene.h"
 #include "pandora/flatbuffers/scene_generated.h"
 #include <filesystem>
 
 namespace pandora {
 
+using GeometryCache = tasking::VariableSizedResourceCache<TriangleMesh>;
+struct GeometryCacheHandle {
+    GeometryCache& cache;
+    GeometryCache::ResourceID resourceID;
+
+    inline hpx::future<std::shared_ptr<TriangleMesh>> get() const
+    {
+        return cache.lookUp(resourceID);
+    }
+};
+
 class GeometricSceneObjectGeometry : public SceneObjectGeometry {
 public:
     GeometricSceneObjectGeometry(const pandora::serialization::GeometricSceneObjectGeometry* serialized);
     GeometricSceneObjectGeometry(const GeometricSceneObjectGeometry&) = default;
-    ~GeometricSceneObjectGeometry() override final = default;
+    ~GeometricSceneObjectGeometry() final = default;
 
     flatbuffers::Offset<serialization::GeometricSceneObjectGeometry> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
-    Bounds worldBounds() const;
-    Bounds worldBoundsPrimitive(unsigned primitiveID) const override final;
+    unsigned numPrimitives() const final;
+    Bounds primitiveBounds(unsigned primitiveID) const final;
+    bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const final;
+    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const final;
 
-    unsigned numPrimitives() const override final;
-    bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;
-    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const override final;
+    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const final;
 
-    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const override final;
-
-    size_t sizeBytes() const override final;
+    size_t sizeBytes() const final;
 
 private:
-    friend class InCoreGeometricSceneObject;
-    friend class OOCGeometricSceneObject;
+    friend class GeometricSceneObject;
     GeometricSceneObjectGeometry(const std::shared_ptr<const TriangleMesh>& mesh);
 
 private:
     std::shared_ptr<const TriangleMesh> m_mesh;
 };
 
-class GeometricSceneObjectMaterial : public SceneObjectMaterial {
+class InstancedSceneObject;
+class GeometricSceneObject : public SceneObject {
 public:
-    ~GeometricSceneObjectMaterial() override final = default;
+    GeometricSceneObject(const GeometryCacheHandle& geometryHandle, const std::shared_ptr<const Material>& material);
+    GeometricSceneObject(const GeometryCacheHandle& geometryHandle, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
+    ~GeometricSceneObject() final = default;
+
+    Bounds worldBounds() const final;
+    unsigned numPrimitives() const final;
+
+    hpx::future<std::shared_ptr<SceneObjectGeometry>> getGeometry() const final;
 
     void computeScatteringFunctions(
         SurfaceInteraction& si,
-        ShadingMemoryArena& memoryArena,
+        MemoryArena& memoryArena,
         TransportMode mode,
-        bool allowMultipleLobes) const override final;
-
-    const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const override final;
-    gsl::span<const AreaLight> areaLights() const override final;
-private:
-    friend class InCoreGeometricSceneObject;
-    friend class OOCGeometricSceneObject;
-    GeometricSceneObjectMaterial(const std::shared_ptr<const Material>& material);
-    //GeometricSceneObjectMaterial(const std::shared_ptr<const Material>& material, std::vector<AreaLight>&& areaLights);
-    GeometricSceneObjectMaterial(const std::shared_ptr<const Material>& material, gsl::span<const AreaLight> areaLights);
+        bool allowMultipleLobes) const final;
+    const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const final;
+    gsl::span<const AreaLight> areaLights() const final;
 
 private:
-    std::shared_ptr<const Material> m_material;
-    gsl::span<const AreaLight> m_areaLights;
+    friend class InstancedSceneObject;
 
-};
-
-class InCoreInstancedSceneObject;
-class InCoreGeometricSceneObject : public InCoreSceneObject {
-public:
-    InCoreGeometricSceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material);
-    InCoreGeometricSceneObject(const std::shared_ptr<const TriangleMesh>& mesh, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
-    ~InCoreGeometricSceneObject() = default;
-
-    Bounds worldBounds() const override final;
-    Bounds worldBoundsPrimitive(unsigned primitiveID) const override final;
-
-    const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const override final;
-    gsl::span<const AreaLight> areaLights() const override final;
-
-    unsigned numPrimitives() const override final;
-    bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const override final;
-    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const override final;
-
-    void computeScatteringFunctions(
-        SurfaceInteraction& si,
-        ShadingMemoryArena& memoryArena,
-        TransportMode mode,
-        bool allowMultipleLobes) const override final;
-
-    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const override final;
-
-    InCoreGeometricSceneObject geometricSplit(gsl::span<unsigned> primitiveIDs);
-
-    size_t sizeBytes() const override final;
-
-
-private:
-    static std::vector<AreaLight> createAreaLights(const Spectrum& lightEmitted, const TriangleMesh& mesh);
-
-    friend class InCoreInstancedSceneObject;
-
-private:
-    // Contain instead of inherit to prevent the "dreaded diamond pattern" of inheritence
-    std::vector<AreaLight> m_areaLights; 
-    GeometricSceneObjectGeometry m_geometricProperties;
-    GeometricSceneObjectMaterial m_materialProperties;
-};
-
-class OOCInstancedSceneObject;
-class OOCGeometricSceneObject : public OOCSceneObject {
-public:
-    OOCGeometricSceneObject(const EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>>& geometryHandle, const std::shared_ptr<const Material>& material);
-    OOCGeometricSceneObject(const EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>>& geometryHandle, const std::shared_ptr<const Material>& material, const Spectrum& lightEmitted);
-    ~OOCGeometricSceneObject() override final = default;
-
-    Bounds worldBounds() const override final;
-    unsigned numPrimitives() const override final;
-
-    std::shared_ptr<SceneObjectGeometry> getGeometryBlocking() const override final;
-    std::shared_ptr<SceneObjectMaterial> getMaterialBlocking() const override final;
-
-    OOCGeometricSceneObject geometricSplit(CacheT<TriangleMesh>* cache, std::filesystem::path filePath, gsl::span<unsigned> primitiveIDs);
-
-private:
-    friend class OOCInstancedSceneObject;
-
-    OOCGeometricSceneObject(
+    GeometricSceneObject(
         const Bounds& bounds,
         unsigned numPrimitives,
-        const EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>>& geometryHandle,
+        const GeometryCacheHandle& geometryHandle,
         const std::shared_ptr<const Material>& material);
+
 private:
     Bounds m_worldBounds;
     unsigned m_numPrimitives = 0;
-    const EvictableResourceHandle<TriangleMesh, CacheT<TriangleMesh>> m_geometryHandle;
+    const GeometryCacheHandle m_geometryHandle;
 
     std::shared_ptr<const Material> m_material;
 

@@ -24,7 +24,7 @@ public:
 private:
 };
 
-// Based upon the new texture cache in PBRT:
+// Based on the (new) texture cache in PBRT:
 // https://www.pbrt.org/texcache.pdf
 template <typename T>
 class VariableSizedResourceCache {

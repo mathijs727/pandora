@@ -1,6 +1,6 @@
 #pragma once
 #include "gsl/gsl"
-#include "pandora/core/pandora.h"
+#include "pandora/graphics_core/pandora.h"
 
 namespace pandora {
 

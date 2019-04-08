@@ -1,4 +1,4 @@
-#include "pandora/core/spectrum.h"
+#include "pandora/graphics_core/spectrum.h"
 #include "pandora/textures/constant_texture.h"
 #include <algorithm>
 #include <tuple>

@@ -1,5 +1,5 @@
 #include "output.h"
-#include "pandora/core/sensor.h"
+#include "pandora/graphics_core/sensor.h"
 #include <OpenImageIO/imageio.h>
 #include <glm/glm.hpp>
 #include <iostream>

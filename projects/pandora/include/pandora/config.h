@@ -1,14 +1,14 @@
 #pragma once
-#include "pandora/core/pandora.h"
+#include "pandora/graphics_core/pandora.h"
 
 namespace pandora
 {
 
-constexpr bool OUT_OF_CORE_ACCELERATION_STRUCTURE = true;
+/*constexpr bool OUT_OF_CORE_ACCELERATION_STRUCTURE = true;
 template <typename T>
 using AccelerationStructure = OOCBatchingAccelerationStructure<T, 8>;
 //using AccelerationStructure = InCoreAccelerationStructure<T>;
-//using AccelerationStructure = InCoreBatchingAccelerationStructure<T, 400>;
+//using AccelerationStructure = InCoreBatchingAccelerationStructure<T, 400>;*/
 
 constexpr int PARALLEL_PATHS = 16 * 1000 * 1000;
 constexpr int CUTOFF_RAY_COUNT = 0;// Stop processing when the ray count drops below this number
@@ -27,7 +27,7 @@ constexpr bool USE_RANDOM_SEEDS = false;
 // Whether to enable statistics that are relatively expensive to measure
 constexpr bool ENABLE_ADDITIONAL_STATISTICS = true;
 
-template<typename... T>
-using CacheT = LRUCache<T...>;
+//template<typename... T>
+//using CacheT = LRUCache<T...>;
 
 }

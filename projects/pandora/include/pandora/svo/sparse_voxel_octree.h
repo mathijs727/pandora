@@ -1,5 +1,5 @@
 #pragma once
-#include "pandora/core/pandora.h"
+#include "pandora/graphics_core/pandora.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
 #include <vector>
 #include <gsl/span>

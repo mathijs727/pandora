@@ -1,5 +1,5 @@
 #pragma once
-#include "pandora/core/perspective_camera.h"
+#include "pandora/graphics_core/perspective_camera.h"
 #include "ui/window.h"
 #include <chrono>
 #include <glm/glm.hpp>

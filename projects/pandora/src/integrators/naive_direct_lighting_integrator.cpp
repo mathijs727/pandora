@@ -1,6 +1,6 @@
 #include "pandora/integrators/naive_direct_lighting_integrator.h"
 #include "core/sampling.h"
-#include "pandora/core/sensor.h"
+#include "pandora/graphics_core/sensor.h"
 #include "pandora/utility/math.h"
 #include "pandora/utility/memory_arena.h"
 

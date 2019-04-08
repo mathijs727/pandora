@@ -1,6 +1,6 @@
 #include "output.h"
 #include "pandora/config.h"
-#include "pandora/core/load_from_file.h"
+#include "pandora/graphics_core/load_from_file.h"
 #include "pandora/integrators/direct_lighting_integrator.h"
 #include "pandora/integrators/naive_direct_lighting_integrator.h"
 #include "pandora/integrators/normal_debug_integrator.h"

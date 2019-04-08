@@ -1,6 +1,6 @@
 #include "glm/gtc/matrix_transform.hpp"
-#include "pandora/core/perspective_camera.h"
-#include "pandora/core/scene.h"
+#include "pandora/graphics_core/perspective_camera.h"
+#include "pandora/graphics_core/scene.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/integrators/direct_lighting_integrator.h"
 #include "pandora/integrators/naive_direct_lighting_integrator.h"
@@ -20,7 +20,7 @@
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
 
-#include "pandora/core/load_from_file.h"
+#include "pandora/graphics_core/load_from_file.h"
 #include <chrono>
 #include <iostream>
 #include <xmmintrin.h>
@@ -40,8 +40,8 @@ int main()
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-    //const std::filesystem::path sceneFilename = "D:/Pandora Scenes/pbrt_intermediate/crown/pandora.json";
-    const std::filesystem::path sceneFilename = "D:/Pandora Scenes/pbrt_intermediate/sanmiguel/pandora_cam25_scaled_lights.json";
+    const std::filesystem::path sceneFilename = "D:/Pandora Scenes/pbrt_intermediate/crown/pandora.json";
+    //const std::filesystem::path sceneFilename = "D:/Pandora Scenes/pbrt_intermediate/sanmiguel/pandora_cam25_scaled_lights.json";
     auto renderConfig = pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE ? loadFromFileOOC(sceneFilename, false) : loadFromFile(sceneFilename, false);
     //auto renderConfig = createStaticScene();
     if constexpr (pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE) {

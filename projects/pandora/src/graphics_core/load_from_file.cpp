@@ -1,5 +1,5 @@
-#include "pandora/core/load_from_file.h"
-#include "pandora/core/stats.h"
+#include "pandora/graphics_core/load_from_file.h"
+#include "pandora/graphics_core/stats.h"
 #include "pandora/eviction/fifo_cache.h"
 #include "pandora/eviction/lru_cache.h"
 #include "pandora/geometry/triangle.h"

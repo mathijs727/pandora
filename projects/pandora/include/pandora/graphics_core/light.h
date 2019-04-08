@@ -1,7 +1,7 @@
 #pragma once
 #include "glm/glm.hpp"
-#include "pandora/core/interaction.h"
-#include "pandora/core/ray.h"
+#include "pandora/graphics_core/interaction.h"
+#include "pandora/graphics_core/ray.h"
 #include <optional>
 
 namespace pandora {

@@ -1,6 +1,6 @@
 #include "pandora/materials/mirror_material.h"
 #include "glm/glm.hpp"
-#include "pandora/core/interaction.h"
+#include "pandora/graphics_core/interaction.h"
 #include "pandora/utility/memory_arena.h"
 #include "reflection/specular_bxdf.h"
 #include "shading.h"

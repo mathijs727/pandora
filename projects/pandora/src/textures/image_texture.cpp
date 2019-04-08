@@ -1,6 +1,6 @@
 #include "pandora/textures/image_texture.h"
-#include "pandora/core/interaction.h"
-#include "pandora/core/ray.h"
+#include "pandora/graphics_core/interaction.h"
+#include "pandora/graphics_core/ray.h"
 #include "pandora/utility/error_handling.h"
 #include "textures/color_spaces.h"
 #include <OpenImageIO/imageio.h>

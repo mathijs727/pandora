@@ -1,7 +1,7 @@
 #pragma once
 #include "fresnel.h"
-#include "pandora/core/bxdf.h"
-#include "pandora/core/pandora.h"
+#include "pandora/graphics_core/bxdf.h"
+#include "pandora/graphics_core/pandora.h"
 
 namespace pandora {
 class SpecularReflection : public BxDF {

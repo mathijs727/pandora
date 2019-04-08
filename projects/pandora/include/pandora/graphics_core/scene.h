@@ -1,33 +1,22 @@
 #pragma once
-#include "pandora/core/material.h"
-#include "pandora/core/pandora.h"
-#include "pandora/core/transform.h"
-#include "pandora/geometry/triangle.h"
-#include "pandora/lights/area_light.h"
-#include "pandora/traversal/bvh.h"
-#include "pandora/eviction/lru_cache.h"
-#include "pandora/eviction/fifo_cache.h"
-#include "pandora/eviction/evictable.h"
-#include <glm/glm.hpp>
-#include <gsl/span>
+#include "pandora/graphics_core/pandora.h"
+#include "pandora/graphics_core/transform.h"
+#include <gsl/gsl>
 #include <memory>
-#include <optional>
-#include <tuple>
 #include <vector>
+#include <hpx/hpx.hpp>
 
 // Similar to the Primitive class in PBRTv3:
 // https://github.com/mmp/pbrt-v3/blob/master/src/core/primitive.h
 
 namespace pandora {
 
-class SceneObjectGeometry
-{
+class SceneObjectGeometry {
 public:
     virtual ~SceneObjectGeometry() {};
 
-    virtual Bounds worldBoundsPrimitive(unsigned primitiveID) const = 0;
-
     virtual unsigned numPrimitives() const = 0;
+    virtual Bounds primitiveBounds(unsigned primitiveID) const = 0;
     virtual bool intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const = 0;
     virtual SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const = 0;
 
@@ -36,75 +25,41 @@ public:
     virtual size_t sizeBytes() const = 0;
 };
 
-class SceneObjectMaterial
-{
+class SceneObject {
 public:
-    size_t sceneObjectID = 0;
-    
-public:
-    virtual ~SceneObjectMaterial() {};
+    virtual ~SceneObject() = 0;
+
+    virtual Bounds worldBounds() const = 0;
+    virtual unsigned numPrimitives() const = 0;
+
+    virtual hpx::future<std::shared_ptr<SceneObjectGeometry>> getGeometry() const = 0;
 
     virtual void computeScatteringFunctions(
         SurfaceInteraction& si,
-        ShadingMemoryArena& memoryArena,
+        MemoryArena& memoryArena,
         TransportMode mode,
         bool allowMultipleLobes) const = 0;
     virtual const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const = 0;
     virtual gsl::span<const AreaLight> areaLights() const = 0;
 };
 
-class InCoreSceneObject : public SceneObjectGeometry, public SceneObjectMaterial {
-public:
-    virtual ~InCoreSceneObject() {};
-
-    virtual Bounds worldBounds() const = 0;
-
-};
-
-class OOCSceneObject {
-public:
-    virtual ~OOCSceneObject() {};
-
-    virtual Bounds worldBounds() const = 0;
-    virtual unsigned numPrimitives() const = 0;
-
-    virtual std::shared_ptr<SceneObjectGeometry> getGeometryBlocking() const = 0;
-    virtual std::shared_ptr<SceneObjectMaterial> getMaterialBlocking() const = 0;
-
-};
-
 class Scene {
 public:
     Scene() = default;
-    Scene(size_t geometryCacheSize);
     Scene(Scene&&) = default;
     ~Scene() = default;
 
-    void finalize();
-
-    void addSceneObject(std::unique_ptr<InCoreSceneObject>&& sceneNode);
-    void addSceneObject(std::unique_ptr<OOCSceneObject>&& sceneNode);
+    void addSceneObject(std::unique_ptr<SceneObject>&& sceneObject);
     void addInfiniteLight(const std::shared_ptr<InfiniteLight>& light);
 
-    void splitLargeInCoreSceneObjects(unsigned maxPrimitivesPerSceneObject);
-    void splitLargeOOCSceneObjects(unsigned maxPrimitivesPerSceneObject);
-
-    std::vector<const InCoreSceneObject*> getInCoreSceneObjects() const;
-    std::vector<const OOCSceneObject*> getOOCSceneObjects() const;
+    std::vector<const SceneObject*> getSceneObjects() const;
     gsl::span<const Light* const> getLights() const;
     gsl::span<const InfiniteLight* const> getInfiniteLights() const;
 
-    const CacheT<TriangleMesh>* geometryCache() const;
-    CacheT<TriangleMesh>* geometryCache();
-
-    std::vector<std::vector<const OOCSceneObject*>> groupOOCSceneObjects(unsigned uniquePrimsPerGroup) const;
-    std::vector<std::vector<const InCoreSceneObject*>> groupInCoreSceneObjects(unsigned uniquePrimsPerGroup) const;
+    std::vector<std::vector<const SceneObject*>> groupSceneObjects(unsigned uniquePrimsPerGroup) const;
 
 private:
-    std::unique_ptr<CacheT<TriangleMesh>> m_geometryCache;
-
-    std::vector<std::unique_ptr<InCoreSceneObject>> m_inCoreSceneObjects;
-    std::vector<std::unique_ptr<OOCSceneObject>> m_oocSceneObjects;
+    std::vector<std::unique_ptr<SceneObject>> m_sceneObjects;
     std::vector<const Light*> m_lights;
     std::vector<InfiniteLight*> m_infiniteLights;
 
@@ -112,5 +67,4 @@ private:
 
     Bounds m_bounds;
 };
-
 }

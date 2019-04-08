@@ -1,5 +1,5 @@
 #include "pandora/integrators/normal_debug_integrator.h"
-#include "pandora/core/perspective_camera.h"
+#include "pandora/graphics_core/perspective_camera.h"
 #include <tbb/blocked_range2d.h>
 #include <tbb/parallel_for.h>
 

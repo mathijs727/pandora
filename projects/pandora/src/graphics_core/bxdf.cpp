@@ -1,4 +1,4 @@
-#include "pandora/core/bxdf.h"
+#include "pandora/graphics_core/bxdf.h"
 #include "core/sampling.h"
 #include "pandora/utility/math.h"
 #include "reflection/helpers.h"

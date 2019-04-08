@@ -1,5 +1,5 @@
 #pragma once
-#include "pandora/core/sampler.h"
+#include "pandora/graphics_core/sampler.h"
 #include "pandora/samplers/rng/pcg.h"
 #include <random>
 

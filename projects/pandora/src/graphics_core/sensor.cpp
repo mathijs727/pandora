@@ -1,4 +1,4 @@
-#include "pandora/core/sensor.h"
+#include "pandora/graphics_core/sensor.h"
 #include "pandora/utility/error_handling.h"
 #include <iterator>
 #include <memory>

@@ -1,7 +1,8 @@
 #pragma once
-#include "glm/glm.hpp"
-#include "pandora/core/pandora.h"
+#include "pandora/graphics_core/pandora.h"
+#include <glm/glm.hpp>
 #include <limits>
+#include <memory>
 #include <variant>
 
 namespace pandora {
@@ -18,14 +19,13 @@ public:
         , tfar(std::numeric_limits<float>::max())
     {
     }
-     Ray(const glm::vec3& origin, const glm::vec3& direction, float tnear, float tfar = std::numeric_limits<float>::max())
+    Ray(const glm::vec3& origin, const glm::vec3& direction, float tnear, float tfar = std::numeric_limits<float>::max())
         : origin(origin)
         , direction(direction)
         , tnear(tnear)
         , tfar(tfar)
     {
     }
-
 
     glm::vec3 origin;
     glm::vec3 direction;
@@ -38,8 +38,7 @@ struct RayHit {
     {
         const InCoreSceneObject* sceneObject = nullptr;
     };*/
-    struct OutOfCore
-    {
+    struct OutOfCore {
         const OOCSceneObject* sceneObject = nullptr;
         std::shared_ptr<SceneObjectGeometry> sceneObjectGeometry;
     };
@@ -50,20 +49,18 @@ struct RayHit {
 };
 
 template <int N>
-struct vec3SOA
-{
-	float x[N];
-	float y[N];
-	float z[N];
+struct vec3SOA {
+    float x[N];
+    float y[N];
+    float z[N];
 };
 
 template <int N>
-struct RaySOA
-{
-	vec3SOA<N> origin;
-	vec3SOA<N> direction;
-	float tnear[N];
-	float tfar[N];
+struct RaySOA {
+    vec3SOA<N> origin;
+    vec3SOA<N> direction;
+    float tnear[N];
+    float tfar[N];
 };
 
 }

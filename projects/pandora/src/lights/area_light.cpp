@@ -1,6 +1,6 @@
 #include "pandora/lights/area_light.h"
 #include "glm/gtc/constants.hpp"
-#include "pandora/core/scene.h"
+#include "pandora/graphics_core/scene.h"
 
 namespace pandora {
 

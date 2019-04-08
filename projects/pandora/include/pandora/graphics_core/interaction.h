@@ -1,8 +1,9 @@
 #pragma once
 #include "glm/glm.hpp"
-#include "pandora/core/bxdf.h"
-#include "pandora/core/pandora.h"
-#include "pandora/core/ray.h"
+#include "pandora/graphics_core/bxdf.h"
+#include "pandora/graphics_core/pandora.h"
+#include "pandora/graphics_core/ray.h"
+#include "pandora/utility/memory_arena.h"
 
 namespace pandora {
 
@@ -16,7 +17,8 @@ public:
     {
     }
 
-	Ray spawnRay(const glm::vec3& d) const;
+    Ray spawnRay(const glm::vec3& d) const;
+
 public:
     glm::vec3 position;
     glm::vec3 wo; // Outgoing ray
@@ -26,7 +28,7 @@ public:
 
 struct SurfaceInteraction : public Interaction {
 public:
-	const OOCSceneObject* sceneObject = nullptr;
+    const OOCSceneObject* sceneObject = nullptr;
     unsigned primitiveID;
 
     // Assume someone else owns the material (and doesnt free it untill the SurfaceInteraction is destroyed).
@@ -46,21 +48,21 @@ public:
     } shading;
 
 public:
-	SurfaceInteraction()
-		: sceneObjectMaterial(nullptr)
-	{
-	}
-	SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, unsigned primitiveID);
+    SurfaceInteraction()
+        : sceneObjectMaterial(nullptr)
+    {
+    }
+    SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, unsigned primitiveID);
 
     void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, const glm::vec3& dndvs, bool orientationIsAuthoritative);
 
-    void computeScatteringFunctions(const Ray& ray, ShadingMemoryArena& arena, TransportMode mode = TransportMode::Radiance, bool allowMultipleLobes = false);
+    void computeScatteringFunctions(const Ray& ray, MemoryArena& arena, TransportMode mode = TransportMode::Radiance, bool allowMultipleLobes = false);
 
     glm::vec3 Le(const glm::vec3& w) const;
 };
 
 inline SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, unsigned primitiveID)
-	: Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo)
+    : Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo)
     , primitiveID(primitiveID)
     , bsdf(nullptr)
     , uv(uv)
@@ -69,14 +71,14 @@ inline SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec
     , dndu(dndu)
     , dndv(dndv)
 {
-	// Initialize shading geometry from true geometry
-	shading.normal = normal;
-	shading.dpdu = dpdu;
-	shading.dpdv = dpdv;
-	shading.dndu = dndu;
-	shading.dndv = dndv;
+    // Initialize shading geometry from true geometry
+    shading.normal = normal;
+    shading.dpdu = dpdu;
+    shading.dpdv = dpdv;
+    shading.dndu = dndu;
+    shading.dndv = dndv;
 
-	// TODO: adjust normal based on orientation and handedness
+    // TODO: adjust normal based on orientation and handedness
 }
 
 Ray computeRayWithEpsilon(const Interaction& i1, const Interaction& i22);

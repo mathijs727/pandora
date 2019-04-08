@@ -1,7 +1,7 @@
 #pragma once
-#include "pandora/core/transform.h"
-#include "pandora/core/light.h"
-#include "pandora/core/texture.h"
+#include "pandora/graphics_core/transform.h"
+#include "pandora/graphics_core/light.h"
+#include "pandora/graphics_core/texture.h"
 
 namespace pandora {
 

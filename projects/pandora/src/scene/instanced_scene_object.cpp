@@ -3,75 +3,6 @@
 
 namespace pandora {
 
-InCoreInstancedSceneObject::InCoreInstancedSceneObject(
-    const glm::mat4& instanceToWorld,
-    const std::shared_ptr<const InCoreGeometricSceneObject>& baseObject)
-    : m_worldTransform(Transform(instanceToWorld))
-    , m_baseObject(baseObject)
-{
-}
-
-Bounds InCoreInstancedSceneObject::worldBounds() const
-{
-    return m_worldTransform.transform(m_baseObject->worldBounds());
-}
-
-Bounds InCoreInstancedSceneObject::worldBoundsPrimitive(unsigned primitiveID) const
-{
-    return m_worldTransform.transform(m_baseObject->worldBoundsPrimitive(primitiveID));
-}
-
-const AreaLight* InCoreInstancedSceneObject::getPrimitiveAreaLight(unsigned primitiveID) const
-{
-    // TODO: does this work correctly with instancing???
-    //return m_baseObject->getPrimitiveAreaLight(primitiveID);
-    return nullptr;
-}
-
-gsl::span<const AreaLight> InCoreInstancedSceneObject::areaLights() const
-{
-    return {};
-}
-
-unsigned InCoreInstancedSceneObject::numPrimitives() const
-{
-    return m_baseObject->numPrimitives();
-}
-
-bool InCoreInstancedSceneObject::intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const
-{
-    Ray instanceSpaceRay = m_worldTransform.transform(ray);
-    bool hit = m_baseObject->intersectPrimitive(instanceSpaceRay, rayHit, primitiveID);
-    ray.tfar = instanceSpaceRay.tfar;
-    return hit;
-}
-
-SurfaceInteraction InCoreInstancedSceneObject::fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const
-{
-    Ray instanceSpaceRay = m_worldTransform.transform(ray);
-    return m_worldTransform.transform(m_baseObject->fillSurfaceInteraction(instanceSpaceRay, rayHit));
-}
-
-void InCoreInstancedSceneObject::computeScatteringFunctions(SurfaceInteraction& si, ShadingMemoryArena& memoryArena, TransportMode mode, bool allowMultipleLobes) const
-{
-    m_baseObject->computeScatteringFunctions(si, memoryArena, mode, allowMultipleLobes);
-}
-
-Ray InCoreInstancedSceneObject::transformRayToInstanceSpace(const Ray& ray) const
-{
-    return m_worldTransform.transform(ray);
-}
-
-void InCoreInstancedSceneObject::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const
-{
-    return m_baseObject->voxelize(grid, gridBounds, m_worldTransform * transform);
-}
-
-size_t InCoreInstancedSceneObject::sizeBytes() const
-{
-    return sizeof(decltype(*this)) + m_baseObject->sizeBytes();
-}
-
 InstancedSceneObjectGeometry::InstancedSceneObjectGeometry(
     const Transform& worldTransform,
     const std::shared_ptr<SceneObjectGeometry>& baseObjectGeometry)
@@ -98,14 +29,14 @@ flatbuffers::Offset<serialization::InstancedSceneObjectGeometry> InstancedSceneO
         &serializedTransform);
 }
 
-Bounds InstancedSceneObjectGeometry::worldBoundsPrimitive(unsigned primitiveID) const
-{
-    return m_worldTransform.transform(m_baseObjectGeometry->worldBoundsPrimitive(primitiveID));
-}
-
 unsigned InstancedSceneObjectGeometry::numPrimitives() const
 {
     return m_baseObjectGeometry->numPrimitives();
+}
+
+Bounds InstancedSceneObjectGeometry::primitiveBounds(unsigned primitiveID) const
+{
+    return m_worldTransform.transform(m_baseObjectGeometry->primitiveBounds(primitiveID));
 }
 
 bool InstancedSceneObjectGeometry::intersectPrimitive(Ray& ray, RayHit& rayHit, unsigned primitiveID) const
@@ -132,46 +63,62 @@ size_t InstancedSceneObjectGeometry::sizeBytes() const
     return sizeof(decltype(*this)) + m_baseObjectGeometry->sizeBytes();
 }
 
-OOCInstancedSceneObject::OOCInstancedSceneObject(const glm::mat4& transformMatrix, const std::shared_ptr<const OOCGeometricSceneObject>& baseObject)
+InstancedSceneObject::InstancedSceneObject(const glm::mat4& transformMatrix, const std::shared_ptr<const GeometricSceneObject>& baseObject)
     : m_transform(transformMatrix)
     , m_baseObject(baseObject)
 {
 }
 
-Bounds OOCInstancedSceneObject::worldBounds() const
+Bounds InstancedSceneObject::worldBounds() const
 {
     return m_transform.transform(m_baseObject->worldBounds());
 }
 
-std::shared_ptr<SceneObjectGeometry> OOCInstancedSceneObject::getGeometryBlocking() const
+hpx::future<std::shared_ptr<SceneObjectGeometry>> InstancedSceneObject::getGeometry() const
 {
-    // Cannot use std::make_unique on private constructor of friended class
-    return std::shared_ptr<InstancedSceneObjectGeometry>(
+    // Cannot use std::make_shared on private constructor of friended class
+    auto baseGeometry = co_await m_baseObject->getGeometry();
+    co_return std::shared_ptr<InstancedSceneObjectGeometry>(
         new InstancedSceneObjectGeometry(
-            m_transform, m_baseObject->getGeometryBlocking()));
+            m_transform, baseGeometry));
 }
 
-
-InstancedSceneObjectGeometry OOCInstancedSceneObject::getDummyGeometryBlocking() const
+InstancedSceneObjectGeometry InstancedSceneObject::getDummyGeometry() const
 {
     // Cannot use std::make_unique on private constructor of friended class
     std::shared_ptr<SceneObjectGeometry> baseGeometryDummy = nullptr;
     return InstancedSceneObjectGeometry(m_transform, std::move(baseGeometryDummy));
 }
 
-std::shared_ptr<SceneObjectMaterial> OOCInstancedSceneObject::getMaterialBlocking() const
-{
-    return m_baseObject->getMaterialBlocking();
-}
-
-Ray OOCInstancedSceneObject::transformRayToInstanceSpace(const Ray& ray) const
+Ray InstancedSceneObject::transformRayToInstanceSpace(const Ray& ray) const
 {
     return m_transform.transform(ray);
 }
 
-unsigned pandora::OOCInstancedSceneObject::numPrimitives() const
+unsigned pandora::InstancedSceneObject::numPrimitives() const
 {
     return m_baseObject->numPrimitives();
+}
+
+void InstancedSceneObject::computeScatteringFunctions(
+    SurfaceInteraction& si,
+    MemoryArena& memoryArena,
+    TransportMode mode,
+    bool allowMultipleLobes) const
+{
+    m_baseObject->computeScatteringFunctions(si, memoryArena, mode, allowMultipleLobes);
+}
+
+const AreaLight* InstancedSceneObject::getPrimitiveAreaLight(unsigned primitiveID) const
+{
+    // TODO: does this work correctly with instancing???
+    //return m_baseObject->getPrimitiveAreaLight(primitiveID);
+    return nullptr;
+}
+
+gsl::span<const AreaLight> InstancedSceneObject::areaLights() const
+{
+    return {};
 }
 
 }

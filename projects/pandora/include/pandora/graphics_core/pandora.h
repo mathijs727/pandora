@@ -1,6 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
-#include "pandora/core/spectrum.h"
+#include "pandora/graphics_core/spectrum.h"
+#include "stream/static_data_cache.h"
 
 namespace pandora {
 
@@ -17,6 +18,7 @@ class Transform;
 //class LRUCache;
 
 class Light;
+class InfiniteLight;
 class DistantLight;
 class EnvironmentLight;
 class AreaLight;
@@ -48,7 +50,7 @@ struct Ray;
 struct RayHit;
 
 class MemoryArena;
-//class MemoryArenaTS;
+class MemoryArenaTS;
 
 class PathIntegrator;
 class PerspectiveCamera;

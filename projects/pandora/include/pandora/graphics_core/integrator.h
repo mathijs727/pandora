@@ -1,8 +1,8 @@
 #pragma once
 #include "pandora/config.h"
-#include "pandora/core/pandora.h"
-#include "pandora/core/scene.h"
-#include "pandora/core/sensor.h"
+#include "pandora/graphics_core/pandora.h"
+#include "pandora/graphics_core/scene.h"
+#include "pandora/graphics_core/sensor.h"
 #include "pandora/eviction/fifo_cache.h"
 #include "pandora/samplers/uniform_sampler.h"
 #include <random>

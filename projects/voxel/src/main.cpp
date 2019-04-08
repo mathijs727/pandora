@@ -2,7 +2,7 @@
 #include "pandora/svo/sparse_voxel_dag.h"
 #include "pandora/svo/sparse_voxel_octree.h"
 #include "pandora/svo/voxel_grid.h"
-#include "pandora/core/transform.h"
+#include "pandora/graphics_core/transform.h"
 #include <array>
 #include <cassert>
 #include <chrono>

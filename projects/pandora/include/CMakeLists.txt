@@ -54,8 +54,6 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/scene/geometric_scene_object.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/scene/instanced_scene_object.h"
 
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/shading/lambert_material.h"
-
     #"${CMAKE_CURRENT_LIST_DIR}/pandora/svo/mesh_to_voxel.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/sparse_voxel_dag.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/sparse_voxel_octree.h"
@@ -82,5 +80,6 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/error_handling.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/math.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/memory_arena.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/memory_arena_ts.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/thread_pool.h"
 )

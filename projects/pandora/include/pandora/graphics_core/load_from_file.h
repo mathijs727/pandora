@@ -1,6 +1,6 @@
 #pragma once
-#include "pandora/core/perspective_camera.h"
-#include "pandora/core/scene.h"
+#include "pandora/graphics_core/perspective_camera.h"
+#include "pandora/graphics_core/scene.h"
 #include <glm/glm.hpp>
 #include <string_view>
 #include <filesystem>

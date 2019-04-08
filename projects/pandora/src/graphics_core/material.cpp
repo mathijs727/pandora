@@ -1,5 +1,5 @@
-#include "pandora/core/material.h"
-#include "pandora/core/interaction.h"
+#include "pandora/graphics_core/material.h"
+#include "pandora/graphics_core/interaction.h"
 #include <iostream>
 
 namespace pandora {
