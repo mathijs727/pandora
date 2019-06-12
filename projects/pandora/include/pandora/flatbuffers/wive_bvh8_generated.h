@@ -14,7 +14,7 @@ namespace serialization {
 struct WiVeBVH8;
 
 struct WiVeBVH8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  enum {
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INNERNODEALLOCATOR = 4,
     VT_LEAFINDEXALLOCATOR = 6,
     VT_COMPRESSEDROOTHANDLE = 8,

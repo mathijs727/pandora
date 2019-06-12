@@ -18,7 +18,7 @@ namespace serialization {
 struct OOCBatchingBaseSceneObject;
 
 struct OOCBatchingBaseSceneObject FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  enum {
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_BASE_GEOMETRY = 4,
     VT_BVH = 6
   };

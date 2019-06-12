@@ -27,7 +27,7 @@ private:
 // Based on the (new) texture cache in PBRT:
 // https://www.pbrt.org/texcache.pdf
 template <typename T>
-class VariableSizedResourceCache {
+class GenericResourceCache {
 public:
     using ResourceID = uint32_t;
 
@@ -44,7 +44,7 @@ private:
     //using HashMap = std::unordered_map<ResourceID, Entry>;
 
 public:
-    VariableSizedResourceCache(size_t maxSizeBytes, size_t maxOccupancyEstimate)
+    GenericResourceCache(size_t maxSizeBytes, size_t maxOccupancyEstimate)
         : m_threadActiveFlags(hpx::get_num_worker_threads())
         , m_markFreeSizeBytes(maxSizeBytes * 8 / 10)
         , m_maxSizeBytes(maxSizeBytes)
@@ -53,7 +53,7 @@ public:
         m_freeHashMap = new HashMap(4 * maxOccupancyEstimate);
     }
 
-    ~VariableSizedResourceCache()
+    ~GenericResourceCache()
     {
         delete m_hashMap.load();
         delete m_freeHashMap;
@@ -67,7 +67,7 @@ public:
 
     hpx::future<std::shared_ptr<T>> lookUp(ResourceID resourceID) const
     {
-        auto* mutThis = const_cast<VariableSizedResourceCache<T>*>(this);
+        auto* mutThis = const_cast<GenericResourceCache<T>*>(this);
         return mutThis->getResource(resourceID);
     }
 
@@ -166,7 +166,7 @@ private:
 
     void freeResources()
     {
-        spdlog::info("VariableSizedResourceCache ({}) freeing resources", fmt::ptr(this));
+        spdlog::info("GenericResourceCache ({}) freeing resources", fmt::ptr(this));
 
         // Copy unmarked tiles to m_freeHashMap.
         {
@@ -185,12 +185,12 @@ private:
                 }
             }
             m_currentSizeBytes.fetch_sub(memoryFreedBytes);
-            spdlog::info("VariableSizedResourceCache ({}) freed {} bytes, new size: {} bytes",
+            spdlog::info("GenericResourceCache ({}) freed {} bytes, new size: {} bytes",
                 fmt::ptr(this), memoryFreedBytes, m_currentSizeBytes.load(std::memory_order::memory_order_relaxed));
 
             // Handle case of all entries copied to m_freeHashMap
             if (memoryFreedBytes == 0) {
-                spdlog::warn("VariableSizedResourceCache ({}) all resources are unmarked => evicting randomly!", fmt::ptr(this));
+                spdlog::warn("GenericResourceCache ({}) all resources are unmarked => evicting randomly!", fmt::ptr(this));
                 m_freeHashMap->clear();
 
                 // Copy random entries
@@ -208,7 +208,7 @@ private:
                 }
                 m_currentSizeBytes.fetch_sub(memoryFreedBytes);
 
-                spdlog::info("VariableSizedResourceCache ({}) freed {} bytes, new size: {} bytes",
+                spdlog::info("GenericResourceCache ({}) freed {} bytes, new size: {} bytes",
                     fmt::ptr(this), memoryFreedBytes, m_currentSizeBytes.load(std::memory_order::memory_order_relaxed));
             }
         }

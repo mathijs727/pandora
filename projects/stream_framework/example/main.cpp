@@ -1,5 +1,5 @@
 #include "stream/source_task.h"
-#include "stream/static_data_cache.h"
+#include "stream/generic_resource_cache.h"
 #include "stream/task_pool.h"
 #include "stream/transform_task.h"
 #include <hpx/hpx_init.hpp>
@@ -34,58 +34,6 @@ struct DummyResource {
         co_return DummyResource { p.string() };
     }
 };
-
-void testResourceCacheRandom()
-{
-    using namespace tasking;
-
-    using Cache = VariableSizedResourceCache<DummyResource>;
-    Cache cache { 1024 * 75, 100 };
-
-    std::vector<Cache::ResourceID> resourceIDs;
-    for (int i = 0; i < 100; i++)
-        resourceIDs.push_back(cache.addResource(std::to_string(i)));
-
-    std::vector<hpx::future<void>> tasks;
-    for (int i = 0; i < 8; i++) {
-        tasks.push_back(hpx::async([&cache]() {
-            std::random_device dev {};
-            std::ranlux24 rng { dev() };
-            std::uniform_int_distribution dist { 0, 99 };
-            for (int i = 0; i < 5000; i++) {
-                Cache::ResourceID resourceID = rng() % 100;
-
-                auto resourceFuture = cache.lookUp(resourceID);
-                std::exception_ptr exception = resourceFuture.get_exception_ptr();
-                if (exception) {
-                    throw exception;
-                } else {
-                    auto resource = resourceFuture.get();
-                    assert(resource->path == std::to_string(resourceID));
-                }
-            }
-        }));
-    }
-
-    for (auto& task : tasks)
-        task.wait();
-}
-
-void testResourceCacheLinear()
-{
-    using namespace tasking;
-
-    using Cache = VariableSizedResourceCache<DummyResource>;
-    Cache cache { 1024 * 20, 10 };
-
-    std::vector<Cache::ResourceID> resourceIDs;
-    for (int i = 0; i < 100; i++)
-        resourceIDs.push_back(cache.addResource(std::to_string(i)));
-
-    for (const auto resourceID : resourceIDs) {
-        auto resource = cache.lookUp(resourceID).get();
-    }
-}
 
 class RangeSource : public tasking::SourceTask {
 public:

@@ -67,8 +67,8 @@ TEST(TaskPool, Transform)
     };
 
     TaskPool p {};
-    TransformTask intToFloat(p, cpuKernel1, defaultDataLocalityEstimate);
-    RangeSource source = RangeSource(p, &intToFloat, 0, problemSize, stepSize);
+    TransformTask intToFloat { p, cpuKernel1, defaultDataLocalityEstimate};
+    RangeSource source { p, &intToFloat, 0, problemSize, stepSize };
     p.run();
 
     static_assert(problemSize % 2 == 0);

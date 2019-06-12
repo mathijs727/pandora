@@ -17,7 +17,7 @@ struct InstancedSceneObjectGeometry;
 struct GeometricSceneObjectGeometry;
 
 struct InstancedSceneObjectGeometry FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  enum {
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TRANSFORM = 4
   };
   const Transform *transform() const {
@@ -60,7 +60,7 @@ inline flatbuffers::Offset<InstancedSceneObjectGeometry> CreateInstancedSceneObj
 }
 
 struct GeometricSceneObjectGeometry FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  enum {
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_GEOMETRY = 4
   };
   const TriangleMesh *geometry() const {

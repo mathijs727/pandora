@@ -1,7 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 #include "pandora/graphics_core/spectrum.h"
-#include "stream/static_data_cache.h"
+#include "stream/generic_resource_cache.h"
 
 namespace pandora {
 

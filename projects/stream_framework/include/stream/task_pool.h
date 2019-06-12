@@ -1,9 +1,9 @@
 #pragma once
 #include "data_stream.h"
 #include <gsl/gsl>
+#include <hpx/include/async.hpp>
 #include <optional>
 #include <tuple>
-#include <hpx/include/async.hpp>
 
 namespace tasking {
 
@@ -32,8 +32,11 @@ protected:
     virtual hpx::future<void> executeStream(int streamID) = 0;
 };
 
+using TaskHandle = size_t; // TODO: type-safe generation checking handle
 class TaskPool {
 public:
+    TaskHandle addTask(const TaskBase* task, size_t numInputStreams);
+
     void run(int numDevices = std::thread::hardware_concurrency() - 1);
 
 protected:
@@ -44,7 +47,7 @@ private:
     std::optional<std::tuple<gsl::not_null<TaskBase*>, int>> getNextTaskToRun();
 
 private:
-    std::pair<TaskBase*, int> m_previouslyRunTask{ nullptr, 0 };
+    std::pair<TaskBase*, int> m_previouslyRunTask { nullptr, 0 };
     std::vector<gsl::not_null<TaskBase*>> m_tasks;
 };
 }

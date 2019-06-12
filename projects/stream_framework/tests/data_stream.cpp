@@ -27,7 +27,7 @@ TEST(DataStream, SingleThreaded)
                 sum -= v;
         }
     }
-
+	
     static_assert(streamSize % 2 == 0);
     ASSERT_EQ(sum, -streamSize / 2);
 }

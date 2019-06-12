@@ -3,7 +3,7 @@ add_library(stream
 	"src/task_pool.cpp"
 
 	"include/stream/data_stream.h"
-	"include/stream/static_data_cache.h"
+	"include/stream/generic_resource_cache.h"
 	"include/stream/source_task.h"
 	"include/stream/task.h"
 	"include/stream/task_pool.h"
@@ -16,7 +16,7 @@ target_link_libraries(stream PUBLIC
 	fmt::fmt
 	spdlog::spdlog
 	mio::mio
-	hpx hpx_init iostreams_component
+	hpx hpx_init hpx_preprocessor iostreams_component
 	TBB::tbb TBB::tbbmalloc
 	Boost::boost)
 

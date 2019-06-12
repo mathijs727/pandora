@@ -6,7 +6,7 @@
 
 namespace pandora {
 
-using GeometryCache = tasking::VariableSizedResourceCache<TriangleMesh>;
+using GeometryCache = tasking::GenericResourceCache<TriangleMesh>;
 struct GeometryCacheHandle {
     GeometryCache& cache;
     GeometryCache::ResourceID resourceID;

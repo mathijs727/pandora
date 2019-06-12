@@ -40,7 +40,7 @@ private:
             m_kernel(dataBlock, output);
 
             if (m_outputTask) {
-                m_outputTask->push(m_outputStreamID, output);
+                m_outputTask->push(m_outputStreamID, std::move(output));
             }
         }
         co_return;// Important! Creates a coroutine.

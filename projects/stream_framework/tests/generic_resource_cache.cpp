@@ -1,4 +1,4 @@
-#include "stream/static_data_cache.h"
+#include "stream/generic_resource_cache.h"
 #include <gtest/gtest.h>
 #include <hpx/async.hpp>
 #include <vector>
@@ -13,11 +13,11 @@ struct DummyResource {
     }
 };
 
-TEST(StaticDataCache, SingleThreadedRandomAccess)
+TEST(GenericResourceCache, SingleThreadedRandomAccess)
 {
     using namespace tasking;
 
-    using Cache = VariableSizedResourceCache<DummyResource>;
+    using Cache = GenericResourceCache<DummyResource>;
     Cache cache { 1024 * 5, 100 };
 
     std::vector<Cache::ResourceID> resourceIDs;
@@ -34,11 +34,11 @@ TEST(StaticDataCache, SingleThreadedRandomAccess)
     }
 }
 
-TEST(StaticDataCache, MultiThreadedRandomAccess)
+TEST(GenericResourceCache, MultiThreadedRandomAccess)
 {
     using namespace tasking;
 
-    using Cache = VariableSizedResourceCache<DummyResource>;
+    using Cache = GenericResourceCache<DummyResource>;
     Cache cache { 1024 * 75, 100 };
 
     std::vector<Cache::ResourceID> resourceIDs;
@@ -64,11 +64,11 @@ TEST(StaticDataCache, MultiThreadedRandomAccess)
         task.wait();
 }
 
-TEST(StaticDataCache, SingleThreadedLinearAccess)
+TEST(GenericResourceCache, SingleThreadedLinearAccess)
 {
     using namespace tasking;
 
-    using Cache = VariableSizedResourceCache<DummyResource>;
+    using Cache = GenericResourceCache<DummyResource>;
     Cache cache { 1024 * 20, 10 };
 
     std::vector<Cache::ResourceID> resourceIDs;
@@ -81,11 +81,11 @@ TEST(StaticDataCache, SingleThreadedLinearAccess)
     }
 }
 
-TEST(StaticDataCache, MultiThreadedLinearAccess)
+TEST(GenericResourceCache, MultiThreadedLinearAccess)
 {
     using namespace tasking;
 
-    using Cache = VariableSizedResourceCache<DummyResource>;
+    using Cache = GenericResourceCache<DummyResource>;
     Cache cache { 1024 * 100, 100 };
 
     std::vector<Cache::ResourceID> resourceIDs;
