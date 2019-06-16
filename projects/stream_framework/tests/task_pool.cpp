@@ -1,58 +1,38 @@
 #include "stream/task_pool.h"
-#include "stream/source_task.h"
-#include "stream/transform_task.h"
+#include "stream/task_executor.h"
 #include <gtest/gtest.h>
+#include <spdlog/spdlog.h>
 
-class RangeSource : public tasking::SourceTask {
-public:
-    RangeSource(tasking::TaskPool& taskPool, gsl::not_null<tasking::Task<int>*> consumer, int start, int end, int itemsPerBatch)
-        : SourceTask(taskPool)
-        , m_start(start)
-        , m_end(end)
-        , m_itemsPerBatch(itemsPerBatch)
-        , m_current(start)
-        , m_consumer(consumer)
-    {
-    }
-
-    hpx::future<void> produce() final
-    {
-        int numItems = static_cast<int>(itemsToProduceUnsafe());
-
-        std::vector<int> data(numItems);
-        for (int i = 0; i < numItems; i++) {
-            data[i] = m_current++;
-            //spdlog::info("Gen: {}", data[i]);
-        }
-        m_consumer->push(0, std::move(data));
-        co_return; // Important! Creates a coroutine.
-    }
-
-    size_t itemsToProduceUnsafe() const final
-    {
-        return std::min(m_end - m_current, m_itemsPerBatch);
-    }
-
-private:
-    const int m_start, m_end, m_itemsPerBatch;
-    int m_current;
-
-    std::atomic_int m_currentlyInPool;
-
-    gsl::not_null<tasking::Task<int>*> m_consumer;
-};
+static tasking::SourceTask<int>* createIntRangeSource(tasking::TaskPool& taskPool, int start, int end, int batchSize)
+{
+    struct State {
+        int current;
+    };
+    auto pState = std::make_shared<State>();
+    pState->current = start;
+    return taskPool.createSourceTask<int>(
+        [=](gsl::span<int> output) mutable {
+            int i = pState->current;
+            std::generate(std::begin(output), std::end(output), [&]() { return i++; });
+            pState->current = i;
+        },
+        [=]() -> size_t {
+            return std::min(batchSize, std::max(0, end - pState->current));
+        });
+}
 
 TEST(TaskPool, Transform)
 {
     using namespace tasking;
 
     constexpr int problemSize = 1024;
-    constexpr int stepSize = 256;
+    constexpr int batchSize = 64;
 
     std::atomic_int sum = 0;
     auto cpuKernel1 = [&](gsl::span<const int> input, gsl::span<float> output) {
         int localSum = 0;
 
+		spdlog::info("int to float {}", input.size());
         for (int i = 0; i < input.size(); i++) {
             output[i] = static_cast<float>(input[i]);
 
@@ -66,10 +46,13 @@ TEST(TaskPool, Transform)
         sum += localSum;
     };
 
-    TaskPool p {};
-    TransformTask intToFloat { p, cpuKernel1, defaultDataLocalityEstimate};
-    RangeSource source { p, &intToFloat, 0, problemSize, stepSize };
-    p.run();
+    TaskPool pool {};
+    TransformTask<int, float>* pIntToFloat = pool.createTransformTask<int, float>(cpuKernel1);
+    SourceTask<int>* pSource = createIntRangeSource(pool, 0, problemSize, batchSize);
+    pSource->connect(pIntToFloat);
+
+    TaskExecutor executor { pool };
+    executor.run();
 
     static_assert(problemSize % 2 == 0);
     ASSERT_EQ(sum, -problemSize / 2);

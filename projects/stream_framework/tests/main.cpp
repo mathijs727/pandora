@@ -5,7 +5,7 @@
 
 int main(int argc, char** argv)
 {
-    spdlog::set_level(spdlog::level::err);
+    spdlog::set_level(spdlog::level::info);
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

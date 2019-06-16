@@ -1,14 +1,5 @@
 add_library(stream
-	"src/source_task.cpp"
-	"src/task_pool.cpp"
-
-	"include/stream/data_stream.h"
-	"include/stream/generic_resource_cache.h"
-	"include/stream/source_task.h"
-	"include/stream/task.h"
-	"include/stream/task_pool.h"
-	"include/stream/transform_task.h"
-	"include/stream/traits.h")
+	"src/task_executor.cpp")
 
 target_include_directories(stream PUBLIC "include")
 target_compile_features(stream PUBLIC cxx_std_17)

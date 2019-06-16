@@ -1,5 +1,52 @@
 #pragma once
-#include "task.h"
+#include "stream/task.h"
+#include <functional>
+
+namespace tasking {
+
+template <typename Input, typename Output>
+class TransformTask : public Task<Input> {
+public:
+    void connect(Task<Output>* pTask);
+
+    void execute() final;
+
+private:
+    friend class TaskPool;
+    using Kernel = std::function<void(gsl::span<const Input>, gsl::span<Output>)>;
+    TransformTask(Kernel&& kernel);
+
+private:
+    Kernel m_kernel;
+    Task<Output>* m_pOutput { nullptr };
+};
+
+template <typename Input, typename Output>
+inline TransformTask<Input, Output>::TransformTask(Kernel&& kernel)
+    : m_kernel(std::move(kernel))
+{
+}
+
+template <typename Input, typename Output>
+inline void TransformTask<Input, Output>::connect(Task<Output>* pTask)
+{
+    m_pOutput = pTask;
+}
+
+template <typename Input, typename Output>
+inline void TransformTask<Input, Output>::execute()
+{
+    for (gsl::span<const Input> inputBlock : m_inputStream.consume()) {
+        std::vector<Output> output(static_cast<size_t>(inputBlock.size()));
+        m_kernel(inputBlock, output);
+        if (m_pOutput)
+            m_pOutput->enqueue(std::move(output));
+    }
+}
+
+}
+
+/*#include "task.h"
 #include <boost/callable_traits.hpp>
 #include <type_traits>
 
@@ -59,4 +106,4 @@ private:
     int m_outputStreamID = -1;
 };
 
-}
+}*/

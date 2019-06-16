@@ -1,49 +1,43 @@
 #pragma once
-#include "task_pool.h"
+#include <cstdint>
+#include <gsl/span>
+#include "stream/data_stream.h"
+
+namespace tasking::impl {
+
+class TaskBase {
+public:
+    virtual size_t approximateInputStreamSize() const = 0;
+    virtual void execute() = 0;
+};
+
+}
 
 namespace tasking {
 
+class TaskPool;
+
 template <typename T>
-class Task : public TaskBase {
+class Task : public impl::TaskBase {
 public:
-    Task(TaskPool& taskPool, size_t numInputStreams)
-        : TaskBase(taskPool)
-        , m_inputStreams(numInputStreams)
-    {
-    }
-
-    void push(int streamID, gsl::span<const T> data)
-    {
-        m_inputStreams[streamID].push(data);
-    }
-
-    void push(int streamID, std::vector<T>&& data)
-    {
-        m_inputStreams[streamID].push(data);
-    }
-
-    int numInputStreams() const final
-    {
-        return static_cast<int>(m_inputStreams.size());
-    }
+    uint64_t approximateInputStreamSize() const final;
+    void enqueue(std::vector<T>&&);
+    virtual void execute() override = 0;
 
 protected:
-    virtual StaticDataInfo staticDataLocalityEstimate(int streamID) const = 0;
-    virtual hpx::future<void> execute(DataStream<T>& dataStream) const = 0;
-
-private:
-    size_t inputStreamSize(int streamID) const final
-    {
-        return m_inputStreams[streamID].sizeUnsafe();
-    }
-
-    hpx::future<void> executeStream(int streamID) final
-    {
-        return execute(m_inputStreams[streamID]);
-    }
-
-private:
-    std::vector<DataStream<T>> m_inputStreams;
+    DataStream<T> m_inputStream;
 };
+
+template <typename T>
+inline size_t Task<T>::approximateInputStreamSize() const
+{
+    return m_inputStream.sizeUnsafe();
+}
+
+template <typename T>
+inline void Task<T>::enqueue(std::vector<T>&& data)
+{
+    m_inputStream.push(std::move(data));
+}
 
 }
