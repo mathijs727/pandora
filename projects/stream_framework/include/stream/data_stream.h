@@ -1,8 +1,8 @@
 #pragma once
 #include <atomic>
 #include <gsl/gsl>
-#include <mutex>
 #include <vector>
+#include <hpx/lcos/local/mutex.hpp>
 
 namespace tasking {
 
@@ -62,7 +62,7 @@ public:
     Consumer consume();
 
 private:
-    std::mutex m_mutex;
+    hpx::lcos::local::mutex m_mutex;
     std::atomic_size_t m_currentSize { 0 };
     std::vector<std::vector<T>> m_dataBlocks;
 };
