@@ -1,8 +1,10 @@
 add_executable(stream_test
-	freelist_test.cpp
-	main.cpp)
+    data_stream.cpp
+	main.cpp
+	generic_resource_cache.cpp
+	task_pool.cpp)
 
-target_link_libraries(stream_test PRIVATE GTest::GTest  stream)
+target_link_libraries(stream_test PRIVATE GTest::GTest stream)
 target_compile_features(stream_test PRIVATE cxx_std_17)
 
 if (MSVC)

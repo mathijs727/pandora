@@ -1,134 +1,88 @@
-#include "stream/source_task.h"
-#include "stream/generic_resource_cache.h"
-#include "stream/task_pool.h"
-#include "stream/transform_task.h"
-#include <hpx/hpx_init.hpp>
-#include <hpx/hpx_main.hpp>
-#include <hpx/parallel/algorithm.hpp>
-#include <random>
+#include "stream/pmr_allocator.h"
+#include "stream/task_graph.h"
+#include <EASTL/fixed_vector.h>
 #include <spdlog/sinks/msvc_sink.h>
 #include <spdlog/spdlog.h>
+#include <thread>
+#include <vector>
 
-void testResourceCacheRandom();
-void testResourceCacheLinear();
-void testTaskPool();
-
-int main()
+void main()
 {
     auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
     spdlog::set_default_logger(vsLogger);
 
-    testResourceCacheRandom();
-    //testResourceCacheLinear();
-    //testTaskPool();
+    spdlog::info("Hello world!");
 
-    return 0;
-}
-
-struct DummyResource {
-    std::string path;
-
-    size_t sizeBytes() const { return 1024; }
-    static hpx::future<DummyResource> readFromDisk(std::filesystem::path p)
-    {
-        co_return DummyResource { p.string() };
-    }
-};
-
-class RangeSource : public tasking::SourceTask {
-public:
-    RangeSource(tasking::TaskPool& taskPool, gsl::not_null<tasking::Task<int>*> consumer, int start, int end, int itemsPerBatch)
-        : SourceTask(taskPool)
-        , m_start(start)
-        , m_end(end)
-        , m_itemsPerBatch(itemsPerBatch)
-        , m_current(start)
-        , m_consumer(consumer)
-    {
-    }
-
-    hpx::future<void> produce() final
-    {
-        int numItems = static_cast<int>(itemsToProduceUnsafe());
-
-        std::vector<int> data(numItems);
-        for (int i = 0; i < numItems; i++) {
-            data[i] = m_current++;
-            //spdlog::info("Gen: {}", data[i]);
-        }
-        m_consumer->push(0, std::move(data));
-        co_return; // Important! Creates a coroutine.
-    }
-
-    size_t itemsToProduceUnsafe() const final
-    {
-        return std::min(m_end - m_current, m_itemsPerBatch);
-    }
-
-private:
-    const int m_start, m_end, m_itemsPerBatch;
-    int m_current;
-
-    std::atomic_int m_currentlyInPool;
-
-    gsl::not_null<tasking::Task<int>*> m_consumer;
-};
-
-int fibonacci(int n)
-{
-    if (n < 2)
-        return n;
-
-    return fibonacci(n - 1) + fibonacci(n - 2);
-}
-
-void testTaskPool()
-{
-    using namespace tasking;
-
-    constexpr int problemSize = 1024;
-    constexpr int stepSize = 256;
-
-    std::atomic_int sum = 0;
-    auto cpuKernel1 = [&](gsl::span<const int> input, gsl::span<float> output) {
-        int localSum = 0;
-
-        for (int i = 0; i < input.size(); i++) {
-            output[i] = static_cast<float>(input[i]);
-
-            // Do some dummy work to keep the cores busy.
-            int n = fibonacci(4);
-            //int n = 0;
-
-            int v = input[i];
-            if (v % 2 == 0)
-                localSum += v + n;
-            else
-                localSum -= v + n;
-        }
-
-        // Emulate doing 1 microsecond of work for each item.
-        //std::this_thread::sleep_for(std::chrono::nanoseconds(stepSize));
-
-        sum += localSum;
+    struct Ray {
+        int a;
+        float b, c, d;
     };
-    auto cpuKernel2 = [](gsl::span<const float> input, gsl::span<int> output) {
-        for (int i = 0; i < input.size(); i++) {
-            output[i] = static_cast<int>(input[i]);
-        }
+    struct Hit {
+        int a;
+        float d, e, f;
     };
 
-    TaskPool p {};
-    TransformTask intToFloat(p, cpuKernel1, defaultDataLocalityEstimate);
-    //TransformTask<float, int> floatToInt(p, cpuKernel2);
-    //intToFloat.connect(&floatToInt);
+	std::pmr::memory_resource* pMemoryResource = std::pmr::new_delete_resource();
+    auto pMem = pMemoryResource->allocate(128, 4);
 
-    RangeSource source = RangeSource(p, &intToFloat, 0, problemSize, stepSize);
-    p.run();
 
-    static_assert(problemSize % 2 == 0);
-    if (sum == -problemSize / 2)
-        spdlog::info("CORRECT ANSWER");
-    else
-        spdlog::critical("INCORRECT ANSWER");
+    tasking::TaskHandle<Ray> rayTask;
+    tasking::TaskHandle<Hit> shadeTask;
+
+    tasking::TaskGraph g;
+    rayTask = g.addTask<Ray>([&](gsl::span<const Ray> rays, std::pmr::memory_resource* pMemoryResource) {
+        gsl::span<Hit> hits = tasking::allocateN<Hit>(pMemoryResource, rays.size());
+        std::transform(std::begin(rays), std::end(rays), std::begin(hits),
+            [](const Ray& ray) {
+                return Hit { ray.a };
+            });
+        g.enqueue<Hit>(shadeTask, hits);
+    });
+    shadeTask = g.addTask<Hit>([&](gsl::span<const Hit> hits, std::pmr::memory_resource* pMemoryResource) {
+        for (const Hit& hit : hits)
+            spdlog::info("Hit: {}", hit.a);
+    });
+
+    std::vector<Ray> inputData;
+    for (int i = 0; i < 100; i++)
+        inputData.push_back(Ray { i });
+    g.enqueueForStart<Ray>(rayTask, inputData);
+
+    g.run();
 }
+
+/*void streamDemo()
+{
+    struct alignas(16) DummyData {
+        int a, b, c;
+    };
+    tasking::MemoryBlockAllocator allocator;
+    auto channel = std::make_shared<tasking::QueueDataChannel<DummyData>>();
+    tasking::StreamConsumer<DummyData> consumerStream { channel, &allocator };
+
+    constexpr int maxItem = 1024;
+    std::thread consumer = std::thread([&]() {
+        bool done = false;
+        while (!done) {
+            while (!consumerStream.loadData())
+                ;
+
+            for (const DummyData& item : consumerStream.data()) {
+                spdlog::info(item.a);
+                if (item.a == maxItem)
+                    done = true;
+            }
+        }
+
+        spdlog::info("DONE");
+    });
+
+    {
+        // Scope automatically forces flush
+        tasking::StreamProducer<DummyData> producerStream { channel, &allocator };
+        for (int i = 0; i <= maxItem; i++) {
+            producerStream.push(DummyData { i, 123, 456 });
+        }
+    }
+    consumer.join();
+}*/

@@ -1,16 +1,15 @@
 add_library(stream
-	"src/task_graph.cpp")
+	"src/task_executor.cpp")
 
 target_include_directories(stream PUBLIC "include")
 target_compile_features(stream PUBLIC cxx_std_17)
 target_link_libraries(stream PUBLIC
-	GSL
-	EASTL
 	fmt::fmt
 	spdlog::spdlog
-	#mio::mio
-	TBB::tbb TBB::tbbmalloc)
-	#Boost::boost)
+	mio::mio
+	hpx hpx_init hpx_preprocessor iostreams_component
+	TBB::tbb TBB::tbbmalloc
+	Boost::boost)
 
 add_subdirectory("example")
 
