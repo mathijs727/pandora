@@ -16,34 +16,6 @@ if (PANDORA_ISPC_SUPPORT)
 	include("${CMAKE_CURRENT_LIST_DIR}/cmake/ispc.cmake")
 endif()
 
-set(REQUIRED_PACKAGES
-	tbb hpx fmt spdlog "boost-program-options" boost-functional eastl ms-gsl embree3 assimp glm libmorton mio flatbuffers nlohmann-json)
-if (PANDORA_BUILD_TESTS)
-	list(APPEND REQUIRED_PACKAGES gtest)
-endif()
-if (PANDORA_BUILD_ATLAS)
-	list(APPEND REQUIRED_PACKAGES glfw3 GLEW)
-endif()
-
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/pmm.cmake")
-pmm(
-    VERBOSE
-    DEBUG
-    VCPKG
-        REVISION 02dd1ccd62acd15747f7a6a376cecde782f0fdda
-        REQUIRES ${REQUIRED_PACKAGES}
-)
-
-#find_package(OpenImageIO REQUIRED)
-#add_library(OpenImageIO INTERFACE)
-#target_include_directories(OpenImageIO INTERFACE "${OIIO_INCLUDE_DIR}")
-#target_link_libraries(OpenImageIO INTERFACE "${OIIO_OpenImageIO_LIBRARY}")
-
-#find_package(embree 3 REQUIRED)
-#add_library(embree INTERFACE)
-#target_include_directories(embree INTERFACE "${EMBREE_INCLUDE_DIRS}")
-#target_link_libraries(embree INTERFACE "${EMBREE_LIBRARY}")
-
 # Although these packages are shipped with vcpkg, they do not export any CMake files so we have to include
 # them as subdirectory.
 #add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/ms-gsl/" EXCLUDE_FROM_ALL)
@@ -71,7 +43,8 @@ find_package(mio CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
 find_package(nlohmann_json REQUIRED)
-find_package(OpenImageIO REQUIRED)
+#find_package(OpenImageIO REQUIRED)
+find_package(hpx REQUIRED)
 
 #if (PANDORA_BUILD_VOXEL_EXPORTER)
 #	add_library(tinyply "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/tinyply.cpp")

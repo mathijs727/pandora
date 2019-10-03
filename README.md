@@ -7,9 +7,15 @@ Some parts of the code are directly based on, or inspired by, [PBRTv3](https://g
 Exploiting self-similarity in geometry for voxel based solid modeling](https://dl.acm.org/citation.cfm?id=781631). Finally, SVDAG traversal was implemented using SSE instructions based on a stripped down version of the GPU traversal algorithm presented in [Efficient Sparse Voxel Octrees](https://research.nvidia.com/publication/efficient-sparse-voxel-octrees).
 
 ## Dependencies
-Third party dependencies are installed automatically installed by [pmm](https://github.com/vector-of-bool/pmm) using [vcpkg](https://github.com/microsoft/vcpkg).
+Third party dependencies are not auto installed because there are no good options. Conan does  not include the packages we need and the packages that are included are often outdated. Vcpkg (installed through PMM by vector-of-bool) does not copy DLL files and fights with system installed vcpkg.
 
-**NOTE:** Visual Studio 2019 automatically sets `CMAKE_TOOLCHAIN_FILE` when vcpkg is installed globally on the system. To prevent this behavior set `CMAKE_TOOLCHAIN_FILE` to `""` in CMakeSettings.json.
+Install dependencies using vcpkg
+
+* Required `vcpkg install tbb hpx fmt spdlog boost-program-options boost-functional eastl ms-gsl range-v3 embree3 assimp glm libmorton mio flatbuffers nlohmann-json`
+* To run tests `vcpkg install gtest`
+* To run real-time viewer `vcpkg install glew glfw3`
+
+
 
 Pandora uses the following third-party libraries:
  - [Guideline Support Library](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md) ([implemented by Microsoft](https://github.com/Microsoft/GSL))
