@@ -7,11 +7,19 @@ Some parts of the code are directly based on, or inspired by, [PBRTv3](https://g
 Exploiting self-similarity in geometry for voxel based solid modeling](https://dl.acm.org/citation.cfm?id=781631). Finally, SVDAG traversal was implemented using SSE instructions based on a stripped down version of the GPU traversal algorithm presented in [Efficient Sparse Voxel Octrees](https://research.nvidia.com/publication/efficient-sparse-voxel-octrees).
 
 ## Dependencies
-To build Pandora, CMake and a C++17 compliant compiler and standard library are needed. The user is responsible for installing all the required libraries except for GSL, EASTL, mio, libmorton and tinylpy (which are included as git submodules because they are not commonly found in package managers).
+Third party dependencies are not auto installed because there are no good options. Conan does  not include the packages we need and the packages that are included are often outdated. Vcpkg (installed through PMM by vector-of-bool) does not copy DLL files and fights with system installed vcpkg.
+
+Install dependencies using vcpkg
+
+* Required `vcpkg install tbb hpx fmt spdlog boost-program-options boost-functional eastl ms-gsl range-v3 embree3 assimp glm libmorton mio flatbuffers nlohmann-json`
+* To run tests `vcpkg install gtest`
+* To run real-time viewer `vcpkg install glew glfw3`
+
+
 
 Pandora uses the following third-party libraries:
  - [Guideline Support Library](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md) ([implemented by Microsoft](https://github.com/Microsoft/GSL))
- - [HPX](https://github.com/STEllAR-GROUP/hpx) (with coroutines TS => set HPX_WITH_AWAIT=ON)
+ - [HPX](https://github.com/STEllAR-GROUP/hpx)
  - [TBB](https://github.com/01org/tbb)
  - [Embree 3](https://embree.github.io)
  - [GLM](https://github.com/g-truc/glm)
