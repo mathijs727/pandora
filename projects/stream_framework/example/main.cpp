@@ -11,8 +11,6 @@ void main()
     auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
     spdlog::set_default_logger(vsLogger);
 
-    spdlog::info("Hello world!");
-
     struct Ray {
         int a;
         float b, c, d;
@@ -21,10 +19,6 @@ void main()
         int a;
         float d, e, f;
     };
-
-	std::pmr::memory_resource* pMemoryResource = std::pmr::new_delete_resource();
-    auto pMem = pMemoryResource->allocate(128, 4);
-
 
     tasking::TaskHandle<Ray> rayTask;
     tasking::TaskHandle<Hit> shadeTask;
@@ -46,43 +40,7 @@ void main()
     std::vector<Ray> inputData;
     for (int i = 0; i < 100; i++)
         inputData.push_back(Ray { i });
-    g.enqueueForStart<Ray>(rayTask, inputData);
 
+    g.enqueue<Ray>(rayTask, inputData);
     g.run();
 }
-
-/*void streamDemo()
-{
-    struct alignas(16) DummyData {
-        int a, b, c;
-    };
-    tasking::MemoryBlockAllocator allocator;
-    auto channel = std::make_shared<tasking::QueueDataChannel<DummyData>>();
-    tasking::StreamConsumer<DummyData> consumerStream { channel, &allocator };
-
-    constexpr int maxItem = 1024;
-    std::thread consumer = std::thread([&]() {
-        bool done = false;
-        while (!done) {
-            while (!consumerStream.loadData())
-                ;
-
-            for (const DummyData& item : consumerStream.data()) {
-                spdlog::info(item.a);
-                if (item.a == maxItem)
-                    done = true;
-            }
-        }
-
-        spdlog::info("DONE");
-    });
-
-    {
-        // Scope automatically forces flush
-        tasking::StreamProducer<DummyData> producerStream { channel, &allocator };
-        for (int i = 0; i <= maxItem; i++) {
-            producerStream.push(DummyData { i, 123, 456 });
-        }
-    }
-    consumer.join();
-}*/

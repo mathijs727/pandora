@@ -16,6 +16,9 @@ if (PANDORA_ISPC_SUPPORT)
 	include("${CMAKE_CURRENT_LIST_DIR}/cmake/ispc.cmake")
 endif()
 
+# People making eastl really do not care about the outside world. No find_package support at all!!!
+#add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/eastl" EXCLUDE_FROM_ALL)
+
 # Although these packages are shipped with vcpkg, they do not export any CMake files so we have to include
 # them as subdirectory.
 #add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/ms-gsl/" EXCLUDE_FROM_ALL)
@@ -34,6 +37,7 @@ endif()
 #endif()
 #message("HPX_INCLUDE_DIRS: ${HPX_INCLUDE_DIRS}")
 
+find_package(eastl REQUIRED)
 find_package(assimp REQUIRED)
 find_package(glm REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)
@@ -45,6 +49,7 @@ find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
 find_package(nlohmann_json REQUIRED)
 #find_package(OpenImageIO REQUIRED)
 find_package(hpx REQUIRED)
+
 
 #if (PANDORA_BUILD_VOXEL_EXPORTER)
 #	add_library(tinyply "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/tinyply.cpp")

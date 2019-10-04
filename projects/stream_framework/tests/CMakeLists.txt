@@ -1,5 +1,5 @@
 add_executable(stream_test
-	freelist_test.cpp
+	task_graph.cpp
 	main.cpp)
 
 target_link_libraries(stream_test PRIVATE GTest::GTest  stream)
