@@ -1,6 +1,6 @@
 unset(CMAKE_TOOLCHAIN_FILE)
 
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.10)
 project(pandora)
 
 option(PANDORA_ISPC_SUPPORT "Use ISPC to accelerate voxelization" OFF)
@@ -53,11 +53,10 @@ find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 #find_package(mio CONFIG REQUIRED)
 find_package(Threads REQUIRED)
-find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
+find_package(TBB COMPONENTS tbb tbbmalloc  REQUIRED)
 #find_package(nlohmann_json REQUIRED)
 #find_package(OpenImageIO REQUIRED)
 #find_package(hpx REQUIRED)
-
 
 #if (PANDORA_BUILD_VOXEL_EXPORTER)
 #	add_library(tinyply "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/tinyply.cpp")

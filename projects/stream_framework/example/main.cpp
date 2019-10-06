@@ -1,15 +1,24 @@
 #include "stream/pmr_allocator.h"
 #include "stream/task_graph.h"
 #include <EASTL/fixed_vector.h>
+#ifdef  _WIN32
 #include <spdlog/sinks/msvc_sink.h>
+#else
+#include <spdlog/sinks/stdout_color_sinks.h>
+#endif
 #include <spdlog/spdlog.h>
 #include <thread>
 #include <vector>
 
-void main()
+int main()
 {
+#ifdef  _WIN32
     auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
     spdlog::set_default_logger(vsLogger);
+#else
+    auto colorLogger = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("color_logger");
+    spdlog::set_default_logger(colorLogger);
+#endif
 
     struct Ray {
         int a;
@@ -43,4 +52,6 @@ void main()
 
     g.enqueue<Ray>(rayTask, inputData);
     g.run();
+
+    return 0;
 }

@@ -4,10 +4,10 @@ add_library(stream
 target_include_directories(stream PUBLIC "include")
 target_compile_features(stream PUBLIC cxx_std_17)
 target_link_libraries(stream PUBLIC
-	eastl::eastl
+	eastl
 	fmt::fmt
 	spdlog::spdlog
-	TBB::tbb TBB::tbbmalloc)
+	TBB::tbb TBB::tbbmalloc Threads::Threads)
 
 add_subdirectory("example")
 

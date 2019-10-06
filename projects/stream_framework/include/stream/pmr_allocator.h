@@ -23,8 +23,8 @@ inline T* allocate(std::pmr::memory_resource* pMemoryResource, Args&&... args)
     static_assert(std::is_trivially_constructible_v<T>);
     static_assert(std::is_trivially_destructible_v<T>);
 
-    void* pMemory = pMemoryResource->allocate(N * sizeof(T), std::alignment_of_v<T>);
-    return new (pMemory) T(std::forward<Args>(args...));
+    void* pMemory = pMemoryResource->allocate(sizeof(T), std::alignment_of_v<T>);
+    return new (pMemory) T(std::forward<Args>(args)...);
 }
 
 }
