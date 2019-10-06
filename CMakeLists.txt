@@ -5,7 +5,7 @@ project(pandora)
 
 option(PANDORA_ISPC_SUPPORT "Use ISPC to accelerate voxelization" OFF)
 option(PANDORA_BUILD_TESTS "Build tests for Pandora" OFF)
-option(PANDORA_BUILD_ATLAS "Build Atlas (real-time viewer)" ON)
+option(PANDORA_BUILD_ATLAS "Build Atlas (real-time viewer)" OFF)
 option(PANDORA_BUILD_VOXEL_EXPORTER "Build voxel exporter" OFF)
 option(PANDORA_BUILD_PBRT_IMPORTER "Build voxel exporter" OFF)
 option(LINK_STDCXX_FILESYSTEM "Add libstdc++ filesystem to the linker flags" OFF)
@@ -15,6 +15,14 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
 if (PANDORA_ISPC_SUPPORT)
 	include("${CMAKE_CURRENT_LIST_DIR}/cmake/ispc.cmake")
 endif()
+
+
+include("cmake/pmm.cmake")
+pmm(VERBOSE
+	DEBUG
+	VCPKG
+		REVISION ea79220f9d9d33a11101c8dea0827aaff5a2b9b3
+		REQUIRES eastl ms-gsl tbb fmt spdlog gtest)
 
 # People making eastl really do not care about the outside world. No find_package support at all!!!
 #add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/eastl" EXCLUDE_FROM_ALL)
@@ -38,17 +46,17 @@ endif()
 #message("HPX_INCLUDE_DIRS: ${HPX_INCLUDE_DIRS}")
 
 find_package(eastl REQUIRED)
-find_package(assimp REQUIRED)
-find_package(glm REQUIRED)
-find_package(Boost REQUIRED COMPONENTS program_options)
+#find_package(assimp REQUIRED)
+#find_package(glm REQUIRED)
+#find_package(Boost REQUIRED COMPONENTS program_options)
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
-find_package(mio CONFIG REQUIRED)
+#find_package(mio CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
-find_package(nlohmann_json REQUIRED)
+#find_package(nlohmann_json REQUIRED)
 #find_package(OpenImageIO REQUIRED)
-find_package(hpx REQUIRED)
+#find_package(hpx REQUIRED)
 
 
 #if (PANDORA_BUILD_VOXEL_EXPORTER)
@@ -58,16 +66,20 @@ find_package(hpx REQUIRED)
 #	add_subdirectory("projects/voxel/")
 #endif()
 
-find_package(Flatbuffers REQUIRED)
-if (TARGET flatbuffers::flatc)
-	get_property(FLATBUFFERS_FLATC_EXECUTABLE TARGET flatbuffers::flatc PROPERTY IMPORTED_LOCATION_RELEASE)
-elseif (NOT DEFINED FLATBUFFERS_FLATC_EXECUTABLE)
-	message(FATAL_ERROR "Please define FLATBUFFERS_FLATC_EXECUTABLE as the path to the flatbuffer executable")
-endif()
-include("cmake/BuildFlatBuffers.cmake") # Include cmake script that defines the flatc compile function
+#find_package(Flatbuffers REQUIRED)
+#if (TARGET flatbuffers::flatc)
+#	get_property(FLATBUFFERS_FLATC_EXECUTABLE TARGET flatbuffers::flatc PROPERTY IMPORTED_LOCATION_RELEASE)
+#elseif (NOT DEFINED FLATBUFFERS_FLATC_EXECUTABLE)
+#	message(FATAL_ERROR "Please define FLATBUFFERS_FLATC_EXECUTABLE as the path to the flatbuffer executable")
+#endif()
+#include("cmake/BuildFlatBuffers.cmake") # Include cmake script that defines the flatc compile function
 
 if (PANDORA_BUILD_TESTS)
+	enable_testing()
     find_package(GTest REQUIRED)
+
+	set(SIMD_BUILD_TESTS ON)
+	set(STREAM_BUILD_TESTS ON)
 endif()
 
 if (PANDORA_BUILD_ATLAS)
@@ -75,13 +87,6 @@ if (PANDORA_BUILD_ATLAS)
     find_package(GLEW REQUIRED)
     find_package(OpenGL REQUIRED)
 endif()
-
-if (PANDORA_BUILD_TESTS)
-	set(SIMD_BUILD_TESTS ON)
-	set(STREAM_BUILD_TESTS ON)
-endif()
-
-enable_testing()
 
 add_subdirectory("projects/stream_framework/")
 #add_subdirectory("projects/hpx_experiments/")
