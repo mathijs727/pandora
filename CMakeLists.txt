@@ -16,7 +16,6 @@ if (PANDORA_ISPC_SUPPORT)
 	include("${CMAKE_CURRENT_LIST_DIR}/cmake/ispc.cmake")
 endif()
 
-
 include("cmake/pmm.cmake")
 pmm(VERBOSE
 	DEBUG
