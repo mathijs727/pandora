@@ -67,8 +67,8 @@ TEST(LRUCache, UnlimitedMemory)
 
 TEST(LRUCache, Eviction)
 {
-    constexpr int range = 10000;
-    constexpr size_t memoryLimit = 24;
+    constexpr int range = 400;
+    constexpr size_t memoryLimit = 128;
 
     std::vector<GeometryData> items;
     std::vector<stream::CacheHandle<GeometryData>> handles;

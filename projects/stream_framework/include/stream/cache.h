@@ -8,6 +8,7 @@
 #include <fstream>
 #include <list>
 #include <memory>
+#include <memory_resource>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
@@ -33,7 +34,7 @@ public:
     class Builder;
     T* get(CacheHandle<T> handle);
 
-	size_t memoryUsage() const;
+    size_t memoryUsage() const;
 
 private:
     LRUCache(size_t maxMemory, std::vector<std::filesystem::path>&& constructData);
@@ -42,7 +43,7 @@ private:
     void evict(size_t minFreeMemory);
 
 private:
-    using ItemsList = std::list<std::pair<uint32_t, std::shared_ptr<T>>>;
+    using ItemsList = std::list<std::pair<uint32_t, std::unique_ptr<T>>>;
     ItemsList m_inMemoryItems;
     std::unordered_map<uint32_t, typename ItemsList::iterator> m_lookUp;
 
@@ -107,18 +108,18 @@ inline T* LRUCache<T>::load(CacheHandle<T> handle)
     is.read(reinterpret_cast<char*>(data.data()), fileSize);
 
     // Create instance from loaded bytes
-    auto pItem = std::make_shared<T>(data);
-    T* pItemNonOwning = pItem.get();
+    auto pItem = std::make_unique<T>(data);
+    auto pItemNonOwning = pItem.get();
+    m_usedMemory += pItem->sizeBytes();
 
-	// Remove items from cache to make space
-    if (m_usedMemory + pItem->sizeBytes() > m_maxMemory)
-		evict(pItem->sizeBytes());
+    // Free memory if we went over the memory budget
+    if (m_usedMemory > m_maxMemory)
+        evict(pItem->sizeBytes());
 
     // Insert into cache
     m_inMemoryItems.emplace_back(std::pair { handle.index, std::move(pItem) });
     m_lookUp[handle.index] = --std::end(m_inMemoryItems);
     assert(m_inMemoryItems.size() <= m_constructData.size()); // Can never have more items in cache than there are registered.
-    m_usedMemory += pItem->sizeBytes();
 
     return pItemNonOwning;
 }
@@ -131,9 +132,7 @@ inline void LRUCache<T>::evict(size_t minFreeMemory)
         auto [handleIndex, pItem] = std::move(m_inMemoryItems.front());
         m_inMemoryItems.pop_front();
 
-		m_usedMemory -= pItem->sizeBytes();
-        pItem.reset();
-
+        m_usedMemory -= pItem->sizeBytes();
         m_lookUp.erase(handleIndex);
     }
 }
