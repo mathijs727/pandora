@@ -7,23 +7,15 @@ Some parts of the code are directly based on, or inspired by, [PBRTv3](https://g
 Exploiting self-similarity in geometry for voxel based solid modeling](https://dl.acm.org/citation.cfm?id=781631). Finally, SVDAG traversal was implemented using SSE instructions based on a stripped down version of the GPU traversal algorithm presented in [Efficient Sparse Voxel Octrees](https://research.nvidia.com/publication/efficient-sparse-voxel-octrees).
 
 ## Dependencies
-Third party dependencies are not auto installed because there are no good options. Conan does  not include the packages we need and the packages that are included are often outdated. Vcpkg (installed through PMM by vector-of-bool) does not copy DLL files and fights with system installed vcpkg.
-
-Install dependencies using vcpkg
-
-* Required `vcpkg install tbb hpx fmt spdlog boost-program-options boost-functional eastl ms-gsl range-v3 embree3 assimp glm libmorton mio flatbuffers nlohmann-json`
-* To run tests `vcpkg install gtest`
-* To run real-time viewer `vcpkg install glew glfw3`
-
-
+Pandora rellies on a significant amount of third-party libraries. To make installation easy we include the [package manager manager (pmm)](https://github.com/vector-of-bool/pmm) which automatically downloads [vcpkg](https://github.com/microsoft/vcpkg) and installs the required packages.
 
 Pandora uses the following third-party libraries:
  - [Guideline Support Library](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md) ([implemented by Microsoft](https://github.com/Microsoft/GSL))
  - [HPX](https://github.com/STEllAR-GROUP/hpx)
  - [TBB](https://github.com/01org/tbb)
- - [Embree 3](https://embree.github.io)
+ - [Embree](https://embree.github.io)
  - [GLM](https://github.com/g-truc/glm)
- - [Assimp](https://github.com/assimp/assimp)
+ - [assimp](https://github.com/assimp/assimp)
  - [tinyply](https://github.com/ddiakopoulos/tinyply)
  - [OpenImageIO](https://github.com/OpenImageIO/oiio)
  - [EASTL](https://github.com/electronicarts/EASTL) (bundled)
