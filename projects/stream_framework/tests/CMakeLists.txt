@@ -1,4 +1,5 @@
 add_executable(stream_test
+	"cache.cpp"
 	task_graph.cpp
 	main.cpp)
 
