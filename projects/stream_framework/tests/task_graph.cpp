@@ -153,7 +153,7 @@ TEST(TaskGraph, CachedStaticData)
     output.resize(range, 0);
 
 	struct StaticDataCollection {
-        StaticData* pStaticData;
+        std::shared_ptr<StaticData> pStaticData;
 	};
 
     tasking::TaskGraph g;
