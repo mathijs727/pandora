@@ -5,11 +5,9 @@
 #include <memory_resource>
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
-#include <memory_resource>
+#include <type_traits>
 
 namespace tasking {
-
-constexpr unsigned max_thread_count = 32;
 
 template <typename T>
 struct TaskHandle {
@@ -18,10 +16,14 @@ struct TaskHandle {
 
 class TaskGraph {
 public:
-    template <typename T>
-    using Kernel = std::function<void(gsl::span<const T>, std::pmr::memory_resource* pAllocator)>;
-    template <typename T>
-    TaskHandle<T> addTask(Kernel<T> kernel);
+    // Kernel signature: void(gsl::span<const T>, std::pmr::memory_resource*>
+    template <typename T, typename Kernel>
+    TaskHandle<T> addTask(Kernel&& kernel);
+
+    // Kernel signature:           void(gsl::span<const T>, std::pmr::memory_resource*>
+    // StaticDataLoader signature: void(StaticData*);
+    template <typename T, typename StaticData, typename Kernel, typename StaticDataLoader>
+    TaskHandle<T> addTask(Kernel&& kernel, StaticDataLoader&& staticDataLoader);
 
     template <typename T>
     void enqueue(TaskHandle<T> task, const T& item);
@@ -31,8 +33,6 @@ public:
     void run();
 
 private:
-    constexpr static unsigned chunk_size_bytes = 128;
-
     class TaskBase {
     public:
         virtual ~TaskBase() = default;
@@ -43,7 +43,11 @@ private:
     template <typename T>
     class alignas(64) Task : public TaskBase {
     public:
-        Task(Kernel<T>&& kernel);
+        template <typename StaticData, typename F1, typename F2>
+        static Task<T> initialize(F1&&, F2&&);
+        template <typename Kernel>
+        static Task<T> initialize(Kernel&&);
+
         ~Task() override = default;
 
         void enqueue(const T& item);
@@ -53,19 +57,39 @@ private:
         void execute(TaskGraph* pTaskGraph) override;
 
     private:
-        Kernel<T> m_kernel;
+        using TypeErasedKernel = std::function<void(gsl::span<const T>, const void*, std::pmr::memory_resource*)>;
+        using TypeErasedStaticDataLoader = std::function<void(void*)>;
+
+        Task(TypeErasedKernel&& kernel, TypeErasedStaticDataLoader&& staticData, size_t staticDataSize, size_t staticDataAlignment);
+
+    private:
+        const TypeErasedKernel m_kernel;
+        const TypeErasedStaticDataLoader m_staticDataLoader;
+        const size_t m_staticDataSize;
+        const size_t m_staticDataAlignment;
         tbb::concurrent_queue<T> m_workQueue;
     };
 
     std::vector<std::unique_ptr<TaskBase>> m_tasks;
 };
 
-template <typename T>
-inline TaskHandle<T> TaskGraph::addTask(Kernel<T> kernel)
+template <typename T, typename Kernel>
+inline TaskHandle<T> TaskGraph::addTask(Kernel&& kernel)
 {
     uint32_t taskIdx = static_cast<uint32_t>(m_tasks.size());
 
-    std::unique_ptr<TaskBase> pTask = std::make_unique<Task<T>>(std::move(kernel));
+    std::unique_ptr<TaskBase> pTask = std::make_unique<Task<T>>(Task<T>::initialize(std::move(kernel)));
+    m_tasks.push_back(std::move(pTask));
+
+    return TaskHandle<T> { taskIdx };
+}
+
+template <typename T, typename StaticData, typename Kernel, typename StaticDataLoader>
+inline TaskHandle<T> TaskGraph::addTask(Kernel&& kernel, StaticDataLoader&& staticDataLoader)
+{
+    uint32_t taskIdx = static_cast<uint32_t>(m_tasks.size());
+
+    std::unique_ptr<TaskBase> pTask = std::make_unique<Task<T>>(Task<T>::initialize<StaticData>(std::move(kernel), std::move(staticDataLoader)));
     m_tasks.push_back(std::move(pTask));
 
     return TaskHandle<T> { taskIdx };
@@ -88,8 +112,41 @@ inline void TaskGraph::enqueue(TaskHandle<T> taskHandle, gsl::span<const T> item
 }
 
 template <typename T>
-inline TaskGraph::Task<T>::Task(Kernel<T>&& kernel)
+template <typename F>
+inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(F&& kernel)
+{
+    return TaskGraph::Task<T>(
+        [=](gsl::span<const T> dynamicData, const void*, std::pmr::memory_resource* pMemory) {
+            kernel(dynamicData, pMemory);
+        },
+        [](void*) {}, 0, 0);
+}
+
+template <typename T>
+template <typename StaticData, typename F1, typename F2>
+inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(F1&& kernel, F2&& staticDataLoader)
+{
+    return TaskGraph::Task<T>(
+        [=](gsl::span<const T> dynamicData, const void* pStaticData, std::pmr::memory_resource* pMemory) {
+            kernel(dynamicData, reinterpret_cast<const StaticData*>(pStaticData), pMemory);
+        },
+        [=](void* pStaticData) {
+            staticDataLoader(reinterpret_cast<StaticData*>(pStaticData));
+        },
+        sizeof(StaticData),
+        std::alignment_of_v<StaticData>);
+}
+
+template <typename T>
+inline TaskGraph::Task<T>::Task(
+    TaskGraph::Task<T>::TypeErasedKernel&& kernel,
+    TaskGraph::Task<T>::TypeErasedStaticDataLoader&& staticDataLoader,
+    size_t staticDataSize,
+    size_t staticDataAlignment)
     : m_kernel(std::move(kernel))
+    , m_staticDataLoader(std::move(staticDataLoader))
+    , m_staticDataSize(staticDataSize)
+    , m_staticDataAlignment(staticDataAlignment)
 {
 }
 
@@ -115,12 +172,18 @@ inline size_t TaskGraph::Task<T>::approxQueueSize() const
 template <typename T>
 inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 {
-    eastl::fixed_vector<T, 32, false> workBatch;
+    std::pmr::memory_resource* pMemory = std::pmr::new_delete_resource();
+    void* pStaticData = nullptr;
+    if (m_staticDataSize > 0) {
+        pStaticData = pMemory->allocate(m_staticDataSize, m_staticDataAlignment);
+    }
+    m_staticDataLoader(pStaticData);
 
     tbb::task_group tg;
+    eastl::fixed_vector<T, 32, false> workBatch;
     const auto executeKernel = [&]() {
         tg.run([=]() {
-            m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), std::pmr::new_delete_resource());
+            m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
         });
     };
 
