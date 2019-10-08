@@ -1,6 +1,8 @@
 #include "stream/task_graph.h"
+#include "stream/cache.h"
 #include <algorithm>
 #include <gtest/gtest.h>
+#include <random>
 #include <tuple>
 #include <vector>
 
@@ -79,14 +81,19 @@ TEST(TaskGraph, StaticData)
         int adder;
     };
 
+    StaticData staticData;
+    staticData.adder = 2;
+
     tasking::TaskGraph g;
     auto task = g.addTask<int, StaticData>(
         [&](gsl::span<const int> numbers, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
             for (const int number : numbers)
                 output[number] = number + pStaticData->adder;
         },
-        [](StaticData* pStaticData) {
-            pStaticData->adder = 2;
+        []() {
+            StaticData staticData;
+            staticData.adder = 2;
+            return staticData;
         });
 
     for (int i = 0; i < range; i++)
@@ -96,4 +103,74 @@ TEST(TaskGraph, StaticData)
 
     for (int i = 0; i < range; i++)
         ASSERT_EQ(output[i], i + 2);
+}
+
+TEST(TaskGraph, CachedStaticData)
+{
+    constexpr size_t range = 128 * 1024;
+    constexpr int numCacheItems = 100;
+    constexpr int cacheSizeInItems = 8;
+
+    struct StaticData {
+        StaticData(StaticData&&) = default;
+        StaticData(int v)
+            : val(v)
+        {
+        }
+        StaticData(gsl::span<const std::byte> data)
+        {
+            const StaticData* pData = reinterpret_cast<const StaticData*>(data.data());
+            val = pData->val;
+        }
+
+        size_t sizeBytes()
+        {
+            return sizeof(StaticData);
+        }
+        std::vector<std::byte> serialize() const
+        {
+            auto start = reinterpret_cast<const std::byte*>(this);
+
+            std::vector<std::byte> data;
+            std::copy(start, start + sizeof(StaticData), std::back_inserter(data));
+            return data;
+        }
+
+        int val;
+        uint8_t dummy[1020];
+    };
+
+    std::array<stream::CacheHandle<StaticData>, numCacheItems> cacheItems;
+
+    stream::LRUCache<StaticData>::Builder cacheBuilder;
+    for (int i = 0; i < numCacheItems; i++) {
+        auto handle = cacheBuilder.registerCacheable(StaticData(123));
+        cacheItems[i] = handle;
+    }
+    auto cache = cacheBuilder.build(cacheSizeInItems * sizeof(StaticData));
+
+    std::vector<int> output;
+    output.resize(range, 0);
+
+	struct StaticDataCollection {
+        StaticData* pStaticData;
+	};
+
+    tasking::TaskGraph g;
+        auto task = g.addTask<int, StaticDataCollection>(
+        [&](gsl::span<const int> numbers, const StaticDataCollection* pStaticDataCollection, std::pmr::memory_resource* pMemoryResource) {
+            for (const int number : numbers)
+                output[number] = number + pStaticDataCollection->pStaticData->val;
+        },
+        [&]() -> StaticDataCollection {
+            return StaticDataCollection { cache.get(cacheItems[std::rand() % numCacheItems]) };
+        });
+
+    for (int i = 0; i < range; i++)
+        g.enqueue(task, i);
+
+    g.run();
+
+    for (int i = 0; i < range; i++)
+        ASSERT_EQ(output[i], i + 123);
 }

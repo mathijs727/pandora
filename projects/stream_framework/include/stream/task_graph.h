@@ -21,7 +21,7 @@ public:
     TaskHandle<T> addTask(Kernel&& kernel);
 
     // Kernel signature:           void(gsl::span<const T>, std::pmr::memory_resource*>
-    // StaticDataLoader signature: void(StaticData*);
+    // StaticDataLoader signature: StaticData*();
     template <typename T, typename StaticData, typename Kernel, typename StaticDataLoader>
     TaskHandle<T> addTask(Kernel&& kernel, StaticDataLoader&& staticDataLoader);
 
@@ -58,15 +58,15 @@ private:
 
     private:
         using TypeErasedKernel = std::function<void(gsl::span<const T>, const void*, std::pmr::memory_resource*)>;
-        using TypeErasedStaticDataLoader = std::function<void(void*)>;
+        using TypeErasedStaticDataLoader = std::function<void*(std::pmr::memory_resource*)>;
+        using TypeErasedStaticDataDestructor = std::function<void(std::pmr::memory_resource*, void*)>;
 
-        Task(TypeErasedKernel&& kernel, TypeErasedStaticDataLoader&& staticData, size_t staticDataSize, size_t staticDataAlignment);
+        Task(TypeErasedKernel&& kernel, TypeErasedStaticDataLoader&& staticData, TypeErasedStaticDataDestructor&& TypeErasedStaticDataDestructor);
 
     private:
         const TypeErasedKernel m_kernel;
         const TypeErasedStaticDataLoader m_staticDataLoader;
-        const size_t m_staticDataSize;
-        const size_t m_staticDataAlignment;
+        const TypeErasedStaticDataDestructor m_staticDataDestructor;
         tbb::concurrent_queue<T> m_workQueue;
     };
 
@@ -87,10 +87,11 @@ inline TaskHandle<T> TaskGraph::addTask(Kernel&& kernel)
 template <typename T, typename StaticData, typename Kernel, typename StaticDataLoader>
 inline TaskHandle<T> TaskGraph::addTask(Kernel&& kernel, StaticDataLoader&& staticDataLoader)
 {
+    static_assert(std::is_move_constructible<StaticData>());
     uint32_t taskIdx = static_cast<uint32_t>(m_tasks.size());
 
     std::unique_ptr<TaskBase> pTask = std::make_unique<Task<T>>(
-		Task<T>::template initialize<StaticData>(std::move(kernel), std::move(staticDataLoader)));
+        Task<T>::template initialize<StaticData>(std::move(kernel), std::move(staticDataLoader)));
     m_tasks.push_back(std::move(pTask));
 
     return TaskHandle<T> { taskIdx };
@@ -120,7 +121,8 @@ inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(F&& kernel)
         [=](gsl::span<const T> dynamicData, const void*, std::pmr::memory_resource* pMemory) {
             kernel(dynamicData, pMemory);
         },
-        [](void*) {}, 0, 0);
+        [](std::pmr::memory_resource*) { return nullptr; },
+        [](std::pmr::memory_resource* pMemoryResource, void*) {});
 }
 
 template <typename T>
@@ -131,23 +133,27 @@ inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(F1&& kernel, F2&& stati
         [=](gsl::span<const T> dynamicData, const void* pStaticData, std::pmr::memory_resource* pMemory) {
             kernel(dynamicData, reinterpret_cast<const StaticData*>(pStaticData), pMemory);
         },
-        [=](void* pStaticData) {
-            staticDataLoader(reinterpret_cast<StaticData*>(pStaticData));
+        [=](std::pmr::memory_resource* pMemoryResource) -> void* {
+            void* pMem = pMemoryResource->allocate(sizeof(StaticData), std::alignment_of_v<StaticData>);
+            StaticData copy = staticDataLoader();
+            StaticData* pStaticData = new (pMem) StaticData(std::move(copy));
+            return reinterpret_cast<void*>(pStaticData);
         },
-        sizeof(StaticData),
-        std::alignment_of_v<StaticData>);
+        [](std::pmr::memory_resource* pMemoryResource, void* pMem) {
+            StaticData* pStaticData = reinterpret_cast<StaticData*>(pMem);
+            pStaticData->~StaticData();
+            pMemoryResource->deallocate(pStaticData, sizeof(StaticData));
+        });
 }
 
 template <typename T>
 inline TaskGraph::Task<T>::Task(
     TaskGraph::Task<T>::TypeErasedKernel&& kernel,
     TaskGraph::Task<T>::TypeErasedStaticDataLoader&& staticDataLoader,
-    size_t staticDataSize,
-    size_t staticDataAlignment)
+    TaskGraph::Task<T>::TypeErasedStaticDataDestructor&& staticDataDestructor)
     : m_kernel(std::move(kernel))
     , m_staticDataLoader(std::move(staticDataLoader))
-    , m_staticDataSize(staticDataSize)
-    , m_staticDataAlignment(staticDataAlignment)
+    , m_staticDataDestructor(std::move(staticDataDestructor))
 {
 }
 
@@ -174,11 +180,9 @@ template <typename T>
 inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 {
     std::pmr::memory_resource* pMemory = std::pmr::new_delete_resource();
-    void* pStaticData = nullptr;
-    if (m_staticDataSize > 0) {
-        pStaticData = pMemory->allocate(m_staticDataSize, m_staticDataAlignment);
-    }
-    m_staticDataLoader(pStaticData);
+
+	// Allocate and construct static data
+    void* pStaticData = m_staticDataLoader(pMemory);
 
     tbb::task_group tg;
     eastl::fixed_vector<T, 32, false> workBatch;
@@ -202,5 +206,8 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
     }
 
     tg.wait();
+
+	// Call destructor on static data and free memory
+	m_staticDataDestructor(pMemory, pStaticData);
 }
 }
