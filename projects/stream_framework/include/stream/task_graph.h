@@ -89,7 +89,8 @@ inline TaskHandle<T> TaskGraph::addTask(Kernel&& kernel, StaticDataLoader&& stat
 {
     uint32_t taskIdx = static_cast<uint32_t>(m_tasks.size());
 
-    std::unique_ptr<TaskBase> pTask = std::make_unique<Task<T>>(Task<T>::initialize<StaticData>(std::move(kernel), std::move(staticDataLoader)));
+    std::unique_ptr<TaskBase> pTask = std::make_unique<Task<T>>(
+		Task<T>::template initialize<StaticData>(std::move(kernel), std::move(staticDataLoader)));
     m_tasks.push_back(std::move(pTask));
 
     return TaskHandle<T> { taskIdx };
