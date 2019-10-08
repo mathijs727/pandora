@@ -3,11 +3,13 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <fmt/format.h>
 #include <fstream>
 #include <list>
 #include <memory>
+#include <spdlog/spdlog.h>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
@@ -45,7 +47,7 @@ private:
     using ItemsList = std::list<uint32_t>;
     ItemsList m_inMemoryItems;
     std::unordered_map<uint32_t, std::pair<std::shared_ptr<T>, typename ItemsList::iterator>> m_lookUp;
-    std::unordered_map<uint32_t, std::weak_ptr<T>> m_failEvictItems; // Items that were actively in use when trying to evict them. Might still be in memory and ready for re-use
+    std::unordered_map<uint32_t, std::pair<std::weak_ptr<T>, size_t>> m_failEvictItems; // Items that were actively in use when trying to evict them. Might still be in memory and ready for re-use
 
     const size_t m_maxMemory;
     size_t m_usedMemory { 0 };
@@ -96,6 +98,16 @@ inline LRUCache<T>::LRUCache(size_t maxMemory, std::vector<std::filesystem::path
 template <typename T>
 inline std::shared_ptr<T> LRUCache<T>::load(CacheHandle<T> handle)
 {
+    // Recycle item that was evicted but hold in memory by the user
+    if (auto iter = m_failEvictItems.find(handle.index); iter != std::end(m_failEvictItems)) {
+        std::weak_ptr<T> pItemWeak = iter->second.first;
+        std::shared_ptr<T> pItem = pItemWeak.lock();
+        if (pItem) {
+            m_failEvictItems.erase(iter);
+            return pItem;
+        }
+    }
+
     std::vector<std::byte> data;
     std::ifstream is { m_constructData[handle.index], std::ios::binary };
 
@@ -111,9 +123,10 @@ inline std::shared_ptr<T> LRUCache<T>::load(CacheHandle<T> handle)
     auto pItem = std::make_shared<T>(data);
     m_usedMemory += pItem->sizeBytes();
 
-    // Free memory if we went over the memory budget
-    if (m_usedMemory > m_maxMemory)
-        evict(pItem->sizeBytes());
+    // Free a quarter of the memory budget so we don't have to evict all the time.
+    if (m_usedMemory > m_maxMemory) {
+        evict(std::min(pItem->sizeBytes(), m_usedMemory / 4));
+    }
 
     // Insert into cache
     m_inMemoryItems.emplace_back(handle.index);
@@ -126,13 +139,42 @@ inline std::shared_ptr<T> LRUCache<T>::load(CacheHandle<T> handle)
 template <typename T>
 inline void LRUCache<T>::evict(size_t minFreeMemory)
 {
-    assert(m_maxMemory > minFreeMemory);
+    {
+        std::vector<uint32_t> evicted;
+        for (auto&& [handleIndex, itemInfo] : m_failEvictItems) {
+            auto [pItemWeak, itemSize] = itemInfo;
+            if (pItemWeak.expired()) {
+                m_usedMemory -= itemSize;
+                evicted.push_back(handleIndex);
+            }
+        }
+
+        for (uint32_t handleIndex : evicted)
+            m_failEvictItems.erase(handleIndex);
+    }
+
+    assert(minFreeMemory < m_maxMemory);
     while (m_usedMemory > m_maxMemory - minFreeMemory) {
+        if (m_inMemoryItems.size() == 0) {
+            spdlog::error("Cache is empty but actively hold items occupy more memory than allowed");
+            break;
+        }
         auto handleIndex = std::move(m_inMemoryItems.front());
         m_inMemoryItems.pop_front();
 
-        m_usedMemory -= m_lookUp[handleIndex].first->sizeBytes();
+        std::weak_ptr<T> pItemWeak;
+        size_t itemSize;
+        {
+            std::shared_ptr<T> pItem = m_lookUp[handleIndex].first;
+            itemSize = pItem->sizeBytes();
+            pItemWeak = pItem;
+        }
         m_lookUp.erase(handleIndex);
+
+        if (pItemWeak.expired())
+            m_usedMemory -= itemSize;
+        else
+            m_failEvictItems[handleIndex] = { pItemWeak, itemSize };
     }
 }
 

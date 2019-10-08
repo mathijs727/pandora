@@ -32,12 +32,6 @@ struct GeometryData {
         x = pGeomData->x;
         y = pGeomData->y;
     }
-
-    /*static GeometryData load(void* pMem, gsl::span<const std::byte> data)
-    {
-        const GeometryData* pGeomData = reinterpret_cast<const GeometryData*>(data.data());
-        return new GeometryData*pGeomData;
-    }*/
 };
 
 TEST(LRUCache, UnlimitedMemory)
@@ -87,6 +81,39 @@ TEST(LRUCache, Eviction)
     for (int i = 0; i < range; i++) {
         auto cacheItem = cache.get(handles[i]);
         auto refItem = items[i];
+
+        ASSERT_EQ(cacheItem->x, refItem.x);
+        ASSERT_EQ(cacheItem->y, refItem.y);
+
+        ASSERT_LE(cache.memoryUsage(), memoryLimit);
+    }
+}
+
+TEST(LRUCache, EvictionHoldItems)
+{
+    constexpr int range = 400;
+    constexpr size_t memoryLimit = 128;
+
+    std::vector<GeometryData> items;
+    std::vector<stream::CacheHandle<GeometryData>> handles;
+
+    stream::LRUCache<GeometryData>::Builder builder;
+    for (int i = 0; i < range; i++) {
+        GeometryData item { i, static_cast<float>(i * 2) };
+        auto handle = builder.registerCacheable(item);
+
+        handles.push_back(handle);
+        items.push_back(item);
+    }
+
+    auto cache = builder.build(memoryLimit);
+
+	std::array<std::shared_ptr<GeometryData>, 8> holdItems;
+    for (int i = 0; i < range; i++) {
+        auto cacheItem = cache.get(handles[i]);
+        auto refItem = items[i];
+
+		holdItems[i % holdItems.size()] = cacheItem;
 
         ASSERT_EQ(cacheItem->x, refItem.x);
         ASSERT_EQ(cacheItem->y, refItem.y);
