@@ -8,7 +8,6 @@
 #include <mutex>
 #include <tuple>
 #include <vector>
-#include <hpx/hpx.hpp>
 
 #ifndef NDEBUG
 #define MEMORY_ARENA_TS_BOUNDS_CHECK 1

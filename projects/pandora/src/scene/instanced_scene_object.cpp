@@ -101,10 +101,7 @@ unsigned pandora::InstancedSceneObject::numPrimitives() const
 }
 
 void InstancedSceneObject::computeScatteringFunctions(
-    SurfaceInteraction& si,
-    MemoryArena& memoryArena,
-    TransportMode mode,
-    bool allowMultipleLobes) const
+    SurfaceInteraction& si, std::pmr::memory_resource* pAllocator, TransportMode mode, bool allowMultipleLobes) const
 {
     m_baseObject->computeScatteringFunctions(si, memoryArena, mode, allowMultipleLobes);
 }

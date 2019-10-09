@@ -46,11 +46,11 @@ MetalMaterial::MetalMaterial(
 
 
 // PBRTv3 page 581
-void MetalMaterial::computeScatteringFunctions(SurfaceInteraction& si, ShadingMemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const
+void MetalMaterial::computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const
 {
     // TODO: perform bump mapping (normal mapping)
 
-    si.bsdf = arena.allocate<BSDF>(si);
+    si.pBSDF = arena.allocate<BSDF>(si);
 
 	float uRough = m_uRoughness ? m_uRoughness->evaluate(si) : m_roughness->evaluate(si);
 	float vRough = m_vRoughness ? m_vRoughness->evaluate(si) : m_roughness->evaluate(si);
@@ -61,7 +61,7 @@ void MetalMaterial::computeScatteringFunctions(SurfaceInteraction& si, ShadingMe
 	Fresnel* frMf = arena.allocate<FresnelConductor>(Spectrum(1.0f), m_eta->evaluate(si), m_k->evaluate(si));
 
 	MicrofacetDistribution* distrib = arena.allocate<TrowbridgeReitzDistribution>(uRough, vRough);
-	si.bsdf->add(arena.allocate<MicrofacetReflection>(Spectrum(1.0f), std::ref(*distrib), std::ref(*frMf)));
+        si.pBSDF->add(arena.allocate<MicrofacetReflection>(Spectrum(1.0f), std::ref(*distrib), std::ref(*frMf)));
 }
 
 // https://github.com/mmp/pbrt-v3/blob/master/src/materials/metal.cpp

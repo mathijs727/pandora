@@ -3,7 +3,7 @@
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/graphics_core/scene.h"
 #include "pandora/graphics_core/sensor.h"
-#include "pandora/eviction/fifo_cache.h"
+//#include "pandora/eviction/fifo_cache.h"
 #include "pandora/samplers/uniform_sampler.h"
 #include <random>
 
@@ -25,7 +25,7 @@ protected:
 
 protected:
     const Scene& m_scene;
-    AccelerationStructure<IntegratorState> m_accelerationStructure;
+    //AccelerationStructure<IntegratorState> m_accelerationStructure;
 
     Sensor& m_sensor;
 };

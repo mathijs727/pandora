@@ -3,6 +3,7 @@
 #include "pandora/graphics_core/bxdf.h"
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/graphics_core/ray.h"
+#include "pandora/scene/scene_object_ref.h"
 #include "pandora/utility/memory_arena.h"
 
 namespace pandora {
@@ -28,14 +29,8 @@ public:
 
 struct SurfaceInteraction : public Interaction {
 public:
-    const OOCSceneObject* sceneObject = nullptr;
-    unsigned primitiveID;
-
-    // Assume someone else owns the material (and doesnt free it untill the SurfaceInteraction is destroyed).
-    // We cannot store an unique pointer here because that would require including "scene.h", creating a circular dependency.
-    const SceneObjectMaterial* sceneObjectMaterial = nullptr;
-
-    BSDF* bsdf = nullptr;
+    SceneObjectRef sceneObject;
+    BSDF* pBSDF { nullptr };
 
     glm::vec2 uv;
     glm::vec3 dpdu, dpdv;
@@ -48,11 +43,8 @@ public:
     } shading;
 
 public:
-    SurfaceInteraction()
-        : sceneObjectMaterial(nullptr)
-    {
-    }
-    SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, unsigned primitiveID);
+    SurfaceInteraction() = default;
+    SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv);
 
     void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, const glm::vec3& dndvs, bool orientationIsAuthoritative);
 
@@ -60,26 +52,6 @@ public:
 
     glm::vec3 Le(const glm::vec3& w) const;
 };
-
-inline SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv, unsigned primitiveID)
-    : Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo)
-    , primitiveID(primitiveID)
-    , bsdf(nullptr)
-    , uv(uv)
-    , dpdu(dpdu)
-    , dpdv(dpdv)
-    , dndu(dndu)
-    , dndv(dndv)
-{
-    // Initialize shading geometry from true geometry
-    shading.normal = normal;
-    shading.dpdu = dpdu;
-    shading.dpdv = dpdv;
-    shading.dndu = dndu;
-    shading.dndv = dndv;
-
-    // TODO: adjust normal based on orientation and handedness
-}
 
 Ray computeRayWithEpsilon(const Interaction& i1, const Interaction& i22);
 Ray computeRayWithEpsilon(const Interaction& i1, const glm::vec3& dir);

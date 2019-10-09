@@ -1,8 +1,6 @@
 #pragma once
 #include <thread>
 #include <unordered_set>
-#include <hpx/lcos/local/mutex.hpp>
-
 namespace tasking {
 
 namespace impl {

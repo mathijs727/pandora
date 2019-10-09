@@ -21,7 +21,7 @@ public:
     static std::shared_ptr<MetalMaterial> createCopper(const std::shared_ptr<Texture<float>>& roughness, bool remapRoughness);
     static std::shared_ptr<MetalMaterial> createCopper(const std::shared_ptr<Texture<float>>& uRoughness, const std::shared_ptr<Texture<float>>& vRoughness, bool remapRoughness);
 
-    void computeScatteringFunctions(SurfaceInteraction& si, ShadingMemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const final;
+    void computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const final;
 
 private:
     const std::shared_ptr<Texture<Spectrum>> m_eta, m_k; // Diffuse reflection

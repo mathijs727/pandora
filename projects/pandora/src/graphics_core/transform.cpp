@@ -44,6 +44,11 @@ glm::vec3 Transform::transformNormal(const glm::vec3& n) const
     return glm::normalize(glm::transpose(glm::mat3(m_inverseMatrix)) * n);
 }
 
+glm::vec3 Transform::invTransformVector(const glm::vec3& v) const
+{
+    return glm::mat3(m_inverseMatrix) * v;
+}
+
 Ray Transform::transform(const Ray& ray) const
 {
     glm::vec3 origin = m_inverseMatrix * glm::vec4(ray.origin, 1.0f);
@@ -87,10 +92,9 @@ SurfaceInteraction Transform::transform(const SurfaceInteraction& si) const
 
     result.shading.normal = faceForward(result.shading.normal, result.normal);
 
-    result.bsdf = si.bsdf;
-
+    result.pBSDF = si.pBSDF;
     result.sceneObject = si.sceneObject;
-    result.primitiveID = si.primitiveID;
+    //result.primitiveID = si.primitiveID;
 
     return result;
 }

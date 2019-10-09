@@ -26,7 +26,7 @@ glm::vec3 ACESFilm(glm::vec3 x)
 
 void writeOutputToFile(pandora::Sensor& sensor, int spp, std::string_view fileName, bool applyPostProcessing)
 {
-    OIIO::ImageOutput* out = OIIO::ImageOutput::create(fileName.data());
+    std::unique_ptr<OIIO::ImageOutput> out = OIIO::ImageOutput::create(fileName.data());
     if (!out) {
         std::cerr << "Could not create output file " << fileName << std::endl;
         return;
@@ -56,6 +56,5 @@ void writeOutputToFile(pandora::Sensor& sensor, int spp, std::string_view fileNa
     out->open(fileName.data(), spec);
     out->write_image(OIIO::TypeDesc::FLOAT, outPixels.data());
     out->close();
-    OIIO::ImageOutput::destroy(out);
 }
 }

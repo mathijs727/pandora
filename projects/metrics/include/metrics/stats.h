@@ -1,27 +1,27 @@
 #pragma once
-#include <nlohmann/json.hpp>
-#include <vector>
-#include <thread>
 #include <atomic>
-#include <tbb/concurrent_queue.h>
 #include <gsl/span>
+#include <nlohmann/json.hpp>
+#include <tbb/concurrent_queue.h>
+#include <thread>
+#include <vector>
 
-namespace metrics
-{
+namespace metrics {
 
 class Exporter;
 
-class Stats
-{
+class Stats {
 public:
     Stats(gsl::span<Exporter*> exporters);
     ~Stats();
 
     void asyncTriggerSnapshot();
+
 protected:
     // I don't feel like writing an abstraction layer so just return the JSON directly.
     // This whole function wouldn't be necessary if C++ had compile time reflection (so we could loop over all member variables).
     virtual nlohmann::json getMetricsSnapshot() const = 0;
+
 private:
     friend class Exporter;
     std::vector<Exporter*> m_exporters;

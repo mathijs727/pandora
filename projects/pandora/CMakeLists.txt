@@ -39,15 +39,14 @@ add_dependencies(libPandora pandoraFlatbuffers)
 target_link_libraries(libPandora PUBLIC
 	stream
 	simd
-	#metrics
-	GSL
-    assimp_target # Loading 3D models
+	metrics
+    assimp::assimp # Loading 3D models
     OpenImageIO # Loading textures
 	glm # Vector math
     embree # BVH builder and reference BVH traversal
 	#TBB::tbb # Multithreading
 	#Threads::Threads
-	EASTL # Stack based STL containers <3 
+	eastl # Stack based STL containers <3 
 	mio) # Memory-mapped file IO for serialization
 
 target_link_libraries(libPandora PRIVATE

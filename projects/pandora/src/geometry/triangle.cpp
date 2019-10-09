@@ -3,9 +3,9 @@
 #include "assimp/postprocess.h"
 #include "assimp/scene.h"
 #include "glm/mat4x4.hpp"
-#include "pandora/graphics_core/stats.h"
-#include "pandora/graphics_core/transform.h"
+#include "pandora/core/stats.h"
 #include "pandora/flatbuffers/data_conversion.h"
+#include "pandora/graphics_core/transform.h"
 #include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
 #include <cassert>

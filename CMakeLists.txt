@@ -21,7 +21,7 @@ pmm(VERBOSE
 	DEBUG
 	VCPKG
 		REVISION ea79220f9d9d33a11101c8dea0827aaff5a2b9b3
-		REQUIRES eastl ms-gsl tbb fmt spdlog gtest)
+		REQUIRES eastl ms-gsl tbb fmt spdlog gtest assimp glm openimageio flatbuffers "boost-program-options" nlohmann-json)
 
 # People making eastl really do not care about the outside world. No find_package support at all!!!
 #add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/eastl" EXCLUDE_FROM_ALL)
@@ -45,16 +45,16 @@ pmm(VERBOSE
 #message("HPX_INCLUDE_DIRS: ${HPX_INCLUDE_DIRS}")
 
 find_package(eastl REQUIRED)
-#find_package(assimp REQUIRED)
-#find_package(glm REQUIRED)
-#find_package(Boost REQUIRED COMPONENTS program_options)
+find_package(assimp REQUIRED)
+find_package(glm REQUIRED)
+find_package(Boost REQUIRED COMPONENTS program_options)
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 #find_package(mio CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 find_package(TBB COMPONENTS tbb tbbmalloc  REQUIRED)
-#find_package(nlohmann_json REQUIRED)
-#find_package(OpenImageIO REQUIRED)
+find_package(nlohmann_json REQUIRED)
+find_package(OpenImageIO REQUIRED)
 #find_package(hpx REQUIRED)
 
 #if (PANDORA_BUILD_VOXEL_EXPORTER)
@@ -64,13 +64,13 @@ find_package(TBB COMPONENTS tbb tbbmalloc  REQUIRED)
 #	add_subdirectory("projects/voxel/")
 #endif()
 
-#find_package(Flatbuffers REQUIRED)
-#if (TARGET flatbuffers::flatc)
-#	get_property(FLATBUFFERS_FLATC_EXECUTABLE TARGET flatbuffers::flatc PROPERTY IMPORTED_LOCATION_RELEASE)
-#elseif (NOT DEFINED FLATBUFFERS_FLATC_EXECUTABLE)
-#	message(FATAL_ERROR "Please define FLATBUFFERS_FLATC_EXECUTABLE as the path to the flatbuffer executable")
-#endif()
-#include("cmake/BuildFlatBuffers.cmake") # Include cmake script that defines the flatc compile function
+find_package(Flatbuffers REQUIRED)
+if (TARGET flatbuffers::flatc)
+	get_property(FLATBUFFERS_FLATC_EXECUTABLE TARGET flatbuffers::flatc PROPERTY IMPORTED_LOCATION_RELEASE)
+elseif (NOT DEFINED FLATBUFFERS_FLATC_EXECUTABLE)
+	message(FATAL_ERROR "Please define FLATBUFFERS_FLATC_EXECUTABLE as the path to the flatbuffer executable")
+endif()
+include("cmake/BuildFlatBuffers.cmake") # Include cmake script that defines the flatc compile function
 
 if (PANDORA_BUILD_TESTS)
 	enable_testing()
@@ -88,13 +88,13 @@ endif()
 
 add_subdirectory("projects/stream_framework/")
 #add_subdirectory("projects/hpx_experiments/")
-#include("projects/simd/CMakeLists.txt")
-#include("projects/metrics/CMakeLists.txt")
-#include("projects/pandora/CMakeLists.txt")
+include("projects/simd/CMakeLists.txt")
+include("projects/metrics/CMakeLists.txt")
 #if (PANDORA_BUILD_ATLAS)
 #    include("projects/atlas/CMakeLists.txt")
 #endif()
-#include("projects/torque/CMakeLists.txt")
+include("projects/pandora/CMakeLists.txt")
+include("projects/torque/CMakeLists.txt")
 
 #add_subdirectory("projects/diskbench/")
 #if (BUILD_VOXEL_EXPORT)

@@ -51,8 +51,9 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/samplers/rng/pcg.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/samplers/uniform_sampler.h"
 
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/scene/geometric_scene_object.h"
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/scene/instanced_scene_object.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/scene/scene_object_ref.h"
+    #"${CMAKE_CURRENT_LIST_DIR}/pandora/scene/geometric_scene_object.h"
+    #"${CMAKE_CURRENT_LIST_DIR}/pandora/scene/instanced_scene_object.h"
 
     #"${CMAKE_CURRENT_LIST_DIR}/pandora/svo/mesh_to_voxel.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/sparse_voxel_dag.h"

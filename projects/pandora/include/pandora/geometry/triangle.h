@@ -268,7 +268,7 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
     // TODO: test intersection against alpha texture, if present
 
     // Fill in  surface interaction from triangle hit
-    auto isect = SurfaceInteraction(pHit, uvHit, -ray.direction, dpdu, dpdv, glm::vec3(0.0f), glm::vec3(0.0f), hitInfo.primitiveID);
+    auto isect = SurfaceInteraction(pHit, uvHit, -ray.direction, dpdu, dpdv, glm::vec3(0.0f), glm::vec3(0.0f));
 
     // Override surface normal in isect for triangle
     isect.normal = isect.shading.normal = glm::normalize(glm::cross(dp02, dp12));
@@ -329,7 +329,7 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
     //	isect.normal = isect.shading.normal = -isect.normal;
 
     isect.wo = -ray.direction;
-    isect.primitiveID = hitInfo.primitiveID;
+    //isect.primitiveID = hitInfo.primitiveID;
     return isect;
 }
 }

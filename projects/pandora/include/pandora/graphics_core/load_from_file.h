@@ -8,11 +8,6 @@
 namespace pandora {
 
 struct RenderConfig {
-    RenderConfig() = default;
-    RenderConfig(size_t goemetryCacheSize)
-        : scene(goemetryCacheSize)
-    {
-    }
     std::unique_ptr<PerspectiveCamera> camera;
     glm::ivec2 resolution;
     Scene scene;

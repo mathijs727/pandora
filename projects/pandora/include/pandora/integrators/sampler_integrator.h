@@ -51,8 +51,8 @@ protected:
 
     void spawnNextSample(bool initialRay = false);
 
-    void specularReflect(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const RayState& rayState);
-    void specularTransmit(const SurfaceInteraction& si, Sampler& sampler, ShadingMemoryArena& memoryArena, const RayState& rayState);
+    void specularReflect(const SurfaceInteraction& si, Sampler& sampler, MemoryArena& memoryArena, const RayState& rayState);
+    void specularTransmit(const SurfaceInteraction& si, Sampler& sampler, MemoryArena& memoryArena, const RayState& rayState);
 
     void spawnShadowRay(const Ray& ray, bool anyHit, const RayState& s, const Spectrum& weight);
     void spawnShadowRay(const Ray& ray, bool anyHit, const RayState& s, const Spectrum& weight, const Light& light);

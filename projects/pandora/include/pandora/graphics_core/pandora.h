@@ -1,7 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
 #include "pandora/graphics_core/spectrum.h"
-#include "stream/generic_resource_cache.h"
 
 namespace pandora {
 
@@ -39,11 +38,9 @@ class ConstantTexture;
 template <class T>
 class ImageTexture;
 
-class SceneObjectMaterial;
-class SceneObjectGeometry;
-class InCoreSceneObject;
-class OOCSceneObject;
-class Scene;
+struct Scene;
+struct SceneNode;
+struct SceneObject;
 class TriangleMesh;
 struct Bounds;
 struct Ray;

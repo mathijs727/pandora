@@ -1,8 +1,8 @@
 #include "lambert_bxdf.h"
-#include "core/sampling.h"
-#include "glm/gtc/constants.hpp"
+#include "graphics_core/sampling.h"
+#include <glm/gtc/constants.hpp>
 #include "reflection/helpers.h"
-
+#include "pandora/utility/error_handling.h"
 
 namespace pandora {
 LambertianReflection::LambertianReflection(const Spectrum& r)

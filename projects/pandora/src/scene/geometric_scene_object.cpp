@@ -1,7 +1,7 @@
 #include "pandora/scene/geometric_scene_object.h"
-#include "pandora/utility/error_handling.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/lights/area_light.h"
+#include "pandora/utility/error_handling.h"
 #include <fstream>
 #include <mio/mmap.hpp>
 
@@ -67,10 +67,7 @@ GeometricSceneObjectMaterial::GeometricSceneObjectMaterial(
 }*/
 
 void GeometricSceneObject::computeScatteringFunctions(
-    SurfaceInteraction& si,
-    MemoryArena& memoryArena,
-    TransportMode mode,
-    bool allowMultipleLobes) const
+	SurfaceInteraction& si, std::pmr::memory_resource* pAllocator, TransportMode mode, bool allowMultipleLobes) const
 {
     m_material->computeScatteringFunctions(si, memoryArena, mode, allowMultipleLobes);
 }

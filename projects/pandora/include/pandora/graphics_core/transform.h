@@ -21,6 +21,9 @@ public:
     glm::vec3 transformVector(const glm::vec3& v) const;
     glm::vec3 transformNormal(const glm::vec3& n) const;
 
+    glm::vec3 invTransformVector(const glm::vec3& v) const;
+
+
     Ray transform(const Ray& ray) const;
     Bounds transform(const Bounds& bounds) const;
     SurfaceInteraction transform(const SurfaceInteraction& si) const;
