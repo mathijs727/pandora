@@ -23,12 +23,12 @@ glm::vec3 ACESFilm(glm::vec3 x)
     return glm::clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0f, 1.0f);
 }
 
-
-void writeOutputToFile(pandora::Sensor& sensor, int spp, std::string_view fileName, bool applyPostProcessing)
+void writeOutputToFile(pandora::Sensor& sensor, int spp, std::filesystem::path file, bool applyPostProcessing)
 {
-    std::unique_ptr<OIIO::ImageOutput> out = OIIO::ImageOutput::create(fileName.data());
+    std::string filenameString = file.string();
+    std::unique_ptr<OIIO::ImageOutput> out = OIIO::ImageOutput::create(filenameString);
     if (!out) {
-        std::cerr << "Could not create output file " << fileName << std::endl;
+        std::cerr << "Could not create output file " << file << std::endl;
         return;
     }
 
@@ -53,7 +53,7 @@ void writeOutputToFile(pandora::Sensor& sensor, int spp, std::string_view fileNa
         spec.attribute("oiio:ColorSpace", "srgb");
     else
         spec.attribute("oiio:ColorSpace", "linear");
-    out->open(fileName.data(), spec);
+    out->open(filenameString, spec);
     out->write_image(OIIO::TypeDesc::FLOAT, outPixels.data());
     out->close();
 }

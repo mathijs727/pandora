@@ -4,8 +4,8 @@
 namespace pandora {
 
 struct SceneObjectRef {
-    Transform* pTransform;
-    SceneObject* pSceneObject;
+    const Transform* pTransform;
+    const SceneObject* pSceneObject;
 };
 
 }

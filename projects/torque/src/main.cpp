@@ -71,7 +71,11 @@ int main(int argc, char** argv)
 
     pandora::RenderConfig renderConfig;
     renderConfig.resolution = glm::ivec2(1280, 720);
-    renderConfig.camera = std::make_unique<PerspectiveCamera>(renderConfig.resolution, 1280.0f / 720.0f);
+    {
+        glm::mat4 transform { 1.0f };
+        transform = glm::translate(transform, glm::vec3(0, 0, -5));
+        renderConfig.camera = std::make_unique<PerspectiveCamera>(renderConfig.resolution, 45.0f, transform);
+    }
 
     auto meshes = TriangleMesh::loadFromFile("C:/Users/mathi/Documents/GitHub/pandora/assets/3dmodels/monkey.obj");
     for (TriangleMesh& mesh : meshes) {
@@ -109,12 +113,34 @@ int main(int argc, char** argv)
     tasking::TaskGraph taskGraph;
     NormalDebugIntegrator integrator { &taskGraph };
 
-    EmbreeAccelerationStructureBuilder accelBuilder { renderConfig.scene };
-    accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
+    EmbreeAccelerationStructureBuilder accelBuilder { renderConfig.scene, &taskGraph };
+    auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
+
+    {
+        auto renderTimeStopWatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
+
+#if 1
+        integrator.render(*renderConfig.camera, renderConfig.camera->getSensor(), accel);
+#else
+        auto& sensor = renderConfig.camera->getSensor();
+        for (int y = 0; y < renderConfig.resolution.y; y++) {
+            for (int x = 0; x < renderConfig.resolution.x; x++) {
+                CameraSample cameraSample { glm::vec2 { x, y } };
+                Ray cameraRay = renderConfig.camera->generateRay(cameraSample);
+                auto hitOpt = accel.intersectFast(cameraRay);
+                if (hitOpt) {
+                    sensor.addPixelContribution(glm::ivec2 { x, y }, hitOpt->geometricNormal);
+                }
+            }
+        }
+#endif
+    }
 
     std::cout << "Writing output: " << vm["out"].as<std::string>() << ".jpg/exr" << std::endl;
     writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".jpg", true);
     writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".exr", false);
+
+    g_stats.asyncTriggerSnapshot();
 
     std::cout << "Done" << std::endl;
     return 0;

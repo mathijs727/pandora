@@ -624,16 +624,15 @@ RTCGeometry TriangleMesh::createEmbreeGeometry(RTCDevice embreeDevice) const
         embreeGeometry,
         RTC_BUFFER_TYPE_INDEX,
         0,
-        RTC_FORMAT_UINT,
+        RTC_FORMAT_UINT3,
         m_indices.data(),
         0,
-        sizeof(uint32_t),
-        m_indices.size() * 3);
-    static_assert(sizeof(glm::uvec3) == 3 * sizeof(uint32_t));
+        sizeof(glm::uvec3),
+        m_indices.size());
 
     rtcSetSharedGeometryBuffer(
         embreeGeometry,
-        RTC_BUFFER_TYPE_INDEX,
+        RTC_BUFFER_TYPE_VERTEX,
         0,
         RTC_FORMAT_FLOAT3,
         m_positions.data(),

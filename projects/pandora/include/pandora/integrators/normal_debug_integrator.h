@@ -13,8 +13,6 @@ public:
     NormalDebugIntegrator(
         tasking::TaskGraph* pTaskGraph);
 
-    void render(const PerspectiveCamera& camera, Sensor& sensor);
-
     struct RayState {
         glm::ivec2 pixel;
     };
@@ -30,6 +28,9 @@ public:
     MissTaskHandle missTaskHandle() const;
     AnyHitTaskHandle anyHitTaskHandle() const;
     AnyMissTaskHandle anyMissTaskHandle() const;
+
+    using Accel = EmbreeAccelerationStructure<RayState, AnyRayState>;
+    void render(const PerspectiveCamera& camera, Sensor& sensor, const Accel& accel);
 
 private:
     void rayHit(const Ray& ray, const SurfaceInteraction& si, const RayState& state);
@@ -53,6 +54,8 @@ private:
     std::atomic_int m_currentRayIndex;
     glm::ivec2 m_resolution;
     int m_maxPixelIndex;
+
+    const Accel* m_pAccelerationStructure;
 };
 
 }

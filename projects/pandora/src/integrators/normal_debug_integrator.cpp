@@ -44,13 +44,14 @@ NormalDebugIntegrator::NormalDebugIntegrator(
 {
 }
 
-void NormalDebugIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor)
+void NormalDebugIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, const Accel& accel)
 {
     m_pCamera = &camera;
     m_pSensor = &sensor;
     m_currentRayIndex.store(0);
     m_resolution = sensor.getResolution();
     m_maxPixelIndex = m_resolution.x * m_resolution.y;
+    m_pAccelerationStructure = &accel;
 
     // Spawn initial rays
     spawnNewPaths(500 * 1000);
@@ -60,10 +61,12 @@ void NormalDebugIntegrator::render(const PerspectiveCamera& camera, Sensor& sens
 void NormalDebugIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, const RayState& state)
 {
     m_pSensor->addPixelContribution(state.pixel, glm::abs(glm::normalize(si.normal)));
+    spawnNewPaths(1);
 }
 
 void NormalDebugIntegrator::rayMiss(const Ray& ray, const RayState& state)
 {
+    spawnNewPaths(1);
 }
 
 void NormalDebugIntegrator::rayAnyHit(const Ray& ray, const RayHit& rayHit, const AnyRayState& state)
@@ -86,7 +89,8 @@ void NormalDebugIntegrator::spawnNewPaths(int numPaths)
         CameraSample cameraSample;
         cameraSample.pixel = { x, y };
 
-        m_pCamera->generateRay(cameraSample);
+        Ray cameraRay = m_pCamera->generateRay(cameraSample);
+        m_pAccelerationStructure->intersect(cameraRay, RayState { glm::ivec2 { x, y } });
     }
 }
 
