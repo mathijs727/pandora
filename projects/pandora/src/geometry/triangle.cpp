@@ -50,12 +50,12 @@ static glm::vec3 assimpVec(const aiVector3D& v)
 namespace pandora {
 
 TriangleMesh::TriangleMesh(
-    std::vector<glm::ivec3>&& triangles,
+    std::vector<glm::uvec3>&& indices,
     std::vector<glm::vec3>&& positions,
     std::vector<glm::vec3>&& normals,
     std::vector<glm::vec3>&& tangents,
     std::vector<glm::vec2>&& uvCoords)
-    : m_triangles(std::move(triangles))
+    : m_indices(std::move(indices))
     , m_positions(std::move(positions))
     , m_normals(std::move(normals))
     , m_tangents(std::move(tangents))
@@ -63,7 +63,7 @@ TriangleMesh::TriangleMesh(
 {
     ALWAYS_ASSERT(normals.empty() || normals.size() == positions.size());
 
-    m_triangles.shrink_to_fit();
+    m_indices.shrink_to_fit();
     m_positions.shrink_to_fit();
     m_normals.shrink_to_fit();
     m_tangents.shrink_to_fit();
@@ -79,15 +79,15 @@ TriangleMesh::TriangleMesh(
 
 TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh)
 {
-    m_triangles.resize(serializedTriangleMesh->triangles()->size());
+    m_indices.resize(serializedTriangleMesh->triangles()->size());
     std::transform(
         serializedTriangleMesh->triangles()->begin(),
         serializedTriangleMesh->triangles()->end(),
-        std::begin(m_triangles),
+        std::begin(m_indices),
         [](const serialization::Vec3i* t) {
             return deserialize(*t);
         });
-    m_triangles.shrink_to_fit();
+    m_indices.shrink_to_fit();
 
     m_positions.resize(serializedTriangleMesh->positions()->size());
     std::transform(
@@ -147,15 +147,15 @@ TriangleMesh::TriangleMesh(const serialization::TriangleMesh* serializedTriangle
 {
     Transform transform(transformMatrix);
 
-    m_triangles.resize(serializedTriangleMesh->triangles()->size());
+    m_indices.resize(serializedTriangleMesh->triangles()->size());
     std::transform(
         serializedTriangleMesh->triangles()->begin(),
         serializedTriangleMesh->triangles()->end(),
-        std::begin(m_triangles),
+        std::begin(m_indices),
         [&](const serialization::Vec3i* t) {
             return deserialize(*t);
         });
-    m_triangles.shrink_to_fit();
+    m_indices.shrink_to_fit();
 
     m_positions.resize(serializedTriangleMesh->positions()->size());
     std::transform(
@@ -225,7 +225,7 @@ flatbuffers::Offset<serialization::TriangleMesh> TriangleMesh::serialize(flatbuf
     estimatedSize += m_tangents.size() * sizeof(glm::vec3);
     estimatedSize += m_uvCoords.size() * sizeof(glm::vec2);*/
 
-    auto triangles = builder.CreateVectorOfStructs(reinterpret_cast<const serialization::Vec3i*>(m_triangles.data()), m_triangles.size());
+    auto triangles = builder.CreateVectorOfStructs(reinterpret_cast<const serialization::Vec3i*>(m_indices.data()), m_indices.size());
     auto positions = builder.CreateVectorOfStructs(reinterpret_cast<const serialization::Vec3*>(m_positions.data()), m_positions.size());
     flatbuffers::Offset<flatbuffers::Vector<const serialization::Vec3*>> normals = 0;
     if (!m_normals.empty())
@@ -253,7 +253,7 @@ TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
     std::vector<bool> usedVertices(numVertices());
     std::fill(std::begin(usedVertices), std::end(usedVertices), false);
     for (const unsigned primitiveID : primitives) {
-        const auto& triangle = m_triangles[primitiveID];
+        glm::uvec3 triangle = m_indices[primitiveID];
         usedVertices[triangle[0]] = true;
         usedVertices[triangle[1]] = true;
         usedVertices[triangle[2]] = true;
@@ -267,15 +267,15 @@ TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
         }
     }
 
-    std::vector<glm::ivec3> triangles;
+    std::vector<glm::uvec3> indices;
     for (unsigned triangleIndex : primitives) {
-        glm::ivec3 originalTriangle = m_triangles[triangleIndex];
+        glm::uvec3 originalTriangle = m_indices[triangleIndex];
         glm::ivec3 triangle = {
             vertexIndexMapping[originalTriangle[0]],
             vertexIndexMapping[originalTriangle[1]],
             vertexIndexMapping[originalTriangle[2]]
         };
-        triangles.push_back(triangle);
+        indices.push_back(triangle);
     }
 
     std::vector<glm::vec3> positions;
@@ -294,7 +294,7 @@ TriangleMesh TriangleMesh::subMesh(gsl::span<const unsigned> primitives) const
         }
     }
 
-    return TriangleMesh(std::move(triangles), std::move(positions), std::move(normals), std::move(tangents), std::move(uvCoords));
+    return TriangleMesh(std::move(indices), std::move(positions), std::move(normals), std::move(tangents), std::move(uvCoords));
 }
 
 void TriangleMesh::subdivide()
@@ -303,9 +303,9 @@ void TriangleMesh::subdivide()
     ALWAYS_ASSERT(m_tangents.empty());
     ALWAYS_ASSERT(m_uvCoords.empty());
 
-    std::vector<glm::ivec3> outTriangles;
-    outTriangles.reserve(m_triangles.size() * 3);
-    for (const auto& triangle : m_triangles) {
+    std::vector<glm::uvec3> outIndices;
+    outIndices.reserve(m_indices.size() * 3);
+    for (const auto& triangle : m_indices) {
         glm::vec3 v0 = m_positions[triangle[0]];
         glm::vec3 v1 = m_positions[triangle[1]];
         glm::vec3 v2 = m_positions[triangle[2]];
@@ -318,12 +318,12 @@ void TriangleMesh::subdivide()
                 glm::normalize(
                     m_normals[triangle[0]] + m_normals[triangle[1]] + m_normals[triangle[2]]));
         }
-        outTriangles.push_back({ triangle[0], triangle[1], newVertexID });
-        outTriangles.push_back({ triangle[1], triangle[2], newVertexID });
-        outTriangles.push_back({ triangle[2], triangle[0], newVertexID });
+        outIndices.push_back({ triangle[0], triangle[1], newVertexID });
+        outIndices.push_back({ triangle[1], triangle[2], newVertexID });
+        outIndices.push_back({ triangle[2], triangle[0], newVertexID });
     }
-    m_triangles = std::move(outTriangles);
-    m_triangles.shrink_to_fit();
+    m_indices = std::move(outIndices);
+    m_indices.shrink_to_fit();
     m_positions.shrink_to_fit();
     m_normals.shrink_to_fit();
 }
@@ -337,7 +337,7 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
     if (mesh->mNumVertices == 0 || mesh->mNumFaces == 0)
         THROW_ERROR("Empty mesh");
 
-    std::vector<glm::ivec3> triangles;
+    std::vector<glm::uvec3> indices;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
     std::vector<glm::vec3> tangents;
@@ -351,7 +351,7 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
         }
 
         auto aiIndices = face.mIndices;
-        triangles.push_back({ aiIndices[0], aiIndices[1], aiIndices[2] });
+        indices.push_back({ aiIndices[0], aiIndices[1], aiIndices[2] });
     }
 
     // Positions
@@ -375,7 +375,7 @@ TriangleMesh TriangleMesh::createMeshAssimp(const aiScene* scene, const unsigned
     }*/
 
     return TriangleMesh(
-        std::move(triangles),
+        std::move(indices),
         std::move(positions),
         std::move(normals),
         std::move(tangents),
@@ -441,10 +441,10 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(std::filesystem
 
 std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals)
 {
-    std::vector<glm::ivec3> triangles;
+    std::vector<glm::uvec3> indices;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
-    triangles.reserve(scene->mMeshes[0]->mNumFaces);
+    indices.reserve(scene->mMeshes[0]->mNumFaces);
     positions.reserve(scene->mMeshes[0]->mNumVertices * 3);
     normals.reserve(scene->mMeshes[0]->mNumVertices * 3);
 
@@ -473,7 +473,7 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const aiScene* 
                 }
 
                 auto aiIndices = face.mIndices;
-                triangles.push_back(glm::ivec3 {
+                indices.push_back(glm::uvec3 {
                     aiIndices[0] + indexOffset,
                     aiIndices[1] + indexOffset,
                     aiIndices[2] + indexOffset });
@@ -505,7 +505,7 @@ std::optional<TriangleMesh> TriangleMesh::loadFromFileSingleMesh(const aiScene* 
     }
 
     return TriangleMesh(
-        std::move(triangles),
+        std::move(indices),
         std::move(positions),
         std::move(normals),
         {},
@@ -557,7 +557,7 @@ std::vector<TriangleMesh> TriangleMesh::loadFromFile(std::filesystem::path fileP
 size_t TriangleMesh::sizeBytes() const
 {
     size_t size = sizeof(TriangleMesh);
-    size += m_triangles.size() * sizeof(glm::ivec3); // triangles
+    size += m_indices.size() * sizeof(glm::uvec3); // triangles
     size += m_positions.size() * sizeof(glm::vec3); // positions
     size += m_normals.size() * sizeof(glm::vec3); // normals
     size += m_tangents.size() * sizeof(glm::vec3); // tangents
@@ -567,7 +567,7 @@ size_t TriangleMesh::sizeBytes() const
 
 unsigned TriangleMesh::numTriangles() const
 {
-    return static_cast<unsigned>(m_triangles.size());
+    return static_cast<unsigned>(m_indices.size());
 }
 
 unsigned TriangleMesh::numVertices() const
@@ -575,9 +575,9 @@ unsigned TriangleMesh::numVertices() const
     return static_cast<unsigned>(m_positions.size());
 }
 
-gsl::span<const glm::ivec3> TriangleMesh::getTriangles() const
+gsl::span<const glm::uvec3> TriangleMesh::getIndices() const
 {
-    return m_triangles;
+    return m_indices;
 }
 
 gsl::span<const glm::vec3> TriangleMesh::getPositions() const
@@ -607,18 +607,45 @@ Bounds TriangleMesh::getBounds() const
 
 Bounds TriangleMesh::getPrimitiveBounds(unsigned primitiveID) const
 {
-    glm::ivec3 t = m_triangles[primitiveID];
+    glm::uvec3 triangle = m_indices[primitiveID];
 
     Bounds bounds;
-    bounds.grow(m_positions[t[0]]);
-    bounds.grow(m_positions[t[1]]);
-    bounds.grow(m_positions[t[2]]);
+    bounds.grow(m_positions[triangle[0]]);
+    bounds.grow(m_positions[triangle[1]]);
+    bounds.grow(m_positions[triangle[2]]);
     return bounds;
+}
+
+RTCGeometry TriangleMesh::createEmbreeGeometry(RTCDevice embreeDevice) const
+{
+
+    RTCGeometry embreeGeometry = rtcNewGeometry(embreeDevice, RTC_GEOMETRY_TYPE_TRIANGLE);
+    rtcSetSharedGeometryBuffer(
+        embreeGeometry,
+        RTC_BUFFER_TYPE_INDEX,
+        0,
+        RTC_FORMAT_UINT,
+        m_indices.data(),
+        0,
+        sizeof(uint32_t),
+        m_indices.size() * 3);
+    static_assert(sizeof(glm::uvec3) == 3 * sizeof(uint32_t));
+
+    rtcSetSharedGeometryBuffer(
+        embreeGeometry,
+        RTC_BUFFER_TYPE_INDEX,
+        0,
+        RTC_FORMAT_FLOAT3,
+        m_positions.data(),
+        0,
+        sizeof(glm::vec3),
+        m_positions.size());
+    return embreeGeometry;
 }
 
 float TriangleMesh::primitiveArea(unsigned primitiveID) const
 {
-    const auto& triangle = m_triangles[primitiveID];
+    glm::uvec3 triangle = m_indices[primitiveID];
     const glm::vec3& p0 = m_positions[triangle[0]];
     const glm::vec3& p1 = m_positions[triangle[1]];
     const glm::vec3& p2 = m_positions[triangle[2]];
@@ -633,7 +660,7 @@ Interaction TriangleMesh::samplePrimitive(unsigned primitiveID, const glm::vec2&
     float su0 = std::sqrt(randomSample[0]);
     glm::vec2 b = glm::vec2(1 - su0, randomSample[1] * su0);
 
-    const auto& triangle = m_triangles[primitiveID];
+    glm::uvec3 triangle = m_indices[primitiveID];
     const glm::vec3& p0 = m_positions[triangle[0]];
     const glm::vec3& p1 = m_positions[triangle[1]];
     const glm::vec3& p2 = m_positions[triangle[2]];
@@ -679,10 +706,10 @@ float TriangleMesh::pdfPrimitive(unsigned primitiveID, const Interaction& ref, c
 void TriangleMesh::getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const
 {
     if (!m_uvCoords.empty()) {
-        glm::ivec3 indices = m_triangles[primitiveID];
-        uv[0] = m_uvCoords[indices[0]];
-        uv[1] = m_uvCoords[indices[1]];
-        uv[2] = m_uvCoords[indices[2]];
+        glm::uvec3 triangle = m_indices[primitiveID];
+        uv[0] = m_uvCoords[triangle[0]];
+        uv[1] = m_uvCoords[triangle[1]];
+        uv[2] = m_uvCoords[triangle[2]];
     } else {
         uv[0] = glm::vec2(0, 0);
         uv[1] = glm::vec2(1, 0);
@@ -692,10 +719,10 @@ void TriangleMesh::getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) cons
 
 void TriangleMesh::getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const
 {
-    glm::ivec3 indices = m_triangles[primitiveID];
-    p[0] = m_positions[indices[0]];
-    p[1] = m_positions[indices[1]];
-    p[2] = m_positions[indices[2]];
+    glm::ivec3 triangle = m_indices[primitiveID];
+    p[0] = m_positions[triangle[0]];
+    p[1] = m_positions[triangle[1]];
+    p[2] = m_positions[triangle[2]];
 }
 
 void TriangleMesh::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const
@@ -716,7 +743,7 @@ void TriangleMesh::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Tra
 
     const glm::ivec3 maxGridVoxel(grid.resolution() - 1);
 
-    for (const auto& triangle : m_triangles) {
+    for (glm::uvec3 triangle : m_indices) {
         glm::vec3 v[3] = {
             transform.transformPoint(m_positions[triangle[0]]),
             transform.transformPoint(m_positions[triangle[1]]),

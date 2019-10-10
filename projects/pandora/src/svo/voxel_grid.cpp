@@ -3,7 +3,7 @@
 #include "pandora/utility/math.h"
 #include <array>
 #include <iostream>
-#include <morton.h>
+#include <libmorton/morton.h>
 
 namespace pandora {
 

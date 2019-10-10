@@ -16,46 +16,33 @@ if (PANDORA_ISPC_SUPPORT)
 	include("${CMAKE_CURRENT_LIST_DIR}/cmake/ispc.cmake")
 endif()
 
-include("cmake/pmm.cmake")
-pmm(VERBOSE
-	DEBUG
-	VCPKG
-		REVISION ea79220f9d9d33a11101c8dea0827aaff5a2b9b3
-		REQUIRES eastl ms-gsl tbb fmt spdlog gtest assimp glm openimageio flatbuffers "boost-program-options" nlohmann-json)
-
-# People making eastl really do not care about the outside world. No find_package support at all!!!
-#add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/eastl" EXCLUDE_FROM_ALL)
-
-# Although these packages are shipped with vcpkg, they do not export any CMake files so we have to include
-# them as subdirectory.
-#add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/ms-gsl/" EXCLUDE_FROM_ALL)
-#add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/eastl/" EXCLUDE_FROM_ALL)
-#add_library(libmorton INTERFACE)
-#target_include_directories(libmorton INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/libmorton/libmorton/include/")
-
-# HPX does not use targets properly. HPX_INCLUDE_DIRS contains non-existent directories (error target_include_directories).
-# So instead do it like this until HPX is updated to use modern CMake (it's 2019 guys...)
-#find_package(HPX CONFIG REQUIRED)
-#include_directories("${HPX_INCLUDE_DIRS}")
-#set_target_properties(hpx hpx_init iostreams_component
-#	PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO RELEASE)
-#if (MSVC)
-#	target_compile_definitions(hpx INTERFACE "_CRT_SECURE_NO_WARNINGS")
-#endif()
-#message("HPX_INCLUDE_DIRS: ${HPX_INCLUDE_DIRS}")
+#include("cmake/pmm.cmake")
+#pmm(VERBOSE
+#	DEBUG
+#	VCPKG
+#		REVISION ea79220f9d9d33a11101c8dea0827aaff5a2b9b3
+#		REQUIRES eastl ms-gsl tbb fmt spdlog gtest assimp glm openimageio mio flatbuffers "boost-program-options" nlohmann-json embree3 libmorton
+#		PORTS "${CMAKE_CURRENT_LIST_DIR}/third_party/assimp5/") # TODO: assimp version in vcpkg@ea79220f9d9d33a11101c8dea0827aaff5a2b9b3 is broken. Update 5.0.0 is available but requires VCPKG revision update = recompile everything
 
 find_package(eastl REQUIRED)
-find_package(assimp REQUIRED)
+find_package(assimp CONFIG REQUIRED)
 find_package(glm REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
-#find_package(mio CONFIG REQUIRED)
+find_package(mio CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 find_package(TBB COMPONENTS tbb tbbmalloc  REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(OpenImageIO REQUIRED)
+find_package(Embree3 REQUIRED)
 #find_package(hpx REQUIRED)
+
+# WARNING: temporary hack because using the assimp::assimp target exported by assimp will try to link against a DLL (and fail)
+add_library(assimp_target INTERFACE IMPORTED)
+target_include_directories(assimp_target INTERFACE ${ASSIMP_INCLUDE_DIRS})
+target_link_directories(assimp_target INTERFACE ${ASSIMP_LIBRARY_DIRS})
+target_link_libraries(assimp_target INTERFACE ${ASSIMP_LIBRARIES})
 
 #if (PANDORA_BUILD_VOXEL_EXPORTER)
 #	add_library(tinyply "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/tinyply.cpp")

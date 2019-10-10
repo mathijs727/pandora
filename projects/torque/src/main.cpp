@@ -1,6 +1,7 @@
 #include "output.h"
 #include "pandora/config.h"
 #include "pandora/core/stats.h"
+#include "pandora/geometry/triangle.h"
 #include "pandora/graphics_core/load_from_file.h"
 #include "pandora/integrators/direct_lighting_integrator.h"
 #include "pandora/integrators/naive_direct_lighting_integrator.h"
@@ -10,6 +11,7 @@
 #include "pandora/integrators/svo_test_integrator.h"
 #include "pandora/materials/matte_material.h"
 #include "pandora/textures/constant_texture.h"
+#include "stream/task_graph.h"
 #include <xmmintrin.h>
 
 #include <boost/program_options.hpp>
@@ -33,7 +35,14 @@ int main(int argc, char** argv)
     namespace po = boost::program_options;
 
     po::options_description desc("Pandora options");
-    desc.add_options()("file", po::value<std::string>()->required(), "Pandora scene description JSON")("out", po::value<std::string>()->default_value("output"s), "output name (without file extension!)")("integrator", po::value<std::string>()->default_value("direct"), "integrator (normal, direct or path)")("spp", po::value<int>()->default_value(1), "samples per pixel")("help", "show all arguments");
+    // clang-format off
+    desc.add_options()
+		("file", po::value<std::string>()->required(), "Pandora scene description JSON")
+		("out", po::value<std::string>()->default_value("output"s), "output name (without file extension!)")
+		("integrator", po::value<std::string>()->default_value("direct"), "integrator (normal, direct or path)")
+		("spp", po::value<int>()->default_value(1), "samples per pixel")
+		("help", "show all arguments");
+    // clang-format on
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -60,12 +69,20 @@ int main(int argc, char** argv)
     g_stats.config.integrator = vm["integrator"].as<std::string>();
     g_stats.config.spp = vm["spp"].as<int>();
 
-	pandora::RenderConfig renderConfig;
+    pandora::RenderConfig renderConfig;
+    renderConfig.resolution = glm::ivec2(1280, 720);
+    renderConfig.camera = std::make_unique<PerspectiveCamera>(renderConfig.resolution, 1280.0f / 720.0f);
 
+    auto meshes = TriangleMesh::loadFromFile("C:/Users/mathi/Documents/GitHub/pandora/assets/3dmodels/monkey.obj");
+    for (TriangleMesh& mesh : meshes) {
+        auto pMesh = std::make_shared<TriangleMesh>(std::move(mesh));
+        auto pSceneObject = std::make_shared<SceneObject>(SceneObject { pMesh, nullptr, nullptr });
+        renderConfig.scene.m_root.objects.push_back(std::move(pSceneObject));
+    }
 
     std::cout << "Start render" << std::endl;
     int spp = vm["spp"].as<int>();
-    try {
+    /*try {
         auto integratorType = vm["integrator"].as<std::string>();
         if (integratorType == "direct") {
             DirectLightingIntegrator integrator(8, renderConfig.scene, renderConfig.camera->getSensor(), spp, LightStrategy::UniformSampleOne);
@@ -84,11 +101,16 @@ int main(int argc, char** argv)
         }
     } catch (const std::exception& e) {
         std::cout << "Render error: " << e.what() << std::endl;
-    }
+    }*/
 
     //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), spp);
     //SVOTestIntegrator integrator(scene, camera.getSensor(), spp);
     //SVODepthTestIntegrator integrator(scene, camera.getSensor(), spp);
+    tasking::TaskGraph taskGraph;
+    NormalDebugIntegrator integrator { &taskGraph };
+
+    EmbreeAccelerationStructureBuilder accelBuilder { renderConfig.scene };
+    accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
     std::cout << "Writing output: " << vm["out"].as<std::string>() << ".jpg/exr" << std::endl;
     writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".jpg", true);
@@ -98,9 +120,7 @@ int main(int argc, char** argv)
     return 0;
 }
 
-
-
-    //auto renderConfig = pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE ? loadFromFileOOC(vm["file"].as<std::string>(), false) : loadFromFile(vm["file"].as<std::string>(), false);
+//auto renderConfig = pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE ? loadFromFileOOC(vm["file"].as<std::string>(), false) : loadFromFile(vm["file"].as<std::string>(), false);
 
 /*{
         // Create skylight plane

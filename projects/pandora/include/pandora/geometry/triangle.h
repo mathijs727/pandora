@@ -1,11 +1,13 @@
 #pragma once
+#include "pandora/flatbuffers/triangle_mesh_generated.h"
+#include "pandora/geometry/bounds.h"
 #include "pandora/graphics_core/interaction.h"
 #include "pandora/graphics_core/material.h"
 #include "pandora/graphics_core/ray.h"
-#include "pandora/flatbuffers/triangle_mesh_generated.h"
-#include "pandora/geometry/bounds.h"
 #include "pandora/svo/voxel_grid.h"
 #include "pandora/utility/math.h"
+#include <embree3/rtcore.h>
+#include <filesystem>
 #include <glm/glm.hpp>
 #include <gsl/span>
 #include <memory>
@@ -13,7 +15,6 @@
 #include <string_view>
 #include <tuple>
 #include <vector>
-#include <filesystem>
 
 struct aiScene;
 
@@ -25,7 +26,7 @@ namespace pandora {
 class TriangleMesh {
 public:
     TriangleMesh(
-        std::vector<glm::ivec3>&& triangles,
+        std::vector<glm::uvec3>&& indices,
         std::vector<glm::vec3>&& positions,
         std::vector<glm::vec3>&& normals,
         std::vector<glm::vec3>&& tangents,
@@ -53,11 +54,16 @@ public:
     unsigned numTriangles() const;
     unsigned numVertices() const;
 
-    gsl::span<const glm::ivec3> getTriangles() const;
+    gsl::span<const glm::uvec3> getIndices() const;
     gsl::span<const glm::vec3> getPositions() const;
+    gsl::span<const glm::vec3> getNormals() const;
+    gsl::span<const glm::vec3> getTangents() const;
+    gsl::span<const glm::vec2> getUVCoords() const;
 
     Bounds getBounds() const;
     Bounds getPrimitiveBounds(unsigned primitiveID) const;
+
+    RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const;
 
     bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID, bool testAlphaTexture = true) const;
     SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& hitInfo, bool testAlphaTexture = true) const;
@@ -75,15 +81,11 @@ private:
     static std::optional<TriangleMesh> loadFromFileSingleMesh(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals);
     static TriangleMesh createMeshAssimp(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
 
-    gsl::span<const glm::vec3> getNormals() const;
-    gsl::span<const glm::vec3> getTangents() const;
-    gsl::span<const glm::vec2> getUVCoords() const;
-
     void getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const;
     void getPs(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
 
 private:
-    std::vector<glm::ivec3> m_triangles;
+    std::vector<glm::uvec3> m_indices;
     std::vector<glm::vec3> m_positions;
     std::vector<glm::vec3> m_normals;
     std::vector<glm::vec3> m_tangents;
@@ -101,7 +103,7 @@ inline bool TriangleMesh::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned
     // Transform the ray and triangle such that the ray origin is at (0,0,0) and its
     // direction points along the +Z axis. This makes the intersection test easy and
     // allows for watertight intersection testing.
-    glm::ivec3 triangle = m_triangles[primitiveID];
+    glm::uvec3 triangle = m_indices[primitiveID];
     glm::vec3 p0 = m_positions[triangle[0]];
     glm::vec3 p1 = m_positions[triangle[1]];
     glm::vec3 p2 = m_positions[triangle[2]];
@@ -224,7 +226,7 @@ inline bool TriangleMesh::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned
 //inline bool TriangleMesh::intersectPrimitive(Ray& ray, SurfaceInteraction& isect, unsigned primitiveID, bool testAlphaTexture) const
 inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, const RayHit& hitInfo, bool testAlphaTexture) const
 {
-    glm::ivec3 triangle = m_triangles[hitInfo.primitiveID];
+    glm::uvec3 triangle = m_indices[hitInfo.primitiveID];
     glm::vec3 p0 = m_positions[triangle[0]];
     glm::vec3 p1 = m_positions[triangle[1]];
     glm::vec3 p2 = m_positions[triangle[2]];
@@ -275,7 +277,7 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
 
     // Shading normals / tangents
     if (!m_normals.empty() || !m_tangents.empty()) {
-        glm::ivec3 v = m_triangles[hitInfo.primitiveID];
+        glm::uvec3 v = m_indices[hitInfo.primitiveID];
 
         // Compute shading normal ns for triangle
         glm::vec3 ns;

@@ -5,30 +5,29 @@
 #include "pandora/graphics_core/sensor.h"
 //#include "pandora/eviction/fifo_cache.h"
 #include "pandora/samplers/uniform_sampler.h"
+#include "pandora/traversal/embree_acceleration_structure.h"
 #include <random>
 
-namespace pandora {
+    namespace pandora
+{
 
-template <typename IntegratorState>
-class Integrator {
-public:
-    Integrator(const Scene& scene, Sensor& sensor, int sppPerCall);
-    virtual ~Integrator();
+    template <typename IntegratorState>
+    class Integrator {
+    public:
+        Integrator(const Scene& scene, Sensor& sensor, int sppPerCall);
+        virtual ~Integrator();
 
-    virtual void reset() = 0;
-    virtual void render(const PerspectiveCamera& camera) = 0;
+        virtual void reset() = 0;
+        virtual void render(const PerspectiveCamera& camera) = 0;
 
-protected:
-    virtual void rayHit(const Ray& r, SurfaceInteraction si, const IntegratorState& s) = 0;
-    virtual void rayAnyHit(const Ray& r, const IntegratorState& s) = 0;
-    virtual void rayMiss(const Ray& r, const IntegratorState& s) = 0;
+    protected:
+        virtual void rayHit(const Ray& r, SurfaceInteraction si, const IntegratorState& s) = 0;
+        virtual void rayAnyHit(const Ray& r, const IntegratorState& s) = 0;
+        virtual void rayMiss(const Ray& r, const IntegratorState& s) = 0;
 
-protected:
-    const Scene& m_scene;
-    //AccelerationStructure<IntegratorState> m_accelerationStructure;
+    protected:
+        const Scene& m_scene;
 
-    Sensor& m_sensor;
-};
-
-
+        Sensor& m_sensor;
+    };
 }

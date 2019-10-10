@@ -21,7 +21,7 @@ target_sources(libPandora
 
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/direct_lighting_integrator.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/naive_direct_lighting_integrator.cpp"
-        #"${CMAKE_CURRENT_LIST_DIR}/integrators/normal_debug_integrator.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/integrators/normal_debug_integrator.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/path_integrator.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/sampler_integrator.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/svo_depth_test_integrator.cpp"
@@ -40,7 +40,7 @@ target_sources(libPandora
         #"${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_dag.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_octree.cpp"
-        #"${CMAKE_CURRENT_LIST_DIR}/svo/voxel_grid.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/svo/voxel_grid.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/materials/matte_material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/materials/mirror_material.cpp"
@@ -62,7 +62,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/textures/constant_texture.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/textures/image_texture.cpp"
 		
-		#"${CMAKE_CURRENT_LIST_DIR}/traversal/bvh/embree_bvh_impl.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/traversal/embree_acceleration_structure.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/utility/eastl_malloc.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena.cpp"

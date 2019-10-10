@@ -75,6 +75,7 @@ PUBLIC
     
     "${CMAKE_CURRENT_LIST_DIR}/pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
     
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/traversal/embree_acceleration_structure.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/traversal/bvh.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/traversal/pauseable_bvh.h"
 

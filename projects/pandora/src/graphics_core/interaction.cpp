@@ -89,6 +89,29 @@ Ray computeRayWithEpsilon(const Interaction& i1, const glm::vec3& dir)
     return Ray(offsetRayOrigin(i1, dir), dir);
 }
 
+void SurfaceInteraction::setShadingGeometry(
+    const glm::vec3& dpdus,
+    const glm::vec3& dpdvs,
+    const glm::vec3& dndus,
+    const glm::vec3& dndvs,
+    bool orientationIsAuthoritative)
+{
+    // Compute shading normal
+    shading.normal = glm::normalize(glm::cross(dpdus, dpdvs));
+    // TODO: adjust normal based on orientation and handedness (page 119)
+    if (orientationIsAuthoritative)
+        normal = faceForward(normal, shading.normal);
+    else
+        shading.normal = faceForward(shading.normal, normal);
+
+    // Initialize shading partial derivative values
+    shading.dpdu = dpdus;
+    shading.dpdv = dpdvs;
+    shading.dndu = dndus;
+    shading.dndv = dndvs;
+}
+
+
 }
 
 /*// PBRTv3 page 119
@@ -110,28 +133,6 @@ SurfaceInteraction::SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, 
     shading.dndv = dndv;
 
     // TODO: adjust normal based on orientation and handedness
-}
-
-void SurfaceInteraction::setShadingGeometry(
-    const glm::vec3& dpdus,
-    const glm::vec3& dpdvs,
-    const glm::vec3& dndus,
-    const glm::vec3& dndvs,
-    bool orientationIsAuthoritative)
-{
-    // Compute shading normal
-    shading.normal = glm::normalize(glm::cross(dpdus, dpdvs));
-    // TODO: adjust normal based on orientation and handedness (page 119)
-    if (orientationIsAuthoritative)
-        normal = faceForward(normal, shading.normal);
-    else
-        shading.normal = faceForward(shading.normal, normal);
-
-    // Initialize shading partial derivative values
-    shading.dpdu = dpdus;
-    shading.dpdv = dpdvs;
-    shading.dndu = dndus;
-    shading.dndv = dndvs;
 }
 
 void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes)

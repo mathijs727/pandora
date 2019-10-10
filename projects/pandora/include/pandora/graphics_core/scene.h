@@ -1,8 +1,8 @@
 #pragma once
 #include "pandora/geometry/forward_declares.h"
-#include "pandora/graphics_core/material.h"
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/graphics_core/transform.h"
+#include "pandora/lights/area_light.h"
 #include "pandora/scene/scene_object_ref.h"
 #include <memory>
 #include <optional>

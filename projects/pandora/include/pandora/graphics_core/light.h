@@ -30,6 +30,7 @@ enum class LightFlags : int {
 class Light {
 public:
     Light(int flags, int numSamples = 1);
+    virtual ~Light() {};
 
     bool isDeltaLight() const;
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "pandora/graphics_core/pandora.h"
+#include "pandora/scene/scene_object_ref.h"
 #include <glm/glm.hpp>
 #include <limits>
 #include <memory>
@@ -34,10 +35,11 @@ public:
 };
 
 struct RayHit {
-    SceneNode* pSceneNode;
-    unsigned objectIndex;
-    unsigned primitiveID;
+    glm::vec3 geometricNormal;
     glm::vec2 geometricUV;
+
+    SceneObjectRef sceneObjectRef;
+    unsigned primitiveID;
 };
 
 template <int N>

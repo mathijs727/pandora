@@ -40,18 +40,17 @@ target_link_libraries(libPandora PUBLIC
 	stream
 	simd
 	metrics
-    assimp::assimp # Loading 3D models
-    OpenImageIO # Loading textures
+	assimp_target
+    #assimp::assimp # Buggy (tries to link against a dll file...)
+    OIIO::OpenImageIO # Loading textures
 	glm # Vector math
-    embree # BVH builder and reference BVH traversal
+    embree3::embree3 # BVH builder and reference BVH traversal
 	#TBB::tbb # Multithreading
 	#Threads::Threads
 	eastl # Stack based STL containers <3 
-	mio) # Memory-mapped file IO for serialization
+	mio::mio) # Memory-mapped file IO for serialization
 
-target_link_libraries(libPandora PRIVATE
-	Boost::boost # Header-only Boost libraries
-	libmorton) # Morton code for voxelization & SVO
+target_link_libraries(libPandora PRIVATE Boost::boost)
 
 if (LINK_STDCXX_FILESYSTEM)
 	target_link_libraries(libPandora PRIVATE stdc++fs)
