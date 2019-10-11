@@ -77,12 +77,31 @@ int main(int argc, char** argv)
         renderConfig.camera = std::make_unique<PerspectiveCamera>(renderConfig.resolution, 45.0f, transform);
     }
 
+    SceneBuilder sceneBuilder;
+    {
+        glm::mat4 transform { 1.0f };
+        transform = glm::scale(transform, glm::vec3(0.01f));
+        transform = glm::translate(transform, glm::vec3(0, 3, 0));
+        auto meshOpt = TriangleShape::loadFromFileSingleShape("C:/Users/mathi/Documents/GitHub/pandora/assets/3dmodels/sphere.obj", transform);
+        assert(meshOpt);
+
+        auto pKdTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1));
+        auto pSigmaTexture = std::make_shared<ConstantTexture<float>>(1.0f);
+        auto pMaterial = std::make_shared<MatteMaterial>(pKdTexture, pSigmaTexture);
+        auto pShape = std::make_shared<TriangleShape>(std::move(*meshOpt));
+        sceneBuilder.addSceneObject(pShape, pMaterial);
+    }
+
     auto meshes = TriangleShape::loadFromFile("C:/Users/mathi/Documents/GitHub/pandora/assets/3dmodels/monkey.obj");
     for (TriangleShape& mesh : meshes) {
-        auto pMesh = std::make_shared<TriangleShape>(std::move(mesh));
-        auto pSceneObject = std::make_shared<SceneObject>(SceneObject { pMesh, nullptr, nullptr });
-        renderConfig.scene.m_root.objects.push_back(std::move(pSceneObject));
+        auto pKdTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1));
+        auto pSigmaTexture = std::make_shared<ConstantTexture<float>>(1.0f);
+
+        auto pMaterial = std::make_shared<MatteMaterial>(pKdTexture, pSigmaTexture);
+        auto pShape = std::make_shared<TriangleShape>(std::move(mesh));
+        sceneBuilder.addSceneObject(pShape, pMaterial);
     }
+    renderConfig.pScene = std::make_unique<Scene>(sceneBuilder.build());
 
     std::cout << "Start render" << std::endl;
     int spp = vm["spp"].as<int>();
@@ -111,16 +130,17 @@ int main(int argc, char** argv)
     //SVOTestIntegrator integrator(scene, camera.getSensor(), spp);
     //SVODepthTestIntegrator integrator(scene, camera.getSensor(), spp);
     tasking::TaskGraph taskGraph;
-    NormalDebugIntegrator integrator { &taskGraph };
+    //NormalDebugIntegrator integrator { &taskGraph };
+    DirectLightingIntegrator integrator { &taskGraph, 8, 1, LightStrategy::UniformSampleAll };
 
-    EmbreeAccelerationStructureBuilder accelBuilder { renderConfig.scene, &taskGraph };
+    EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
     {
         auto renderTimeStopWatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
 
 #if 1
-        integrator.render(*renderConfig.camera, renderConfig.camera->getSensor(), accel);
+        integrator.render(*renderConfig.camera, renderConfig.camera->getSensor(), *renderConfig.pScene, accel);
 #else
         auto& sensor = renderConfig.camera->getSensor();
         for (int y = 0; y < renderConfig.resolution.y; y++) {

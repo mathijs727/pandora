@@ -11,7 +11,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/perspective_camera.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/sampler.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/spectrum.cpp"
-        #"${CMAKE_CURRENT_LIST_DIR}/graphics_core/scene.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/scene.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/sensor.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/transform.cpp"
 
@@ -21,7 +21,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_sg.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_shape.cpp"
 
-        #"${CMAKE_CURRENT_LIST_DIR}/integrators/direct_lighting_integrator.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/integrators/direct_lighting_integrator.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/naive_direct_lighting_integrator.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/normal_debug_integrator.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/path_integrator.cpp"

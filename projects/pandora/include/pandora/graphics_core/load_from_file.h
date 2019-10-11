@@ -10,7 +10,7 @@ namespace pandora {
 struct RenderConfig {
     std::unique_ptr<PerspectiveCamera> camera;
     glm::ivec2 resolution;
-    Scene scene;
+    std::unique_ptr<Scene> pScene;
 };
 
 RenderConfig loadFromFile(std::filesystem::path filePath , bool loadMaterials = true);

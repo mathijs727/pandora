@@ -41,7 +41,7 @@ EmbreeAccelerationStructureBuilder::EmbreeAccelerationStructureBuilder(const Sce
     m_embreeScene = rtcNewScene(m_embreeDevice);
 
     std::stack<const SceneNode*> traversalStack;
-    traversalStack.push(&scene.m_root);
+    traversalStack.push(&scene.root);
     while (!traversalStack.empty()) {
         const SceneNode* pSceneNode = traversalStack.top();
         traversalStack.pop();

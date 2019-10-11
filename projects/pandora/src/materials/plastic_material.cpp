@@ -20,7 +20,7 @@ PlasticMaterial::PlasticMaterial(const std::shared_ptr<Texture<Spectrum>>& kd, c
 }
 
 // PBRTv3 page 581
-void PlasticMaterial::computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const
+void PlasticMaterial::computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena) const
 {
     // TODO: perform bump mapping (normal mapping)
 

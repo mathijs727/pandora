@@ -1,6 +1,6 @@
 #pragma once
 #include "pandora/graphics_core/pandora.h"
-#include "pandora/scene/scene_object_ref.h"
+#include <EASTL/fixed_vector.h>
 #include <glm/glm.hpp>
 #include <limits>
 #include <memory>
@@ -38,7 +38,9 @@ struct RayHit {
     glm::vec3 geometricNormal;
     glm::vec2 geometricUV;
 
-    SceneObjectRef sceneObjectRef;
+	// Path taken through scene hierarchy to arrive at scene object
+	eastl::fixed_vector<unsigned, 6, false> instanceIDs;
+    const SceneObject* pSceneObject;
     unsigned primitiveID;
 };
 

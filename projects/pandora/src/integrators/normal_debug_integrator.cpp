@@ -14,7 +14,7 @@ NormalDebugIntegrator::NormalDebugIntegrator(
               [this](gsl::span<const std::tuple<Ray, RayHit, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, rayHit, state] : hits) {
                       SurfaceInteraction si;
-                      si.sceneObject = rayHit.sceneObjectRef;
+                      si.pSceneObject = rayHit.pSceneObject;
                       si.normal = rayHit.geometricNormal;
                       si.uv = rayHit.geometricUV;
                       this->rayHit(ray, si, state);
@@ -44,7 +44,7 @@ NormalDebugIntegrator::NormalDebugIntegrator(
 {
 }
 
-void NormalDebugIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, const Accel& accel)
+void NormalDebugIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel)
 {
     m_pCamera = &camera;
     m_pSensor = &sensor;

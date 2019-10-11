@@ -36,12 +36,12 @@ Ray Interaction::spawnRay(const glm::vec3& d) const
 
 glm::vec3 SurfaceInteraction::Le(const glm::vec3& w) const
 {
-    const AreaLight* pAreaLight = sceneObject.pSceneObject->pAreaLight.get();
+    const AreaLight* pAreaLight = pSceneObject->pAreaLight.get();
     if (!pAreaLight)
         return glm::vec3(0);
 
     // Transform from world to local direction
-    const Transform* pTransform = sceneObject.pTransform;
+    const Transform* pTransform = nullptr;// sceneObject.pTransform;
     glm::vec3 wLocal = pTransform ? pTransform->invTransformVector(w) : w;
 
     return pAreaLight->light(*this, wLocal);

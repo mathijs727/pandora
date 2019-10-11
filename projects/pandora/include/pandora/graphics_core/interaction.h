@@ -3,8 +3,8 @@
 #include "pandora/graphics_core/bxdf.h"
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/graphics_core/ray.h"
-#include "pandora/scene/scene_object_ref.h"
 #include "pandora/utility/memory_arena.h"
+#include <optional>
 
 namespace pandora {
 
@@ -29,7 +29,8 @@ public:
 
 struct SurfaceInteraction : public Interaction {
 public:
-    SceneObjectRef sceneObject;
+    std::optional<glm::mat4> localToWorld;
+    const SceneObject* pSceneObject;
     BSDF* pBSDF { nullptr };
 
     glm::vec2 uv;
@@ -48,7 +49,7 @@ public:
 
     void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, const glm::vec3& dndvs, bool orientationIsAuthoritative);
 
-    void computeScatteringFunctions(const Ray& ray, MemoryArena& arena, TransportMode mode = TransportMode::Radiance, bool allowMultipleLobes = false);
+    void computeScatteringFunctions(const Ray& ray, MemoryArena& arena);
 
     glm::vec3 Le(const glm::vec3& w) const;
 };

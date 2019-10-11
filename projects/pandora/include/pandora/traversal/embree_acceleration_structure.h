@@ -77,9 +77,7 @@ inline std::optional<RayHit> EmbreeAccelerationStructure<HitRayState, AnyHitRayS
         hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
         hit.geometricNormal = glm::normalize(hit.geometricNormal);
         hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
-        hit.sceneObjectRef = SceneObjectRef {
-            nullptr, pSceneObject
-        };
+        hit.sceneObjectRef = pSceneObject;
         hit.primitiveID = embreeRayHit.hit.primID;
         return hit;
     } else {
@@ -184,9 +182,7 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
             hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
             hit.geometricNormal = glm::normalize(hit.geometricNormal);
             hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
-            hit.sceneObjectRef = SceneObjectRef {
-                nullptr, pSceneObject
-            };
+            hit.pSceneObject = pSceneObject;
             hit.primitiveID = embreeRayHit.hit.primID;
             m_pTaskGraph->enqueue(m_onHitTask, std::tuple { ray, hit, state });
         } else {

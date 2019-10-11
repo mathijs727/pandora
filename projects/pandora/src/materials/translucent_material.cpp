@@ -26,7 +26,7 @@ TranslucentMaterial::TranslucentMaterial(
 
 // Based on PBRTv3:
 // https://github.com/mmp/pbrt-v3/blob/master/src/materials/translucent.cpp
-void TranslucentMaterial::computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const
+void TranslucentMaterial::computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena) const
 {
     // TODO: perform bump mapping (normal mapping)
 
@@ -70,8 +70,7 @@ void TranslucentMaterial::computeScatteringFunctions(SurfaceInteraction& si, Mem
                     t * ks,
                     std::reference_wrapper(*distrib),
                     1.0f,
-                    eta,
-                    mode));
+                    eta));
         }
     }
 }

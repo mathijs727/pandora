@@ -44,7 +44,7 @@ private:
 
 class Material {
 public:
-    virtual void computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const = 0;
+    virtual void computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena) const = 0;
 };
 
 }

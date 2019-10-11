@@ -14,11 +14,6 @@ enum BxDFType {
     BSDF_ALL = BSDF_DIFFUSE | BSDF_GLOSSY | BSDF_SPECULAR | BSDF_REFLECTION | BSDF_TRANSMISSION
 };
 
-enum TransportMode {
-    Radiance,
-    Importance
-};
-
 class BxDF {
 public:
     BxDF(BxDFType type);

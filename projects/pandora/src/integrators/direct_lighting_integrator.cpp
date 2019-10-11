@@ -1,21 +1,135 @@
 #include "pandora/integrators/direct_lighting_integrator.h"
-#include "core/sampling.h"
-#include "pandora/graphics_core/sensor.h"
-#include "pandora/utility/error_handling.h"
-#include "pandora/utility/math.h"
-#include "pandora/utility/memory_arena.h"
+#include "pandora/core/stats.h"
+#include "pandora/graphics_core/interaction.h"
+#include "pandora/graphics_core/material.h"
+#include "pandora/graphics_core/perspective_camera.h"
+#include "pandora/graphics_core/ray.h"
+#include "pandora/graphics_core/scene.h"
 
 namespace pandora {
 
-static GrowingFreeListTS<ShadingMemoryArena::MemoryBlock> s_freeList;
+DirectLightingIntegrator::DirectLightingIntegrator(
+    tasking::TaskGraph* pTaskGraph, int maxDepth, int spp, LightStrategy strategy)
+    : m_pTaskGraph(pTaskGraph)
+    , m_hitTask(
+          pTaskGraph->addTask<std::tuple<Ray, RayHit, RayState>>(
+              [this](gsl::span<const std::tuple<Ray, RayHit, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
+                  for (const auto& [ray, rayHit, state] : hits) {
+                      auto pShadingGeometry = rayHit.pSceneObject->pShape->getShadingGeometry();
+                      auto pMaterial = rayHit.pSceneObject->pMaterial;
 
-DirectLightingIntegrator::DirectLightingIntegrator(int maxDepth, const Scene& scene, Sensor& sensor, int spp, LightStrategy strategy)
-    : SamplerIntegrator(maxDepth, scene, sensor, spp)
+                      // TODO: make this use pMemoryResource
+                      MemoryArena memoryArena;
+                      auto si = pShadingGeometry->fillSurfaceInteraction(ray, rayHit);
+                      pMaterial->computeScatteringFunctions(si, memoryArena);
+                      si.pSceneObject = rayHit.pSceneObject;
+                      this->rayHit(ray, si, state);
+                  }
+              }))
+    , m_missTask(
+          pTaskGraph->addTask<std::tuple<Ray, RayState>>(
+              [this](gsl::span<const std::tuple<Ray, RayState>> misses, std::pmr::memory_resource* pMemoryResource) {
+                  for (const auto& [ray, state] : misses) {
+                      this->rayMiss(ray, state);
+                  }
+              }))
+    , m_anyHitTask(
+          pTaskGraph->addTask<std::tuple<Ray, RayHit, AnyRayState>>(
+              [this](gsl::span<const std::tuple<Ray, RayHit, AnyRayState>> hits, std::pmr::memory_resource* pMemoryResource) {
+                  for (const auto& [ray, rayHit, state] : hits) {
+                      this->rayAnyHit(ray, rayHit, state);
+                  }
+              }))
+    , m_anyMissTask(
+          pTaskGraph->addTask<std::tuple<Ray, AnyRayState>>(
+              [this](gsl::span<const std::tuple<Ray, AnyRayState>> misses, std::pmr::memory_resource* pMemoryResource) {
+                  for (const auto& [ray, state] : misses) {
+                      this->rayAnyMiss(ray, state);
+                  }
+              }))
+    , m_maxDepth(maxDepth)
+    , m_maxSpp(spp)
     , m_strategy(strategy)
 {
 }
 
-void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& rayState)
+void DirectLightingIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel)
+{
+    auto resolution = sensor.getResolution();
+
+    auto pRenderData = std::make_unique<RenderData>();
+    pRenderData->pCamera = &camera;
+    pRenderData->pSensor = &sensor;
+    pRenderData->currentRayIndex.store(0);
+    pRenderData->resolution = resolution;
+    pRenderData->maxPixelIndex = resolution.x * resolution.y;
+    pRenderData->pScene = &scene;
+    pRenderData->pAccelerationStructure = &accel;
+    m_pCurrentRenderData = std::move(pRenderData);
+
+    // Spawn initial rays
+    spawnNewPaths(500 * 1000);
+    m_pTaskGraph->run();
+}
+
+void DirectLightingIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, const RayState& state)
+{
+    m_pCurrentRenderData->pSensor->addPixelContribution(state.pixel, glm::abs(glm::normalize(si.normal)));
+    spawnNewPaths(1);
+}
+
+void DirectLightingIntegrator::rayMiss(const Ray& ray, const RayState& state)
+{
+    spawnNewPaths(1);
+}
+
+void DirectLightingIntegrator::rayAnyHit(const Ray& ray, const RayHit& rayHit, const AnyRayState& state)
+{
+}
+
+void DirectLightingIntegrator::rayAnyMiss(const Ray& ray, const AnyRayState& state)
+{
+}
+
+void DirectLightingIntegrator::spawnNewPaths(int numPaths)
+{
+    auto* pRenderData = m_pCurrentRenderData.get();
+    int startIndex = pRenderData->currentRayIndex.fetch_add(numPaths);
+    int endIndex = std::min(startIndex + numPaths, pRenderData->maxPixelIndex);
+
+    for (int pixelIndex = startIndex; pixelIndex < endIndex; pixelIndex++) {
+        int x = pixelIndex % pRenderData->resolution.x;
+        int y = pixelIndex / pRenderData->resolution.x;
+
+        CameraSample cameraSample;
+        cameraSample.pixel = { x, y };
+
+        Ray cameraRay = pRenderData->pCamera->generateRay(cameraSample);
+        pRenderData->pAccelerationStructure->intersect(cameraRay, RayState { glm::ivec2 { x, y } });
+    }
+}
+
+DirectLightingIntegrator::HitTaskHandle DirectLightingIntegrator::hitTaskHandle() const
+{
+    return m_hitTask;
+}
+
+DirectLightingIntegrator::MissTaskHandle DirectLightingIntegrator::missTaskHandle() const
+{
+    return m_missTask;
+}
+
+DirectLightingIntegrator::AnyHitTaskHandle DirectLightingIntegrator::anyHitTaskHandle() const
+{
+    return m_anyHitTask;
+}
+
+DirectLightingIntegrator::AnyMissTaskHandle DirectLightingIntegrator::anyMissTaskHandle() const
+{
+    return m_anyMissTask;
+}
+
+/*void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const RayState& rayState)
 {
     ShadingMemoryArena memoryArena(s_freeList);
 
@@ -49,7 +163,7 @@ void DirectLightingIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const
             // Trace rays for specular reflection and refraction
             specularReflect(si, *rayState.sampler, memoryArena, rayState);
             specularTransmit(si, *rayState.sampler, memoryArena, rayState);
-        }*/
+        }/
         spawnNextSample();
     } else if (std::holds_alternative<ShadowRayState>(rayState.data)) {
         const auto& shadowRayState = std::get<ShadowRayState>(rayState.data);
@@ -184,6 +298,6 @@ void DirectLightingIntegrator::estimateDirect(float multiplier, const RayState& 
             }
         }
     }
-}
+}*/
 
 }
