@@ -1,9 +1,9 @@
 #pragma once
+#include "pandora/flatbuffers/data_types_generated.h"
+#include "pandora/graphics_core/bounds.h"
+#include "pandora/graphics_core/interaction.h"
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/graphics_core/ray.h"
-#include "pandora/geometry/bounds.h"
-#include "pandora/graphics_core/interaction.h"
-#include "pandora/flatbuffers/data_types_generated.h"
 #include <glm/glm.hpp>
 
 namespace pandora {
@@ -22,7 +22,6 @@ public:
     glm::vec3 transformNormal(const glm::vec3& n) const;
 
     glm::vec3 invTransformVector(const glm::vec3& v) const;
-
 
     Ray transform(const Ray& ray) const;
     Bounds transform(const Bounds& bounds) const;

@@ -1,5 +1,94 @@
 #pragma once
-#include "pandora/flatbuffers/triangle_mesh_generated.h"
+#include "pandora/graphics_core/shape.h"
+#include <filesystem>
+#include <glm/glm.hpp>
+#include <memory>
+#include <optional>
+#include <vector>
+
+struct aiScene;
+
+namespace pandora {
+
+class TriangleIntersectGeometry : public IntersectGeometry {
+public:
+    size_t sizeBytes() const final;
+    RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const final;
+
+    float primitiveArea(unsigned primitiveID) const final;
+    Interaction samplePrimitive(unsigned primitiveID, const glm::vec2& randomSample) const final;
+    Interaction samplePrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec2& randomSample) const final;
+
+    float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const final;
+    //float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const final;
+
+    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const final;
+
+private:
+    friend class TriangleShadingGeometry;
+    friend class TriangleShape;
+    TriangleIntersectGeometry(std::vector<glm::uvec3>&& indices, std::vector<glm::vec3>&& positions);
+
+    unsigned numPrimitives() const;
+    Bounds computeBounds() const;
+
+private:
+    std::vector<glm::uvec3> m_indices;
+    std::vector<glm::vec3> m_positions;
+};
+
+class TriangleShadingGeometry : public ShadingGeometry {
+public:
+    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& hitInfo) const final;
+
+private:
+    friend class TriangleShape;
+    TriangleShadingGeometry(
+        std::shared_ptr<TriangleIntersectGeometry> pIntersectGeometry,
+        std::vector<glm::vec3>&& normals,
+        std::vector<glm::vec2>&& uvCoords);
+
+    void getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const;
+
+private:
+    std::shared_ptr<TriangleIntersectGeometry> m_pIntersectGeometry;
+    std::vector<glm::vec3> m_normals;
+    std::vector<glm::vec2> m_uvCoords;
+    std::vector<glm::vec3> m_tangents;
+};
+
+class TriangleShape : public Shape {
+public:
+    const IntersectGeometry* getIntersectGeometry() const final;
+    const ShadingGeometry* getShadingGeometry() const final;
+
+    unsigned numPrimitives() const final;
+    Bounds getBounds() const final;
+
+    static std::optional<TriangleShape> loadFromFileSingleShape(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
+    static std::vector<TriangleShape> loadFromFile(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
+
+private:
+    TriangleShape(
+        std::vector<glm::uvec3>&& indices,
+        std::vector<glm::vec3>&& positions,
+        std::vector<glm::vec3>&& normals,
+        std::vector<glm::vec2>&& uvCoords);
+
+    static std::optional<TriangleShape> loadFromFileSingleShape(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals);
+    static TriangleShape createAssimpMesh(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
+
+private:
+    std::shared_ptr<TriangleIntersectGeometry> m_intersectGeometry;
+    std::shared_ptr<TriangleShadingGeometry> m_shadingGeometry;
+
+    Bounds m_bounds;
+    unsigned m_numPrimitives;
+};
+
+}
+
+/*#include "pandora/flatbuffers/triangle_mesh_generated.h"
 #include "pandora/geometry/bounds.h"
 #include "pandora/graphics_core/interaction.h"
 #include "pandora/graphics_core/material.h"
@@ -117,10 +206,10 @@ inline bool TriangleMesh::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned
     int kz = maxDimension(glm::abs(ray.direction));
     int kx = kz + 1;
     if (kx == 3)
-        kx = 0;
+        kx final;
     int ky = kx + 1;
     if (ky == 3)
-        ky = 0;
+        ky final;
     glm::vec3 d = permute(ray.direction, kx, ky, kz);
     p0t = permute(p0t, kx, ky, kz);
     p1t = permute(p1t, kx, ky, kz);
@@ -334,4 +423,4 @@ inline SurfaceInteraction TriangleMesh::fillSurfaceInteraction(const Ray& ray, c
     //isect.primitiveID = hitInfo.primitiveID;
     return isect;
 }
-}
+}*/

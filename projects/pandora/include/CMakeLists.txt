@@ -2,6 +2,7 @@ target_sources(libPandora
 PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/config.h"
 
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/graphics_core/bounds.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/graphics_core/bxdf.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/graphics_core/integrator.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/graphics_core/interaction.h"
@@ -14,6 +15,7 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/graphics_core/sampler.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/graphics_core/scene.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/graphics_core/sensor.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/graphics_core/shape.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/graphics_core/spectrum.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/graphics_core/transform.h"
 
@@ -24,11 +26,6 @@ PUBLIC
     #"${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/scene_generated.h"
     #"${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/triangle_mesh_generated.h"
     #"${CMAKE_CURRENT_LIST_DIR}/pandora/flatbuffers/wive_bvh8_generated.h"
-
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/geometry/bounds.h"
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/geometry/group.h"
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/geometry/template_magic.h"
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/geometry/triangle.h"
 
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/direct_lighting_integrator.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/integrators/naive_direct_lighting_integrator.h"
@@ -54,6 +51,11 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/scene/scene_object_ref.h"
     #"${CMAKE_CURRENT_LIST_DIR}/pandora/scene/geometric_scene_object.h"
     #"${CMAKE_CURRENT_LIST_DIR}/pandora/scene/instanced_scene_object.h"
+
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/shapes/forward_declares.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/shapes/group.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/shapes/template_magic.h"
+    "${CMAKE_CURRENT_LIST_DIR}/pandora/shapes/triangle.h"
 
     #"${CMAKE_CURRENT_LIST_DIR}/pandora/svo/mesh_to_voxel.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/svo/sparse_voxel_dag.h"

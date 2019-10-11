@@ -1,5 +1,4 @@
 #include "pandora/traversal/embree_acceleration_structure.h"
-#include "pandora/geometry/triangle.h"
 #include "pandora/graphics_core/scene.h"
 #include <spdlog/spdlog.h>
 #include <stack>
@@ -49,8 +48,9 @@ EmbreeAccelerationStructureBuilder::EmbreeAccelerationStructureBuilder(const Sce
 
         // TODO: handle instancing!
         for (const auto& pSceneObject : pSceneNode->objects) {
-            const TriangleMesh* pTriangleMesh = pSceneObject->pGeometry.get();
-            RTCGeometry embreeGeometry = pTriangleMesh->createEmbreeGeometry(m_embreeDevice);
+            const Shape* pShape = pSceneObject->pShape.get();
+            const IntersectGeometry* pIntersectGeometry = pShape->getIntersectGeometry();
+            RTCGeometry embreeGeometry = pIntersectGeometry->createEmbreeGeometry(m_embreeDevice);
             rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
             rtcCommitGeometry(embreeGeometry);
 

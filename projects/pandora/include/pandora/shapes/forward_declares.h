@@ -2,7 +2,6 @@
 
 namespace pandora {
 
-struct Bounds;
-class TriangleMesh;
+class TriangleShape;
 
 }

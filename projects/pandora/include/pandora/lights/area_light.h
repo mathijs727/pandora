@@ -1,12 +1,12 @@
 #pragma once
 #include "pandora/graphics_core/light.h"
-#include "pandora/geometry/triangle.h"
+#include "pandora/shapes/triangle.h"
 
 namespace pandora {
 
 class AreaLight : public Light {
 public:
-    AreaLight(glm::vec3 emittedLight, int numSamples, const TriangleMesh& shape, unsigned primitiveID);
+    AreaLight(glm::vec3 emittedLight, int numSamples, const TriangleShape& shape, unsigned primitiveID);
 
     glm::vec3 light(const Interaction& ref, const glm::vec3& w) const;
 
@@ -14,7 +14,7 @@ public:
 	float pdfLi(const Interaction& ref, const glm::vec3& wi) const final;
 private:
     const glm::vec3 m_emmitedLight;
-    const TriangleMesh& m_shape;
+    const TriangleShape& m_shape;
     const unsigned m_primitiveID;
     const float m_area;
 };

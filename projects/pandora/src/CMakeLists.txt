@@ -2,6 +2,7 @@ target_sources(libPandora
 	PRIVATE
         "${CMAKE_CURRENT_LIST_DIR}/core/stats.cpp"
 
+		"${CMAKE_CURRENT_LIST_DIR}/graphics_core/bounds.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/bxdf.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/interaction.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/light.cpp"
@@ -16,8 +17,9 @@ target_sources(libPandora
 
         "${CMAKE_CURRENT_LIST_DIR}/flatbuffers/data_conversion.cpp"
 
-        "${CMAKE_CURRENT_LIST_DIR}/geometry/bounds.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/geometry/triangle.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_ig.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_sg.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_shape.cpp"
 
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/direct_lighting_integrator.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/naive_direct_lighting_integrator.cpp"

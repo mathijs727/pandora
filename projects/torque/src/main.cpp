@@ -1,7 +1,6 @@
 #include "output.h"
 #include "pandora/config.h"
 #include "pandora/core/stats.h"
-#include "pandora/geometry/triangle.h"
 #include "pandora/graphics_core/load_from_file.h"
 #include "pandora/integrators/direct_lighting_integrator.h"
 #include "pandora/integrators/naive_direct_lighting_integrator.h"
@@ -10,6 +9,7 @@
 #include "pandora/integrators/svo_depth_test_integrator.h"
 #include "pandora/integrators/svo_test_integrator.h"
 #include "pandora/materials/matte_material.h"
+#include "pandora/shapes/triangle.h"
 #include "pandora/textures/constant_texture.h"
 #include "stream/task_graph.h"
 #include <xmmintrin.h>
@@ -77,9 +77,9 @@ int main(int argc, char** argv)
         renderConfig.camera = std::make_unique<PerspectiveCamera>(renderConfig.resolution, 45.0f, transform);
     }
 
-    auto meshes = TriangleMesh::loadFromFile("C:/Users/mathi/Documents/GitHub/pandora/assets/3dmodels/monkey.obj");
-    for (TriangleMesh& mesh : meshes) {
-        auto pMesh = std::make_shared<TriangleMesh>(std::move(mesh));
+    auto meshes = TriangleShape::loadFromFile("C:/Users/mathi/Documents/GitHub/pandora/assets/3dmodels/monkey.obj");
+    for (TriangleShape& mesh : meshes) {
+        auto pMesh = std::make_shared<TriangleShape>(std::move(mesh));
         auto pSceneObject = std::make_shared<SceneObject>(SceneObject { pMesh, nullptr, nullptr });
         renderConfig.scene.m_root.objects.push_back(std::move(pSceneObject));
     }

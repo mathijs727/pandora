@@ -1,4 +1,4 @@
-#include "pandora/geometry/bounds.h"
+#include "pandora/graphics_core/bounds.h"
 #include "pandora/flatbuffers/data_conversion.h"
 #include <algorithm>
 

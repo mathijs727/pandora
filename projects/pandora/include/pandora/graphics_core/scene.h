@@ -1,9 +1,9 @@
 #pragma once
-#include "pandora/geometry/forward_declares.h"
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/graphics_core/transform.h"
 #include "pandora/lights/area_light.h"
 #include "pandora/scene/scene_object_ref.h"
+#include "pandora/shapes/forward_declares.h"
 #include <memory>
 #include <optional>
 #include <vector>
@@ -11,7 +11,7 @@
 namespace pandora {
 
 struct SceneObject {
-    std::shared_ptr<TriangleMesh> pGeometry;
+    std::shared_ptr<Shape> pShape;
     std::shared_ptr<Material> pMaterial;
     std::unique_ptr<AreaLight> pAreaLight;
 };
