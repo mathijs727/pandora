@@ -1,12 +1,10 @@
-#include "string_to_number.h"
-#include "crack_atof.h"
+#include "src/crack_atof.h"
 #include <algorithm>
 #include <array>
 #include <charconv>
 #include <chrono>
 #include <cstdlib>
 #include <execution>
-#include <gsl/span>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -28,25 +26,25 @@ int fromString(std::string_view str)
 template <>
 float fromString(std::string_view str)
 {
-    // <charconv>
+    /*// <charconv>
     float value;
     std::from_chars(str.data(), str.data() + str.size(), value);
-    return value;
+    return value;*/
 
-    // Faster than <charconv> on MSVC 19.23.28106.4 but not sure if it is a 100% correct
-    //return static_cast<float>(crackAtof(str));
+    // Faster than <charconv> on MSVC 19.23.28106.4
+    return static_cast<float>(crackAtof(str));
 }
 
 template <>
 double fromString(std::string_view str)
 {
-    // <charconv>
+    /*// <charconv>
     double value;
     std::from_chars(str.data(), str.data() + str.size(), value);
-    return value;
+    return value;*/
 
-    // Faster than <charconv> on MSVC 19.23.28106.4 but not sure if it is a 100% correct
-    //return crackAtof(str);
+    // Faster than <charconv> on MSVC 19.23.28106.4
+    return crackAtof(str);
 }
 
 constexpr std::array<bool, 256> compuateIsSpaceLUT()
@@ -136,32 +134,22 @@ std::vector<T> stringToVectorParallel(const std::string_view string)
     return finalResults;
 }
 
-template <typename T>
-pybind11::array_t<T> toNumpyArray(gsl::span<const T> items)
+int main()
 {
-    pybind11::array_t<T> outArray { static_cast<pybind11::size_t>(items.size()) };
-    for (int i = 0; i < items.size(); i++)
-        outArray.mutable_at(i) = items[i];
-    return outArray;
+    std::string myString = "1000.0   ";
+    for (int i = 0; i < 200 * 1000; i++)
+        myString += " 1000.0";
+    myString += "  ";
+
+	std::cout << "Parsing string of " << myString.size() / 1000000.0f << "MB" << std::endl;
+
+    using clock = std::chrono::high_resolution_clock;
+
+    auto start = clock::now();
+    auto result = stringToVector<float>(myString);
+    auto end = clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    std::cout << "Parsing took " << duration.count() << "ms" << std::endl;
+    return 0;
 }
-
-template <typename T>
-pybind11::array_t<T> stringToNumpy(std::string string)
-{
-    //const char* chars = python::extract<const char*>(string);
-    //int length = python::extract<int>(string.attr("__len__")());
-
-    // Heap allocation so that it stays alive outside of this function
-    std::vector<T> numbers;
-    if (string.size() > 5 * 1024 * 1024) { // Use multi-threading if the string is over 5MB
-        numbers = stringToVectorParallel<T>(string);
-    } else {
-        numbers = stringToVector<T>(string);
-    }
-
-    return toNumpyArray<T>(numbers);
-}
-
-template pybind11::array_t<int> stringToNumpy<int>(std::string string);
-template pybind11::array_t<float> stringToNumpy<float>(std::string string);
-template pybind11::array_t<double> stringToNumpy<double>(std::string string);

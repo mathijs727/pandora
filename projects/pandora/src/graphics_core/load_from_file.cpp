@@ -178,7 +178,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
             return readMat4(sceneJson["transforms"][id]);
         };
 
-        assert(SUBDIVIDE_LEVEL == 1);
+        //assert(SUBDIVIDE_LEVEL == 1);
         spdlog::info("Loading geometry");
         std::vector<std::shared_ptr<Shape>> geometry;
         for (const auto jsonGeometry : sceneJson["geometry"]) {
