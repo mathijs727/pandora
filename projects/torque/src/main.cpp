@@ -39,7 +39,7 @@ int main(int argc, char** argv)
     spdlog::set_default_logger(colorLogger);
 #endif
 
-	spdlog::info("Parsing input");
+    spdlog::info("Parsing input");
 
     // https://embree.github.io/api.html
     // For optimal Embree performance
@@ -106,7 +106,7 @@ int main(int argc, char** argv)
         auto pSigmaTexture = std::make_shared<ConstantTexture<float>>(1.0f);
         auto pMaterial = std::make_shared<MatteMaterial>(pKdTexture, pSigmaTexture);
 
-        auto pLight = std::make_unique<AreaLight>(glm::vec3(10000), pShape.get());
+        auto pLight = std::make_unique<AreaLight>(10000.0f * glm::vec3(1.0f, 0.2f, 0.4f), pShape.get());
 
         sceneBuilder.addSceneObject(pShape, pMaterial, std::move(pLight));
     }
@@ -148,7 +148,8 @@ int main(int argc, char** argv)
 
     tasking::TaskGraph taskGraph;
     //NormalDebugIntegrator integrator { &taskGraph };
-    DirectLightingIntegrator integrator { &taskGraph, 8, 32, LightStrategy::UniformSampleOne };
+    spp = 8;
+    DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
     EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());

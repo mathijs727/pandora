@@ -71,7 +71,7 @@ void DirectLightingIntegrator::render(const PerspectiveCamera& camera, Sensor& s
     m_pCurrentRenderData = std::move(pRenderData);
 
     // Spawn initial rays
-    spawnNewPaths(500 * 1000);
+    spawnNewPaths(1000);
     m_pTaskGraph->run();
 }
 
@@ -169,14 +169,13 @@ void DirectLightingIntegrator::estimateDirect(
 
     // Sample light source with multiple importance sampling
     auto lightSample = light.sampleLi(si, rng);
-    float lightPdf = lightSample.pdf;
 
-    if (lightPdf > 0.0f && !lightSample.isBlack()) {
+    if (lightSample.pdf > 0.0f && !lightSample.isBlack()) {
         // Compute BSDF value for light sample
         Spectrum f = si.pBSDF->f(si.wo, lightSample.wi, bsdfFlags) * absDot(lightSample.wi, si.shading.normal);
 
         if (!isBlack(f) && !isBlack(lightSample.radiance)) {
-            spawnShadowRay(lightSample.visibilityRay, rng, bounceRayState, multiplier * f * lightSample.radiance / lightPdf);
+            spawnShadowRay(lightSample.visibilityRay, rng, bounceRayState, multiplier * f * lightSample.radiance / lightSample.pdf);
         }
     }
 }
@@ -272,7 +271,7 @@ void DirectLightingIntegrator::spawnNewPaths(int numPaths)
         rayState.pixel = glm::ivec2 { x, y };
         rayState.weight = glm::vec3(1.0f);
         rayState.pathDepth = 0;
-        rayState.rng = PcgRng(pixelIndex);
+        rayState.rng = PcgRng(i);
 
         CameraSample cameraSample;
         cameraSample.pixel = glm::vec2(x, y) + rayState.rng.uniformFloat2();

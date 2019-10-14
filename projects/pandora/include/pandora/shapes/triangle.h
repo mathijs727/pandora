@@ -20,7 +20,7 @@ public:
     Interaction samplePrimitive(unsigned primitiveID, const Interaction& ref, PcgRng& rng) const final;
 
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const final;
-    //float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const final;
+    float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const final;
 
     void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const final;
 
@@ -31,6 +31,8 @@ private:
 
     unsigned numPrimitives() const;
     Bounds computeBounds() const;
+
+    bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const;
 
 private:
     std::vector<glm::uvec3> m_indices;

@@ -188,13 +188,9 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
     eastl::fixed_vector<T, 32, false> workBatch;
     const auto executeKernel = [&]() {
 		// Run sequentially in debug mode
-#ifdef DEBUG
         tg.run([=]() {
-#endif
             m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
-#ifdef DEBUG
         });
-#endif
     };
 
     T workItem;

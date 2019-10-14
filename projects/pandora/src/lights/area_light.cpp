@@ -28,8 +28,7 @@ LightSample AreaLight::sampleLi(const Interaction& ref, PcgRng& rng) const
 
     LightSample result;
     result.wi = glm::normalize(pointOnShape.position - ref.position);
-    //spdlog::warn("AreaLight::sampleLi result.pdf = 0.0f; because pdfPrimitive with direction is not implemented");
-    result.pdf = 1.0f / numPrimitives; //intersectGeom->pdfPrimitive(m_primitiveID, ref, result.wi);
+    result.pdf = intersectGeom->pdfPrimitive(primitiveID, ref, result.wi);
     result.visibilityRay = computeRayWithEpsilon(ref, pointOnShape);
     result.radiance = light(pointOnShape, -result.wi);
     return result;

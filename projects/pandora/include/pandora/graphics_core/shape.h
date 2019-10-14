@@ -22,7 +22,7 @@ public:
     virtual Interaction samplePrimitive(unsigned primitiveID, const Interaction& ref, PcgRng& rng) const = 0;
 
     virtual float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const = 0;
-    //virtual float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const = 0;
+    virtual float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const = 0;
 
     virtual void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const = 0;
 };
