@@ -3,8 +3,8 @@
 #include "stream/task_graph.h"
 #include <embree3/rtcore.h>
 #include <gsl/span>
-#include <tuple>
 #include <optional>
+#include <tuple>
 
 namespace pandora {
 
@@ -29,7 +29,7 @@ private:
     EmbreeAccelerationStructure(
         RTCDevice embreeDevice, RTCScene embreeScene,
         tasking::TaskHandle<std::tuple<Ray, RayHit, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
-        tasking::TaskHandle<std::tuple<Ray, RayHit, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
+        tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
         tasking::TaskGraph* pTaskGraph);
 
 private:
@@ -42,7 +42,7 @@ private:
 
     tasking::TaskHandle<std::tuple<Ray, RayHit, HitRayState>> m_onHitTask;
     tasking::TaskHandle<std::tuple<Ray, HitRayState>> m_onMissTask;
-    tasking::TaskHandle<std::tuple<Ray, RayHit, AnyHitRayState>> m_onAnyHitTask;
+    tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> m_onAnyHitTask;
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> m_onAnyMissTask;
 };
 
@@ -92,7 +92,7 @@ public:
     template <typename HitRayState, typename AnyHitRayState>
     EmbreeAccelerationStructure<HitRayState, AnyHitRayState> build(
         tasking::TaskHandle<std::tuple<Ray, RayHit, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
-        tasking::TaskHandle<std::tuple<Ray, RayHit, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask);
+        tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask);
 
 private:
     RTCDevice m_embreeDevice;
@@ -104,7 +104,7 @@ private:
 template <typename HitRayState, typename AnyHitRayState>
 inline EmbreeAccelerationStructure<HitRayState, AnyHitRayState> EmbreeAccelerationStructureBuilder::build(
     tasking::TaskHandle<std::tuple<Ray, RayHit, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
-    tasking::TaskHandle<std::tuple<Ray, RayHit, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask)
+    tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask)
 {
     return EmbreeAccelerationStructure(m_embreeDevice, m_embreeScene, hitTask, missTask, anyHitTask, anyMissTask, m_pTaskGraph);
 }
@@ -113,7 +113,7 @@ template <typename HitRayState, typename AnyHitRayState>
 inline EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::EmbreeAccelerationStructure(
     RTCDevice embreeDevice, RTCScene embreeScene,
     tasking::TaskHandle<std::tuple<Ray, RayHit, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
-    tasking::TaskHandle<std::tuple<Ray, RayHit, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
+    tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
     tasking::TaskGraph* pTaskGraph)
     : m_embreeDevice(embreeDevice)
     , m_embreeScene(embreeScene)
@@ -121,6 +121,9 @@ inline EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::EmbreeAccelerat
     , m_intersectTask(
           pTaskGraph->addTask<std::tuple<Ray, HitRayState>>(
               [this](auto data, auto* pMemRes) { intersectKernel(data, pMemRes); }))
+    , m_intersectAnyTask(
+          pTaskGraph->addTask<std::tuple<Ray, AnyHitRayState>>(
+              [this](auto data, auto* pMemRes) { intersectAnyKernel(data, pMemRes); }))
     , m_onHitTask(hitTask)
     , m_onMissTask(missTask)
     , m_onAnyHitTask(anyHitTask)
@@ -195,6 +198,32 @@ template <typename HitRayState, typename AnyHitRayState>
 inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectAnyKernel(
     gsl::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource)
 {
+    RTCIntersectContext context {};
+    for (auto [ray, state] : data) {
+        RTCRay embreeRay;
+        embreeRay.org_x = ray.origin.x;
+        embreeRay.org_y = ray.origin.y;
+        embreeRay.org_z = ray.origin.z;
+        embreeRay.dir_x = ray.direction.x;
+        embreeRay.dir_y = ray.direction.y;
+        embreeRay.dir_z = ray.direction.z;
+
+        embreeRay.tnear = ray.tnear;
+        embreeRay.tfar = ray.tfar;
+
+        embreeRay.time = 0.0f;
+        embreeRay.mask = 0xFFFFFFFF;
+        embreeRay.id = 0;
+        embreeRay.flags = 0;
+
+		rtcOccluded1(m_embreeScene, &context, &embreeRay);
+
+        if (embreeRay.tfar != -std::numeric_limits<float>::infinity()) {
+            m_pTaskGraph->enqueue(m_onAnyHitTask, std::tuple { ray, state });
+        } else {
+            m_pTaskGraph->enqueue(m_onAnyMissTask, std::tuple { ray, state });
+        }
+    }
 }
 
 }

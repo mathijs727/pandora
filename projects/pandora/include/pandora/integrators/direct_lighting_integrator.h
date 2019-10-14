@@ -1,6 +1,6 @@
 #pragma once
-#include "pandora/samplers/rng/pcg.h"
 #include "pandora/graphics_core/pandora.h"
+#include "pandora/samplers/rng/pcg.h"
 #include "pandora/traversal/embree_acceleration_structure.h"
 #include <atomic>
 #include <glm/vec2.hpp>
@@ -23,6 +23,7 @@ public:
         glm::ivec2 pixel;
         glm::vec3 weight;
         int pathDepth;
+        PcgRng rng;
     };
     struct ShadowRayState {
         glm::ivec2 pixel;
@@ -33,7 +34,7 @@ public:
 
     using HitTaskHandle = tasking::TaskHandle<std::tuple<Ray, RayHit, RayState>>;
     using MissTaskHandle = tasking::TaskHandle<std::tuple<Ray, RayState>>;
-    using AnyHitTaskHandle = tasking::TaskHandle<std::tuple<Ray, RayHit, AnyRayState>>;
+    using AnyHitTaskHandle = tasking::TaskHandle<std::tuple<Ray, AnyRayState>>;
     using AnyMissTaskHandle = tasking::TaskHandle<std::tuple<Ray, AnyRayState>>;
 
     HitTaskHandle hitTaskHandle() const;
@@ -45,20 +46,30 @@ public:
     void render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel);
 
 private:
-    void rayHit(const Ray& ray, const SurfaceInteraction& si, const RayState& state);
+    void rayHit(const Ray& ray, const SurfaceInteraction& si, RayState state, MemoryArena& memoryArena);
     void rayMiss(const Ray& ray, const RayState& state);
-    void rayAnyHit(const Ray& ray, const RayHit& rayHit, const AnyRayState& state);
+    void rayAnyHit(const Ray& ray, const AnyRayState& state);
     void rayAnyMiss(const Ray& ray, const AnyRayState& state);
 
     void spawnNewPaths(int numPaths);
     /*void rayHit(const Ray& r, SurfaceInteraction si, const RayState& s) override final;
     void rayAnyHit(const Ray& r, const RayState& s) override final;
-    void rayMiss(const Ray& r, const RayState& s) override final;
+    void rayMiss(const Ray& r, const RayState& s) override final;*/
 
-    void uniformSampleAllLights(const RayState& r, const SurfaceInteraction& si, Sampler& sampler);
-    void uniformSampleOneLight(const RayState& r, const SurfaceInteraction& si, Sampler& sampler);
+    void uniformSampleAllLights(const SurfaceInteraction& si, const BounceRayState& bounceRayState, PcgRng& rng);
+    void uniformSampleOneLight(const SurfaceInteraction& si, const BounceRayState& bounceRayState, PcgRng& rng);
 
-    void estimateDirect(float multiplier, const RayState& rayState, const SurfaceInteraction& si, const glm::vec2& uScattering, const Light& light, const glm::vec2& uLight, bool specular = false);*/
+    void estimateDirect(
+        const SurfaceInteraction& si,
+        const Light& light,
+        float weight,
+        const BounceRayState& bounceRayState,
+        PcgRng& rng);
+
+    void spawnShadowRay(const Ray& shadowRay, PcgRng& rng, const BounceRayState& bounceRayState, const Spectrum& radiance);
+
+    void specularReflect(const SurfaceInteraction& si, const RayState& prevRayState, PcgRng& rng, MemoryArena& memoryArena);
+    void specularTransmit(const SurfaceInteraction& si, const RayState& prevRayState, PcgRng& rng, MemoryArena& memoryArena);
 
 private:
     tasking::TaskGraph* m_pTaskGraph;
@@ -80,7 +91,7 @@ private:
         glm::ivec2 resolution;
         int maxPixelIndex;
 
-		const Scene* pScene;
+        const Scene* pScene;
         const Accel* pAccelerationStructure;
     };
     std::unique_ptr<RenderData> m_pCurrentRenderData;

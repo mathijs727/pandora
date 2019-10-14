@@ -2,6 +2,7 @@
 #include "pandora/graphics_core/bounds.h"
 #include "pandora/graphics_core/interaction.h"
 #include "pandora/graphics_core/pandora.h"
+#include "pandora/samplers/rng/pcg.h"
 #include <embree3/rtcore.h>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
@@ -17,8 +18,8 @@ public:
     virtual RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const = 0;
 
     virtual float primitiveArea(unsigned primitiveID) const = 0;
-    virtual Interaction samplePrimitive(unsigned primitiveID, const glm::vec2& randomSample) const = 0;
-    virtual Interaction samplePrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec2& randomSample) const = 0;
+    virtual Interaction samplePrimitive(unsigned primitiveID, PcgRng& rng) const = 0;
+    virtual Interaction samplePrimitive(unsigned primitiveID, const Interaction& ref, PcgRng& rng) const = 0;
 
     virtual float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const = 0;
     //virtual float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const = 0;

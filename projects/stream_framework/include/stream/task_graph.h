@@ -181,15 +181,20 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 {
     std::pmr::memory_resource* pMemory = std::pmr::new_delete_resource();
 
-	// Allocate and construct static data
+    // Allocate and construct static data
     void* pStaticData = m_staticDataLoader(pMemory);
 
     tbb::task_group tg;
     eastl::fixed_vector<T, 32, false> workBatch;
     const auto executeKernel = [&]() {
+		// Run sequentially in debug mode
+#ifdef DEBUG
         tg.run([=]() {
+#endif
             m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
+#ifdef DEBUG
         });
+#endif
     };
 
     T workItem;
@@ -207,7 +212,7 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 
     tg.wait();
 
-	// Call destructor on static data and free memory
-	m_staticDataDestructor(pMemory, pStaticData);
+    // Call destructor on static data and free memory
+    m_staticDataDestructor(pMemory, pStaticData);
 }
 }

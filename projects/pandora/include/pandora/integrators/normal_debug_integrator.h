@@ -21,7 +21,7 @@ public:
     };
     using HitTaskHandle = tasking::TaskHandle<std::tuple<Ray, RayHit, RayState>>;
     using MissTaskHandle = tasking::TaskHandle<std::tuple<Ray, RayState>>;
-    using AnyHitTaskHandle = tasking::TaskHandle<std::tuple<Ray, RayHit, AnyRayState>>;
+    using AnyHitTaskHandle = tasking::TaskHandle<std::tuple<Ray, AnyRayState>>;
     using AnyMissTaskHandle = tasking::TaskHandle<std::tuple<Ray, AnyRayState>>;
 
     HitTaskHandle hitTaskHandle() const;
@@ -35,7 +35,7 @@ public:
 private:
     void rayHit(const Ray& ray, const SurfaceInteraction& si, const RayState& state);
     void rayMiss(const Ray& ray, const RayState& state);
-    void rayAnyHit(const Ray& ray, const RayHit& rayHit, const AnyRayState& state);
+    void rayAnyHit(const Ray& ray, const AnyRayState& state);
     void rayAnyMiss(const Ray& ray, const AnyRayState& state);
 
     void spawnNewPaths(int numPaths);

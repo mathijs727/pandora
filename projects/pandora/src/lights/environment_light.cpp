@@ -16,8 +16,8 @@ static float sphericalPhi(const glm::vec3& v)
 
 namespace pandora {
 
-EnvironmentLight::EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum& l, int numSamples, const std::shared_ptr<Texture<glm::vec3>>& texture)
-    : InfiniteLight((int)LightFlags::Infinite, numSamples)
+EnvironmentLight::EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum& l, const std::shared_ptr<Texture<glm::vec3>>& texture)
+    : InfiniteLight((int)LightFlags::Infinite)
     , m_l(l)
     , m_texture(texture)
     , m_lightToWorld(lightToWorld)
@@ -33,11 +33,11 @@ EnvironmentLight::EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum
 }*/
 
 // PBRTv3 page 849
-LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& u) const
+LightSample EnvironmentLight::sampleLi(const Interaction& ref, PcgRng& rng) const
 {
     // TODO: importance sampling
     float mapPDF = 1.0f;
-    glm::vec2 uv = u;
+    glm::vec2 uv = rng.uniformFloat2();
 
     float theta = uv[1] * glm::pi<float>();
     float phi = uv[0] * 2.0f * glm::pi<float>();

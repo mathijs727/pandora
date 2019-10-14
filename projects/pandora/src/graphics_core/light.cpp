@@ -2,9 +2,8 @@
 
 namespace pandora {
 
-Light::Light(int flags, int numSamples)
+Light::Light(int flags)
     : m_flags(flags)
-    , m_numSamples(std::max(1, numSamples))
 {
 }
 
@@ -19,8 +18,8 @@ Spectrum Light::Le(const Ray& ray) const
     return Spectrum(0.0f);
 }
 
-InfiniteLight::InfiniteLight(int flags, int numSamples)
-    : Light(flags, numSamples)
+InfiniteLight::InfiniteLight(int flags)
+    : Light(flags)
 {
 }
 

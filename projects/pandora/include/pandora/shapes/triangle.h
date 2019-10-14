@@ -16,8 +16,8 @@ public:
     RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const final;
 
     float primitiveArea(unsigned primitiveID) const final;
-    Interaction samplePrimitive(unsigned primitiveID, const glm::vec2& randomSample) const final;
-    Interaction samplePrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec2& randomSample) const final;
+    Interaction samplePrimitive(unsigned primitiveID, PcgRng& rng) const final;
+    Interaction samplePrimitive(unsigned primitiveID, const Interaction& ref, PcgRng& rng) const final;
 
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const final;
     //float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const final;

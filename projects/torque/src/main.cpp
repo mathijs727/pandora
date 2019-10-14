@@ -78,20 +78,27 @@ int main(int argc, char** argv)
     }
 
     SceneBuilder sceneBuilder;
+
+    // Create sphere light
     {
         glm::mat4 transform { 1.0f };
         transform = glm::scale(transform, glm::vec3(0.01f));
         transform = glm::translate(transform, glm::vec3(0, 3, 0));
         auto meshOpt = TriangleShape::loadFromFileSingleShape("C:/Users/mathi/Documents/GitHub/pandora/assets/3dmodels/sphere.obj", transform);
         assert(meshOpt);
+        auto pShape = std::make_shared<TriangleShape>(std::move(*meshOpt));
 
+        // Dummy material
         auto pKdTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1));
         auto pSigmaTexture = std::make_shared<ConstantTexture<float>>(1.0f);
         auto pMaterial = std::make_shared<MatteMaterial>(pKdTexture, pSigmaTexture);
-        auto pShape = std::make_shared<TriangleShape>(std::move(*meshOpt));
-        sceneBuilder.addSceneObject(pShape, pMaterial);
+
+		auto pLight = std::make_unique<AreaLight>(glm::vec3(10000), pShape.get());
+
+        sceneBuilder.addSceneObject(pShape, pMaterial, std::move(pLight));
     }
 
+    // Create Blender's Suzanne monkey head
     auto meshes = TriangleShape::loadFromFile("C:/Users/mathi/Documents/GitHub/pandora/assets/3dmodels/monkey.obj");
     for (TriangleShape& mesh : meshes) {
         auto pKdTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1));
@@ -126,12 +133,9 @@ int main(int argc, char** argv)
         std::cout << "Render error: " << e.what() << std::endl;
     }*/
 
-    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), spp);
-    //SVOTestIntegrator integrator(scene, camera.getSensor(), spp);
-    //SVODepthTestIntegrator integrator(scene, camera.getSensor(), spp);
     tasking::TaskGraph taskGraph;
     //NormalDebugIntegrator integrator { &taskGraph };
-    DirectLightingIntegrator integrator { &taskGraph, 8, 1, LightStrategy::UniformSampleAll };
+    DirectLightingIntegrator integrator { &taskGraph, 8, 1, LightStrategy::UniformSampleOne };
 
     EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());

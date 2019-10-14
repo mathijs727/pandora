@@ -1,10 +1,12 @@
 #include "pandora/integrators/direct_lighting_integrator.h"
+#include "graphics_core/sampling.h"
 #include "pandora/core/stats.h"
 #include "pandora/graphics_core/interaction.h"
 #include "pandora/graphics_core/material.h"
 #include "pandora/graphics_core/perspective_camera.h"
 #include "pandora/graphics_core/ray.h"
 #include "pandora/graphics_core/scene.h"
+#include "pandora/utility/math.h"
 
 namespace pandora {
 
@@ -23,7 +25,7 @@ DirectLightingIntegrator::DirectLightingIntegrator(
                       auto si = pShadingGeometry->fillSurfaceInteraction(ray, rayHit);
                       pMaterial->computeScatteringFunctions(si, memoryArena);
                       si.pSceneObject = rayHit.pSceneObject;
-                      this->rayHit(ray, si, state);
+                      this->rayHit(ray, si, state, memoryArena);
                   }
               }))
     , m_missTask(
@@ -34,10 +36,10 @@ DirectLightingIntegrator::DirectLightingIntegrator(
                   }
               }))
     , m_anyHitTask(
-          pTaskGraph->addTask<std::tuple<Ray, RayHit, AnyRayState>>(
-              [this](gsl::span<const std::tuple<Ray, RayHit, AnyRayState>> hits, std::pmr::memory_resource* pMemoryResource) {
-                  for (const auto& [ray, rayHit, state] : hits) {
-                      this->rayAnyHit(ray, rayHit, state);
+          pTaskGraph->addTask<std::tuple<Ray, AnyRayState>>(
+              [this](gsl::span<const std::tuple<Ray, AnyRayState>> hits, std::pmr::memory_resource* pMemoryResource) {
+                  for (const auto& [ray, state] : hits) {
+                      this->rayAnyHit(ray, state);
                   }
               }))
     , m_anyMissTask(
@@ -68,44 +70,190 @@ void DirectLightingIntegrator::render(const PerspectiveCamera& camera, Sensor& s
     m_pCurrentRenderData = std::move(pRenderData);
 
     // Spawn initial rays
-    spawnNewPaths(500 * 1000);
+    spawnNewPaths(1000);
     m_pTaskGraph->run();
 }
 
-void DirectLightingIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, const RayState& state)
+void DirectLightingIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, BounceRayState state, MemoryArena& memoryArena)
 {
-    m_pCurrentRenderData->pSensor->addPixelContribution(state.pixel, glm::abs(glm::normalize(si.normal)));
+    auto* pSensor = m_pCurrentRenderData->pSensor;
+    pSensor->addPixelContribution(state.pixel, glm::abs(si.normal));
+    return;
+
+    PcgRng rng = state.rng;
+
+    // Compute emitted light if ray hit an area light source
+    Spectrum emitted = si.Le(si.wo);
+    if (!isBlack(emitted))
+        pSensor->addPixelContribution(state.pixel, state.weight * emitted);
+
+    /*auto bsdfSample = si.pBSDF->sampleF(si.wo, glm::vec2 { rng.uniformFloat(), rng.uniformFloat() });
+    if (bsdfSample && !isBlack(bsdfSample->f)) {
+        Spectrum radiance = bsdfSample->f * glm::abs(glm::dot(bsdfSample->wi, si.shading.normal)) / bsdfSample->pdf;
+        Ray visibilityRay = si.spawnRay(bsdfSample->wi);
+        spawnShadowRay(visibilityRay, rng, state, radiance);
+    }*/
+
+    // Sample direct light using Next Event Estimation (NEE)
+    if (m_strategy == LightStrategy::UniformSampleAll)
+        uniformSampleAllLights(si, state, rng);
+    else
+        uniformSampleOneLight(si, state, rng);
+
+    // Random bounce
+    if (state.pathDepth + 1 < m_maxDepth) {
+        // Trace rays for specular reflection and refraction
+        specularReflect(si, state, rng, memoryArena);
+        specularTransmit(si, state, rng, memoryArena);
+    } else {
+        spawnNewPaths(1);
+    }
+}
+
+void DirectLightingIntegrator::rayMiss(const Ray& ray, const BounceRayState& state)
+{
     spawnNewPaths(1);
 }
 
-void DirectLightingIntegrator::rayMiss(const Ray& ray, const RayState& state)
-{
-    spawnNewPaths(1);
-}
-
-void DirectLightingIntegrator::rayAnyHit(const Ray& ray, const RayHit& rayHit, const AnyRayState& state)
+void DirectLightingIntegrator::rayAnyHit(const Ray& ray, const ShadowRayState& state)
 {
 }
 
-void DirectLightingIntegrator::rayAnyMiss(const Ray& ray, const AnyRayState& state)
+void DirectLightingIntegrator::rayAnyMiss(const Ray& ray, const ShadowRayState& state)
 {
+    auto* pSensor = m_pCurrentRenderData->pSensor;
+    pSensor->addPixelContribution(state.pixel, state.radiance);
+}
+
+void DirectLightingIntegrator::uniformSampleAllLights(
+    const SurfaceInteraction& si, const BounceRayState& bounceRayState, PcgRng& rng)
+{
+    const auto* pScene = m_pCurrentRenderData->pScene;
+    for (const auto& areaLightInstance : pScene->areaLightInstances) {
+        // TODO: support instanced lights
+        assert(!areaLightInstance.transform);
+        estimateDirect(si, *areaLightInstance.pAreaLight, 1.0f, bounceRayState, rng);
+    }
+}
+
+void DirectLightingIntegrator::uniformSampleOneLight(
+    const SurfaceInteraction& si, const BounceRayState& bounceRayState, PcgRng& rng)
+{
+    const auto* pScene = m_pCurrentRenderData->pScene;
+
+    // Randomly choose a single light to sample
+    uint32_t numLights = static_cast<uint32_t>(pScene->areaLightInstances.size());
+    if (numLights == 0)
+        return;
+
+    uint32_t lightNum = std::min(rng.uniformU32(), numLights - 1);
+    const auto& areaLightInstance = pScene->areaLightInstances[lightNum];
+    // TODO: support instanced lights
+    assert(!areaLightInstance.transform);
+
+    estimateDirect(si, *areaLightInstance.pAreaLight, static_cast<float>(numLights), bounceRayState, rng);
+}
+
+void DirectLightingIntegrator::estimateDirect(
+    const SurfaceInteraction& si,
+    const Light& light,
+    float multiplier,
+    const BounceRayState& bounceRayState,
+    PcgRng& rng)
+{
+    //BxDFType bsdfFlags = specular ? BSDF_ALL : BxDFType(BSDF_ALL | ~BSDF_SPECULAR);
+    BxDFType bsdfFlags = BxDFType(BSDF_ALL | ~BSDF_SPECULAR);
+
+    // Sample light source with multiple importance sampling
+    auto lightSample = light.sampleLi(si, rng);
+    float lightPdf = lightSample.pdf;
+
+    if (lightPdf > 0.0f && !lightSample.isBlack()) {
+        // Compute BSDF value for light sample
+        Spectrum f = si.pBSDF->f(si.wo, lightSample.wi, bsdfFlags) * absDot(lightSample.wi, si.shading.normal);
+
+        if (!isBlack(f) && !isBlack(lightSample.radiance)) {
+            spawnShadowRay(lightSample.visibilityRay, rng, bounceRayState, multiplier * f * lightSample.radiance / lightPdf);
+        }
+    }
+}
+
+void DirectLightingIntegrator::spawnShadowRay(const Ray& shadowRay, PcgRng& rng, const BounceRayState& bounceRayState, const Spectrum& radiance)
+{
+    ShadowRayState shadowRayState;
+    shadowRayState.pixel = bounceRayState.pixel;
+    shadowRayState.radiance = bounceRayState.weight * radiance;
+    m_pCurrentRenderData->pAccelerationStructure->intersectAny(shadowRay, shadowRayState);
+}
+
+void DirectLightingIntegrator::specularReflect(const SurfaceInteraction& si, const RayState& prevRayState, PcgRng& rng, MemoryArena& memoryArena)
+{
+    // Compute specular reflection wi and BSDF value
+    BxDFType type = BxDFType(BSDF_REFLECTION | BSDF_SPECULAR);
+    auto sample = si.pBSDF->sampleF(si.wo, glm::vec2 { rng.uniformFloat(), rng.uniformFloat() }, type);
+    if (!sample)
+        return;
+
+    // Return contribution of specular reflection
+    glm::vec3 ns = si.shading.normal;
+    if (sample->pdf > 0.0f && isBlack(sample->f) && glm::abs(glm::dot(sample->wi, ns)) != 0.0f) {
+        Ray ray = si.spawnRay(sample->wi);
+
+        BounceRayState rayState;
+        rayState.pathDepth = prevRayState.pathDepth + 1;
+        rayState.pixel = prevRayState.pixel;
+        rayState.rng = PcgRng(rng.uniformU64());
+        rayState.weight = prevRayState.weight * sample->f * glm::abs(glm::dot(sample->wi, ns)) / sample->pdf;
+
+        m_pCurrentRenderData->pAccelerationStructure->intersect(ray, rayState);
+    }
+}
+
+void DirectLightingIntegrator::specularTransmit(const SurfaceInteraction& si, const RayState& prevRayState, PcgRng& rng, MemoryArena& memoryArena)
+{
+    // Compute specular reflection wi and BSDF value
+    BxDFType type = BxDFType(BSDF_TRANSMISSION);
+    auto sample = si.pBSDF->sampleF(si.wo, glm::vec2 { rng.uniformFloat(), rng.uniformFloat() }, type);
+    if (!sample)
+        return;
+
+    // Return contribution of specular reflection
+    glm::vec3 ns = si.shading.normal;
+    if (sample->pdf > 0.0f && isBlack(sample->f) && glm::abs(glm::dot(sample->wi, ns)) != 0.0f) {
+        Ray ray = si.spawnRay(sample->wi);
+
+        BounceRayState rayState;
+        rayState.pathDepth = prevRayState.pathDepth + 1;
+        rayState.pixel = prevRayState.pixel;
+        rayState.rng = PcgRng(rng.uniformU64());
+        rayState.weight = prevRayState.weight * sample->f * glm::abs(glm::dot(sample->wi, ns)) / sample->pdf;
+
+        m_pCurrentRenderData->pAccelerationStructure->intersect(ray, rayState);
+    }
 }
 
 void DirectLightingIntegrator::spawnNewPaths(int numPaths)
 {
     auto* pRenderData = m_pCurrentRenderData.get();
-    int startIndex = pRenderData->currentRayIndex.fetch_add(numPaths);
-    int endIndex = std::min(startIndex + numPaths, pRenderData->maxPixelIndex);
+    const int startIndex = pRenderData->currentRayIndex.fetch_add(numPaths);
+    const int endIndex = std::min(startIndex + numPaths, pRenderData->maxPixelIndex);
 
-    for (int pixelIndex = startIndex; pixelIndex < endIndex; pixelIndex++) {
-        int x = pixelIndex % pRenderData->resolution.x;
-        int y = pixelIndex / pRenderData->resolution.x;
+    for (int i = startIndex; i < endIndex; i++) {
+        //const int spp = i % m_maxSpp;
+        //const int pixelIndex = i / m_maxSpp;
+        const int x = i % pRenderData->resolution.x;
+        const int y = i / pRenderData->resolution.x;
 
         CameraSample cameraSample;
         cameraSample.pixel = { x, y };
+        const Ray cameraRay = pRenderData->pCamera->generateRay(cameraSample);
 
-        Ray cameraRay = pRenderData->pCamera->generateRay(cameraSample);
-        pRenderData->pAccelerationStructure->intersect(cameraRay, RayState { glm::ivec2 { x, y } });
+        BounceRayState rayState;
+        rayState.pixel = glm::ivec2 { x, y };
+        rayState.weight = glm::vec3(1.0f);
+        rayState.pathDepth = 0;
+        rayState.rng = PcgRng(i);
+        pRenderData->pAccelerationStructure->intersect(cameraRay, RayState { glm::ivec2(x, y) });
     }
 }
 
@@ -299,5 +447,4 @@ void DirectLightingIntegrator::estimateDirect(float multiplier, const RayState& 
         }
     }
 }*/
-
 }

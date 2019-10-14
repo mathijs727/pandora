@@ -6,12 +6,10 @@
 
 namespace pandora {
 
-AreaLight::AreaLight(glm::vec3 emittedLight, int numSamples, const TriangleShape& shape, unsigned primitiveID)
-    : Light((int)LightFlags::Area, numSamples)
+AreaLight::AreaLight(glm::vec3 emittedLight, const Shape* pShape)
+    : Light((int)LightFlags::Area)
     , m_emmitedLight(emittedLight)
-    , m_shape(shape)
-    , m_primitiveID(primitiveID)
-    , m_area(m_shape.getIntersectGeometry()->primitiveArea(primitiveID))
+    , m_pShape(pShape)
 {
 }
 
@@ -20,15 +18,18 @@ glm::vec3 AreaLight::light(const Interaction& interaction, const glm::vec3& w) c
     return glm::dot(interaction.normal, w) > 0.0f ? m_emmitedLight : glm::vec3(0.0f);
 }
 
-LightSample AreaLight::sampleLi(const Interaction& ref, const glm::vec2& randomSample) const
+LightSample AreaLight::sampleLi(const Interaction& ref, PcgRng& rng) const
 {
-    const auto* intersectGeom = m_shape.getIntersectGeometry();
-    Interaction pointOnShape = intersectGeom->samplePrimitive(m_primitiveID, ref, randomSample);
+    const auto* intersectGeom = m_pShape->getIntersectGeometry();
+
+	const uint32_t numPrimitives = m_pShape->numPrimitives();
+    const uint32_t primitiveID = rng.uniformU32() % numPrimitives;
+    const Interaction pointOnShape = intersectGeom->samplePrimitive(primitiveID, ref, rng);
 
     LightSample result;
     result.wi = glm::normalize(pointOnShape.position - ref.position);
-    spdlog::warn("AreaLight::sampleLi result.pdf = 0.0f; because pdfPrimitive with direction is not implemented");
-    result.pdf = 0.0f; //intersectGeom->pdfPrimitive(m_primitiveID, ref, result.wi);
+    //spdlog::warn("AreaLight::sampleLi result.pdf = 0.0f; because pdfPrimitive with direction is not implemented");
+    result.pdf = 1.0f / numPrimitives; //intersectGeom->pdfPrimitive(m_primitiveID, ref, result.wi);
     result.visibilityRay = computeRayWithEpsilon(ref, pointOnShape);
     result.radiance = light(pointOnShape, -result.wi);
     return result;

@@ -28,10 +28,10 @@ NormalDebugIntegrator::NormalDebugIntegrator(
                   }
               }))
     , m_anyHitTask(
-          pTaskGraph->addTask<std::tuple<Ray, RayHit, AnyRayState>>(
-              [this](gsl::span<const std::tuple<Ray, RayHit, AnyRayState>> hits, std::pmr::memory_resource* pMemoryResource) {
-                  for (const auto& [ray, rayHit, state] : hits) {
-                      this->rayAnyHit(ray, rayHit, state);
+          pTaskGraph->addTask<std::tuple<Ray, AnyRayState>>(
+              [this](gsl::span<const std::tuple<Ray, AnyRayState>> hits, std::pmr::memory_resource* pMemoryResource) {
+                  for (const auto& [ray, state] : hits) {
+                      this->rayAnyHit(ray, state);
                   }
               }))
     , m_anyMissTask(
@@ -69,7 +69,7 @@ void NormalDebugIntegrator::rayMiss(const Ray& ray, const RayState& state)
     spawnNewPaths(1);
 }
 
-void NormalDebugIntegrator::rayAnyHit(const Ray& ray, const RayHit& rayHit, const AnyRayState& state)
+void NormalDebugIntegrator::rayAnyHit(const Ray& ray, const AnyRayState& state)
 {
 }
 

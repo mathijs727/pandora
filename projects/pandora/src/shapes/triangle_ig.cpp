@@ -61,12 +61,12 @@ float TriangleIntersectGeometry::primitiveArea(unsigned primitiveID) const
 }
 
 // PBRTv3 page 839
-Interaction TriangleIntersectGeometry::samplePrimitive(unsigned primitiveID, const glm::vec2& randomSample) const
+Interaction TriangleIntersectGeometry::samplePrimitive(unsigned primitiveID, PcgRng& rng) const
 {
     // Compute uniformly sampled barycentric coordinates
     // https://github.com/mmp/pbrt-v3/blob/master/src/shapes/triangle.cpp
-    float su0 = std::sqrt(randomSample[0]);
-    glm::vec2 b = glm::vec2(1 - su0, randomSample[1] * su0);
+    float su0 = std::sqrt(rng.uniformFloat());
+    glm::vec2 b = glm::vec2(1 - su0, rng.uniformFloat() * su0);
 
     glm::uvec3 triangle = m_indices[primitiveID];
     const glm::vec3& p0 = m_positions[triangle[0]];
@@ -80,10 +80,10 @@ Interaction TriangleIntersectGeometry::samplePrimitive(unsigned primitiveID, con
 }
 
 // PBRTv3 page 837
-Interaction TriangleIntersectGeometry::samplePrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec2& randomSample) const
+Interaction TriangleIntersectGeometry::samplePrimitive(unsigned primitiveID, const Interaction& ref, PcgRng& rng) const
 {
     (void)ref;
-    return samplePrimitive(primitiveID, randomSample);
+    return samplePrimitive(primitiveID, rng);
 }
 
 // PBRTv3 page 837
