@@ -2,17 +2,17 @@
 #include "pandora/config.h"
 #include "pandora/core/stats.h"
 #include "pandora/graphics_core/load_from_file.h"
-#include "pandora/integrators/direct_lighting_integrator.h"
-#include "pandora/integrators/naive_direct_lighting_integrator.h"
+//#include "pandora/integrators/naive_direct_lighting_integrator.h"
 #include "pandora/integrators/normal_debug_integrator.h"
 #include "pandora/integrators/path_integrator.h"
-#include "pandora/integrators/svo_depth_test_integrator.h"
-#include "pandora/integrators/svo_test_integrator.h"
+//#include "pandora/integrators/svo_depth_test_integrator.h"
+//#include "pandora/integrators/svo_test_integrator.h"
 #include "pandora/materials/matte_material.h"
 #include "pandora/shapes/triangle.h"
 #include "pandora/textures/constant_texture.h"
 #include "stream/task_graph.h"
 
+#include <iostream>
 #include <boost/program_options.hpp>
 #include <string>
 #include <tbb/tbb.h>
@@ -146,10 +146,12 @@ int main(int argc, char** argv)
         std::cout << "Render error: " << e.what() << std::endl;
     }*/
 
+    spp = 8;
+
     tasking::TaskGraph taskGraph;
     //NormalDebugIntegrator integrator { &taskGraph };
-    spp = 8;
-    DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+    //NaiveDirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+    PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
     EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());

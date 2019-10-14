@@ -21,10 +21,10 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_sg.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_shape.cpp"
 
-        "${CMAKE_CURRENT_LIST_DIR}/integrators/direct_lighting_integrator.cpp"
-        #"${CMAKE_CURRENT_LIST_DIR}/integrators/naive_direct_lighting_integrator.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/integrators/naive_direct_lighting_integrator.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/integrators/naive_direct_lighting_integrator_old.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/normal_debug_integrator.cpp"
-        #"${CMAKE_CURRENT_LIST_DIR}/integrators/path_integrator.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/integrators/path_integrator.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/sampler_integrator.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/svo_depth_test_integrator.cpp"
         #"${CMAKE_CURRENT_LIST_DIR}/integrators/svo_test_integrator.cpp"
