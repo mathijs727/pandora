@@ -14,6 +14,6 @@ struct RenderConfig {
 };
 
 RenderConfig loadFromFile(std::filesystem::path filePath , bool loadMaterials = true);
-RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials = true);
+//RenderConfig loadFromFileOOC(std::filesystem::path filePath, bool loadMaterials = true);
 
 }

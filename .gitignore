@@ -8,6 +8,7 @@ projects/pandora/include/pandora/flatbuffers/triangle_mesh_generated.h
 build
 build-release
 build-gcc
+out
 
 # Flatbuffers include folder (generated from the actual flatbuffers)
 projects/pandora/flatbuffers/include/

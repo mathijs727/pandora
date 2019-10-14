@@ -29,6 +29,8 @@ using namespace std::string_literals;
 
 const std::string projectBasePath = "../../"s;
 
+RenderConfig createDemoScene();
+
 int main(int argc, char** argv)
 {
 #ifdef _WIN32
@@ -82,49 +84,9 @@ int main(int argc, char** argv)
     g_stats.config.integrator = vm["integrator"].as<std::string>();
     g_stats.config.spp = vm["spp"].as<int>();
 
-    pandora::RenderConfig renderConfig;
-    renderConfig.resolution = glm::ivec2(1280, 720);
-    {
-        glm::mat4 transform { 1.0f };
-        transform = glm::translate(transform, glm::vec3(0, 0, -5));
-        renderConfig.camera = std::make_unique<PerspectiveCamera>(renderConfig.resolution, 45.0f, transform);
-    }
+    spdlog::info("Loading scene");
+    RenderConfig renderConfig = loadFromFile(vm["file"].as<std::string>());
 
-    SceneBuilder sceneBuilder;
-
-    // Create sphere light
-    {
-        glm::mat4 transform { 1.0f };
-        transform = glm::scale(transform, glm::vec3(0.01f));
-        transform = glm::translate(transform, glm::vec3(0, 3, 0));
-        auto meshOpt = TriangleShape::loadFromFileSingleShape("C:/Users/mathi/Documents/GitHub/pandora/assets/3dmodels/sphere.obj", transform);
-        assert(meshOpt);
-        auto pShape = std::make_shared<TriangleShape>(std::move(*meshOpt));
-
-        // Dummy material
-        auto pKdTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1));
-        auto pSigmaTexture = std::make_shared<ConstantTexture<float>>(1.0f);
-        auto pMaterial = std::make_shared<MatteMaterial>(pKdTexture, pSigmaTexture);
-
-        auto pLight = std::make_unique<AreaLight>(10000.0f * glm::vec3(1.0f, 0.2f, 0.4f), pShape.get());
-
-        sceneBuilder.addSceneObject(pShape, pMaterial, std::move(pLight));
-    }
-
-    // Create Blender's Suzanne monkey head
-    auto meshes = TriangleShape::loadFromFile("C:/Users/mathi/Documents/GitHub/pandora/assets/3dmodels/monkey.obj");
-    for (TriangleShape& mesh : meshes) {
-        auto pKdTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1));
-        auto pSigmaTexture = std::make_shared<ConstantTexture<float>>(1.0f);
-
-        auto pMaterial = std::make_shared<MatteMaterial>(pKdTexture, pSigmaTexture);
-        auto pShape = std::make_shared<TriangleShape>(std::move(mesh));
-        sceneBuilder.addSceneObject(pShape, pMaterial);
-    }
-    renderConfig.pScene = std::make_unique<Scene>(sceneBuilder.build());
-
-    std::cout << "Start render" << std::endl;
-    int spp = vm["spp"].as<int>();
     /*try {
         auto integratorType = vm["integrator"].as<std::string>();
         if (integratorType == "direct") {
@@ -146,19 +108,22 @@ int main(int argc, char** argv)
         std::cout << "Render error: " << e.what() << std::endl;
     }*/
 
-    spp = 8;
-
     tasking::TaskGraph taskGraph;
+
+    spdlog::info("Creating integrator");
+    const int spp = vm["spp"].as<int>();
     //NormalDebugIntegrator integrator { &taskGraph };
     DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
     //PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
+    spdlog::info("Building acceleration structure");
     EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
     {
         auto renderTimeStopWatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
 
+        spdlog::info("Starting render");
 #if 1
         integrator.render(*renderConfig.camera, renderConfig.camera->getSensor(), *renderConfig.pScene, accel);
 #else
@@ -176,13 +141,14 @@ int main(int argc, char** argv)
 #endif
     }
 
-    std::cout << "Writing output: " << vm["out"].as<std::string>() << ".jpg/exr" << std::endl;
+	spdlog::info("Writing output to {}.jpg/exr", vm["out"].as<std::string>());
     writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".jpg", true);
     writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".exr", false);
 
+	spdlog::info("Writing statistics");
     g_stats.asyncTriggerSnapshot();
 
-    std::cout << "Done" << std::endl;
+	spdlog::info("Done");
     return 0;
 }
 
@@ -243,3 +209,49 @@ int main(int argc, char** argv)
             std::cout << "Message: " << e.message() << std::endl;
         }
     }*/
+
+RenderConfig createDemoScene()
+{
+    pandora::RenderConfig renderConfig;
+    renderConfig.resolution = glm::ivec2(1280, 720);
+    {
+        glm::mat4 transform { 1.0f };
+        transform = glm::translate(transform, glm::vec3(0, 0, -5));
+        renderConfig.camera = std::make_unique<PerspectiveCamera>(renderConfig.resolution, 45.0f, transform);
+    }
+
+    SceneBuilder sceneBuilder;
+
+    // Create sphere light
+    {
+        glm::mat4 transform { 1.0f };
+        transform = glm::scale(transform, glm::vec3(0.01f));
+        transform = glm::translate(transform, glm::vec3(0, 3, 0));
+        auto meshOpt = TriangleShape::loadFromFileSingleShape("C:/Users/mathi/Documents/GitHub/pandora/assets/3dmodels/sphere.obj", transform);
+        assert(meshOpt);
+        auto pShape = std::make_shared<TriangleShape>(std::move(*meshOpt));
+
+        // Dummy material
+        auto pKdTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1));
+        auto pSigmaTexture = std::make_shared<ConstantTexture<float>>(1.0f);
+        auto pMaterial = std::make_shared<MatteMaterial>(pKdTexture, pSigmaTexture);
+
+        auto pLight = std::make_unique<AreaLight>(10000.0f * glm::vec3(1.0f, 0.2f, 0.4f), pShape.get());
+
+        sceneBuilder.addSceneObject(pShape, pMaterial, std::move(pLight));
+    }
+
+    // Create Blender's Suzanne monkey head
+    auto meshes = TriangleShape::loadFromFile("C:/Users/mathi/Documents/GitHub/pandora/assets/3dmodels/monkey.obj");
+    for (TriangleShape& mesh : meshes) {
+        auto pKdTexture = std::make_shared<ConstantTexture<Spectrum>>(glm::vec3(1));
+        auto pSigmaTexture = std::make_shared<ConstantTexture<float>>(1.0f);
+
+        auto pMaterial = std::make_shared<MatteMaterial>(pKdTexture, pSigmaTexture);
+        auto pShape = std::make_shared<TriangleShape>(std::move(mesh));
+        sceneBuilder.addSceneObject(pShape, pMaterial);
+    }
+    renderConfig.pScene = std::make_unique<Scene>(sceneBuilder.build());
+
+    return renderConfig;
+}

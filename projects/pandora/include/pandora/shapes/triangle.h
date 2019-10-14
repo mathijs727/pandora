@@ -1,4 +1,5 @@
 #pragma once
+#include "pandora/flatbuffers/triangle_mesh_generated.h"
 #include "pandora/graphics_core/shape.h"
 #include <filesystem>
 #include <glm/glm.hpp>
@@ -46,14 +47,14 @@ public:
 private:
     friend class TriangleShape;
     TriangleShadingGeometry(
-        std::shared_ptr<TriangleIntersectGeometry> pIntersectGeometry,
+        const TriangleIntersectGeometry* pIntersectGeometry,
         std::vector<glm::vec3>&& normals,
         std::vector<glm::vec2>&& uvCoords);
 
     void getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const;
 
 private:
-    std::shared_ptr<TriangleIntersectGeometry> m_pIntersectGeometry;
+    const TriangleIntersectGeometry* m_pIntersectGeometry;
     std::vector<glm::vec3> m_normals;
     std::vector<glm::vec2> m_uvCoords;
     std::vector<glm::vec3> m_tangents;
@@ -70,6 +71,9 @@ public:
     static std::optional<TriangleShape> loadFromFileSingleShape(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
     static std::vector<TriangleShape> loadFromFile(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
 
+    //static std::vector<TriangleShape> loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh);
+    static TriangleShape loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh, const glm::mat4& transformMatrix);
+
 private:
     TriangleShape(
         std::vector<glm::uvec3>&& indices,
@@ -81,8 +85,8 @@ private:
     static TriangleShape createAssimpMesh(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
 
 private:
-    std::shared_ptr<TriangleIntersectGeometry> m_intersectGeometry;
-    std::shared_ptr<TriangleShadingGeometry> m_shadingGeometry;
+    std::unique_ptr<TriangleIntersectGeometry> m_intersectGeometry;
+    std::unique_ptr<TriangleShadingGeometry> m_shadingGeometry;
 
     Bounds m_bounds;
     unsigned m_numPrimitives;

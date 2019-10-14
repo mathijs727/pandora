@@ -37,7 +37,7 @@ static glm::vec3 assimpVec(const aiVector3D& v)
 namespace pandora {
 
 TriangleShadingGeometry::TriangleShadingGeometry(
-    std::shared_ptr<TriangleIntersectGeometry> pIntersectGeometry, std::vector<glm::vec3>&& normals, std::vector<glm::vec2>&& uvCoords)
+    const TriangleIntersectGeometry* pIntersectGeometry, std::vector<glm::vec3>&& normals, std::vector<glm::vec2>&& uvCoords)
     : m_pIntersectGeometry(pIntersectGeometry)
     , m_normals(std::move(normals))
     , m_uvCoords(std::move(uvCoords))

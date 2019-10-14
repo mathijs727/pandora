@@ -6,6 +6,12 @@ struct Vec3i {
 	z: int;
 }
 
+struct Vec3u {
+	x: uint;
+	y: uint;
+	z: uint;
+}
+
 struct Vec2 {
 	x: float;
 	y: float;

@@ -45,6 +45,74 @@ static glm::vec3 assimpVec(const aiVector3D& v)
 
 namespace pandora {
 
+TriangleShape TriangleShape::loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh, const glm::mat4& transformMatrix)
+{
+    Transform transform(transformMatrix);
+
+    std::vector<glm::uvec3> indices;
+    indices.resize(pSerializedTriangleMesh->indices()->size());
+    std::transform(
+        pSerializedTriangleMesh->indices()->begin(),
+        pSerializedTriangleMesh->indices()->end(),
+        std::begin(indices),
+        [](const serialization::Vec3u* t) {
+            return deserialize(*t);
+        });
+    indices.shrink_to_fit();
+
+    std::vector<glm::vec3> positions;
+    positions.resize(pSerializedTriangleMesh->positions()->size());
+    std::transform(
+        pSerializedTriangleMesh->positions()->begin(),
+        pSerializedTriangleMesh->positions()->end(),
+        std::begin(positions),
+        [&](const serialization::Vec3* p) {
+            return transform.transformPoint(deserialize(*p));
+        });
+    positions.shrink_to_fit();
+
+    std::vector<glm::vec3> normals;
+    if (pSerializedTriangleMesh->normals()) {
+        normals.resize(pSerializedTriangleMesh->normals()->size());
+        std::transform(
+            pSerializedTriangleMesh->normals()->begin(),
+            pSerializedTriangleMesh->normals()->end(),
+            std::begin(normals),
+            [&](const serialization::Vec3* n) {
+                return transform.transformNormal(deserialize(*n));
+            });
+    }
+    normals.shrink_to_fit();
+
+    /*std::vector<glm::vec2> tangents;
+    if (pSerializedTriangleMesh->tangents()) {
+        tangents.resize(pSerializedTriangleMesh->tangents()->size());
+        std::transform(
+            pSerializedTriangleMesh->tangents()->begin(),
+            pSerializedTriangleMesh->tangents()->end(),
+            std::begin(tangents),
+            [&](const serialization::Vec3* t) {
+                return transform.transformNormal(deserialize(*t));
+            });
+    }
+    tangents.shrink_to_fit();*/
+
+    std::vector<glm::vec2> uvCoords;
+    if (pSerializedTriangleMesh->uvCoords()) {
+        uvCoords.resize(pSerializedTriangleMesh->uvCoords()->size());
+        std::transform(
+            pSerializedTriangleMesh->uvCoords()->begin(),
+            pSerializedTriangleMesh->uvCoords()->end(),
+            std::begin(uvCoords),
+            [](const serialization::Vec2* uv) {
+                return deserialize(*uv);
+            });
+    }
+    uvCoords.shrink_to_fit();
+
+	return TriangleShape(std::move(indices), std::move(positions), std::move(normals), std::move(uvCoords));
+}
+
 TriangleShape::TriangleShape(
     std::vector<glm::uvec3>&& indices,
     std::vector<glm::vec3>&& positions,
@@ -52,11 +120,11 @@ TriangleShape::TriangleShape(
     std::vector<glm::vec2>&& uvCoords)
     // Cannot use std::make_shared to access private constructor of friend class
     : m_intersectGeometry(
-        std::shared_ptr<TriangleIntersectGeometry>(
+        std::unique_ptr<TriangleIntersectGeometry>(
             new TriangleIntersectGeometry(std::move(indices), std::move(positions))))
     , m_shadingGeometry(
-          std::shared_ptr<TriangleShadingGeometry>(
-              new TriangleShadingGeometry(m_intersectGeometry, std::move(normals), std::move(uvCoords))))
+          std::unique_ptr<TriangleShadingGeometry>(
+              new TriangleShadingGeometry(m_intersectGeometry.get(), std::move(normals), std::move(uvCoords))))
     , m_bounds(m_intersectGeometry->computeBounds())
     , m_numPrimitives(m_intersectGeometry->numPrimitives())
 {
