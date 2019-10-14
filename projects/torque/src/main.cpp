@@ -2,7 +2,7 @@
 #include "pandora/config.h"
 #include "pandora/core/stats.h"
 #include "pandora/graphics_core/load_from_file.h"
-//#include "pandora/integrators/naive_direct_lighting_integrator.h"
+#include "pandora/integrators/naive_direct_lighting_integrator.h"
 #include "pandora/integrators/normal_debug_integrator.h"
 #include "pandora/integrators/path_integrator.h"
 //#include "pandora/integrators/svo_depth_test_integrator.h"
@@ -12,8 +12,8 @@
 #include "pandora/textures/constant_texture.h"
 #include "stream/task_graph.h"
 
-#include <iostream>
 #include <boost/program_options.hpp>
+#include <iostream>
 #include <string>
 #include <tbb/tbb.h>
 #include <xmmintrin.h>
@@ -150,8 +150,8 @@ int main(int argc, char** argv)
 
     tasking::TaskGraph taskGraph;
     //NormalDebugIntegrator integrator { &taskGraph };
-    //NaiveDirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
-    PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+    DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+    //PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
     EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());

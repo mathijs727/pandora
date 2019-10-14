@@ -13,7 +13,7 @@ namespace pandora {
 
 PathIntegrator::PathIntegrator(
     tasking::TaskGraph* pTaskGraph, int maxDepth, int spp, LightStrategy strategy)
-    : m_pTaskGraph(pTaskGraph)
+    : SamplerIntegrator(pTaskGraph, maxDepth, spp, strategy)
     , m_hitTask(
           pTaskGraph->addTask<std::tuple<Ray, RayHit, RayState>>(
               [this](gsl::span<const std::tuple<Ray, RayHit, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
@@ -50,29 +50,7 @@ PathIntegrator::PathIntegrator(
                       this->rayAnyMiss(ray, state);
                   }
               }))
-    , m_maxDepth(maxDepth)
-    , m_maxSpp(spp)
-    , m_strategy(strategy)
 {
-}
-
-void PathIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel)
-{
-    auto resolution = sensor.getResolution();
-
-    auto pRenderData = std::make_unique<RenderData>();
-    pRenderData->pCamera = &camera;
-    pRenderData->pSensor = &sensor;
-    pRenderData->currentRayIndex.store(0);
-    pRenderData->resolution = resolution;
-    pRenderData->maxPixelIndex = resolution.x * resolution.y;
-    pRenderData->pScene = &scene;
-    pRenderData->pAccelerationStructure = &accel;
-    m_pCurrentRenderData = std::move(pRenderData);
-
-    // Spawn initial rays
-    spawnNewPaths(1000);
-    m_pTaskGraph->run();
 }
 
 void PathIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, BounceRayState state, MemoryArena& memoryArena)
@@ -124,66 +102,6 @@ void PathIntegrator::rayAnyMiss(const Ray& ray, const ShadowRayState& state)
     pSensor->addPixelContribution(state.pixel, state.radiance);
 }
 
-void PathIntegrator::uniformSampleAllLights(
-    const SurfaceInteraction& si, const BounceRayState& bounceRayState, PcgRng& rng)
-{
-    const auto* pScene = m_pCurrentRenderData->pScene;
-    for (const auto& areaLightInstance : pScene->areaLightInstances) {
-        // TODO: support instanced lights
-        assert(!areaLightInstance.transform);
-        estimateDirect(si, *areaLightInstance.pAreaLight, 1.0f, bounceRayState, rng);
-    }
-}
-
-void PathIntegrator::uniformSampleOneLight(
-    const SurfaceInteraction& si, const BounceRayState& bounceRayState, PcgRng& rng)
-{
-    const auto* pScene = m_pCurrentRenderData->pScene;
-
-    // Randomly choose a single light to sample
-    uint32_t numLights = static_cast<uint32_t>(pScene->areaLightInstances.size());
-    if (numLights == 0)
-        return;
-
-    uint32_t lightNum = std::min(rng.uniformU32(), numLights - 1);
-    const auto& areaLightInstance = pScene->areaLightInstances[lightNum];
-    // TODO: support instanced lights
-    assert(!areaLightInstance.transform);
-
-    estimateDirect(si, *areaLightInstance.pAreaLight, static_cast<float>(numLights), bounceRayState, rng);
-}
-
-void PathIntegrator::estimateDirect(
-    const SurfaceInteraction& si,
-    const Light& light,
-    float multiplier,
-    const BounceRayState& bounceRayState,
-    PcgRng& rng)
-{
-    //BxDFType bsdfFlags = specular ? BSDF_ALL : BxDFType(BSDF_ALL | ~BSDF_SPECULAR);
-    BxDFType bsdfFlags = BxDFType(BSDF_ALL | ~BSDF_SPECULAR);
-
-    // Sample light source with multiple importance sampling
-    auto lightSample = light.sampleLi(si, rng);
-
-    if (lightSample.pdf > 0.0f && !lightSample.isBlack()) {
-        // Compute BSDF value for light sample
-        Spectrum f = si.pBSDF->f(si.wo, lightSample.wi, bsdfFlags) * absDot(lightSample.wi, si.shading.normal);
-
-        if (!isBlack(f) && !isBlack(lightSample.radiance)) {
-            spawnShadowRay(lightSample.visibilityRay, rng, bounceRayState, multiplier * f * lightSample.radiance / lightSample.pdf);
-        }
-    }
-}
-
-void PathIntegrator::spawnShadowRay(const Ray& shadowRay, PcgRng& rng, const BounceRayState& bounceRayState, const Spectrum& radiance)
-{
-    ShadowRayState shadowRayState;
-    shadowRayState.pixel = bounceRayState.pixel;
-    shadowRayState.radiance = bounceRayState.weight * radiance;
-    m_pCurrentRenderData->pAccelerationStructure->intersectAny(shadowRay, shadowRayState);
-}
-
 bool PathIntegrator::randomBounce(const SurfaceInteraction& si, const RayState& prevRayState, PcgRng& rng, MemoryArena& memoryArena)
 {
     // Sample BSDF to get new path direction
@@ -202,32 +120,6 @@ bool PathIntegrator::randomBounce(const SurfaceInteraction& si, const RayState& 
         return true;
     } else {
         return false;
-    }
-}
-
-void PathIntegrator::spawnNewPaths(int numPaths)
-{
-    auto* pRenderData = m_pCurrentRenderData.get();
-    const int startIndex = pRenderData->currentRayIndex.fetch_add(numPaths);
-    const int endIndex = std::min(startIndex + numPaths, pRenderData->maxPixelIndex * m_maxSpp);
-
-    for (int i = startIndex; i < endIndex; i++) {
-        //const int spp = i % m_maxSpp;
-        const int pixelIndex = i / m_maxSpp;
-        const int x = pixelIndex % pRenderData->resolution.x;
-        const int y = pixelIndex / pRenderData->resolution.x;
-
-        BounceRayState rayState;
-        rayState.pixel = glm::ivec2 { x, y };
-        rayState.weight = glm::vec3(1.0f);
-        rayState.pathDepth = 0;
-        rayState.rng = PcgRng(i);
-
-        CameraSample cameraSample;
-        cameraSample.pixel = glm::vec2(x, y) + rayState.rng.uniformFloat2();
-
-        const Ray cameraRay = pRenderData->pCamera->generateRay(cameraSample);
-        pRenderData->pAccelerationStructure->intersect(cameraRay, rayState);
     }
 }
 
