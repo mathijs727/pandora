@@ -12,12 +12,16 @@
 #include "pandora/shapes/triangle.h"
 #include "pandora/textures/constant_texture.h"
 #include "stream/task_graph.h"
-#include <xmmintrin.h>
 
 #include <boost/program_options.hpp>
 #include <string>
 #include <tbb/tbb.h>
 #include <xmmintrin.h>
+#ifdef _WIN32
+#include <spdlog/sinks/msvc_sink.h>
+#else
+#include <spdlog/sinks/stdout_color_sinks.h>
+#endif
 
 using namespace pandora;
 using namespace torque;
@@ -27,13 +31,22 @@ const std::string projectBasePath = "../../"s;
 
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
+    auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
+    spdlog::set_default_logger(vsLogger);
+#else
+    auto colorLogger = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("color_logger");
+    spdlog::set_default_logger(colorLogger);
+#endif
+
+	spdlog::info("Parsing input");
+
     // https://embree.github.io/api.html
     // For optimal Embree performance
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
     namespace po = boost::program_options;
-
     po::options_description desc("Pandora options");
     // clang-format off
     desc.add_options()
@@ -93,7 +106,7 @@ int main(int argc, char** argv)
         auto pSigmaTexture = std::make_shared<ConstantTexture<float>>(1.0f);
         auto pMaterial = std::make_shared<MatteMaterial>(pKdTexture, pSigmaTexture);
 
-		auto pLight = std::make_unique<AreaLight>(glm::vec3(10000), pShape.get());
+        auto pLight = std::make_unique<AreaLight>(glm::vec3(10000), pShape.get());
 
         sceneBuilder.addSceneObject(pShape, pMaterial, std::move(pLight));
     }
@@ -135,7 +148,7 @@ int main(int argc, char** argv)
 
     tasking::TaskGraph taskGraph;
     //NormalDebugIntegrator integrator { &taskGraph };
-    DirectLightingIntegrator integrator { &taskGraph, 8, 1, LightStrategy::UniformSampleOne };
+    DirectLightingIntegrator integrator { &taskGraph, 8, 32, LightStrategy::UniformSampleOne };
 
     EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());

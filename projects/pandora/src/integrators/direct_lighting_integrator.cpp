@@ -7,6 +7,7 @@
 #include "pandora/graphics_core/ray.h"
 #include "pandora/graphics_core/scene.h"
 #include "pandora/utility/math.h"
+#include <spdlog/spdlog.h>
 
 namespace pandora {
 
@@ -70,29 +71,24 @@ void DirectLightingIntegrator::render(const PerspectiveCamera& camera, Sensor& s
     m_pCurrentRenderData = std::move(pRenderData);
 
     // Spawn initial rays
-    spawnNewPaths(1000);
+    spawnNewPaths(500 * 1000);
     m_pTaskGraph->run();
 }
 
 void DirectLightingIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, BounceRayState state, MemoryArena& memoryArena)
 {
     auto* pSensor = m_pCurrentRenderData->pSensor;
-    pSensor->addPixelContribution(state.pixel, glm::abs(si.normal));
-    return;
-
     PcgRng rng = state.rng;
 
-    // Compute emitted light if ray hit an area light source
+    // Next Event Estimation (NEE) samples light sources so random bounce should ignore it.
+    if (si.pSceneObject->pAreaLight || state.pathDepth > m_maxDepth) {
+        spawnNewPaths(1);
+        return;
+    }
+    /*// Compute emitted light if ray hit an area light source
     Spectrum emitted = si.Le(si.wo);
     if (!isBlack(emitted))
-        pSensor->addPixelContribution(state.pixel, state.weight * emitted);
-
-    /*auto bsdfSample = si.pBSDF->sampleF(si.wo, glm::vec2 { rng.uniformFloat(), rng.uniformFloat() });
-    if (bsdfSample && !isBlack(bsdfSample->f)) {
-        Spectrum radiance = bsdfSample->f * glm::abs(glm::dot(bsdfSample->wi, si.shading.normal)) / bsdfSample->pdf;
-        Ray visibilityRay = si.spawnRay(bsdfSample->wi);
-        spawnShadowRay(visibilityRay, rng, state, radiance);
-    }*/
+        pSensor->addPixelContribution(state.pixel, state.weight * emitted);*/
 
     // Sample direct light using Next Event Estimation (NEE)
     if (m_strategy == LightStrategy::UniformSampleAll)
@@ -100,13 +96,20 @@ void DirectLightingIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& 
     else
         uniformSampleOneLight(si, state, rng);
 
+    // Possibly terminate the path with Russian roulette
+    if (state.pathDepth > 3) {
+        float q = std::max(0.05f, 1 - state.weight.y);
+        if (rng.uniformFloat() < q) {
+            spawnNewPaths(1);
+            return;
+        }
+        state.weight /= 1.0f - q;
+    }
+
     // Random bounce
-    if (state.pathDepth + 1 < m_maxDepth) {
-        // Trace rays for specular reflection and refraction
-        specularReflect(si, state, rng, memoryArena);
-        specularTransmit(si, state, rng, memoryArena);
-    } else {
+    if (!randomBounce(si, state, rng, memoryArena)) {
         spawnNewPaths(1);
+        return;
     }
 }
 
@@ -186,7 +189,28 @@ void DirectLightingIntegrator::spawnShadowRay(const Ray& shadowRay, PcgRng& rng,
     m_pCurrentRenderData->pAccelerationStructure->intersectAny(shadowRay, shadowRayState);
 }
 
-void DirectLightingIntegrator::specularReflect(const SurfaceInteraction& si, const RayState& prevRayState, PcgRng& rng, MemoryArena& memoryArena)
+bool DirectLightingIntegrator::randomBounce(const SurfaceInteraction& si, const RayState& prevRayState, PcgRng& rng, MemoryArena& memoryArena)
+{
+    // Sample BSDF to get new path direction
+    if (auto bsdfSampleOpt = si.pBSDF->sampleF(si.wo, rng.uniformFloat2(), BSDF_ALL); bsdfSampleOpt && !isBlack(bsdfSampleOpt->f) && bsdfSampleOpt->pdf > 0.0f) {
+        const auto& bsdfSample = *bsdfSampleOpt;
+
+        Ray ray = si.spawnRay(bsdfSample.wi);
+
+        BounceRayState rayState;
+        rayState.pathDepth = prevRayState.pathDepth + 1;
+        rayState.pixel = prevRayState.pixel;
+        rayState.rng = PcgRng(rng.uniformU64());
+        rayState.weight = prevRayState.weight * bsdfSample.f * absDot(bsdfSample.wi, si.shading.normal) / bsdfSample.pdf;
+
+        m_pCurrentRenderData->pAccelerationStructure->intersect(ray, rayState);
+        return true;
+    } else {
+        return false;
+    }
+}
+
+/*void DirectLightingIntegrator::specularReflect(const SurfaceInteraction& si, const RayState& prevRayState, PcgRng& rng, MemoryArena& memoryArena)
 {
     // Compute specular reflection wi and BSDF value
     BxDFType type = BxDFType(BSDF_REFLECTION | BSDF_SPECULAR);
@@ -230,30 +254,31 @@ void DirectLightingIntegrator::specularTransmit(const SurfaceInteraction& si, co
 
         m_pCurrentRenderData->pAccelerationStructure->intersect(ray, rayState);
     }
-}
+}*/
 
 void DirectLightingIntegrator::spawnNewPaths(int numPaths)
 {
     auto* pRenderData = m_pCurrentRenderData.get();
     const int startIndex = pRenderData->currentRayIndex.fetch_add(numPaths);
-    const int endIndex = std::min(startIndex + numPaths, pRenderData->maxPixelIndex);
+    const int endIndex = std::min(startIndex + numPaths, pRenderData->maxPixelIndex * m_maxSpp);
 
     for (int i = startIndex; i < endIndex; i++) {
         //const int spp = i % m_maxSpp;
-        //const int pixelIndex = i / m_maxSpp;
-        const int x = i % pRenderData->resolution.x;
-        const int y = i / pRenderData->resolution.x;
-
-        CameraSample cameraSample;
-        cameraSample.pixel = { x, y };
-        const Ray cameraRay = pRenderData->pCamera->generateRay(cameraSample);
+        const int pixelIndex = i / m_maxSpp;
+        const int x = pixelIndex % pRenderData->resolution.x;
+        const int y = pixelIndex / pRenderData->resolution.x;
 
         BounceRayState rayState;
         rayState.pixel = glm::ivec2 { x, y };
         rayState.weight = glm::vec3(1.0f);
         rayState.pathDepth = 0;
-        rayState.rng = PcgRng(i);
-        pRenderData->pAccelerationStructure->intersect(cameraRay, RayState { glm::ivec2(x, y) });
+        rayState.rng = PcgRng(pixelIndex);
+
+        CameraSample cameraSample;
+        cameraSample.pixel = glm::vec2(x, y) + rayState.rng.uniformFloat2();
+
+        const Ray cameraRay = pRenderData->pCamera->generateRay(cameraSample);
+        pRenderData->pAccelerationStructure->intersect(cameraRay, rayState);
     }
 }
 
