@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <execution>
 #include <gsl/span>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -164,3 +165,4 @@ template pybind11::array_t<int32_t> stringToNumpy<int32_t>(std::string_view stri
 template pybind11::array_t<int64_t> stringToNumpy<int64_t>(std::string_view string);
 template pybind11::array_t<uint32_t> stringToNumpy<uint32_t>(std::string_view string);
 template pybind11::array_t<uint64_t> stringToNumpy<uint64_t>(std::string_view string);
+

@@ -113,8 +113,8 @@ if __name__ == "__main__":
     with open(args.out, "w") as f:
         print(f"Out file: {args.out}")
         #json.dump(pandora_data, f, cls=MyJSONEncoder)
-        #ujson.dump(pandora_data, f, indent=2)
-        ujson.dump(pandora_data, f)# No formatting saves a lot of disk space
+        ujson.dump(pandora_data, f, indent=2)
+        #ujson.dump(pandora_data, f,)# No formatting saves a lot of disk space
 
 
     """if not args.intermediate:

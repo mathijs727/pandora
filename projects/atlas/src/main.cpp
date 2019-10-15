@@ -1,29 +1,28 @@
-#include "glm/gtc/matrix_transform.hpp"
-#include "pandora/graphics_core/perspective_camera.h"
-#include "pandora/graphics_core/scene.h"
-#include "pandora/geometry/triangle.h"
-#include "pandora/integrators/direct_lighting_integrator.h"
+#include "pandora/config.h"
+#include "pandora/core/stats.h"
+#include "pandora/graphics_core/load_from_file.h"
 #include "pandora/integrators/naive_direct_lighting_integrator.h"
 #include "pandora/integrators/normal_debug_integrator.h"
 #include "pandora/integrators/path_integrator.h"
-#include "pandora/integrators/svo_depth_test_integrator.h"
-#include "pandora/integrators/svo_test_integrator.h"
-#include "pandora/lights/environment_light.h"
 #include "pandora/materials/matte_material.h"
-#include "pandora/materials/metal_material.h"
-#include "pandora/materials/mirror_material.h"
-#include "pandora/materials/plastic_material.h"
-#include "pandora/materials/translucent_material.h"
+#include "pandora/shapes/triangle.h"
 #include "pandora/textures/constant_texture.h"
-#include "pandora/textures/image_texture.h"
+#include "stream/task_graph.h"
 #include "ui/fps_camera_controls.h"
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
 
 #include "pandora/graphics_core/load_from_file.h"
+#include <boost/program_options.hpp>
 #include <chrono>
 #include <iostream>
+#include <spdlog/spdlog.h>
 #include <xmmintrin.h>
+#ifdef _WIN32
+#include <spdlog/sinks/msvc_sink.h>
+#else
+#include <spdlog/sinks/stdout_color_sinks.h>
+#endif
 
 using namespace pandora;
 using namespace atlas;
@@ -33,80 +32,77 @@ const std::string projectBasePath = "../../"s;
 
 RenderConfig createStaticScene();
 
-int main()
+int main(int argc, char** argv)
 {
+#ifdef _WIN32
+    auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
+    spdlog::set_default_logger(vsLogger);
+#else
+    auto colorLogger = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("color_logger");
+    spdlog::set_default_logger(colorLogger);
+#endif
+
+    spdlog::info("Parsing input");
+
     // https://embree.github.io/api.html
     // For optimal Embree performance
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 
-    const std::filesystem::path sceneFilename = "D:/Pandora Scenes/pbrt_intermediate/crown/pandora.json";
-    //const std::filesystem::path sceneFilename = "D:/Pandora Scenes/pbrt_intermediate/sanmiguel/pandora_cam25_scaled_lights.json";
-    auto renderConfig = pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE ? loadFromFileOOC(sceneFilename, false) : loadFromFile(sceneFilename, false);
-    //auto renderConfig = createStaticScene();
-    if constexpr (pandora::OUT_OF_CORE_ACCELERATION_STRUCTURE) {
-        renderConfig.scene.splitLargeOOCSceneObjects(OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF / 4);
+    namespace po = boost::program_options;
+    po::options_description desc("Pandora options");
+    // clang-format off
+    desc.add_options()
+		("file", po::value<std::string>()->required(), "Pandora scene description JSON")
+		("out", po::value<std::string>()->default_value("output"s), "output name (without file extension!)")
+		("integrator", po::value<std::string>()->default_value("direct"), "integrator (normal, direct or path)")
+		("spp", po::value<int>()->default_value(1), "samples per pixel")
+		("help", "show all arguments");
+    // clang-format on
+
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+
+    if (vm.count("help")) {
+        std::cout << desc << std::endl;
+        return 1;
     }
 
-    //auto renderConfig = createStaticScene();
-    Scene& scene = renderConfig.scene;
-    PerspectiveCamera& camera = *renderConfig.camera;
+    try {
+        po::notify(vm);
+    } catch (const boost::program_options::required_option& e) {
+        std::cout << "Missing required argument \"" << e.get_option_name() << "\"" << std::endl;
+        return 1;
+    }
 
-    Window myWindow(renderConfig.resolution.x, renderConfig.resolution.y, "Atlas - Pandora viewer");
-    FramebufferGL frameBuffer(renderConfig.resolution.x, renderConfig.resolution.y);
+    std::cout << "Rendering with the following settings:\n";
+    std::cout << "  file          " << vm["file"].as<std::string>() << "\n";
+    std::cout << "  out           " << vm["out"].as<std::string>() << "\n";
+    std::cout << "  integrator    " << vm["integrator"].as<std::string>() << "\n";
+    std::cout << "  spp           " << vm["spp"].as<int>() << std::endl;
 
-    FpsCameraControls cameraControls(myWindow, camera);
+    g_stats.config.sceneFile = vm["file"].as<std::string>();
+    g_stats.config.integrator = vm["integrator"].as<std::string>();
+    g_stats.config.spp = vm["spp"].as<int>();
 
-    /*
-    // Create skylight plane
-    {
-        Bounds sceneBounds;
-        {
-            for (const auto& object : scene.getInCoreSceneObjects()) {
-                sceneBounds.extend(object->worldBounds());
-            }
-        }
+    spdlog::info("Loading scene");
+    RenderConfig renderConfig = loadFromFile(vm["file"].as<std::string>());
+    const glm::ivec2 resolution = renderConfig.resolution;
 
-        auto positions = std::make_unique<glm::vec3[]>(4);
-        positions[0] = glm::vec3(sceneBounds.min.x, sceneBounds.min.y, sceneBounds.max.z + sceneBounds.extent().z / 4);
-        positions[1] = glm::vec3(sceneBounds.max.x, sceneBounds.min.y, sceneBounds.max.z + sceneBounds.extent().z / 4);
-        positions[2] = glm::vec3(sceneBounds.min.x, sceneBounds.max.y, sceneBounds.max.z + sceneBounds.extent().z / 4);
-        positions[3] = glm::vec3(sceneBounds.max.x, sceneBounds.max.y, sceneBounds.max.z + sceneBounds.extent().z / 4);
+    Window myWindow(resolution.x, resolution.y, "Atlas - Pandora viewer");
+    FramebufferGL frameBuffer(resolution.x, resolution.y);
+    FpsCameraControls cameraControls(myWindow, *renderConfig.camera);
 
-        auto normals = std::make_unique<glm::vec3[]>(4);
-        normals[0] = glm::vec3(0, 0, -1);
-        normals[1] = glm::vec3(0, 0, -1);
-        normals[2] = glm::vec3(0, 0, -1);
-        normals[3] = glm::vec3(0, 0, -1);
+    spdlog::info("Creating integrator");
+    tasking::TaskGraph taskGraph;
+    const int spp = vm["spp"].as<int>();
+    //NormalDebugIntegrator integrator { &taskGraph };
+    DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+    //PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
-        auto triangles = std::make_unique<glm::ivec3[]>(2);
-        triangles[0] = glm::ivec3(0, 1, 2);
-        triangles[1] = glm::ivec3(1, 2, 3);
-
-        auto material = std::make_shared<MatteMaterial>(
-            std::make_shared<ConstantTexture<glm::vec3>>(glm::vec3(0.0f)),
-            std::make_shared<ConstantTexture<float>>(0.0f));
-        auto mesh = std::make_shared<TriangleMesh>(2, 4, std::move(triangles), std::move(positions), std::move(normals), nullptr, nullptr);
-
-        auto lightSceneObject = std::make_unique<InCoreGeometricSceneObject>(mesh, material, Spectrum(1));
-        scene.addSceneObject(std::move(lightSceneObject));
-    }*/
-
-    /*// Skydome
-    auto colorTexture = std::make_shared<ImageTexture<Spectrum>>(projectBasePath + "assets/skydome/DF360_005_Ref.hdr");
-    auto transform = glm::rotate(glm::mat4(1.0f), -glm::half_pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
-    scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, Spectrum(1.0f), 1, colorTexture));*/
-
-    //scene.splitLargeSceneObjects(IN_CORE_BATCHING_PRIMS_PER_LEAF);
-    //scene.splitLargeInCoreSceneObjects(IN_CORE_BATCHING_SCENE_OBJECT_PRIMS);
-
-    constexpr int spp = 1;
-    DirectLightingIntegrator integrator(8, scene, camera.getSensor(), spp, LightStrategy::UniformSampleOne);
-    //NaiveDirectLightingIntegrator integrator(8, scene, camera.getSensor(), spp);
-    //NormalDebugIntegrator integrator(scene, camera.getSensor());
-    //PathIntegrator integrator(8, scene, camera.getSensor(), spp);
-    //SVOTestIntegrator integrator(scene, camera.getSensor(), 1);
-    //SVODepthTestIntegrator integrator(scene, camera.getSensor());
+    spdlog::info("Building acceleration structure");
+    EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
+    auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
     bool pressedEscape = false;
     myWindow.registerKeyCallback([&](int key, int scancode, int action, int mods) {
@@ -114,6 +110,8 @@ int main()
             pressedEscape = true;
     });
 
+    auto& camera = *renderConfig.camera;
+    auto& sensor = renderConfig.camera->getSensor();
     auto previousTimestamp = std::chrono::high_resolution_clock::now();
     int samples = 0;
     while (!myWindow.shouldClose() && !pressedEscape) {
@@ -122,11 +120,10 @@ int main()
 
         if (cameraControls.cameraChanged()) {
             samples = 0;
-            camera.getSensor().clear(glm::vec3(0.0f));
+            sensor.clear(glm::vec3(0.0f));
         }
 
-        integrator.reset();
-        integrator.render(camera);
+        integrator.render(camera, sensor, *renderConfig.pScene, accel);
         samples += spp;
 
         glm::vec3 camPos = camera.getTransform() * glm::vec4(0, 0, 0, 1);
@@ -140,14 +137,14 @@ int main()
         }
 
         float mult = 1.0f / samples;
-        frameBuffer.update(camera.getSensor(), mult);
+        frameBuffer.update(sensor, mult);
         myWindow.swapBuffers();
     }
 
     return 0;
 }
 
-void addCrytekSponza(Scene& scene);
+/*void addCrytekSponza(Scene& scene);
 void addStanfordBunny(Scene& scene);
 void addStanfordDragon(Scene& scene, bool loadFromCache = false);
 void addCornellBox(Scene& scene);
@@ -209,10 +206,6 @@ void addStanfordBunny(Scene& scene)
     transform = glm::scale(transform, glm::vec3(8));
     //transform = glm::translate(transform, glm::vec3(0, -1, 0));
 
-    /*auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.1f, 0.1f, 0.5f));
-    auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
-    //auto material = std::make_shared<MatteMaterial>(kd, roughness);
-    auto material = MetalMaterial::createCopper(roughness, true);*/
     auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.1f, 0.2f, 0.4f));
     auto ks = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
     auto roughness = std::make_shared<ConstantTexture<float>>(0.006f);
@@ -264,7 +257,7 @@ void addStanfordDragon(Scene& scene, bool loadFromCache)
         for (auto& mesh : meshes) {
             scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
         }
-    }*/
+    }/
 }
 
 void addCornellBox(Scene& scene)
@@ -307,4 +300,4 @@ void addCornellBox(Scene& scene)
             scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(meshPtr, material));
         }
     }
-}
+}*/

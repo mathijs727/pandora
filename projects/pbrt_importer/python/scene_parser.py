@@ -90,6 +90,10 @@ def get_size(obj, seen=None):
     return size
 
 
+def normalize(v):
+    return v / np.linalg.norm(v)
+
+
 class SceneParser:
     def __init__(self, pbrt_scene, out_folder):
         self._out_folder = out_folder
@@ -174,18 +178,18 @@ class SceneParser:
                     "transform": self._create_transform(light_source.transform)
                 })
             elif light_source.type == "distant":
-                if "from" in light_source.arguments and "to" in light_source.arguments:
-                    direction = light_source.arguments["to"]["value"] - \
-                        light_source.arguments["from"]["value"]
-                else:
-                    direction = [0, 0, 1]
+                point_from = light_source.arguments["from"]["value"] if "from" in light_source.arguments else np.array([
+                                                                                                                       0, 0, 0], np.float32)
+                point_to = light_source.arguments["to"]["value"] if "to" in light_source.arguments else np.array([
+                                                                                                                 0, 0, 1], np.float32)
+                direction = normalize(point_to - point_from)
 
                 if "L" in light_source.arguments:
                     L = _replace_black_body(
                         light_source.arguments["L"]["value"])
                 else:
-                    L = [1, 1, 1]
-                L = list(np.array(L) * np.array(scale))
+                    L = np.array([1, 1, 1], np.float32)
+                L = list(L * np.array(scale))
 
                 self._light_sources.append({
                     "type": "distant",
@@ -324,18 +328,19 @@ class SceneParser:
                 "filename": filename,
                 "start_byte": start_byte,
                 "size_bytes": size_bytes
-                #"transform": self._create_transform(shape.transform)
+                # "transform": self._create_transform(shape.transform)
             })
         else:
-            # print(f"Ignoring shape of unsupported type {shape.type}")
+            print(f"Ignoring shape of unsupported type {shape.type}")
             return None
 
         material_id = self._create_material_id(shape.material)
 
         if shape.area_light is not None:
-            L =  _replace_black_body(shape.area_light.arguments["L"]["value"])
+            L = _replace_black_body(shape.area_light.arguments["L"]["value"])
             if "scale" in shape.area_light.arguments:
-                L = list(np.array(L) * np.array(shape.area_light.arguments["scale"]["value"]))
+                L = list(
+                    np.array(L) * np.array(shape.area_light.arguments["scale"]["value"]))
             area_light = {
                 # get_argument_with_default(shape.area_light.arguments, "L", [1,1,1]),
                 "L": L,
@@ -360,7 +365,7 @@ class SceneParser:
     def _create_scene_objects(self, pbrt_scene):
         print("Unique scene objects")
 
-        for json_shape in pbrt_scene["non_instanced_shapes"]:
+        for i, json_shape in enumerate(pbrt_scene["non_instanced_shapes"]):
             scene_object = self._create_geometric_scene_object(json_shape)
             if scene_object is not None:
                 self._scene_objects.add_item(scene_object)

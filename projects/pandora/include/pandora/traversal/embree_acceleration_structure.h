@@ -216,9 +216,10 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectA
         embreeRay.id = 0;
         embreeRay.flags = 0;
 
-		rtcOccluded1(m_embreeScene, &context, &embreeRay);
+        rtcOccluded1(m_embreeScene, &context, &embreeRay);
 
-        if (embreeRay.tfar != -std::numeric_limits<float>::infinity()) {
+        constexpr float negativeInfinity = -std::numeric_limits<float>::infinity();
+        if (embreeRay.tfar == negativeInfinity) {
             m_pTaskGraph->enqueue(m_onAnyHitTask, std::tuple { ray, state });
         } else {
             m_pTaskGraph->enqueue(m_onAnyMissTask, std::tuple { ray, state });

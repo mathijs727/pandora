@@ -1,7 +1,7 @@
 #include "pandora/graphics_core/load_from_file.h"
-#include "pandora/graphics_core/load_from_file.h"
 #include "pandora/core/stats.h"
 #include "pandora/flatbuffers/triangle_mesh_generated.h"
+#include "pandora/graphics_core/load_from_file.h"
 #include "pandora/lights/distant_light.h"
 #include "pandora/lights/environment_light.h"
 #include "pandora/materials/matte_material.h"
@@ -164,7 +164,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                     const auto& sigma = getFloatTexture(arguments["sigma"].get<int>());
                     materials.push_back(std::make_shared<MatteMaterial>(kd, sigma));
                 } else {
-                    std::cout << "Unknown material type \"" << materialType << "\"! Substituting with placeholder." << std::endl;
+                    spdlog::warn("Unknown material type {}! Substituting with placeholder", materialType);
                     materials.push_back(std::make_shared<MatteMaterial>(dummyColorTexture, dummyFloatTexture));
                 }
             }
@@ -287,32 +287,31 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         // Load lights
         spdlog::info("Create infinite lights");
         for (const auto jsonLight : sceneJson["lights"]) {
-            spdlog::info("Infinite light source not supported yet");
-            /*std::string type = jsonLight["type"].get<std::string>();
+            std::string type = jsonLight["type"].get<std::string>();
             if (type == "infinite") {
-                std::cout << "Infinite area light" << std::endl;
+                spdlog::debug("Creating environment area light");
                 auto transform = getTransform(jsonLight["transform"]);
                 auto scale = readVec3(jsonLight["scale"]);
                 auto numSamples = jsonLight["num_samples"].get<int>();
+                assert(numSamples == 1);
                 auto texture = getColorTexture(jsonLight["texture"].get<int>());
 
-                //std::cout << "Skipping loading infinite area light for debugging" << std::endl;
-                std::cout << "Infinite area light with id: " << jsonLight["texture"].get<int>() << std::endl;
-                std::cout << "Brightness scale: [" << scale.x << ", " << scale.y << ", " << scale.z << "]" << std::endl;
-                config.scene.addInfiniteLight(std::make_shared<EnvironmentLight>(transform, scale, numSamples, texture));
+                spdlog::debug("Environment area light with id: {}", jsonLight["texture"].get<int>());
+                spdlog::info("Brightness scale: [{}, {}, {}]", scale.x, scale.y, scale.z);
+                sceneBuilder.addInfiniteLight(std::make_unique<EnvironmentLight>(transform, scale, texture));
             } else if (type == "distant") {
                 auto transform = getTransform(jsonLight["transform"]);
                 auto L = readVec3(jsonLight["L"]);
                 auto dir = readVec3(jsonLight["direction"]);
 
-                std::cout << "Distant area light" << std::endl;
-                config.scene.addInfiniteLight(std::make_shared<DistantLight>(transform, L, dir));
+                spdlog::debug("Creating distant area light");
+                sceneBuilder.addInfiniteLight(std::unique_ptr<DistantLight>(new DistantLight(transform, L, dir)));
             } else {
                 THROW_ERROR("Unknown light type");
-            }*/
+            }
         }
 
-		config.pScene = std::make_unique<Scene>(sceneBuilder.build());
+        config.pScene = std::make_unique<Scene>(sceneBuilder.build());
     }
 
     spdlog::info("Finished parsing scene");

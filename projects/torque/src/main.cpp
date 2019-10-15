@@ -13,10 +13,10 @@
 #include "stream/task_graph.h"
 
 #include <boost/program_options.hpp>
-#include <iostream>
 #include <string>
 #include <tbb/tbb.h>
 #include <xmmintrin.h>
+#include <iostream>
 #ifdef _WIN32
 #include <spdlog/sinks/msvc_sink.h>
 #else

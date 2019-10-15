@@ -1,3 +1,4 @@
+import pandora_py
 from deepmerge import merge_or_raise
 import numpy as np
 import os
@@ -18,7 +19,6 @@ import collections
 # Get pandora_py from parent path
 # https://stackoverflow.com/questions/16780014/import-file-from-parent-directory
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import pandora_py
 
 
 class ParsingState(Enum):
@@ -227,22 +227,20 @@ def p_basic_data_type(p):
 def p_list(p):
     "list : LIST"
     text = p[1][1:-1]
+
+    # The Python string length in C++ is a 32-bit int
+    assert(len(text) < 2147483647)
+
     if '"' in text:
         import re
         p[0] = [s[1:-1] for s in re.findall('"[^"]*"', text)]
     elif '.' in text:
-        #result = np.fromstring(text, dtype=float, sep=' ')
-        # The Python string length in C++ is a 32-bit int
-        assert(len(text) < 2147483647)
         # Neither ujson nor rapidjson support float32 so convert to a double
-        result = pandora_py.string_to_numpy_double(text)
-        p[0] = result
+        p[0] = pandora_py.string_to_numpy_double(text)
+    elif '-' in text:
+        p[0] = pandora_py.string_to_numpy_int32(text)
     else:
-        #result = np.fromstring(text, dtype=int, sep=' ')
-        # The Python string length in C++ is a 32-bit int
-        assert(len(text) < 2147483647)
-        result = pandora_py.string_to_numpy_uint32(text)
-        p[0] = result
+        p[0] = pandora_py.string_to_numpy_uint32(text)
 
 
 def p_argument(p):

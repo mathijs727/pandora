@@ -1,0 +1,60 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>c3964534-4340-44cb-8c46-7bfbbcb19e56</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
+    <StartupFile>pbrt_to_pandora.py</StartupFile>
+    <SearchPath>
+    </SearchPath>
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <Name>pbrt_to_pandora</Name>
+    <RootNamespace>pbrt_to_pandora</RootNamespace>
+    <InterpreterId>CondaEnv|CondaEnv|pandora</InterpreterId>
+    <TestFramework>Pytest</TestFramework>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <CommandLineArguments>--file "C:\Users\mathi\Desktop\3d scenes\pbrt\island-pbrt-v1.1/island/pbrt/island.pbrt" --out "C:\Users\mathi\Desktop\3d scenes\pandora\island/island.json"</CommandLineArguments>
+    <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="batched_obj_exporter.py" />
+    <Compile Include="config_parser.py" />
+    <Compile Include="parsing\file_backed_list.py" />
+    <Compile Include="parsing\lexer.py" />
+    <Compile Include="parsing\lextab.py" />
+    <Compile Include="parsing\matrix.py" />
+    <Compile Include="parsing\mesh_batch.py" />
+    <Compile Include="parsing\parser.py" />
+    <Compile Include="parsing\parsetab.py" />
+    <Compile Include="pbrt_to_pandora.py" />
+    <Compile Include="scene_parser.py" />
+    <Compile Include="string_to_number_benchmark.py" />
+    <Compile Include="test_mem_usage.py" />
+    <Compile Include="unique_collection.py" />
+    <Compile Include="verify_scene.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="parsing\" />
+  </ItemGroup>
+  <ItemGroup>
+    <InterpreterReference Include="CondaEnv|CondaEnv|pandora" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
+  <!-- Uncomment the CoreCompile target to enable the Build command in
+       Visual Studio and specify your pre- and post-build commands in
+       the BeforeBuild and AfterBuild targets below. -->
+  <!--<Target Name="CoreCompile" />-->
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+</Project>

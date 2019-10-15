@@ -62,6 +62,12 @@ SceneNode* SceneBuilder::addSceneNode(const glm::mat4& transform, SceneNode* pPa
     return pSceneNode.get();
 }
 
+void SceneBuilder::addInfiniteLight(std::unique_ptr<InfiniteLight>&& pInfiniteLight)
+{
+    m_infiniteLights.push_back(pInfiniteLight.get());
+    m_lights.push_back(std::move(pInfiniteLight));
+}
+
 Scene SceneBuilder::build()
 {
     attachLightRecurse(&m_root, {});
@@ -79,8 +85,12 @@ void SceneBuilder::attachLightRecurse(SceneNode* pNode, std::optional<glm::mat4>
             finalTransform = pNode->transform;
     }
 
+    std::optional<glm::mat4> invFinalTransform;
+    if (finalTransform)
+        invFinalTransform = glm::inverse(*finalTransform);
+
     for (auto pChild : pNode->children)
-        attachLightRecurse(pChild.get(), finalTransform);
+        attachLightRecurse(pChild.get(), invFinalTransform);
 
     for (auto pObject : pNode->objects) {
         if (pObject->pAreaLight) {

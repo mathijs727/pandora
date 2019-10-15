@@ -81,6 +81,15 @@ void DirectLightingIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& 
 
 void DirectLightingIntegrator::rayMiss(const Ray& ray, const BounceRayState& state)
 {
+    glm::vec3 infiniteLightContribution {};
+    const auto* pScene = m_pCurrentRenderData->pScene;
+    for (const auto* pInfiniteLight : pScene->infiniteLights)
+        infiniteLightContribution += pInfiniteLight->Le(ray);
+
+    auto* pSensor = m_pCurrentRenderData->pSensor;
+    if (!isBlack(infiniteLightContribution))
+        pSensor->addPixelContribution(state.pixel, state.weight * infiniteLightContribution);
+
     spawnNewPaths(1);
 }
 
