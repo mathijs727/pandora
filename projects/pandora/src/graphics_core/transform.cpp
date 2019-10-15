@@ -72,6 +72,16 @@ Bounds Transform::transform(const Bounds& bounds) const
     return transformedBounds;
 }
 
+Interaction Transform::transform(const Interaction& si) const
+{
+    // https://github.com/mmp/pbrt-v3/blob/master/src/core/transform.cpp
+    Interaction result;
+    result.wo = glm::normalize(transformVector(si.normal));
+    result.normal = glm::normalize(transformNormal(si.normal));
+    result.position = transformPoint(si.position);
+    return result;
+}
+
 SurfaceInteraction Transform::transform(const SurfaceInteraction& si) const
 {
     // https://github.com/mmp/pbrt-v3/blob/master/src/core/transform.cpp

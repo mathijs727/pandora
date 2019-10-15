@@ -40,10 +40,8 @@ void SamplerIntegrator::uniformSampleAllLights(
     const SurfaceInteraction& si, const BounceRayState& bounceRayState, PcgRng& rng)
 {
     const auto* pScene = m_pCurrentRenderData->pScene;
-    for (const auto& areaLightInstance : pScene->areaLightInstances) {
-        // TODO: support instanced lights
-        assert(!areaLightInstance.transform);
-        estimateDirect(si, *areaLightInstance.pAreaLight, 1.0f, bounceRayState, rng);
+    for (const auto& pLight : pScene->lights) {
+        estimateDirect(si, *pLight, 1.0f, bounceRayState, rng);
     }
 }
 
@@ -53,16 +51,14 @@ void SamplerIntegrator::uniformSampleOneLight(
     const auto* pScene = m_pCurrentRenderData->pScene;
 
     // Randomly choose a single light to sample
-    uint32_t numLights = static_cast<uint32_t>(pScene->areaLightInstances.size());
+    uint32_t numLights = static_cast<uint32_t>(pScene->lights.size());
     if (numLights == 0)
         return;
 
     uint32_t lightNum = std::min(rng.uniformU32(), numLights - 1);
-    const auto& areaLightInstance = pScene->areaLightInstances[lightNum];
-    // TODO: support instanced lights
-    assert(!areaLightInstance.transform);
+    const auto& pLight = pScene->lights[lightNum];
 
-    estimateDirect(si, *areaLightInstance.pAreaLight, static_cast<float>(numLights), bounceRayState, rng);
+    estimateDirect(si, *pLight, static_cast<float>(numLights), bounceRayState, rng);
 }
 
 void SamplerIntegrator::estimateDirect(

@@ -25,6 +25,7 @@ public:
 
     Ray transform(const Ray& ray) const;
     Bounds transform(const Bounds& bounds) const;
+    Interaction transform(const Interaction& si) const;
     SurfaceInteraction transform(const SurfaceInteraction& si) const;
 
 private:

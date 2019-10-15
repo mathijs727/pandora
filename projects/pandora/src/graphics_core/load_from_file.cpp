@@ -273,7 +273,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
                 if (jsonSceneObject.find("area_light") != jsonSceneObject.end()) {
                     auto areaLightRadiance = readVec3(jsonSceneObject["area_light"]["L"]);
-                    auto pAreaLight = std::make_unique<AreaLight>(areaLightRadiance, pShape.get());
+                    auto pAreaLight = std::make_unique<AreaLight>(areaLightRadiance);
                     sceneBuilder.addSceneObject(pShape, pMaterial, std::move(pAreaLight));
                 } else {
                     sceneBuilder.addSceneObject(pShape, pMaterial);
@@ -311,6 +311,8 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 THROW_ERROR("Unknown light type");
             }*/
         }
+
+		config.pScene = std::make_unique<Scene>(sceneBuilder.build());
     }
 
     spdlog::info("Finished parsing scene");

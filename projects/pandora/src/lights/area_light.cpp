@@ -6,10 +6,9 @@
 
 namespace pandora {
 
-AreaLight::AreaLight(glm::vec3 emittedLight, const Shape* pShape)
+AreaLight::AreaLight(glm::vec3 emittedLight)
     : Light((int)LightFlags::Area)
     , m_emmitedLight(emittedLight)
-    , m_pShape(pShape)
 {
 }
 
@@ -22,9 +21,11 @@ LightSample AreaLight::sampleLi(const Interaction& ref, PcgRng& rng) const
 {
     const auto* intersectGeom = m_pShape->getIntersectGeometry();
 
-	const uint32_t numPrimitives = m_pShape->numPrimitives();
+    const uint32_t numPrimitives = m_pShape->numPrimitives();
     const uint32_t primitiveID = rng.uniformU32() % numPrimitives;
-    const Interaction pointOnShape = intersectGeom->samplePrimitive(primitiveID, ref, rng);
+    Interaction pointOnShape = intersectGeom->samplePrimitive(primitiveID, ref, rng);
+    if (m_transform)
+        pointOnShape = m_transform->transform(pointOnShape);
 
     LightSample result;
     result.wi = glm::normalize(pointOnShape.position - ref.position);
@@ -40,6 +41,17 @@ float AreaLight::pdfLi(const Interaction& ref, const glm::vec3& wi) const
     //return intersectGeom->pdfPrimitive(m_primitiveID, ref, wi);
     spdlog::warn("AreaLight::pdfLi returns 0.0f because pdfPrimitive with direction is not implemented");
     return 0.0f;
+}
+
+void AreaLight::attachToShape(const Shape* pShape)
+{
+    m_pShape = pShape;
+}
+
+void AreaLight::attachToShape(const Shape* pShape, glm::mat4 transform)
+{
+    m_pShape = pShape;
+    m_transform = transform;
 }
 
 }

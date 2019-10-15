@@ -112,8 +112,8 @@ int main(int argc, char** argv)
 
     spdlog::info("Creating integrator");
     const int spp = vm["spp"].as<int>();
-    NormalDebugIntegrator integrator { &taskGraph };
-    //DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+    //NormalDebugIntegrator integrator { &taskGraph };
+    DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
     //PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Building acceleration structure");
@@ -236,7 +236,7 @@ RenderConfig createDemoScene()
         auto pSigmaTexture = std::make_shared<ConstantTexture<float>>(1.0f);
         auto pMaterial = std::make_shared<MatteMaterial>(pKdTexture, pSigmaTexture);
 
-        auto pLight = std::make_unique<AreaLight>(10000.0f * glm::vec3(1.0f, 0.2f, 0.4f), pShape.get());
+        auto pLight = std::make_unique<AreaLight>(10000.0f * glm::vec3(1.0f, 0.2f, 0.4f));
 
         sceneBuilder.addSceneObject(pShape, pMaterial, std::move(pLight));
     }

@@ -40,13 +40,11 @@ PandoraMeshBatch::PandoraMeshBatch(std::string filename)
     , m_file(filename)
     , m_currentPos(0)
 {
-    spdlog::info("PandoraMeshBatch({})", filename);
     pandora::ALWAYS_ASSERT(std::filesystem::exists(m_filename));
 }
 
 PandoraMeshBatch::~PandoraMeshBatch()
 {
-    spdlog::info("~PandoraMeshBatch({})", m_filename);
 }
 
 pybind11::tuple PandoraMeshBatch::addTriangleMesh(
