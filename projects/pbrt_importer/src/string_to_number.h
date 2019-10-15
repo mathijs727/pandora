@@ -4,4 +4,4 @@
 #include <string>
 
 template <typename T>
-pybind11::array_t<T> stringToNumpy(std::string string);
+pybind11::array_t<T> stringToNumpy(std::string_view string);

@@ -49,7 +49,8 @@ private:
     TriangleShadingGeometry(
         const TriangleIntersectGeometry* pIntersectGeometry,
         std::vector<glm::vec3>&& normals,
-        std::vector<glm::vec2>&& uvCoords);
+        std::vector<glm::vec2>&& uvCoords,
+		std::vector<glm::vec3>&& tangents);
 
     void getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const;
 
@@ -62,6 +63,13 @@ private:
 
 class TriangleShape : public Shape {
 public:
+    TriangleShape(
+        std::vector<glm::uvec3>&& indices,
+        std::vector<glm::vec3>&& positions,
+        std::vector<glm::vec3>&& normals,
+        std::vector<glm::vec2>&& uvCoords,
+        std::vector<glm::vec3>&& tangents);
+
     const IntersectGeometry* getIntersectGeometry() const final;
     const ShadingGeometry* getShadingGeometry() const final;
 
@@ -71,16 +79,11 @@ public:
     static std::optional<TriangleShape> loadFromFileSingleShape(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
     static std::vector<TriangleShape> loadFromFile(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
 
+	flatbuffers::Offset<serialization::TriangleMesh> serialize(flatbuffers::FlatBufferBuilder& builder) const;
     //static std::vector<TriangleShape> loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh);
     static TriangleShape loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh, const glm::mat4& transformMatrix);
 
 private:
-    TriangleShape(
-        std::vector<glm::uvec3>&& indices,
-        std::vector<glm::vec3>&& positions,
-        std::vector<glm::vec3>&& normals,
-        std::vector<glm::vec2>&& uvCoords);
-
     static std::optional<TriangleShape> loadFromFileSingleShape(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals);
     static TriangleShape createAssimpMesh(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
 

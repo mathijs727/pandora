@@ -84,7 +84,7 @@ TriangleShape TriangleShape::loadSerialized(const serialization::TriangleMesh* p
     }
     normals.shrink_to_fit();
 
-    /*std::vector<glm::vec2> tangents;
+    std::vector<glm::vec3> tangents;
     if (pSerializedTriangleMesh->tangents()) {
         tangents.resize(pSerializedTriangleMesh->tangents()->size());
         std::transform(
@@ -95,7 +95,7 @@ TriangleShape TriangleShape::loadSerialized(const serialization::TriangleMesh* p
                 return transform.transformNormal(deserialize(*t));
             });
     }
-    tangents.shrink_to_fit();*/
+    tangents.shrink_to_fit();
 
     std::vector<glm::vec2> uvCoords;
     if (pSerializedTriangleMesh->uvCoords()) {
@@ -110,21 +110,22 @@ TriangleShape TriangleShape::loadSerialized(const serialization::TriangleMesh* p
     }
     uvCoords.shrink_to_fit();
 
-	return TriangleShape(std::move(indices), std::move(positions), std::move(normals), std::move(uvCoords));
+    return TriangleShape(std::move(indices), std::move(positions), std::move(normals), std::move(uvCoords), std::move(tangents));
 }
 
 TriangleShape::TriangleShape(
     std::vector<glm::uvec3>&& indices,
     std::vector<glm::vec3>&& positions,
     std::vector<glm::vec3>&& normals,
-    std::vector<glm::vec2>&& uvCoords)
+    std::vector<glm::vec2>&& uvCoords,
+    std::vector<glm::vec3>&& tangents)
     // Cannot use std::make_shared to access private constructor of friend class
     : m_intersectGeometry(
         std::unique_ptr<TriangleIntersectGeometry>(
             new TriangleIntersectGeometry(std::move(indices), std::move(positions))))
     , m_shadingGeometry(
           std::unique_ptr<TriangleShadingGeometry>(
-              new TriangleShadingGeometry(m_intersectGeometry.get(), std::move(normals), std::move(uvCoords))))
+              new TriangleShadingGeometry(m_intersectGeometry.get(), std::move(normals), std::move(uvCoords), std::move(tangents))))
     , m_bounds(m_intersectGeometry->computeBounds())
     , m_numPrimitives(m_intersectGeometry->numPrimitives())
 {
@@ -188,20 +189,19 @@ TriangleShape TriangleShape::createAssimpMesh(const aiScene* scene, const unsign
         }
     }
 
-    /*// UV mapping
+    // UV mapping
     if (mesh->HasTextureCoords(0)) {
-        uvCoords = std::make_unique<glm::vec2[]>(mesh->mNumVertices);
         for (unsigned i = 0; i < mesh->mNumVertices; i++) {
-            uvCoords[i] = glm::vec2(assimpVec(mesh->mTextureCoords[0][i]));
+            uvCoords.push_back(glm::vec2(assimpVec(mesh->mTextureCoords[0][i])));
         }
-    }*/
+    }
 
     return TriangleShape(
         std::move(indices),
         std::move(positions),
         std::move(normals),
-        //std::move(tangents),
-        std::move(uvCoords));
+        std::move(uvCoords),
+        std::move(tangents));
 }
 
 std::optional<TriangleShape> TriangleShape::loadFromFileSingleShape(std::filesystem::path filePath, glm::mat4 objTransform, bool ignoreVertexNormals)
@@ -293,6 +293,7 @@ std::optional<TriangleShape> TriangleShape::loadFromFileSingleShape(const aiScen
         std::move(indices),
         std::move(positions),
         std::move(normals),
+        {},
         {});
 }
 
@@ -336,6 +337,36 @@ std::vector<TriangleShape> TriangleShape::loadFromFile(std::filesystem::path fil
 
     importer.FreeScene();
     return result;
+}
+
+flatbuffers::Offset<serialization::TriangleMesh> TriangleShape::serialize(flatbuffers::FlatBufferBuilder& builder) const
+{
+    auto triangles = builder.CreateVectorOfStructs(
+        reinterpret_cast<const serialization::Vec3u*>(m_intersectGeometry->m_indices.data()), m_intersectGeometry->m_indices.size());
+    auto positions = builder.CreateVectorOfStructs(
+        reinterpret_cast<const serialization::Vec3*>(m_intersectGeometry->m_positions.data()), m_intersectGeometry->m_positions.size());
+    flatbuffers::Offset<flatbuffers::Vector<const serialization::Vec3*>> normals = 0;
+    if (!m_shadingGeometry->m_normals.empty())
+        normals = builder.CreateVectorOfStructs(
+            reinterpret_cast<const serialization::Vec3*>(m_shadingGeometry->m_normals.data()), m_shadingGeometry->m_normals.size());
+    flatbuffers::Offset<flatbuffers::Vector<const serialization::Vec3*>> tangents = 0;
+    if (!m_shadingGeometry->m_tangents.empty())
+        tangents = builder.CreateVectorOfStructs(
+            reinterpret_cast<const serialization::Vec3*>(m_shadingGeometry->m_tangents.data()), m_shadingGeometry->m_tangents.size());
+    flatbuffers::Offset<flatbuffers::Vector<const serialization::Vec2*>> uvCoords = 0;
+    if (!m_shadingGeometry->m_uvCoords.empty())
+        uvCoords = builder.CreateVectorOfStructs(
+            reinterpret_cast<const serialization::Vec2*>(m_shadingGeometry->m_uvCoords.data()), m_shadingGeometry->m_uvCoords.size());
+
+    auto bounds = m_bounds.serialize();
+    return serialization::CreateTriangleMesh(
+        builder,
+        triangles,
+        positions,
+        normals,
+        tangents,
+        uvCoords,
+        &bounds);
 }
 
 }

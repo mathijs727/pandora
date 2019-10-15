@@ -74,11 +74,11 @@ std::vector<T> stringToVector(const std::string_view string)
     size_t cursor = 0;
     while (cursor < stringSize) {
         // std::isspace is slow because it tries to be too generic (checking locale settings)
-        while (isSpace(string[cursor]) && cursor < stringSize)
+        while (cursor < stringSize && isSpace(string[cursor]))
             cursor++;
 
         const size_t tokenStart = cursor;
-        while (!isSpace(string[cursor]) && cursor < stringSize)
+        while (cursor < stringSize  && !isSpace(string[cursor]))
             cursor++;
 
         if (cursor == tokenStart)
@@ -146,7 +146,7 @@ int main()
     using clock = std::chrono::high_resolution_clock;
 
     auto start = clock::now();
-    auto result = stringToVector<float>(myString);
+    auto result = stringToVector<double>(myString);
     auto end = clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

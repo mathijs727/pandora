@@ -37,13 +37,18 @@ static glm::vec3 assimpVec(const aiVector3D& v)
 namespace pandora {
 
 TriangleShadingGeometry::TriangleShadingGeometry(
-    const TriangleIntersectGeometry* pIntersectGeometry, std::vector<glm::vec3>&& normals, std::vector<glm::vec2>&& uvCoords)
+    const TriangleIntersectGeometry* pIntersectGeometry,
+	std::vector<glm::vec3>&& normals,
+	std::vector<glm::vec2>&& uvCoords,
+	std::vector<glm::vec3>&& tangents)
     : m_pIntersectGeometry(pIntersectGeometry)
     , m_normals(std::move(normals))
     , m_uvCoords(std::move(uvCoords))
+    , m_tangents(std::move(tangents))
 {
     m_normals.shrink_to_fit();
     m_uvCoords.shrink_to_fit();
+    m_tangents.shrink_to_fit();
 }
 
 SurfaceInteraction pandora::TriangleShadingGeometry::fillSurfaceInteraction(const Ray& ray, const RayHit& hitInfo) const

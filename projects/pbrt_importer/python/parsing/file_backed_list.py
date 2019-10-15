@@ -3,7 +3,7 @@ import pickle
 
 
 class FileBackedList:
-    def __init__(self, folder, chunk_size=100000):
+    def __init__(self, folder, chunk_size=50*1024*1024):
         self._folder = folder
         self._chunk_size = chunk_size
 
@@ -19,7 +19,6 @@ class FileBackedList:
             self._write_chunk()
 
     def _write_chunk(self):
-        print("Writing list chunk...")
         filename = os.path.join(
             self._folder, f"list{self._current_chunk_id}.bin")
         with open(filename, "wb") as f:

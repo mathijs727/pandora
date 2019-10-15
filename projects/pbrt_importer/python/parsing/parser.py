@@ -241,7 +241,7 @@ def p_list(p):
         #result = np.fromstring(text, dtype=int, sep=' ')
         # The Python string length in C++ is a 32-bit int
         assert(len(text) < 2147483647)
-        result = pandora_py.string_to_numpy_int(text)
+        result = pandora_py.string_to_numpy_uint32(text)
         p[0] = result
 
 

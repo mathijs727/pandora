@@ -112,8 +112,8 @@ int main(int argc, char** argv)
 
     spdlog::info("Creating integrator");
     const int spp = vm["spp"].as<int>();
-    //NormalDebugIntegrator integrator { &taskGraph };
-    DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+    NormalDebugIntegrator integrator { &taskGraph };
+    //DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
     //PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Building acceleration structure");

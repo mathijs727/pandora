@@ -7,20 +7,16 @@
 #include <cstdlib>
 #include <execution>
 #include <gsl/span>
-#include <iostream>
 #include <string>
 #include <string_view>
 #include <thread>
 #include <vector>
 
 template <typename T>
-T fromString(std::string_view str);
-
-template <>
-int fromString(std::string_view str)
+T fromString(std::string_view str)
 {
-    // <charconv> faster than atoi
-    int value;
+    // <charconv> is fast and generic
+    T value;
     std::from_chars(str.data(), str.data() + str.size(), value);
     return value;
 }
@@ -28,25 +24,25 @@ int fromString(std::string_view str)
 template <>
 float fromString(std::string_view str)
 {
-    // <charconv>
+    /*// <charconv>
     float value;
     std::from_chars(str.data(), str.data() + str.size(), value);
-    return value;
+    return value;*/
 
     // Faster than <charconv> on MSVC 19.23.28106.4 but not sure if it is a 100% correct
-    //return static_cast<float>(crackAtof(str));
+    return static_cast<float>(crackAtof(str));
 }
 
 template <>
 double fromString(std::string_view str)
 {
-    // <charconv>
+    /*// <charconv>
     double value;
     std::from_chars(str.data(), str.data() + str.size(), value);
-    return value;
+    return value;*/
 
     // Faster than <charconv> on MSVC 19.23.28106.4 but not sure if it is a 100% correct
-    //return crackAtof(str);
+    return crackAtof(str);
 }
 
 constexpr std::array<bool, 256> compuateIsSpaceLUT()
@@ -76,11 +72,11 @@ std::vector<T> stringToVector(const std::string_view string)
     size_t cursor = 0;
     while (cursor < stringSize) {
         // std::isspace is slow because it tries to be too generic (checking locale settings)
-        while (isSpace(string[cursor]) && cursor < stringSize)
+        while (cursor < stringSize && isSpace(string[cursor]))
             cursor++;
 
         const size_t tokenStart = cursor;
-        while (!isSpace(string[cursor]) && cursor < stringSize)
+        while (cursor < stringSize && !isSpace(string[cursor]))
             cursor++;
 
         if (cursor == tokenStart)
@@ -101,7 +97,7 @@ std::vector<T> stringToVectorParallel(const std::string_view string)
     size_t prevBlockEnd = 0;
     for (size_t i = 1; i < numTasks; i++) {
         size_t cursor = i * (string.size() / numTasks);
-        while (!isSpace(string[cursor]) && cursor < string.size())
+        while (cursor < string.size() && !isSpace(string[cursor]))
             cursor++;
 
         blocks.push_back(string.substr(prevBlockEnd, cursor - prevBlockEnd));
@@ -146,7 +142,7 @@ pybind11::array_t<T> toNumpyArray(gsl::span<const T> items)
 }
 
 template <typename T>
-pybind11::array_t<T> stringToNumpy(std::string string)
+pybind11::array_t<T> stringToNumpy(std::string_view string)
 {
     //const char* chars = python::extract<const char*>(string);
     //int length = python::extract<int>(string.attr("__len__")());
@@ -162,6 +158,9 @@ pybind11::array_t<T> stringToNumpy(std::string string)
     return toNumpyArray<T>(numbers);
 }
 
-template pybind11::array_t<int> stringToNumpy<int>(std::string string);
-template pybind11::array_t<float> stringToNumpy<float>(std::string string);
-template pybind11::array_t<double> stringToNumpy<double>(std::string string);
+template pybind11::array_t<float> stringToNumpy<float>(std::string_view string);
+template pybind11::array_t<double> stringToNumpy<double>(std::string_view string);
+template pybind11::array_t<int32_t> stringToNumpy<int32_t>(std::string_view string);
+template pybind11::array_t<int64_t> stringToNumpy<int64_t>(std::string_view string);
+template pybind11::array_t<uint32_t> stringToNumpy<uint32_t>(std::string_view string);
+template pybind11::array_t<uint64_t> stringToNumpy<uint64_t>(std::string_view string);

@@ -11,8 +11,8 @@ find_package(pybind11 REQUIRED)
 # Build our library
 Python3_add_library(pandora_py
     "src/pandora_py.cpp"
-    #"src/mesh_exporter.cpp"
-    #"src/mesh_exporter.h"
+    "src/mesh_exporter.cpp"
+    "src/mesh_exporter.h"
     "src/string_to_number.cpp"
     "src/string_to_number.h"
 	"src/crack_atof.cpp"
