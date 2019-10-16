@@ -58,11 +58,18 @@ void PathIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, Bounce
     auto* pSensor = m_pCurrentRenderData->pSensor;
     PcgRng rng = state.rng;
 
-    // Next Event Estimation (NEE) samples light sources so random bounce should ignore light source hits (without Multiple Importance Sampling).
-    if (si.pSceneObject->pAreaLight || state.pathDepth > m_maxDepth) {
-        spawnNewPaths(1);
-        return;
-    }
+    if (state.pathDepth == 0) {
+        // Compute emitted light if primary ray hit an area light source
+        const Spectrum emitted = si.Le(si.wo);
+        if (!isBlack(emitted))
+            pSensor->addPixelContribution(state.pixel, state.weight * emitted);
+    } else {
+		// Next Event Estimation (NEE) samples light sources so random bounce should ignore light source hits (without Multiple Importance Sampling).
+		if (si.pSceneObject->pAreaLight || state.pathDepth > m_maxDepth) {
+			spawnNewPaths(1);
+			return;
+		}
+	}
 
     // Sample direct light using Next Event Estimation (NEE)
     if (m_strategy == LightStrategy::UniformSampleAll)
@@ -89,6 +96,15 @@ void PathIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, Bounce
 
 void PathIntegrator::rayMiss(const Ray& ray, const BounceRayState& state)
 {
+    glm::vec3 infiniteLightContribution {};
+    const auto* pScene = m_pCurrentRenderData->pScene;
+    for (const auto* pInfiniteLight : pScene->infiniteLights)
+        infiniteLightContribution += pInfiniteLight->Le(ray);
+
+    auto* pSensor = m_pCurrentRenderData->pSensor;
+    if (!isBlack(infiniteLightContribution))
+        pSensor->addPixelContribution(state.pixel, state.weight * infiniteLightContribution);
+
     spawnNewPaths(1);
 }
 
