@@ -19,7 +19,7 @@ def test_correctness():
 def perform_timings():
     print("==== FLOATS ====")
     print("Creating string...")
-    string = " ".join(["1.0" for i in range(10000000)])
+    string = " ".join(["1.0" for i in range(100000)])
 
     print("Calling C++")
     start = time.time()
@@ -47,7 +47,7 @@ def perform_timings():
     print("\n\n")
     print("==== INTEGERS ====")
     print("Creating string...")
-    string = " ".join([str(i) for i in range(10000000)])
+    string = " ".join([str(i) for i in range(100000)])
 
     print("Calling C++")
     start = time.time()
@@ -72,3 +72,4 @@ def perform_timings():
 
 if __name__ == "__main__":
     perform_timings()
+    

@@ -13,6 +13,7 @@ from parsing.file_backed_list import FileBackedList
 import parsing.lexer
 import ply.yacc as yacc
 import mmap
+from sqlitedict import SqliteDict
 
 import itertools
 import collections
@@ -127,7 +128,7 @@ BlackBody = namedtuple("BlackBody", ["temperature_kelvin", "scale_factor"])
 named_materials = {}
 named_textures = {}
 light_sources = []
-instance_templates = {}
+instance_templates = None # SqliteDict
 instances = None  # FileBackedList
 non_instanced_shapes = None  # FileBackedList
 
@@ -592,10 +593,16 @@ def parse_file(file_path, int_mesh_folder):
         os.makedirs(int_mesh_folder)
     mesh_batcher = MeshBatcher(int_mesh_folder)
 
-    global non_instanced_shapes, instances
+    global instance_templates, non_instanced_shapes, instances
+    instance_templates_db_file = os.path.join(int_mesh_folder, "instance_templates.db")
+    if os.path.exists(instance_templates_db_file):
+        os.remove(instance_templates_db_file)
+    instance_templates = SqliteDict(instance_templates_db_file)
+
     shapes_folder = os.path.join(int_mesh_folder, "shapes")
-    instances_folder = os.path.join(int_mesh_folder, "instances")
     non_instanced_shapes = FileBackedList(shapes_folder)
+
+    instances_folder = os.path.join(int_mesh_folder, "instances")
     instances = FileBackedList(instances_folder)
 
     current_file = os.path.abspath(file_path)
