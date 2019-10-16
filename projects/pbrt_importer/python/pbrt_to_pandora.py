@@ -102,10 +102,15 @@ if __name__ == "__main__":
         int_file = os.path.join(os.path.dirname(args.out), "intermediate.bin")
         with open(int_file, "wb") as f:
             # Database cannot be pickled so store name of database file
-            database = pbrt_data["scene"]["instance_templates"]
-            pbrt_data["scene"]["instance_templates"] = database.filename
+            textures_db = pbrt_data["scene"]["textures"]
+            instance_templates_db = pbrt_data["scene"]["instance_templates"]
+            pbrt_data["scene"]["textures"] = textures_db.filename
+            pbrt_data["scene"]["instance_templates"] = instance_templates_db.filename
+
             pickle.dump(pbrt_data, f)
-            pbrt_data["scene"]["instance_templates"] = database
+
+            pbrt_data["scene"]["textures"] = textures_db
+            pbrt_data["scene"]["instance_templates"] = instance_templates_db
 
     print("==== CONVERTING TO PANDORA FORMAT ====")
     pandora_data = extract_pandora_data(pbrt_data, out_folder)

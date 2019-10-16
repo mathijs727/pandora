@@ -40,6 +40,8 @@ add_custom_command(
         "${CMAKE_CURRENT_LIST_DIR}/python/$<TARGET_FILE_NAME:pandora_py>")
 
 
+message("Python3_VERSION: ${Python3_VERSION}")
+
 #find_package(TBB COMPONENTS tbb tbbmalloc REQUIRED)
 add_executable(benchmark "benchmark.cpp" "src/crack_atof.cpp")
 target_link_libraries(benchmark PRIVATE TBB::tbb TBB::tbbmalloc TBB::tbbmalloc_proxy)

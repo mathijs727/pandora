@@ -125,8 +125,8 @@ SampledSpectrumFile = namedtuple("SampledSpectrumFile", ["filename"])
 #TextureRef = namedtuple("TextureRef", ["name"])
 BlackBody = namedtuple("BlackBody", ["temperature_kelvin", "scale_factor"])
 
-named_materials = {}
-named_textures = {}
+named_materials = None # SqliteDict
+named_textures = None # SqliteDict
 light_sources = []
 instance_templates = None # SqliteDict
 instances = None  # FileBackedList
@@ -509,6 +509,7 @@ def p_statement_shape(p):
     else:
         global mesh_batcher
         filename, start_byte, num_bytes = mesh_batcher.add_mesh(arguments)
+        del arguments
         arguments = {"filename": filename,
                      "start_byte": start_byte, "num_bytes": num_bytes}
 
@@ -593,11 +594,16 @@ def parse_file(file_path, int_mesh_folder):
         os.makedirs(int_mesh_folder)
     mesh_batcher = MeshBatcher(int_mesh_folder)
 
-    global instance_templates, non_instanced_shapes, instances
-    instance_templates_db_file = os.path.join(int_mesh_folder, "instance_templates.db")
-    if os.path.exists(instance_templates_db_file):
-        os.remove(instance_templates_db_file)
-    instance_templates = SqliteDict(instance_templates_db_file)
+    global named_materials, named_textures, instance_templates, non_instanced_shapes, instances
+
+    def create_sqlite_dict(file):
+        if os.path.exists(file):
+            os.remove(file)
+        return SqliteDict(file)
+
+    named_materials = create_sqlite_dict(os.path.join(int_mesh_folder, "named_materials.db"))
+    named_textures = create_sqlite_dict(os.path.join(int_mesh_folder, "named_textures.db"))
+    instance_templates = create_sqlite_dict(os.path.join(int_mesh_folder, "instance_templates.db"))
 
     shapes_folder = os.path.join(int_mesh_folder, "shapes")
     non_instanced_shapes = FileBackedList(shapes_folder)
