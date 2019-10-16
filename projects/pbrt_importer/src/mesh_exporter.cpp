@@ -106,7 +106,7 @@ pybind11::tuple PandoraMeshBatch::addTriangleMesh(
 
     std::vector<glm::vec2> outUVCoords;
     if (!uvCoords.empty()) {
-        pandora::ALWAYS_ASSERT(uvCoords.size() == triangles.size());
+        pandora::ALWAYS_ASSERT(uvCoords.size() == positions.size());
         std::copy(std::begin(uvCoords), std::end(uvCoords), std::back_inserter(outUVCoords));
     }
 
