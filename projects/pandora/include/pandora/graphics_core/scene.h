@@ -26,22 +26,27 @@ struct SceneNode {
 };
 
 struct Scene {
-    SceneNode root;
+    std::shared_ptr<SceneNode> root;
     std::vector<std::unique_ptr<Light>> lights;
     std::vector<InfiniteLight*> infiniteLights;
 
 private:
     friend class SceneBuilder;
-    Scene(SceneNode&& root, std::vector<std::unique_ptr<Light>>&& lights, std::vector<InfiniteLight*>&& infiniteLights);
+    Scene(std::shared_ptr<SceneNode>&& root, std::vector<std::unique_ptr<Light>>&& lights, std::vector<InfiniteLight*>&& infiniteLights);
 };
 
 class SceneBuilder {
 public:
+    SceneBuilder();
+
     void addSceneObject(std::shared_ptr<Shape> pShape, std::shared_ptr<Material> pMaterial, SceneNode* pSceneNode = nullptr);
     void addSceneObject(std::shared_ptr<Shape> pShape, std::shared_ptr<Material> pMaterial, std::unique_ptr<AreaLight>&& pAreaLight, SceneNode* pSceneNode = nullptr);
 
-    SceneNode* addSceneNode(SceneNode* pParent = nullptr);
-    SceneNode* addSceneNode(const glm::mat4& transform, SceneNode* pParent = nullptr);
+    std::shared_ptr<SceneNode> addSceneNode();
+    std::shared_ptr<SceneNode> addSceneNode(const glm::mat4& transform);
+    std::shared_ptr<SceneNode> addSceneNodeToRoot();
+    std::shared_ptr<SceneNode> addSceneNodeToRoot(const glm::mat4& transform);
+    void attachNode(std::shared_ptr<SceneNode> pParent, std::shared_ptr<SceneNode> pChild);
 
     void addInfiniteLight(std::unique_ptr<InfiniteLight>&& pInfiniteLight);
 
@@ -51,7 +56,7 @@ private:
     void attachLightRecurse(SceneNode* pNode, std::optional<glm::mat4> transform);
 
 private:
-    SceneNode m_root;
+    std::shared_ptr<SceneNode> m_root;
     std::vector<std::unique_ptr<Light>> m_lights;
     std::vector<InfiniteLight*> m_infiniteLights;
 

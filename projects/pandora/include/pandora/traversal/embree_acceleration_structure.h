@@ -5,6 +5,8 @@
 #include <gsl/span>
 #include <optional>
 #include <tuple>
+#include <vector>
+#include <unordered_map>
 
 namespace pandora {
 
@@ -46,6 +48,26 @@ private:
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> m_onAnyMissTask;
 };
 
+class EmbreeAccelerationStructureBuilder {
+public:
+    EmbreeAccelerationStructureBuilder(const Scene& scene, tasking::TaskGraph* pTaskGraph);
+
+    template <typename HitRayState, typename AnyHitRayState>
+    EmbreeAccelerationStructure<HitRayState, AnyHitRayState> build(
+        tasking::TaskHandle<std::tuple<Ray, RayHit, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
+        tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask);
+
+private:
+    RTCScene buildRecurse(const SceneNode* pNode, std::optional<RTCScene> parentScene);
+
+private:
+    RTCDevice m_embreeDevice;
+    RTCScene m_embreeScene;
+	std::unordered_map<const SceneNode*, RTCScene> m_instances;
+
+    tasking::TaskGraph* m_pTaskGraph;
+};
+
 template <typename HitRayState, typename AnyHitRayState>
 inline std::optional<RayHit> EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectFast(const Ray& ray) const
 {
@@ -77,29 +99,13 @@ inline std::optional<RayHit> EmbreeAccelerationStructure<HitRayState, AnyHitRayS
         hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
         hit.geometricNormal = glm::normalize(hit.geometricNormal);
         hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
-        hit.sceneObjectRef = pSceneObject;
+        hit.pSceneObject = pSceneObject;
         hit.primitiveID = embreeRayHit.hit.primID;
         return hit;
     } else {
         return {};
     }
 }
-
-class EmbreeAccelerationStructureBuilder {
-public:
-    EmbreeAccelerationStructureBuilder(const Scene& scene, tasking::TaskGraph* pTaskGraph);
-
-    template <typename HitRayState, typename AnyHitRayState>
-    EmbreeAccelerationStructure<HitRayState, AnyHitRayState> build(
-        tasking::TaskHandle<std::tuple<Ray, RayHit, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
-        tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask);
-
-private:
-    RTCDevice m_embreeDevice;
-    RTCScene m_embreeScene;
-
-    tasking::TaskGraph* m_pTaskGraph;
-};
 
 template <typename HitRayState, typename AnyHitRayState>
 inline EmbreeAccelerationStructure<HitRayState, AnyHitRayState> EmbreeAccelerationStructureBuilder::build(

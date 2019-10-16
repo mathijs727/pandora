@@ -2,10 +2,15 @@
 
 namespace pandora {
 
-Scene::Scene(SceneNode&& root, std::vector<std::unique_ptr<Light>>&& lights, std::vector<InfiniteLight*>&& infiniteLights)
+Scene::Scene(std::shared_ptr<SceneNode>&& root, std::vector<std::unique_ptr<Light>>&& lights, std::vector<InfiniteLight*>&& infiniteLights)
     : root(root)
     , lights(std::move(lights))
     , infiniteLights(std::move(infiniteLights))
+{
+}
+
+SceneBuilder::SceneBuilder()
+    : m_root(std::make_shared<SceneNode>())
 {
 }
 
@@ -18,7 +23,7 @@ void pandora::SceneBuilder::addSceneObject(
     if (pSceneNode)
         pSceneNode->objects.push_back(pSceneObject);
     else
-        m_root.objects.push_back(pSceneObject);
+        m_root->objects.push_back(pSceneObject);
 }
 
 void pandora::SceneBuilder::addSceneObject(
@@ -31,35 +36,42 @@ void pandora::SceneBuilder::addSceneObject(
     if (pSceneNode)
         pSceneNode->objects.push_back(pSceneObject);
     else
-        m_root.objects.push_back(pSceneObject);
+        m_root->objects.push_back(pSceneObject);
 
     m_areaLights.push_back(pAreaLight.get());
     m_lights.push_back(std::move(pAreaLight));
 }
 
-SceneNode* SceneBuilder::addSceneNode(SceneNode* pParent)
+std::shared_ptr<SceneNode> SceneBuilder::addSceneNode()
 {
-    auto pSceneNode = std::make_shared<SceneNode>();
-    pSceneNode->pParent = pParent;
-    if (pParent)
-        pParent->children.push_back(pSceneNode);
-    else
-        m_root.children.push_back(pSceneNode);
-
-    return pSceneNode.get();
+    return std::make_shared<SceneNode>();
 }
 
-SceneNode* SceneBuilder::addSceneNode(const glm::mat4& transform, SceneNode* pParent)
+std::shared_ptr<SceneNode> SceneBuilder::addSceneNode(const glm::mat4& transform)
 {
     auto pSceneNode = std::make_shared<SceneNode>();
     pSceneNode->transform = transform;
-    pSceneNode->pParent = pParent;
-    if (pParent)
-        pParent->children.push_back(pSceneNode);
-    else
-        m_root.children.push_back(pSceneNode);
+    return pSceneNode;
+}
 
-    return pSceneNode.get();
+std::shared_ptr<SceneNode> SceneBuilder::addSceneNodeToRoot()
+{
+    auto pSceneNode = addSceneNode();
+    attachNode(m_root, pSceneNode);
+    return pSceneNode;
+}
+
+std::shared_ptr<SceneNode> SceneBuilder::addSceneNodeToRoot(const glm::mat4& transform)
+{
+    auto pSceneNode = addSceneNode(transform);
+    attachNode(m_root, pSceneNode);
+    return pSceneNode;
+}
+
+void SceneBuilder::attachNode(std::shared_ptr<SceneNode> pParent, std::shared_ptr<SceneNode> pChild)
+{
+    pParent->children.push_back(pChild);
+    pChild->pParent = pParent.get();
 }
 
 void SceneBuilder::addInfiniteLight(std::unique_ptr<InfiniteLight>&& pInfiniteLight)
@@ -70,7 +82,7 @@ void SceneBuilder::addInfiniteLight(std::unique_ptr<InfiniteLight>&& pInfiniteLi
 
 Scene SceneBuilder::build()
 {
-    attachLightRecurse(&m_root, {});
+    attachLightRecurse(m_root.get(), {});
 
     return Scene(std::move(m_root), std::move(m_lights), std::move(m_infiniteLights));
 }
@@ -80,7 +92,7 @@ void SceneBuilder::attachLightRecurse(SceneNode* pNode, std::optional<glm::mat4>
     std::optional<glm::mat4> finalTransform = transform;
     if (pNode->transform) {
         if (finalTransform)
-            finalTransform = (*finalTransform) * (*pNode->transform);
+            finalTransform = (*pNode->transform) * (*finalTransform);
         else
             finalTransform = pNode->transform;
     }

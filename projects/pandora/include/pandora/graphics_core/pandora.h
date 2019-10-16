@@ -41,6 +41,7 @@ class ImageTexture;
 struct Scene;
 struct SceneNode;
 struct SceneObject;
+class Shape;
 class TriangleShape;
 struct Bounds;
 struct Ray;

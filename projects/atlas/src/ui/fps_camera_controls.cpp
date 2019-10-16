@@ -79,7 +79,7 @@ void FpsCameraControls::tick()
     float deltaMsFloat = deltaMs.count() / 10000000.0f;
 
     //TODO(Mathijs): store forward, left and up vectors in the class itself
-    float moveSpeed = 0.01f;
+    const float moveSpeed = 0.5f;
     glm::vec3 forward = m_orientation * glm::vec3(0.0f, 0.0f, 1.0f * m_scale.z);
     glm::vec3 left = m_orientation * glm::vec3(1.0f * m_scale.x, 0.0f, 0.0f);
 

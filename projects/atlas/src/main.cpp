@@ -23,6 +23,8 @@
 #else
 #include <spdlog/sinks/stdout_color_sinks.h>
 #endif
+#include <tbb/blocked_range2d.h>
+#include <tbb/parallel_for.h>
 
 using namespace pandora;
 using namespace atlas;
@@ -96,8 +98,8 @@ int main(int argc, char** argv)
     spdlog::info("Creating integrator");
     tasking::TaskGraph taskGraph;
     const int spp = vm["spp"].as<int>();
-    //NormalDebugIntegrator integrator { &taskGraph };
-    DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+    NormalDebugIntegrator integrator { &taskGraph };
+    //DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
     //PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Building acceleration structure");
@@ -123,7 +125,27 @@ int main(int argc, char** argv)
             sensor.clear(glm::vec3(0.0f));
         }
 
+#if 0
         integrator.render(camera, sensor, *renderConfig.pScene, accel);
+#else
+        samples = 0;
+        sensor.clear(glm::vec3(0));
+
+        auto& sensor = renderConfig.camera->getSensor();
+        tbb::blocked_range2d range { 0, renderConfig.resolution.x, 0, renderConfig.resolution.y };
+        tbb::parallel_for(range, [&](tbb::blocked_range2d<int> subRange) {
+            for (int y = subRange.cols().begin(); y < subRange.cols().end(); y++) {
+                for (int x = subRange.rows().begin(); x < subRange.rows().end(); x++) {
+                    CameraSample cameraSample { glm::vec2 { x, y } };
+                    Ray cameraRay = renderConfig.camera->generateRay(cameraSample);
+                    auto hitOpt = accel.intersectFast(cameraRay);
+                    if (hitOpt) {
+                        sensor.addPixelContribution(glm::ivec2 { x, y }, hitOpt->geometricNormal);
+                    }
+                }
+            }
+        });
+#endif
         samples += spp;
 
         glm::vec3 camPos = camera.getTransform() * glm::vec4(0, 0, 0, 1);

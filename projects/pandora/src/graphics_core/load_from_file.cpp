@@ -220,49 +220,36 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
             }
         }
 
-        /*auto createSceneObject = [&](nlohmann::json jsonSceneObject) -> std::unique_ptr<SceneObject> {
-            auto mesh = geometry[jsonSceneObject["geometry_id"].get<int>()];
-            std::shared_ptr<Material> material;
-            if (loadMaterials)
-                material = materials[jsonSceneObject["material_id"].get<int>()];
-            else
-                material = defaultMaterial;
-
-            if (jsonSceneObject.find("area_light") != jsonSceneObject.end()) {
-                auto areaLight = readVec3(jsonSceneObject["area_light"]["L"]);
-                return std::make_unique<InCoreGeometricSceneObject>(mesh, material, areaLight);
-                //std::cout << "Skipping area light scene object for debugging" << std::endl;
-                //return nullptr;
-            } else {
-                return std::make_unique<InCoreGeometricSceneObject>(mesh, material);
-            }
-        };
-
-        std::cout << "Creating instance base scene objects" << std::endl;
         // Create instanced base objects
-        std::vector<std::shared_ptr<InCoreGeometricSceneObject>> baseSceneObjects;
+        spdlog::info("Creating instance base scene objects");
+        SceneBuilder sceneBuilder;
+        std::vector<std::shared_ptr<SceneNode>> baseSceneNodes;
         for (const auto jsonSceneObject : sceneJson["instance_base_scene_objects"]) {
-            auto sceneObject = makeGeomSceneObject(jsonSceneObject);
-            g_stats.scene.uniquePrimitives += sceneObject->numPrimitives();
-            baseSceneObjects.emplace_back(std::move(sceneObject)); // Converts to shared_ptr
-        }*/
+            auto pShape = geometry[jsonSceneObject["geometry_id"].get<int>()];
+            std::shared_ptr<Material> pMaterial;
+            if (loadMaterials)
+                pMaterial = materials[jsonSceneObject["material_id"].get<int>()];
+            else
+                pMaterial = defaultMaterial;
+
+            auto pSceneNode = sceneBuilder.addSceneNode();
+            if (jsonSceneObject.find("area_light") != jsonSceneObject.end()) {
+                auto emittedLight = readVec3(jsonSceneObject["area_light"]["L"]);
+                sceneBuilder.addSceneObject(pShape, pMaterial, std::make_unique<AreaLight>(emittedLight), pSceneNode.get());
+            } else {
+                sceneBuilder.addSceneObject(pShape, pMaterial, pSceneNode.get());
+            }
+            baseSceneNodes.push_back(pSceneNode);
+        }
 
         // Create scene objects
         spdlog::info("Creating scene objects");
-        SceneBuilder sceneBuilder;
         for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
             if (jsonSceneObject["instancing"].get<bool>()) {
-                spdlog::warn("Instancing is not yet supported, ignoring instanced scene object");
-                /*glm::mat4 transform = getTransform(jsonSceneObject["transform"]);
-                auto baseSceneObject = baseSceneObjects[jsonSceneObject["base_scene_object_id"].get<int>()];
-                auto instancedSceneObject = std::make_unique<InCoreInstancedSceneObject>(transform, baseSceneObject);
-
-                if (instancedSceneObject) {
-                    g_stats.scene.totalPrimitives += instancedSceneObject->numPrimitives();
-
-                    instancedSceneObject->sceneObjectID = sceneObjectID++;
-                    config.scene.addSceneObject(std::move(instancedSceneObject));
-                }*/
+                glm::mat4 transform = getTransform(jsonSceneObject["transform"]);
+                auto pBaseSceneNode = baseSceneNodes[jsonSceneObject["base_scene_object_id"].get<int>()];
+                auto pSceneNode = sceneBuilder.addSceneNodeToRoot(transform);
+                sceneBuilder.attachNode(pSceneNode, pBaseSceneNode);
             } else {
                 auto pShape = geometry[jsonSceneObject["geometry_id"].get<int>()];
                 std::shared_ptr<Material> pMaterial;
@@ -317,5 +304,4 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
     spdlog::info("Finished parsing scene");
     return std::move(config);
 }
-
 }

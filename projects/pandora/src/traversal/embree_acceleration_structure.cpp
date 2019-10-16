@@ -1,7 +1,12 @@
 #include "pandora/traversal/embree_acceleration_structure.h"
 #include "pandora/graphics_core/scene.h"
+#include "pandora/graphics_core/shape.h"
+#include "pandora/utility/error_handling.h"
+#include <glm/gtc/type_ptr.hpp>
 #include <spdlog/spdlog.h>
 #include <stack>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace pandora {
 
@@ -38,15 +43,19 @@ EmbreeAccelerationStructureBuilder::EmbreeAccelerationStructureBuilder(const Sce
     m_embreeDevice = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(m_embreeDevice, embreeErrorFunc, nullptr);
 
-    m_embreeScene = rtcNewScene(m_embreeDevice);
+    spdlog::info("Starting BVH build");
+    m_instances.clear();
+    m_embreeScene = buildRecurse(scene.root.get(), {});
+    spdlog::info("Finsihed building BVH");
+}
 
-    std::stack<const SceneNode*> traversalStack;
-    traversalStack.push(&scene.root);
-    while (!traversalStack.empty()) {
-        const SceneNode* pSceneNode = traversalStack.top();
-        traversalStack.pop();
-
-        // TODO: handle instancing!
+RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pSceneNode, std::optional<RTCScene> parentScene)
+{
+    RTCScene embreeScene;
+    if (auto iter = m_instances.find(pSceneNode); iter != std::end(m_instances)) {
+        embreeScene = iter->second;
+    } else {
+        embreeScene = rtcNewScene(m_embreeDevice);
         for (const auto& pSceneObject : pSceneNode->objects) {
             const Shape* pShape = pSceneObject->pShape.get();
             const IntersectGeometry* pIntersectGeometry = pShape->getIntersectGeometry();
@@ -54,16 +63,38 @@ EmbreeAccelerationStructureBuilder::EmbreeAccelerationStructureBuilder(const Sce
             rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
             rtcCommitGeometry(embreeGeometry);
 
-            unsigned geometryID = rtcAttachGeometry(m_embreeScene, embreeGeometry);
+            unsigned geometryID = rtcAttachGeometry(embreeScene, embreeGeometry);
             (void)geometryID;
         }
 
-        // TODO: handle instancing!
-        for (const auto& child : pSceneNode->children)
-            traversalStack.push(child.get());
+		m_instances[pSceneNode] = embreeScene;
     }
 
-    rtcCommitScene(m_embreeScene);
+    for (const auto& child : pSceneNode->children)
+        buildRecurse(child.get(), embreeScene);
+
+    rtcCommitScene(embreeScene);
+
+    const bool isRootNode = !parentScene;
+    if (isRootNode) {
+        ALWAYS_ASSERT(!pSceneNode->transform);
+        m_embreeScene = embreeScene;
+    } else {
+        //spdlog::info("Creating instanced Embree geometry");
+        RTCGeometry embreeInstanceGeometry = rtcNewGeometry(m_embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
+        rtcSetGeometryInstancedScene(embreeInstanceGeometry, embreeScene);
+        if (pSceneNode->transform)
+            rtcSetGeometryTransform(
+                embreeInstanceGeometry, 0,
+                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
+                glm::value_ptr(*pSceneNode->transform));
+        rtcCommitGeometry(embreeInstanceGeometry);
+
+        unsigned geometryID = rtcAttachGeometry(*parentScene, embreeInstanceGeometry);
+        (void)geometryID;
+    }
+
+    return embreeScene;
 }
 
 }
