@@ -11,6 +11,7 @@ import numpy as np
 import itertools
 import collections.abc
 import shutil
+from sqlitedict import SqliteDict
 
 
 def extract_pandora_data(pbrt_data, out_mesh_folder):
@@ -91,6 +92,7 @@ if __name__ == "__main__":
     elif args.file.endswith(".bin"):
         with open(args.file, "rb") as f:
             pbrt_data = pickle.load(f)
+            pbrt_data["scene"]["instance_templates"] = SqliteDict(pbrt_data["scene"]["instance_templates"])
     else:
         print("Input file has unknown file extension")
         exit(-1)
@@ -99,7 +101,11 @@ if __name__ == "__main__":
         print("==== STORING INTERMEDIATE DATA TO A FILE ====")
         int_file = os.path.join(os.path.dirname(args.out), "intermediate.bin")
         with open(int_file, "wb") as f:
+            # Database cannot be pickled so store name of database file
+            database = pbrt_data["scene"]["instance_templates"]
+            pbrt_data["scene"]["instance_templates"] = database.filename
             pickle.dump(pbrt_data, f)
+            pbrt_data["scene"]["instance_templates"] = database
 
     print("==== CONVERTING TO PANDORA FORMAT ====")
     pandora_data = extract_pandora_data(pbrt_data, out_folder)
