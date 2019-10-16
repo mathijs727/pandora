@@ -12,6 +12,7 @@ from parsing.mesh_batch import MeshBatcher
 from parsing.file_backed_list import FileBackedList
 import parsing.lexer
 import ply.yacc as yacc
+import mmap
 
 import itertools
 import collections
@@ -84,13 +85,15 @@ def p_statement_include(p):
             parser = yacc.yacc(start="statements_config")
         else:
             parser = yacc.yacc(start="statements_scene")
-        return parser.parse(f.read(), lexer=lexer)
+
+        mapped_bytes = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        result = parser.parse(mapped_bytes, lexer=lexer)
 
     # Restore state
     parsing.lexer.current_file = current_file_bak
     current_file = current_file_bak
 
-    return None
+    return result
 
 
 def p_statements_scene_include(p):
@@ -231,13 +234,14 @@ def p_list(p):
     # The Python string length in C++ is a 32-bit int
     assert(len(text) < 2147483647)
 
-    if '"' in text:
+    if b'"' in text:
         import re
-        p[0] = [s[1:-1] for s in re.findall('"[^"]*"', text)]
-    elif '.' in text:
+        res = [s[1:-1].decode("ascii") for s in re.findall(b'"[^"]*"', text)]
+        p[0] = res
+    elif b'.' in text:
         # Neither ujson nor rapidjson support float32 so convert to a double
         p[0] = pandora_py.string_to_numpy_double(text)
-    elif '-' in text:
+    elif b'-' in text:
         p[0] = pandora_py.string_to_numpy_int32(text)
     else:
         p[0] = pandora_py.string_to_numpy_uint32(text)
@@ -273,7 +277,6 @@ def p_argument(p):
                 }
             }}
         else:
-            print(data)
             raise RuntimeError(f"Unknown argument type {arg_type}")
     else:
         if arg_type == "integer":
@@ -291,7 +294,6 @@ def p_argument(p):
             p[0] = {arg_name: {"type": arg_type, "value": SampledSpectrumFile(
                 os.path.join(base_path, data))}}
         else:
-            print(data)
             raise RuntimeError(f"Unknown argument type {arg_type}")
 
 
@@ -585,9 +587,6 @@ def parse_file(file_path, int_mesh_folder):
     import parsing.lexer
     parsing.lexer.current_file = file_path
 
-    with open(file_path, "r") as f:
-        string = f.read()
-
     global base_path, mesh_batcher, current_file
     if not os.path.exists(int_mesh_folder):
         os.makedirs(int_mesh_folder)
@@ -606,7 +605,9 @@ def parse_file(file_path, int_mesh_folder):
     print("Base path: ", base_path)
 
     print("Parsing...")
-    ret = parser.parse(string, lexer=lexer)
+    with open(file_path, "r") as f:
+        mapped_bytes = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        ret = parser.parse(mapped_bytes, lexer=lexer)
 
     # Give the batches / lists a chance to write to disk (since this isnt allowed in __del__)
     mesh_batcher.destructor()

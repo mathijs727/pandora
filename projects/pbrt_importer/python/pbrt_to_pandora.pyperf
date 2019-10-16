@@ -8,6 +8,9 @@
     <Report>
       <Filename>C:\Users\mathi\AppData\Local\Temp\pbrt_to_pandora_20191015.vsp</Filename>
     </Report>
+    <Report>
+      <Filename>C:\Users\mathi\AppData\Local\Temp\pbrt_to_pandora_20191015(1).vsp</Filename>
+    </Report>
   </Reports>
   <UseVTune>false</UseVTune>
 </ProfilingTarget>

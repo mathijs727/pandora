@@ -59,14 +59,14 @@ t_REVERSE_ORIENTATION = r'ReverseOrientation'
 
 def t_STRING(t):
     r'"[^"]*"'
-    t.value = t.value[1:-1]
+    t.value = t.value[1:-1].decode("ascii")
     return t
 
 
 def t_NUMBER(t):
     # https://www.regular-expressions.info/floatingpoint.html
     r'[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?'
-    if "." in t.value or "e+" in t.value:
+    if b'.' in t.value or b'e+' in t.value:
         t.value = float(t.value)
     else:
         t.value = int(t.value)
@@ -104,5 +104,22 @@ t_ignore = " \t"
 
 
 def create_lexer():
+    import re
     import ply.lex as lex
-    return lex.lex()
+    lexer = lex.lex()
+
+    # Modify lexer to support reading bytes from mmap (so we don't run out of memory when parsing large files)
+    lexignore = lexer.lexignore.encode("ascii")
+    lexer.lexignore = lexignore
+
+    lexstatere = {}
+    for k, v in lexer.lexstatere.items():
+        titem = []
+        for (_, func), pattern in zip(v, lexer.lexstateretext[k]):
+            titem.append((re.compile(pattern.encode("ascii"), lexer.lexreflags), func))
+        lexstatere[k] = titem
+    lexer.lexstatere = lexstatere
+
+    lexer.lexre = lexstatere[lexer.lexstate]
+
+    return lexer
