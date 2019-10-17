@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <vector>
+#include <tuple>
 
 namespace pandora {
 
@@ -18,8 +19,7 @@ struct SceneObject {
 };
 
 struct SceneNode {
-    std::optional<glm::mat4> transform;
-    std::vector<std::shared_ptr<SceneNode>> children;
+    std::vector<std::pair<std::shared_ptr<SceneNode>, std::optional<glm::mat4>>> children;
     std::vector<std::shared_ptr<SceneObject>> objects;
 
     SceneNode* pParent;
@@ -46,10 +46,10 @@ public:
     void attachObject(std::shared_ptr<SceneNode> pParent, std::shared_ptr<SceneObject> pSceneObject);
 
     std::shared_ptr<SceneNode> addSceneNode();
-    std::shared_ptr<SceneNode> addSceneNode(const glm::mat4& transform);
     std::shared_ptr<SceneNode> addSceneNodeToRoot();
     std::shared_ptr<SceneNode> addSceneNodeToRoot(const glm::mat4& transform);
     void attachNode(std::shared_ptr<SceneNode> pParent, std::shared_ptr<SceneNode> pChild);
+    void attachNode(std::shared_ptr<SceneNode> pParent, std::shared_ptr<SceneNode> pChild, const glm::mat4& transform);
 
 	void makeRootNode(std::shared_ptr<SceneNode> pNewRoot);
 

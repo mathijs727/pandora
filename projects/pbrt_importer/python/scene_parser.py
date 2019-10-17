@@ -391,16 +391,13 @@ class SceneParser:
             })
             named_base_scene_nodes[instance_template.name] = node_id
 
-        instanced_nodes = []
+        instance_links = []
         for instance in pbrt_scene["instances"]:
-            node_id = self._scene_nodes.add_item({
-                "children": named_base_scene_nodes[instance.template_name],
-                "objects": [],
+            instance_links.append({
+                "id": named_base_scene_nodes[instance.template_name],
                 "transform": self._create_transform(instance.transform)
             })
-            instanced_nodes.append(node_id)
-
-        return instanced_nodes
+        return instance_links
 
     def _export_triangle_mesh(self, geometry, transform):
         triangles = geometry["indices"]["value"]

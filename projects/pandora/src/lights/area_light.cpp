@@ -48,7 +48,7 @@ void AreaLight::attachToShape(const Shape* pShape)
     m_pShape = pShape;
 }
 
-void AreaLight::attachToShape(const Shape* pShape, glm::mat4 transform)
+void AreaLight::attachToShape(const Shape* pShape, const glm::mat4& transform)
 {
     m_pShape = pShape;
     m_transform = transform;

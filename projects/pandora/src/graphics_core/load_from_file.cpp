@@ -253,19 +253,22 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
             auto jsonSceneNode = jsonSceneNodes[sceneNodeID];
 
-            std::shared_ptr<SceneNode> pSceneNode;
-            if (jsonSceneNode.find("transform") != std::end(jsonSceneNode))
-                pSceneNode = sceneBuilder.addSceneNode(getTransform(jsonSceneNode["transform"]));
-            else
-                pSceneNode = sceneBuilder.addSceneNode();
+            std::shared_ptr<SceneNode> pSceneNode = sceneBuilder.addSceneNode();
 
             for (const int sceneObjectID : jsonSceneNode["objects"])
                 sceneBuilder.attachObject(pSceneNode, sceneObjects[sceneObjectID]);
 
-            for (const int childNodeID : jsonSceneNode["children"])
-                sceneBuilder.attachNode(pSceneNode, createSceneNodeRecurse(childNodeID));
+            for (const nlohmann::json childLink : jsonSceneNode["children"]) {
+                auto pChildNode = createSceneNodeRecurse(childLink["id"].get<int>());
 
-			sceneNodeCache[sceneNodeID] = pSceneNode;
+                if (auto iter = childLink.find("transform"); iter != std::end(childLink)) {
+                    sceneBuilder.attachNode(pSceneNode, pChildNode, getTransform(childLink["transform"]));
+				} else {
+                    sceneBuilder.attachNode(pSceneNode, pChildNode);
+                }
+            }
+
+            sceneNodeCache[sceneNodeID] = pSceneNode;
             return pSceneNode;
         };
         auto pRootNode = createSceneNodeRecurse(sceneJson["root_scene_node"].get<int>());

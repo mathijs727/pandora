@@ -1,4 +1,4 @@
-#include "pandora/graphics_core/scene.h"
+ #include "pandora/graphics_core/scene.h"
 
 namespace pandora {
 
@@ -58,13 +58,6 @@ std::shared_ptr<SceneNode> SceneBuilder::addSceneNode()
     return std::make_shared<SceneNode>();
 }
 
-std::shared_ptr<SceneNode> SceneBuilder::addSceneNode(const glm::mat4& transform)
-{
-    auto pSceneNode = std::make_shared<SceneNode>();
-    pSceneNode->transform = transform;
-    return pSceneNode;
-}
-
 std::shared_ptr<SceneNode> SceneBuilder::addSceneNodeToRoot()
 {
     auto pSceneNode = addSceneNode();
@@ -74,14 +67,20 @@ std::shared_ptr<SceneNode> SceneBuilder::addSceneNodeToRoot()
 
 std::shared_ptr<SceneNode> SceneBuilder::addSceneNodeToRoot(const glm::mat4& transform)
 {
-    auto pSceneNode = addSceneNode(transform);
-    attachNode(m_pRoot, pSceneNode);
+    auto pSceneNode = addSceneNode();
+    attachNode(m_pRoot, pSceneNode, transform);
     return pSceneNode;
 }
 
 void SceneBuilder::attachNode(std::shared_ptr<SceneNode> pParent, std::shared_ptr<SceneNode> pChild)
 {
-    pParent->children.push_back(pChild);
+    pParent->children.push_back({ pChild, {} });
+    pChild->pParent = pParent.get();
+}
+
+void SceneBuilder::attachNode(std::shared_ptr<SceneNode> pParent, std::shared_ptr<SceneNode> pChild, const glm::mat4& transform)
+{
+    pParent->children.push_back({ pChild, transform });
     pChild->pParent = pParent.get();
 }
 
@@ -105,28 +104,26 @@ Scene SceneBuilder::build()
 
 void SceneBuilder::attachLightRecurse(SceneNode* pNode, std::optional<glm::mat4> transform)
 {
-    std::optional<glm::mat4> finalTransform = transform;
-    if (pNode->transform) {
-        if (finalTransform)
-            finalTransform = (*pNode->transform) * (*finalTransform);
-        else
-            finalTransform = pNode->transform;
-    }
-
-    std::optional<glm::mat4> invFinalTransform;
-    if (finalTransform)
-        invFinalTransform = glm::inverse(*finalTransform);
-
-    for (auto pChild : pNode->children)
-        attachLightRecurse(pChild.get(), invFinalTransform);
-
+	// Attach area lights at this node
     for (auto pObject : pNode->objects) {
         if (pObject->pAreaLight) {
-            if (finalTransform)
-                pObject->pAreaLight->attachToShape(pObject->pShape.get(), *finalTransform);
+            if (transform)
+                pObject->pAreaLight->attachToShape(pObject->pShape.get(), *transform);
             else
                 pObject->pAreaLight->attachToShape(pObject->pShape.get());
         }
+    }
+
+	// Recurse to children
+    for (auto [pChild, childTransform]: pNode->children) {
+        std::optional<glm::mat4> totalTransform = transform;
+        if (childTransform) {
+            if (totalTransform)
+                totalTransform = (*childTransform) * (*totalTransform);
+            else
+                totalTransform = childTransform;
+        }
+        attachLightRecurse(pChild.get(), totalTransform);
     }
 }
 

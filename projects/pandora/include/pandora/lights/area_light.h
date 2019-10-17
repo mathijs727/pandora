@@ -19,7 +19,7 @@ private:
     friend class SceneBuilder;
 
     void attachToShape(const Shape* pShape);
-    void attachToShape(const Shape* pShape, glm::mat4 transform);
+    void attachToShape(const Shape* pShape, const glm::mat4& transform);
 
 private:
     const glm::vec3 m_emmitedLight;

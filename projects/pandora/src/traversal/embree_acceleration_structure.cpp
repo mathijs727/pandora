@@ -1,6 +1,7 @@
 #include "pandora/traversal/embree_acceleration_structure.h"
 #include "pandora/graphics_core/scene.h"
 #include "pandora/graphics_core/shape.h"
+#include "pandora/utility/enumerate.h"
 #include "pandora/utility/error_handling.h"
 #include <glm/gtc/type_ptr.hpp>
 #include <spdlog/spdlog.h>
@@ -44,57 +45,50 @@ EmbreeAccelerationStructureBuilder::EmbreeAccelerationStructureBuilder(const Sce
     rtcSetDeviceErrorFunction(m_embreeDevice, embreeErrorFunc, nullptr);
 
     spdlog::info("Starting BVH build");
-    m_instances.clear();
-    m_embreeScene = buildRecurse(scene.root.get(), {});
+    m_sceneCache.clear();
+    m_embreeScene = buildRecurse(scene.root.get());
     spdlog::info("Finsihed building BVH");
 }
 
-RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pSceneNode, std::optional<RTCScene> parentScene)
+RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pSceneNode)
 {
-    RTCScene embreeScene;
-    if (auto iter = m_instances.find(pSceneNode); iter != std::end(m_instances)) {
-        embreeScene = iter->second;
-    } else {
-        embreeScene = rtcNewScene(m_embreeDevice);
-        for (const auto& pSceneObject : pSceneNode->objects) {
-            const Shape* pShape = pSceneObject->pShape.get();
-            const IntersectGeometry* pIntersectGeometry = pShape->getIntersectGeometry();
-            RTCGeometry embreeGeometry = pIntersectGeometry->createEmbreeGeometry(m_embreeDevice);
-            rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
-            rtcCommitGeometry(embreeGeometry);
+    RTCScene embreeScene = rtcNewScene(m_embreeDevice);
+    for (const auto& pSceneObject : pSceneNode->objects) {
+        const Shape* pShape = pSceneObject->pShape.get();
+        const IntersectGeometry* pIntersectGeometry = pShape->getIntersectGeometry();
+        RTCGeometry embreeGeometry = pIntersectGeometry->createEmbreeGeometry(m_embreeDevice);
+        rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
+        rtcCommitGeometry(embreeGeometry);
 
-            unsigned geometryID = rtcAttachGeometry(embreeScene, embreeGeometry);
-            (void)geometryID;
-        }
-
-		m_instances[pSceneNode] = embreeScene;
-    }
-
-    for (const auto& child : pSceneNode->children)
-        buildRecurse(child.get(), embreeScene);
-
-    rtcCommitScene(embreeScene);
-
-    const bool isRootNode = !parentScene;
-    if (isRootNode) {
-        ALWAYS_ASSERT(!pSceneNode->transform);
-        m_embreeScene = embreeScene;
-    } else {
-        //spdlog::info("Creating instanced Embree geometry");
-        RTCGeometry embreeInstanceGeometry = rtcNewGeometry(m_embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
-        rtcSetGeometryInstancedScene(embreeInstanceGeometry, embreeScene);
-        if (pSceneNode->transform)
-            rtcSetGeometryTransform(
-                embreeInstanceGeometry, 0,
-                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
-                glm::value_ptr(*pSceneNode->transform));
-        rtcCommitGeometry(embreeInstanceGeometry);
-
-        unsigned geometryID = rtcAttachGeometry(*parentScene, embreeInstanceGeometry);
+        unsigned geometryID = rtcAttachGeometry(embreeScene, embreeGeometry);
         (void)geometryID;
     }
 
+    for (const auto&& [geomID, childLink] : enumerate(pSceneNode->children)) {
+        auto&& [pChildNode, optTransform] = childLink;
+
+        RTCScene childScene;
+        if (auto iter = m_sceneCache.find(pChildNode.get()); iter != std::end(m_sceneCache)) {
+            childScene = iter->second;
+        } else {
+            childScene = buildRecurse(pChildNode.get());
+            m_sceneCache[pChildNode.get()] = childScene;
+        }
+
+        RTCGeometry embreeInstanceGeometry = rtcNewGeometry(m_embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
+        rtcSetGeometryInstancedScene(embreeInstanceGeometry, childScene);
+        if (optTransform)
+            rtcSetGeometryTransform(
+                embreeInstanceGeometry, 0,
+                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
+                glm::value_ptr(*optTransform));
+        rtcCommitGeometry(embreeInstanceGeometry);
+
+        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, static_cast<unsigned>(geomID));
+        spdlog::info("Instance geom ID: {}", geomID);
+    }
+
+    rtcCommitScene(embreeScene);
     return embreeScene;
 }
-
 }

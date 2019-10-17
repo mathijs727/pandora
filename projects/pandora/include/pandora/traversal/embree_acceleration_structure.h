@@ -58,12 +58,12 @@ public:
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask);
 
 private:
-    RTCScene buildRecurse(const SceneNode* pNode, std::optional<RTCScene> parentScene);
+    RTCScene buildRecurse(const SceneNode* pNode);
 
 private:
     RTCDevice m_embreeDevice;
     RTCScene m_embreeScene;
-	std::unordered_map<const SceneNode*, RTCScene> m_instances;
+	std::unordered_map<const SceneNode*, RTCScene> m_sceneCache;
 
     tasking::TaskGraph* m_pTaskGraph;
 };
@@ -89,6 +89,9 @@ inline std::optional<RayHit> EmbreeAccelerationStructure<HitRayState, AnyHitRayS
     embreeRayHit.ray.id = 0;
     embreeRayHit.ray.flags = 0;
     embreeRayHit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
+    for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
+        embreeRayHit.hit.instID[i] = RTC_INVALID_GEOMETRY_ID;
+    }
     rtcIntersect1(m_embreeScene, &context, &embreeRayHit);
 
     if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
@@ -101,6 +104,9 @@ inline std::optional<RayHit> EmbreeAccelerationStructure<HitRayState, AnyHitRayS
         hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
         hit.pSceneObject = pSceneObject;
         hit.primitiveID = embreeRayHit.hit.primID;
+        for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
+            hit.instanceIDs.push_back(embreeRayHit.hit.instID[i]);
+		}
         return hit;
     } else {
         return {};

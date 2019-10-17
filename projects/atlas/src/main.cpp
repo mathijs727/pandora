@@ -141,6 +141,7 @@ int main(int argc, char** argv)
                     auto hitOpt = accel.intersectFast(cameraRay);
                     if (hitOpt) {
                         //auto si = hitOpt->pSceneObject->pShape->getShadingGeometry()->fillSurfaceInteraction(cameraRay, *hitOpt);
+                        //float cos = glm::dot(si.shading.normal, -cameraRay.direction);
                         float cos = glm::dot(hitOpt->geometricNormal, -cameraRay.direction);
                         sensor.addPixelContribution(glm::ivec2 { x, y }, glm::vec3(cos));
                     }

@@ -39,7 +39,7 @@ struct RayHit {
     glm::vec2 geometricUV;
 
 	// Path taken through scene hierarchy to arrive at scene object
-	eastl::fixed_vector<unsigned, 6, false> instanceIDs;
+	eastl::fixed_vector<unsigned, 4, false> instanceIDs;
     const SceneObject* pSceneObject;
     unsigned primitiveID;
 };
