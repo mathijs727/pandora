@@ -88,7 +88,7 @@ def t_newline(t):
 #     input is the input text string
 #     token is a token instance
 def find_column(input, token):
-    line_start = input.rfind('\n', 0, token.lexpos) + 1
+    line_start = input.rfind(b'\n', 0, token.lexpos) + 1
     return (token.lexpos - line_start) + 1
 
 
@@ -105,6 +105,6 @@ t_ignore = " \t\r"
 
 def create_lexer():
     import re
-    lexer = lex.lex()#optimize=True)
+    lexer = lex.lex(optimize=True)
 
     return lexer

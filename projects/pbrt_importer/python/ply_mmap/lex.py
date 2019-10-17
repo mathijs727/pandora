@@ -230,7 +230,7 @@ class Lexer:
             titem = []
             txtitem = []
             for pat, func_name in lre:
-                titem.append((re.compile(pat, lextab._lexreflags), _names_to_funcs(func_name, fdict)))
+                titem.append((re.compile(pat.encode("ascii"), lextab._lexreflags), _names_to_funcs(func_name, fdict)))
 
             self.lexstatere[statename] = titem
             self.lexstateretext[statename] = txtitem
@@ -365,7 +365,7 @@ class Lexer:
                 return newtok
             else:
                 # No match, see if in literals
-                if lexdata[lexpos] in self.lexliterals:
+                if chr(lexdata[lexpos]) in self.lexliterals:
                     tok = LexToken()
                     tok.value = lexdata[lexpos]
                     tok.lineno = self.lineno
