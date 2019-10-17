@@ -44,9 +44,12 @@ EmbreeAccelerationStructureBuilder::EmbreeAccelerationStructureBuilder(const Sce
     m_embreeDevice = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(m_embreeDevice, embreeErrorFunc, nullptr);
 
+    spdlog::info("Verifying instance depth is supported by Embree build (RTC_MAX_INSTANCE_LEVEL_COUNT)");
+    verifyInstanceDepth(scene.pRoot.get());
+
     spdlog::info("Starting BVH build");
     m_sceneCache.clear();
-    m_embreeScene = buildRecurse(scene.root.get());
+    m_embreeScene = buildRecurse(scene.pRoot.get());
     spdlog::info("Finsihed building BVH");
 }
 
@@ -85,10 +88,18 @@ RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pScen
         rtcCommitGeometry(embreeInstanceGeometry);
 
         rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, static_cast<unsigned>(geomID));
-        spdlog::info("Instance geom ID: {}", geomID);
+        //spdlog::info("Instance geom ID: {}", geomID);
     }
 
     rtcCommitScene(embreeScene);
     return embreeScene;
+}
+
+void EmbreeAccelerationStructureBuilder::verifyInstanceDepth(const SceneNode* pSceneNode, int depth)
+{
+    for (const auto& [pChildNode, optTransform] : pSceneNode->children) {
+        verifyInstanceDepth(pChildNode.get(), depth + 1);
+    }
+    ALWAYS_ASSERT(depth <= RTC_MAX_INSTANCE_LEVEL_COUNT);
 }
 }

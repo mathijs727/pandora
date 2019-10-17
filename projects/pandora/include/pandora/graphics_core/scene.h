@@ -26,7 +26,7 @@ struct SceneNode {
 };
 
 struct Scene {
-    std::shared_ptr<SceneNode> root;
+    std::shared_ptr<SceneNode> pRoot;
     std::vector<std::unique_ptr<Light>> lights;
     std::vector<InfiniteLight*> infiniteLights;
 

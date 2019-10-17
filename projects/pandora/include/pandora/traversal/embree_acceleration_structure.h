@@ -59,6 +59,7 @@ public:
 
 private:
     RTCScene buildRecurse(const SceneNode* pNode);
+    static void verifyInstanceDepth(const SceneNode* pNode, int depth = 0);
 
 private:
     RTCDevice m_embreeDevice;

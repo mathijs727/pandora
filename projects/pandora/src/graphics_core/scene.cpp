@@ -3,7 +3,7 @@
 namespace pandora {
 
 Scene::Scene(std::shared_ptr<SceneNode>&& root, std::vector<std::unique_ptr<Light>>&& lights, std::vector<InfiniteLight*>&& infiniteLights)
-    : root(root)
+    : pRoot(root)
     , lights(std::move(lights))
     , infiniteLights(std::move(infiniteLights))
 {
