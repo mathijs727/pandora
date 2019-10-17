@@ -32,5 +32,7 @@ private:
     bool m_cameraChanged;
     bool m_mouseCaptured;
     glm::dvec2 m_previousMousePos;
+
+	float m_moveSpeed { 0.5f };
 };
 }
