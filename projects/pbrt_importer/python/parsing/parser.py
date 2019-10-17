@@ -11,7 +11,7 @@ from parsing.lexer import create_lexer, tokens
 from parsing.mesh_batch import MeshBatcher
 from parsing.file_backed_list import FileBackedList
 import parsing.lexer
-import ply.yacc as yacc
+import ply_mmap.yacc as yacc
 import mmap
 from sqlitedict import SqliteDict
 

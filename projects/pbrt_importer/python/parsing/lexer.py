@@ -1,4 +1,4 @@
-import ply.lex as lex
+import ply_mmap.lex as lex
 
 current_file = ""
 
@@ -95,31 +95,16 @@ def find_column(input, token):
 def t_error(t):
     global current_file
     column = find_column(t.lexer.lexdata, t)
-    print("Illegal character '{}' in file {} at ({}: {})".format(t.value[0], current_file, t.lexer.lineno, column))
+    print(f"Illegal character \"{t.value[0]}\" in file {current_file} at ({t.lexer.lineno}: {column})")
     t.lexer.skip(1)
 
 
 # Ignored characters
-t_ignore = " \t"
+t_ignore = " \t\r"
 
 
 def create_lexer():
     import re
-    import ply.lex as lex
-    lexer = lex.lex()
-
-    # Modify lexer to support reading bytes from mmap (so we don't run out of memory when parsing large files)
-    lexignore = lexer.lexignore.encode("ascii")
-    lexer.lexignore = lexignore
-
-    lexstatere = {}
-    for k, v in lexer.lexstatere.items():
-        titem = []
-        for (_, func), pattern in zip(v, lexer.lexstateretext[k]):
-            titem.append((re.compile(pattern.encode("ascii"), lexer.lexreflags), func))
-        lexstatere[k] = titem
-    lexer.lexstatere = lexstatere
-
-    lexer.lexre = lexstatere[lexer.lexstate]
+    lexer = lex.lex()#optimize=True)
 
     return lexer
