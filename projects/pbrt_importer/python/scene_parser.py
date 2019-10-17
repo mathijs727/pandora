@@ -104,12 +104,12 @@ class SceneParser:
 
         self._transforms = UniqueCollection(
             os.path.join(self._tmp_list_folder, "transforms"))
-        self._geometry = UniqueCollection(
-            os.path.join(self._tmp_list_folder, "geometry"))
+        self._shapes = UniqueCollection(
+            os.path.join(self._tmp_list_folder, "shapes"))
         self._scene_objects = UniqueCollection(
             os.path.join(self._tmp_list_folder, "scene_objects"))
-        self._instance_base_scene_objects = UniqueCollection(
-            os.path.join(self._tmp_list_folder, "instance_base_scene_objects"))
+        self._scene_nodes = UniqueCollection(
+            os.path.join(self._tmp_list_folder, "scene_nodes"))
         self._materials = UniqueCollection(
             os.path.join(self._tmp_list_folder, "materials"))
         self._float_textures = UniqueCollection(
@@ -128,20 +128,20 @@ class SceneParser:
         self._pbrt_named_textures = pbrt_scene["textures"]
 
         self._create_light_sources(pbrt_scene)
-        self._create_scene_objects(pbrt_scene)
-        self._create_scene_objects_instancing(pbrt_scene)
+
+        scene_nodes = self._create_instance_scene_nodes(pbrt_scene)
+        self._root_node = self._create_root_scene_node(pbrt_scene, scene_nodes)
 
     def _dump_mem_info(self):
         print("=== Memory size info ===")
-        print("self._transforms:          ", get_size(self._transforms))
-        print("self._geometry:          ", get_size(self._geometry))
-        print("self._scene_objects:     ", get_size(self._scene_objects))
-        print("self._instance_base_scene_objects: ",
-              get_size(self._instance_base_scene_objects))
-        print("self._materials:         ", get_size(self._materials))
-        print("self._float_textures:    ", get_size(self._float_textures))
-        print("self._color_textures:    ", get_size(self._color_textures))
-        print("self._light_sources:    ", get_size(self._light_sources))
+        print(f"self._transforms:     {get_size(self._transforms)}")
+        print(f"self._geometry:       {get_size(self._shapes)}")
+        print(f"self._scene_objects:  {get_size(self._scene_objects)}")
+        print(f"self._scene_nodes:    {get_size(self._scene_nodes)}")
+        print(f"self._materials:      {get_size(self._materials)}")
+        print(f"self._float_textures: {get_size(self._float_textures)}")
+        print(f"self._color_textures: {get_size(self._color_textures)}")
+        print(f"self._light_sources:  {get_size(self._light_sources)}")
 
     def _create_transform(self, transform):
         return self._transforms.add_item(transform)
@@ -211,8 +211,8 @@ class SceneParser:
                 # Copy to the destination folder so that we can use relative paths
                 suffix = pathlib.PurePath(v).suffix
                 with tempfile.NamedTemporaryFile("wb+", dir=self._out_texture_folder, suffix=suffix, delete=False) as out_file:
-                    with open(v, "rb") as in_file:
-                        out_file.write(in_file.read())
+                    assert(os.path.exists(v))
+                    shutil.copyfile(v, out_file.name)
                     v = os.path.relpath(out_file.name, self._out_folder)
                     #print(f"{out_file.name} is {v} relative to {self._out_folder}")
 
@@ -300,7 +300,7 @@ class SceneParser:
                 }
             })
 
-    def _create_geometric_scene_object(self, shape):
+    def _create_scene_object(self, shape):
         if shape.type == "plymesh":
             handle, filename = tempfile.mkstemp(
                 suffix=".ply", dir=self._out_ply_mesh_folder)
@@ -309,7 +309,7 @@ class SceneParser:
             shutil.copyfile(shape.arguments["filename"]["value"], filename)
 
             filename = os.path.relpath(filename, start=self._out_folder)
-            geometry_id = self._geometry.add_item({
+            geometry_id = self._shapes.add_item({
                 "type": "triangle",
                 "filename": filename,
                 "transform": self._create_transform(shape.transform)
@@ -323,7 +323,7 @@ class SceneParser:
                     triangle_mesh_data, shape.transform)
 
             filename = os.path.relpath(filename, start=self._out_folder)
-            geometry_id = self._geometry.add_item({
+            geometry_id = self._shapes.add_item({
                 "type": "triangle",
                 "filename": filename,
                 "start_byte": start_byte,
@@ -348,7 +348,6 @@ class SceneParser:
                 "two_sided": get_argument_with_default(shape.area_light.arguments, "twosided", False)
             }
             return {
-                "instancing": False,
                 "geometry_id": geometry_id,
                 "material_id": material_id,
                 "area_light": area_light,
@@ -356,41 +355,52 @@ class SceneParser:
             }
         else:
             return {
-                "instancing": False,
                 "geometry_id": geometry_id,
                 "material_id": material_id,
                 # "bounds": shape_bounds
             }
 
-    def _create_scene_objects(self, pbrt_scene):
-        print("Unique scene objects")
+    def _create_root_scene_node(self, pbrt_scene, children):
+        print("Create root node and attached scene objects")
 
-        for i, json_shape in enumerate(pbrt_scene["non_instanced_shapes"]):
-            scene_object = self._create_geometric_scene_object(json_shape)
+        objects = []
+        for json_shape in pbrt_scene["non_instanced_shapes"]:
+            scene_object = self._create_scene_object(json_shape)
             if scene_object is not None:
-                self._scene_objects.add_item(scene_object)
+                scene_object_id = self._scene_objects.add_item(scene_object)
+                objects.append(scene_object_id)
+        
+        return self._scene_nodes.add_item({
+            "children": children,
+            "objects": objects
+        })
 
-    def _create_scene_objects_instancing(self, pbrt_scene):
+    def _create_instance_scene_nodes(self, pbrt_scene):
         print("Instanced scene objects")
 
-        named_base_scene_objects = {}
+        #named_base_scene_objects = {}
+        named_base_scene_nodes = {}
         for instance_template in pbrt_scene["instance_templates"].values():
-            base_scene_objects = [self._create_geometric_scene_object(shape)
-                                  for shape in instance_template.shapes]
-            base_scene_objects = [
-                so for so in base_scene_objects if so is not None]
+            base_scene_objects = [self._create_scene_object(shape) for shape in instance_template.shapes]
+            base_scene_objects = [so for so in base_scene_objects if so]
 
-            base_so_ids = [self._instance_base_scene_objects.add_item(
-                so) for so in base_scene_objects]
-            named_base_scene_objects[instance_template.name] = base_so_ids
+            base_scene_object_ids = [self._scene_objects.add_item(so) for so in base_scene_objects]
+            node_id = self._scene_nodes.add_item({
+                "children": [],
+                "objects": base_scene_object_ids
+            })
+            named_base_scene_nodes[instance_template.name] = node_id
 
+        instanced_nodes = []
         for instance in pbrt_scene["instances"]:
-            for base_scene_object_id in named_base_scene_objects[instance.template_name]:
-                self._scene_objects.add_item({
-                    "instancing": True,
-                    "base_scene_object_id": base_scene_object_id,
-                    "transform": self._create_transform(instance.transform)
-                })
+            node_id = self._scene_nodes.add_item({
+                "children": named_base_scene_nodes[instance.template_name],
+                "objects": [],
+                "transform": self._create_transform(instance.transform)
+            })
+            instanced_nodes.append(node_id)
+
+        return instanced_nodes
 
     def _export_triangle_mesh(self, geometry, transform):
         triangles = geometry["indices"]["value"]
@@ -415,9 +425,9 @@ class SceneParser:
 
     def data(self):
         self._transforms.finish()
-        self._geometry.finish()
+        self._shapes.finish()
         self._scene_objects.finish()
-        self._instance_base_scene_objects.finish()
+        self._scene_nodes.finish()
         self._materials.finish()
         self._float_textures.finish()
         self._color_textures.finish()
@@ -425,9 +435,10 @@ class SceneParser:
         return {
             "transforms": self._transforms.to_list(),
             "lights": self._light_sources,
-            "geometry": self._geometry.to_list(),
+            "shapes": self._shapes.to_list(),
             "scene_objects": self._scene_objects.to_list(),
-            "instance_base_scene_objects": self._instance_base_scene_objects.to_list(),
+            "scene_nodes": self._scene_nodes.to_list(),
+            "root_scene_node": self._root_node,
             "materials": self._materials.to_list(),
             "float_textures": self._float_textures.to_list(),
             "color_textures": self._color_textures.to_list()

@@ -180,8 +180,8 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
         //assert(SUBDIVIDE_LEVEL == 1);
         spdlog::info("Loading geometry");
-        std::vector<std::shared_ptr<Shape>> geometry;
-        for (const auto jsonGeometry : sceneJson["geometry"]) {
+        std::vector<std::shared_ptr<Shape>> shapes;
+        for (const auto jsonGeometry : sceneJson["shapes"]) {
             auto geometryType = jsonGeometry["type"].get<std::string>();
             auto geometryFile = basePath / std::filesystem::path(jsonGeometry["filename"].get<std::string>());
 
@@ -198,14 +198,14 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                     /*for (int subDiv = 0; subDiv < SUBDIVIDE_LEVEL; subDiv++) {
                         meshOpt->subdivide();
                     }*/
-                    geometry.push_back(pShape);
+                    shapes.push_back(pShape);
                 } else {
                     auto pShape = std::make_shared<TriangleShape>(
                         TriangleShape::loadSerialized(serialization::GetTriangleMesh(mappedFile.data()), glm::mat4(1.0f)));
                     /*for (int subDiv = 0; subDiv < SUBDIVIDE_LEVEL; subDiv++) {
                         meshOpt->subdivide();
                     }*/
-                    geometry.push_back(pShape);
+                    shapes.push_back(pShape);
                 }
             } else {
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
@@ -216,60 +216,60 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                     meshOpt->subdivide();
                 }*/
 
-                geometry.push_back(std::make_shared<TriangleShape>(std::move(*meshOpt)));
+                shapes.push_back(std::make_shared<TriangleShape>(std::move(*meshOpt)));
             }
         }
 
-        // Create instanced base objects
-        spdlog::info("Creating instance base scene objects");
+        // Create scene objects
+        spdlog::info("Creating scene objects");
         SceneBuilder sceneBuilder;
-        std::vector<std::shared_ptr<SceneNode>> baseSceneNodes;
-        for (const auto jsonSceneObject : sceneJson["instance_base_scene_objects"]) {
-            auto pShape = geometry[jsonSceneObject["geometry_id"].get<int>()];
+        std::vector<std::shared_ptr<SceneObject>> sceneObjects;
+        for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
+            auto pShape = shapes[jsonSceneObject["geometry_id"].get<int>()];
             std::shared_ptr<Material> pMaterial;
             if (loadMaterials)
                 pMaterial = materials[jsonSceneObject["material_id"].get<int>()];
             else
                 pMaterial = defaultMaterial;
 
-            auto pSceneNode = sceneBuilder.addSceneNode();
+            std::shared_ptr<SceneObject> pSceneObject;
             if (jsonSceneObject.find("area_light") != jsonSceneObject.end()) {
-                auto emittedLight = readVec3(jsonSceneObject["area_light"]["L"]);
-                sceneBuilder.addSceneObject(pShape, pMaterial, std::make_unique<AreaLight>(emittedLight), pSceneNode.get());
+                auto areaLightRadiance = readVec3(jsonSceneObject["area_light"]["L"]);
+                auto pAreaLight = std::make_unique<AreaLight>(areaLightRadiance);
+                pSceneObject = sceneBuilder.addSceneObject(pShape, pMaterial, std::move(pAreaLight));
             } else {
-                sceneBuilder.addSceneObject(pShape, pMaterial, pSceneNode.get());
+                pSceneObject = sceneBuilder.addSceneObject(pShape, pMaterial);
             }
-            baseSceneNodes.push_back(pSceneNode);
+            sceneObjects.push_back(pSceneObject);
         }
 
-        // Create scene objects
-        spdlog::info("Creating scene objects");
-        for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
-            if (jsonSceneObject["instancing"].get<bool>()) {
-                glm::mat4 transform = getTransform(jsonSceneObject["transform"]);
-                auto pBaseSceneNode = baseSceneNodes[jsonSceneObject["base_scene_object_id"].get<int>()];
-                auto pSceneNode = sceneBuilder.addSceneNodeToRoot(transform);
-                sceneBuilder.attachNode(pSceneNode, pBaseSceneNode);
-            } else {
-                auto pShape = geometry[jsonSceneObject["geometry_id"].get<int>()];
-                std::shared_ptr<Material> pMaterial;
-                if (loadMaterials)
-                    pMaterial = materials[jsonSceneObject["material_id"].get<int>()];
-                else
-                    pMaterial = defaultMaterial;
+        // Creating scene nodes
+        spdlog::info("Creating scene nodes");
+        const auto jsonSceneNodes = sceneJson["scene_nodes"];
+        std::unordered_map<int, std::shared_ptr<SceneNode>> sceneNodeCache;
+        std::function<std::shared_ptr<SceneNode>(int)> createSceneNodeRecurse = [&](int sceneNodeID) {
+            if (auto iter = sceneNodeCache.find(sceneNodeID); iter != std::end(sceneNodeCache))
+                return iter->second;
 
-                if (jsonSceneObject.find("area_light") != jsonSceneObject.end()) {
-                    auto areaLightRadiance = readVec3(jsonSceneObject["area_light"]["L"]);
-                    auto pAreaLight = std::make_unique<AreaLight>(areaLightRadiance);
-                    sceneBuilder.addSceneObject(pShape, pMaterial, std::move(pAreaLight));
-                } else {
-                    sceneBuilder.addSceneObject(pShape, pMaterial);
-                }
+            auto jsonSceneNode = jsonSceneNodes[sceneNodeID];
 
-                g_stats.scene.uniquePrimitives += pShape->numPrimitives();
-                g_stats.scene.totalPrimitives += pShape->numPrimitives();
-            }
-        }
+            std::shared_ptr<SceneNode> pSceneNode;
+            if (jsonSceneNode.find("transform") != std::end(jsonSceneNode))
+                pSceneNode = sceneBuilder.addSceneNode(getTransform(jsonSceneNode["transform"]));
+            else
+                pSceneNode = sceneBuilder.addSceneNode();
+
+            for (const int sceneObjectID : jsonSceneNode["objects"])
+                sceneBuilder.attachObject(pSceneNode, sceneObjects[sceneObjectID]);
+
+            for (const int childNodeID : jsonSceneNode["children"])
+                sceneBuilder.attachNode(pSceneNode, createSceneNodeRecurse(childNodeID));
+
+			sceneNodeCache[sceneNodeID] = pSceneNode;
+            return pSceneNode;
+        };
+        auto pRootNode = createSceneNodeRecurse(sceneJson["root_scene_node"].get<int>());
+        sceneBuilder.makeRootNode(pRootNode);
 
         // Load lights
         spdlog::info("Create infinite lights");

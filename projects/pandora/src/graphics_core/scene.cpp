@@ -10,36 +10,47 @@ Scene::Scene(std::shared_ptr<SceneNode>&& root, std::vector<std::unique_ptr<Ligh
 }
 
 SceneBuilder::SceneBuilder()
-    : m_root(std::make_shared<SceneNode>())
+    : m_pRoot(std::make_shared<SceneNode>())
 {
 }
 
-void pandora::SceneBuilder::addSceneObject(
+std::shared_ptr<SceneObject> pandora::SceneBuilder::addSceneObject(
     std::shared_ptr<Shape> pShape,
-    std::shared_ptr<Material> pMaterial,
-    SceneNode* pSceneNode)
+    std::shared_ptr<Material> pMaterial)
 {
-    auto pSceneObject = std::make_shared<SceneObject>(SceneObject { pShape, pMaterial, nullptr, pSceneNode });
-    if (pSceneNode)
-        pSceneNode->objects.push_back(pSceneObject);
-    else
-        m_root->objects.push_back(pSceneObject);
+    return std::make_shared<SceneObject>(SceneObject { pShape, pMaterial, nullptr });
 }
 
-void pandora::SceneBuilder::addSceneObject(
+std::shared_ptr<SceneObject> pandora::SceneBuilder::addSceneObject(
     std::shared_ptr<Shape> pShape,
     std::shared_ptr<Material> pMaterial,
-    std::unique_ptr<AreaLight>&& pAreaLight,
-    SceneNode* pSceneNode)
+    std::unique_ptr<AreaLight>&& pAreaLight)
 {
-    auto pSceneObject = std::make_shared<SceneObject>(SceneObject { pShape, pMaterial, pAreaLight.get(), pSceneNode });
-    if (pSceneNode)
-        pSceneNode->objects.push_back(pSceneObject);
-    else
-        m_root->objects.push_back(pSceneObject);
+    return std::make_shared<SceneObject>(SceneObject { pShape, pMaterial, pAreaLight.get() });
+}
 
-    m_areaLights.push_back(pAreaLight.get());
-    m_lights.push_back(std::move(pAreaLight));
+std::shared_ptr<SceneObject> pandora::SceneBuilder::addSceneObjectToRoot(
+    std::shared_ptr<Shape> pShape,
+    std::shared_ptr<Material> pMaterial)
+{
+    auto pSceneObject = addSceneObject(pShape, pMaterial);
+    m_pRoot->objects.push_back(pSceneObject);
+    return pSceneObject;
+}
+
+std::shared_ptr<SceneObject> pandora::SceneBuilder::addSceneObjectToRoot(
+    std::shared_ptr<Shape> pShape,
+    std::shared_ptr<Material> pMaterial,
+    std::unique_ptr<AreaLight>&& pAreaLight)
+{
+    auto pSceneObject = addSceneObject(pShape, pMaterial, std::move(pAreaLight));
+    m_pRoot->objects.push_back(pSceneObject);
+    return pSceneObject;
+}
+
+void SceneBuilder::attachObject(std::shared_ptr<SceneNode> pParent, std::shared_ptr<SceneObject> pSceneObject)
+{
+    pParent->objects.push_back(pSceneObject);
 }
 
 std::shared_ptr<SceneNode> SceneBuilder::addSceneNode()
@@ -57,14 +68,14 @@ std::shared_ptr<SceneNode> SceneBuilder::addSceneNode(const glm::mat4& transform
 std::shared_ptr<SceneNode> SceneBuilder::addSceneNodeToRoot()
 {
     auto pSceneNode = addSceneNode();
-    attachNode(m_root, pSceneNode);
+    attachNode(m_pRoot, pSceneNode);
     return pSceneNode;
 }
 
 std::shared_ptr<SceneNode> SceneBuilder::addSceneNodeToRoot(const glm::mat4& transform)
 {
     auto pSceneNode = addSceneNode(transform);
-    attachNode(m_root, pSceneNode);
+    attachNode(m_pRoot, pSceneNode);
     return pSceneNode;
 }
 
@@ -72,6 +83,11 @@ void SceneBuilder::attachNode(std::shared_ptr<SceneNode> pParent, std::shared_pt
 {
     pParent->children.push_back(pChild);
     pChild->pParent = pParent.get();
+}
+
+void SceneBuilder::makeRootNode(std::shared_ptr<SceneNode> pNewRoot)
+{
+    m_pRoot = pNewRoot;
 }
 
 void SceneBuilder::addInfiniteLight(std::unique_ptr<InfiniteLight>&& pInfiniteLight)
@@ -82,9 +98,9 @@ void SceneBuilder::addInfiniteLight(std::unique_ptr<InfiniteLight>&& pInfiniteLi
 
 Scene SceneBuilder::build()
 {
-    attachLightRecurse(m_root.get(), {});
+    attachLightRecurse(m_pRoot.get(), {});
 
-    return Scene(std::move(m_root), std::move(m_lights), std::move(m_infiniteLights));
+    return Scene(std::move(m_pRoot), std::move(m_lights), std::move(m_infiniteLights));
 }
 
 void SceneBuilder::attachLightRecurse(SceneNode* pNode, std::optional<glm::mat4> transform)
