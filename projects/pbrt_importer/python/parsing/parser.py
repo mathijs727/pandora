@@ -83,9 +83,9 @@ def p_statement_include(p):
     with open(include_file, "r") as f:
         lexer = create_lexer()
         if parsing_state == ParsingState.CONFIG:
-            parser = yacc.yacc(start="statements_config")
+            parser = yacc.yacc(start="statements_config", optimize=False)
         else:
-            parser = yacc.yacc(start="statements_scene")
+            parser = yacc.yacc(start="statements_scene", optimize=False)
 
         mapped_bytes = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
         result = parser.parse(mapped_bytes, lexer=lexer)
@@ -149,7 +149,7 @@ graphics_state = {"area_light": None,
                   "flip_normals": False, "material": default_material}
 transform_start_active = True
 transform_stack = []
-named_transforms = {}
+named_transforms = None # SqliteDict
 cur_transform = np.identity(4)
 current_instance = None
 
@@ -480,6 +480,7 @@ def p_statement_area_light(p):
 def p_statement_object_begin(p):
     "statement_scene : OBJECT_BEGIN STRING"
     global current_instance
+    assert(current_instance is None)
     current_instance = InstanceTemplate(p[2], [], cur_transform.tolist())
 
 
@@ -584,7 +585,7 @@ def p_statement_accelerator(p):
 
 def parse_file(file_path, int_mesh_folder):
     lexer = create_lexer()
-    parser = yacc.yacc()
+    parser = yacc.yacc(optimize=False)
 
     import parsing.lexer
     parsing.lexer.current_file = file_path
@@ -594,13 +595,14 @@ def parse_file(file_path, int_mesh_folder):
         os.makedirs(int_mesh_folder)
     mesh_batcher = MeshBatcher(int_mesh_folder)
 
-    global named_materials, named_textures, instance_templates, non_instanced_shapes, instances
+    global named_transforms, named_materials, named_textures, instance_templates, non_instanced_shapes, instances
 
     def create_sqlite_dict(file):
         if os.path.exists(file):
             os.remove(file)
-        return SqliteDict(file)
+        return SqliteDict(file, flag="c", autocommit=True, journal_mode="OFF")
 
+    named_transforms = create_sqlite_dict(os.path.join(int_mesh_folder, "named_transforms.db"))
     named_materials = create_sqlite_dict(os.path.join(int_mesh_folder, "named_materials.db"))
     named_textures = create_sqlite_dict(os.path.join(int_mesh_folder, "named_textures.db"))
     instance_templates = create_sqlite_dict(os.path.join(int_mesh_folder, "instance_templates.db"))
@@ -626,6 +628,9 @@ def parse_file(file_path, int_mesh_folder):
     mesh_batcher.destructor()
     non_instanced_shapes.destructor()
     instances.destructor()
+
+    named_materials.close()
+    named_transforms.close()
 
     return ret
 
