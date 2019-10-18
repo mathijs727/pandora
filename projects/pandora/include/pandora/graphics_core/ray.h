@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <variant>
 
 namespace pandora {
@@ -38,8 +39,9 @@ struct RayHit {
     glm::vec3 geometricNormal;
     glm::vec2 geometricUV;
 
-	// Path taken through scene hierarchy to arrive at scene object
-	eastl::fixed_vector<unsigned, 4, false> instanceIDs;
+    // Path taken through scene hierarchy to arrive at scene object
+    //eastl::fixed_vector<unsigned, 4, false> instanceIDs;
+    std::optional<glm::mat4> transform;
     const SceneObject* pSceneObject;
     unsigned primitiveID;
 };

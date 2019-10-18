@@ -1,4 +1,5 @@
 #pragma once
+#include "pandora/graphics_core/transform.h"
 #include "pandora/shapes/triangle.h"
 #include "pandora/utility/math.h"
 #include <assimp/Importer.hpp>
@@ -38,9 +39,9 @@ namespace pandora {
 
 TriangleShadingGeometry::TriangleShadingGeometry(
     const TriangleIntersectGeometry* pIntersectGeometry,
-	std::vector<glm::vec3>&& normals,
-	std::vector<glm::vec2>&& uvCoords,
-	std::vector<glm::vec3>&& tangents)
+    std::vector<glm::vec3>&& normals,
+    std::vector<glm::vec2>&& uvCoords,
+    std::vector<glm::vec3>&& tangents)
     : m_pIntersectGeometry(pIntersectGeometry)
     , m_normals(std::move(normals))
     , m_uvCoords(std::move(uvCoords))
@@ -159,7 +160,13 @@ SurfaceInteraction pandora::TriangleShadingGeometry::fillSurfaceInteraction(cons
 
     isect.wo = -ray.direction;
     //isect.primitiveID = hitInfo.primitiveID;
-    return isect;
+
+    if (hitInfo.transform) {
+        Transform transform { *hitInfo.transform };
+        return transform.transform(isect);
+    } else {
+        return isect;
+    }
 }
 
 void TriangleShadingGeometry::getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const

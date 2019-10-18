@@ -80,15 +80,16 @@ RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pScen
 
         RTCGeometry embreeInstanceGeometry = rtcNewGeometry(m_embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
         rtcSetGeometryInstancedScene(embreeInstanceGeometry, childScene);
-        if (optTransform)
+        rtcSetGeometryUserData(embreeInstanceGeometry, childScene);
+		if (optTransform)
             rtcSetGeometryTransform(
                 embreeInstanceGeometry, 0,
                 RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
                 glm::value_ptr(*optTransform));
-        rtcCommitGeometry(embreeInstanceGeometry);
 
-        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, static_cast<unsigned>(geomID));
-        //spdlog::info("Instance geom ID: {}", geomID);
+        rtcCommitGeometry(embreeInstanceGeometry);
+        unsigned geometryID = rtcAttachGeometry(embreeScene, embreeInstanceGeometry);
+        (void)geometryID; //spdlog::info("Instance geom ID: {}", geomID);
     }
 
     rtcCommitScene(embreeScene);
