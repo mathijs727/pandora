@@ -102,7 +102,7 @@ inline std::optional<RayHit> EmbreeAccelerationStructure<HitRayState, AnyHitRayS
 
         if (embreeRayHit.hit.instID[0] == 0) {
             pSceneObject = reinterpret_cast<const SceneObject*>(
-				rtcGetGeometryUserData(rtcGetGeometry(m_embreeScene, embreeRayHit.hit.geomID)));
+                rtcGetGeometryUserData(rtcGetGeometry(m_embreeScene, embreeRayHit.hit.geomID)));
         } else {
             glm::mat4 accumulatedTransform { 1.0f };
             RTCScene scene = m_embreeScene;
@@ -112,7 +112,7 @@ inline std::optional<RayHit> EmbreeAccelerationStructure<HitRayState, AnyHitRayS
                     break;
 
                 RTCGeometry geometry = rtcGetGeometry(scene, geomID);
-				
+
                 glm::mat4 localTransform;
                 rtcGetGeometryTransform(geometry, 0.0f, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR, glm::value_ptr(localTransform));
                 accumulatedTransform *= localTransform;
@@ -121,7 +121,7 @@ inline std::optional<RayHit> EmbreeAccelerationStructure<HitRayState, AnyHitRayS
             }
 
             transform = accumulatedTransform;
-			pSceneObject = reinterpret_cast<const SceneObject*>(
+            pSceneObject = reinterpret_cast<const SceneObject*>(
                 rtcGetGeometryUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
         }
 
@@ -212,14 +212,12 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
         rtcIntersect1(m_embreeScene, &context, &embreeRayHit);
 
         if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
-            ray.tnear = embreeRayHit.ray.tnear;
-            ray.tfar = embreeRayHit.ray.tfar;
-
             std::optional<glm::mat4> transform;
             const SceneObject* pSceneObject { nullptr };
 
-            if (embreeRayHit.hit.instID[0] == RTC_INVALID_GEOMETRY_ID) {
-
+            if (embreeRayHit.hit.instID[0] == 0) {
+                pSceneObject = reinterpret_cast<const SceneObject*>(
+                    rtcGetGeometryUserData(rtcGetGeometry(m_embreeScene, embreeRayHit.hit.geomID)));
             } else {
                 glm::mat4 accumulatedTransform { 1.0f };
                 RTCScene scene = m_embreeScene;
@@ -228,20 +226,25 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
                     if (geomID == RTC_INVALID_GEOMETRY_ID)
                         break;
 
-                    //glm::mat4 localTransform;
                     RTCGeometry geometry = rtcGetGeometry(scene, geomID);
-                    //rtcGetGeometryTransform(geometry, 0.0f, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR, glm::value_ptr);
+
+                    glm::mat4 localTransform;
+                    rtcGetGeometryTransform(geometry, 0.0f, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR, glm::value_ptr(localTransform));
+                    accumulatedTransform *= localTransform;
+
                     scene = reinterpret_cast<RTCScene>(rtcGetGeometryUserData(geometry));
                 }
-            }
 
-            //auto pSceneObject = reinterpret_cast<const SceneObject*>(rtcGetGeometryUserData(
-            //    rtcGetGeometry(m_embreeScene, embreeRayHit.hit.geomID)));
+                transform = accumulatedTransform;
+                pSceneObject = reinterpret_cast<const SceneObject*>(
+                    rtcGetGeometryUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
+            }
 
             RayHit hit;
             hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
             hit.geometricNormal = glm::normalize(hit.geometricNormal);
             hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
+            hit.transform = transform;
             hit.pSceneObject = pSceneObject;
             hit.primitiveID = embreeRayHit.hit.primID;
             m_pTaskGraph->enqueue(m_onHitTask, std::tuple { ray, hit, state });

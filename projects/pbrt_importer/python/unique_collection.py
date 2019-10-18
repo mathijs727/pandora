@@ -4,50 +4,7 @@ from itertools import chain
 from parsing.file_backed_list import FileBackedList
 import os
 import sqlite3
-
-class OfflineLUT:
-    def __init__(self, filename):
-        if os.path.exists(filename):
-            os.remove(filename)
-        
-        """self._filename = filename
-        self._conn = sqlite3.connect(filename)
-        self._conn.execute("CREATE TABLE lut (key TEXT PRIMARY KEY, id INTEGER)")
-        self._inserts_since_last_commit = 0"""
-        self._dict = {}
-
-    def __contains__(self, key):
-        return key in self._dict
-        #return self._conn.execute("SELECT * FROM lut WHERE key=?", (key,)).fetchone() is not None
-        
-    def __setitem__(self, key, value):
-        """self._conn.execute("INSERT INTO lut VALUES (?, ?)", (key,value))
-
-        self._inserts_since_last_commit += 1
-        if self._inserts_since_last_commit > 1000:
-            self._inserts_since_last_commit = 0
-            self._conn.commit()"""
-        self._dict[key] = value
-
-    def __getitem__(self, key):
-        """try:
-            return self._conn.execute("SELECT id FROM lut WHERE key=?", (key,)).fetchone()[0]
-        except:
-            raise KeyError()"""
-        return self._dict[key]
-
-    def __del__(self):
-        self.clear()
-
-    def clear(self):
-        """if self._conn is not None:
-            self._conn.commit()
-            self._conn.close()
-            self._conn = None
-
-        if os.path.exists(self._filename):
-            os.remove(self._filename)"""
-        self._dict = {}
+from sqlitedict import SqliteDict
 
 class UniqueCollection:
     def __init__(self, tmp_folder):
@@ -55,7 +12,7 @@ class UniqueCollection:
             os.makedirs(tmp_folder)
 
         self._list = FileBackedList(tmp_folder)
-        self._dict = OfflineLUT(os.path.join(tmp_folder, "lut.db"))
+        self._dict = SqliteDict(autocommit=True)#OfflineLUT(os.path.join(tmp_folder, "lut.db"))
         self._current_index = 0
 
     def add_item(self, item):

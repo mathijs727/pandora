@@ -3,13 +3,13 @@
 #include <gsl/span>
 #include <gtest/gtest.h>
 
-struct GeometryData {
+struct DummyData {
     int x;
     float y;
 
     size_t sizeBytes()
     {
-        return sizeof(GeometryData);
+        return sizeof(DummyData);
     }
 
     std::vector<std::byte> serialize() const
@@ -17,18 +17,18 @@ struct GeometryData {
         auto start = reinterpret_cast<const std::byte*>(this);
 
         std::vector<std::byte> data;
-        std::copy(start, start + sizeof(GeometryData), std::back_inserter(data));
+        std::copy(start, start + sizeof(DummyData), std::back_inserter(data));
         return data;
     }
 
-    GeometryData(int x, float y)
+    DummyData(int x, float y)
         : x(x)
         , y(y)
     {
     }
-    GeometryData(gsl::span<const std::byte> data)
+    DummyData(gsl::span<const std::byte> data)
     {
-        const GeometryData* pGeomData = reinterpret_cast<const GeometryData*>(data.data());
+        const DummyData* pGeomData = reinterpret_cast<const DummyData*>(data.data());
         x = pGeomData->x;
         y = pGeomData->y;
     }
@@ -36,10 +36,10 @@ struct GeometryData {
 
 TEST(LRUCache, UnlimitedMemory)
 {
-    stream::LRUCache<GeometryData>::Builder builder;
-    auto handle1 = builder.registerCacheable(GeometryData { 3, 4.0f });
-    auto handle2 = builder.registerCacheable(GeometryData { 9, 7.0f });
-    auto handle3 = builder.registerCacheable(GeometryData { 4, 1.0f });
+    stream::LRUCache<DummyData>::Builder builder;
+    auto handle1 = builder.registerCacheable(DummyData { 3, 4.0f });
+    auto handle2 = builder.registerCacheable(DummyData { 9, 7.0f });
+    auto handle3 = builder.registerCacheable(DummyData { 4, 1.0f });
 
     auto cache = builder.build(1024);
     {
@@ -64,12 +64,12 @@ TEST(LRUCache, Eviction)
     constexpr int range = 400;
     constexpr size_t memoryLimit = 128;
 
-    std::vector<GeometryData> items;
-    std::vector<stream::CacheHandle<GeometryData>> handles;
+    std::vector<DummyData> items;
+    std::vector<stream::CacheHandle<DummyData>> handles;
 
-    stream::LRUCache<GeometryData>::Builder builder;
+    stream::LRUCache<DummyData>::Builder builder;
     for (int i = 0; i < range; i++) {
-        GeometryData item { i, static_cast<float>(i * 2) };
+        DummyData item { i, static_cast<float>(i * 2) };
         auto handle = builder.registerCacheable(item);
 
         handles.push_back(handle);
@@ -94,12 +94,12 @@ TEST(LRUCache, EvictionHoldItems)
     constexpr int range = 400;
     constexpr size_t memoryLimit = 128;
 
-    std::vector<GeometryData> items;
-    std::vector<stream::CacheHandle<GeometryData>> handles;
+    std::vector<DummyData> items;
+    std::vector<stream::CacheHandle<DummyData>> handles;
 
-    stream::LRUCache<GeometryData>::Builder builder;
+    stream::LRUCache<DummyData>::Builder builder;
     for (int i = 0; i < range; i++) {
-        GeometryData item { i, static_cast<float>(i * 2) };
+        DummyData item { i, static_cast<float>(i * 2) };
         auto handle = builder.registerCacheable(item);
 
         handles.push_back(handle);
@@ -108,7 +108,7 @@ TEST(LRUCache, EvictionHoldItems)
 
     auto cache = builder.build(memoryLimit);
 
-	std::array<std::shared_ptr<GeometryData>, 8> holdItems;
+	std::array<std::shared_ptr<DummyData>, 8> holdItems;
     for (int i = 0; i < range; i++) {
         auto cacheItem = cache.get(handles[i]);
         auto refItem = items[i];

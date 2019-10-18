@@ -40,11 +40,13 @@ PandoraMeshBatch::PandoraMeshBatch(std::string filename)
     , m_file(filename)
     , m_currentPos(0)
 {
+    spdlog::info("PandoraMeshBatch::PandoraMeshBatch({})", filename);
     pandora::ALWAYS_ASSERT(std::filesystem::exists(m_filename));
 }
 
 PandoraMeshBatch::~PandoraMeshBatch()
 {
+    spdlog::info("PandoraMeshBatch::~PandoraMeshBatch()");
 }
 
 pybind11::tuple PandoraMeshBatch::addTriangleMesh(
@@ -121,7 +123,7 @@ pybind11::tuple PandoraMeshBatch::addTriangleMesh(
     auto serializedMesh = pandoraShape.serialize(fbb);
     fbb.Finish(serializedMesh);
 
-    spdlog::info("Write to file {}", m_filename);
+    //spdlog::info("Write to file {}", m_filename);
     m_file.write(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
     size_t startByte = m_currentPos;
     m_currentPos += fbb.GetSize();

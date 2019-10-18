@@ -1,8 +1,7 @@
 #pragma once
-#include "templates.h"
+#include "handle.h"
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 #include <deque>
 #include <filesystem>
 #include <fmt/format.h>
@@ -15,19 +14,6 @@
 #include <vector>
 
 namespace stream {
-
-namespace detail {
-    template <typename T>
-    struct DummyT {
-    };
-}
-
-struct Handle {
-    uint32_t index;
-};
-
-template <typename T>
-using CacheHandle = StronglyTypedAlias<Handle, detail::DummyT<T>>;
 
 template <typename T>
 class LRUCache {

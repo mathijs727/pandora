@@ -1,7 +1,8 @@
 add_executable(stream_test
-	"cache.cpp"
-	task_graph.cpp
-	main.cpp)
+	#"cache.cpp"
+	"evict_cache.cpp"
+	#"task_graph.cpp"
+	"main.cpp")
 
 target_link_libraries(stream_test PRIVATE GTest::GTest  stream)
 target_compile_features(stream_test PRIVATE cxx_std_17)

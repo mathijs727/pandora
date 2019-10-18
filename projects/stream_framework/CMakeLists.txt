@@ -1,5 +1,7 @@
 add_library(stream
-	src/task_graph.cpp)
+	"src/evict_cache.cpp"
+	"src/evictable"
+	"src/task_graph.cpp")
 
 target_include_directories(stream PUBLIC "include")
 target_compile_features(stream PUBLIC cxx_std_17)

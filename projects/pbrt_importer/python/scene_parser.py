@@ -207,7 +207,7 @@ class SceneParser:
         for key, value in texture.arguments.items():
             v = value["value"]
 
-            if key == "filename":
+            if key == "filename" and os.path.exists(v):
                 # Copy to the destination folder so that we can use relative paths
                 suffix = pathlib.PurePath(v).suffix
                 with tempfile.NamedTemporaryFile("wb+", dir=self._out_texture_folder, suffix=suffix, delete=False) as out_file:
@@ -321,6 +321,7 @@ class SceneParser:
                 triangle_mesh_data = pickle.loads(string)
                 filename, start_byte, size_bytes = self._export_triangle_mesh(
                     triangle_mesh_data, shape.transform)
+                del triangle_mesh_data
 
             filename = os.path.relpath(filename, start=self._out_folder)
             geometry_id = self._shapes.add_item({
@@ -380,7 +381,7 @@ class SceneParser:
 
         #named_base_scene_objects = {}
         named_base_scene_nodes = {}
-        for instance_template in pbrt_scene["instance_templates"].values():
+        for instance_template in pbrt_scene["instance_templates"].itervalues():
             base_scene_objects = [self._create_scene_object(shape) for shape in instance_template.shapes]
             base_scene_objects = [so for so in base_scene_objects if so]
 
