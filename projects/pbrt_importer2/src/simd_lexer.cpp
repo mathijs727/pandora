@@ -8,11 +8,11 @@
 // Inspiration taken from pbrt-parser by Ingo Wald:
 // https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Lexer.cpp
 
-inline bool isSpecial(const char c) noexcept
+static inline bool isSpecial(const char c) noexcept
 {
     return (c == '[' || c == ']' || c == ',');
 }
-inline bool isWhiteSpace(const char c) noexcept
+static inline bool isWhiteSpace(const char c) noexcept
 {
     return (c == ' ' || c == '\t' || c == '\r' || c == '\n');
 }
@@ -38,9 +38,6 @@ Token SIMDLexer::next() noexcept
         if (c == -1)
             return Token {};
 
-        if (c == '\n')
-            newLine();
-
         if (isWhiteSpace(c))
             continue;
 
@@ -51,13 +48,11 @@ Token SIMDLexer::next() noexcept
                 if (c < 0)
                     return Token {};
             }
-            newLine();
             continue;
         }
         break;
     }
 
-    const Loc tokenStartLoc = m_location;
     const size_t tokenStart = m_cursor;
 
     switch (c) {
@@ -72,15 +67,15 @@ Token SIMDLexer::next() noexcept
             if (c == '"')
                 break;
         }
-        return Token { tokenStartLoc, TokenType::STRING, m_text.substr(tokenStart + 1, m_cursor - tokenStart - 2) };
+        return Token { Loc{}, TokenType::STRING, m_text.substr(tokenStart + 1, m_cursor - tokenStart - 2) };
     } break;
     case '[': {
         //moveCursor(1);
-        return Token { tokenStartLoc, TokenType::LIST_BEGIN, m_text.substr(tokenStart, 1) };
+        return Token { Loc {}, TokenType::LIST_BEGIN, m_text.substr(tokenStart, 1) };
     } break;
     case ']': {
         //moveCursor(1);
-        return Token { tokenStartLoc, TokenType::LIST_END, m_text.substr(tokenStart, 1) };
+        return Token { Loc {}, TokenType::LIST_END, m_text.substr(tokenStart, 1) };
     } break;
     default: {
         // Literals
@@ -91,7 +86,7 @@ Token SIMDLexer::next() noexcept
             const int offset = _mm_cmpistri(literalsMask, peekedChars, _SIDD_UBYTE_OPS | _SIDD_CMP_EQUAL_ANY);
             moveCursor(offset);
             if (offset != 16) {
-                return Token { tokenStartLoc, TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart) };
+                return Token { Loc {}, TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart) };
             }
         }
 

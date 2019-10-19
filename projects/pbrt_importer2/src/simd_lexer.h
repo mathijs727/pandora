@@ -14,14 +14,12 @@ private:
     inline char peekNextChar() noexcept;
 
 	inline void moveCursor(int offset) noexcept;
-    inline void newLine() noexcept;
 
 private:
     std::string_view m_text;
     size_t m_stringLengthSSEBounds;
 
     size_t m_cursor { 0 };
-    Loc m_location;
 };
 
 inline __m128i SIMDLexer::peekCharsSSE() noexcept
@@ -49,14 +47,7 @@ inline char SIMDLexer::getChar() noexcept
     if (m_cursor >= m_text.length())
         return -1;
 
-    const char c = m_text[m_cursor++];
-    if (c == '\n') {
-        m_location.line++;
-        m_location.col = 0;
-    } else {
-        m_location.col++;
-    }
-    return c;
+    return m_text[m_cursor++];
 }
 
 inline char SIMDLexer::peekNextChar() noexcept
@@ -70,12 +61,4 @@ inline char SIMDLexer::peekNextChar() noexcept
 inline void SIMDLexer::moveCursor(int offset) noexcept
 {
     m_cursor += static_cast<size_t>(offset);
-    m_location.col += offset;
 }
-
-inline void SIMDLexer::newLine() noexcept
-{
-    m_location.col = 0;
-    m_location.line++;
-}
-
