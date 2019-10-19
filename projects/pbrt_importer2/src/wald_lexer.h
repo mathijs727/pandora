@@ -4,17 +4,17 @@
 #include <fstream>
 #include <string>
 
-// Matching the implementation of Ingo Wald for performance comparisons
+// Closely matching the implementation of Ingo Wald for performance comparisons
 // https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Lexer.h
+struct Loc {
+    int line { 0 };
+    int col { 0 };
+};
+
 struct WaldToken {
     Loc loc {};
     TokenType type { TokenType::NONE };
     std::string text;
-
-    inline bool operator==(const Token& other) const
-    {
-        return loc.line == other.loc.line && loc.col == other.loc.col && type == other.type;
-    }
 };
 
 class WaldLexer {

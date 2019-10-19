@@ -57,7 +57,6 @@ Token SIMDLexer::next() noexcept
 
     switch (c) {
     case '"': { // String
-        //moveCursor(1);
         while (true) {
             c = getChar();
             if (c < 0) {
@@ -67,15 +66,13 @@ Token SIMDLexer::next() noexcept
             if (c == '"')
                 break;
         }
-        return Token { Loc{}, TokenType::STRING, m_text.substr(tokenStart + 1, m_cursor - tokenStart - 2) };
+        return Token { TokenType::STRING, m_text.substr(tokenStart + 1, m_cursor - tokenStart - 2) };
     } break;
     case '[': {
-        //moveCursor(1);
-        return Token { Loc {}, TokenType::LIST_BEGIN, m_text.substr(tokenStart, 1) };
+        return Token {  TokenType::LIST_BEGIN, m_text.substr(tokenStart, 1) };
     } break;
     case ']': {
-        //moveCursor(1);
-        return Token { Loc {}, TokenType::LIST_END, m_text.substr(tokenStart, 1) };
+        return Token {TokenType::LIST_END, m_text.substr(tokenStart, 1) };
     } break;
     default: {
         // Literals
@@ -86,7 +83,7 @@ Token SIMDLexer::next() noexcept
             const int offset = _mm_cmpistri(literalsMask, peekedChars, _SIDD_UBYTE_OPS | _SIDD_CMP_EQUAL_ANY);
             moveCursor(offset);
             if (offset != 16) {
-                return Token { Loc {}, TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart) };
+                return Token { TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart) };
             }
         }
 

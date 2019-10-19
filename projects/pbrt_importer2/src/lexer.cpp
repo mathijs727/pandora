@@ -43,7 +43,6 @@ Token Lexer::next() noexcept
         break;
     }
 
-    const Loc tokenStartLoc = m_location;
     const size_t tokenStart = m_cursor - 1;
 
     // String
@@ -57,22 +56,22 @@ Token Lexer::next() noexcept
             if (c == '"')
                 break;
         }
-        return Token { tokenStartLoc, TokenType::STRING, m_text.substr(tokenStart + 1, m_cursor - tokenStart - 2) };
+        return Token { TokenType::STRING, m_text.substr(tokenStart + 1, m_cursor - tokenStart - 2) };
     }
 
     // Special characters
     if (c == '[') {
-        return Token { tokenStartLoc, TokenType::LIST_BEGIN, m_text.substr(tokenStart, 1) };
+        return Token { TokenType::LIST_BEGIN, m_text.substr(tokenStart, 1) };
     }
     if (c == ']') {
-        return Token { tokenStartLoc, TokenType::LIST_END, m_text.substr(tokenStart, 1) };
+        return Token { TokenType::LIST_END, m_text.substr(tokenStart, 1) };
     }
 
     // Literals
     while (true) {
         const char nextC = peekNextChar();
         if (nextC == '#' || isSpecial(nextC) || isWhiteSpace(nextC) || nextC == '"' || nextC == -1) {
-            return Token { tokenStartLoc, TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart) };
+            return Token { TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart) };
         }
 
         c = getChar();
@@ -90,14 +89,7 @@ inline char Lexer::getChar() noexcept
     if (m_cursor >= m_text.length())
         return -1;
 
-    const char c = m_text[m_cursor++];
-    if (c == '\n') {
-        m_location.line++;
-        m_location.col = 0;
-    } else {
-        m_location.col++;
-    }
-    return c;
+    return m_text[m_cursor++];
 }
 
 inline char Lexer::peekNextChar() noexcept

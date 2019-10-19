@@ -53,7 +53,8 @@ int main(int argc, const char** argv)
 #if 1
     benchLexer<SIMDLexer>(fileContents);
     benchLexer<Lexer>(fileContents);
-    //benchLexer<WaldLexer>(filePath.string());
+    fileContents.clear();
+    benchLexer<WaldLexer>(filePath.string());
 #else
     //printLexer<WaldLexer>(filePath.string());
     //printLexer<SIMDLexer>(fileContents);
@@ -172,6 +173,5 @@ std::string readFile(std::filesystem::path file)
     std::vector<char> bytes(fileSize);
     ifs.read(bytes.data(), fileSize);
 
-    int size = bytes.size();
-    return std::string(bytes.data(), fileSize);
+    return std::string(bytes.data(), bytes.size());
 }

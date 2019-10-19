@@ -9,9 +9,8 @@ public:
     Token next() noexcept;
 
 private:
-    inline __m128i peekCharsSSE() noexcept;
+    inline __m128i peekCharsSSE() const noexcept;
     inline char getChar() noexcept;
-    inline char peekNextChar() noexcept;
 
 	inline void moveCursor(int offset) noexcept;
 
@@ -22,7 +21,7 @@ private:
     size_t m_cursor { 0 };
 };
 
-inline __m128i SIMDLexer::peekCharsSSE() noexcept
+inline __m128i SIMDLexer::peekCharsSSE() const noexcept
 {
     // Seems to work fine without bounds check on Windows (it's measureably faster) but seems like undefined behavior?
     //if constexpr (true) {
@@ -48,14 +47,6 @@ inline char SIMDLexer::getChar() noexcept
         return -1;
 
     return m_text[m_cursor++];
-}
-
-inline char SIMDLexer::peekNextChar() noexcept
-{
-    if (m_cursor >= m_text.length())
-        return -1;
-
-    return m_text[m_cursor];
 }
 
 inline void SIMDLexer::moveCursor(int offset) noexcept
