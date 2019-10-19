@@ -50,10 +50,10 @@ int main(int argc, const char** argv)
         spdlog::info("File loaded from disk in {}ms", elapsed.count());
     }
 
-#if 0
+#if 1
     benchLexer<SIMDLexer>(fileContents);
     benchLexer<Lexer>(fileContents);
-    benchLexer<WaldLexer>(filePath.string());
+    //benchLexer<WaldLexer>(filePath.string());
 #else
     //printLexer<WaldLexer>(filePath.string());
     //printLexer<SIMDLexer>(fileContents);
@@ -117,14 +117,15 @@ void compareLexers(std::string_view fileContents, std::filesystem::path filePath
     while (true) {
         Token token = lexer.next();
         Token simdToken = simdLexer.next();
-        WaldToken waldToken = waldLexer.next();
+        //WaldToken waldToken = waldLexer.next();
 
-        //spdlog::info("\"{}\" vs \"{}\"", token.text, simdToken.text);
-        //assert(token.text == waldToken.text);
-        if (token.text != waldToken.text) {
-            spdlog::info("\"{}\" != \"{}\"", simdToken.text, waldToken.text);
+        spdlog::info("\"{}\" vs \"{}\"", token.text, simdToken.text);
+        assert(token.text == simdToken.text);
+
+        /*if (simdToken.text != token.text) {
+            spdlog::info("\"{}\" != \"{}\"", simdToken.text, token.text);
             throw std::runtime_error("");
-        }
+        }*/
 
         if (token.type == TokenType::NONE)
             break;
