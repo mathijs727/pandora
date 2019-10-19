@@ -1,6 +1,7 @@
 #include "lexer.h"
 #include "simd_lexer.h"
 #include "timer.h"
+#include "wald_lexer.h"
 
 #include <boost/program_options.hpp>
 #include <spdlog/spdlog.h>
@@ -25,7 +26,7 @@ void benchLexer(std::string_view fileContents);
 template <typename T>
 void printLexer(std::string_view fileContents);
 
-void compareLexers(std::string_view fileContents);
+void compareLexers(std::string_view fileContents, std::filesystem::path filePath);
 
 int main(int argc, const char** argv)
 {
@@ -40,14 +41,23 @@ int main(int argc, const char** argv)
     auto input = parseInput(argc, argv);
 
     std::filesystem::path filePath = input["file"].as<std::string>();
-    std::string fileContents = readFile(filePath);
+    std::string fileContents;
+    {
+        Timer timer {};
+        fileContents = readFile(filePath);
+        auto elapsed = timer.elapsed<std::chrono::milliseconds>();
 
-#if 1
+        spdlog::info("File loaded from disk in {}ms", elapsed.count());
+    }
+
+#if 0
     benchLexer<SIMDLexer>(fileContents);
     benchLexer<Lexer>(fileContents);
+    benchLexer<WaldLexer>(filePath.string());
 #else
+    //printLexer<WaldLexer>(filePath.string());
     //printLexer<SIMDLexer>(fileContents);
-    compareLexers(fileContents);
+    compareLexers(fileContents, filePath);
 #endif
 
     return 0;
@@ -61,7 +71,7 @@ void benchLexer(std::string_view fileContents)
     Timer timer {};
     size_t numTokens { 0 };
     while (true) {
-        Token token = lexer.next();
+        auto token = lexer.next();
         if (token.type == TokenType::NONE)
             break;
 
@@ -78,7 +88,7 @@ void printLexer(std::string_view fileContents)
     T lexer { fileContents };
 
     while (true) {
-        Token token = lexer.next();
+        auto token = lexer.next();
         if (token.type == TokenType::NONE)
             break;
 
@@ -98,18 +108,25 @@ void printLexer(std::string_view fileContents)
         };
     }
 }
-void compareLexers(std::string_view fileContents)
+void compareLexers(std::string_view fileContents, std::filesystem::path filePath)
 {
     Lexer lexer { fileContents };
     SIMDLexer simdLexer { fileContents };
+    WaldLexer waldLexer { filePath };
 
     while (true) {
         Token token = lexer.next();
         Token simdToken = simdLexer.next();
-        spdlog::info("\"{}\" vs \"{}\"", token.text, simdToken.text);
-        assert(token == simdToken);
+        WaldToken waldToken = waldLexer.next();
 
-		if (token.type == TokenType::NONE)
+        //spdlog::info("\"{}\" vs \"{}\"", token.text, simdToken.text);
+        //assert(token.text == waldToken.text);
+        if (token.text != waldToken.text) {
+            spdlog::info("\"{}\" != \"{}\"", simdToken.text, waldToken.text);
+            throw std::runtime_error("");
+        }
+
+        if (token.type == TokenType::NONE)
             break;
     }
 }
@@ -146,14 +163,14 @@ std::string readFile(std::filesystem::path file)
 {
     assert(std::filesystem::exists(file) && std::filesystem::is_regular_file(file));
 
-    std::ifstream t { file };
-    std::string str;
+    std::ifstream ifs { file, std::ios::in | std::ios::binary | std::ios::ate };
 
-    t.seekg(0, std::ios::end);
-    str.reserve(t.tellg());
-    t.seekg(0, std::ios::beg);
+    auto fileSize = ifs.tellg();
+    ifs.seekg(0, std::ios::beg);
 
-    str.assign((std::istreambuf_iterator<char>(t)),
-        std::istreambuf_iterator<char>());
-    return str;
+    std::vector<char> bytes(fileSize);
+    ifs.read(bytes.data(), fileSize);
+
+    int size = bytes.size();
+    return std::string(bytes.data(), fileSize);
 }
