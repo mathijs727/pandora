@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "simd_lexer.h"
 #include "timer.h"
 
 #include <boost/program_options.hpp>
@@ -19,7 +20,12 @@
 boost::program_options::variables_map parseInput(int argc, const char** argv);
 std::string readFile(std::filesystem::path file);
 
-using namespace pbrt_importer;
+template <typename T>
+void benchLexer(std::string_view fileContents);
+template <typename T>
+void printLexer(std::string_view fileContents);
+
+void compareLexers(std::string_view fileContents);
 
 int main(int argc, const char** argv)
 {
@@ -32,10 +38,25 @@ int main(int argc, const char** argv)
 #endif
 
     auto input = parseInput(argc, argv);
-    std::filesystem::path filePath = input["file"].as<std::string>();
 
+    std::filesystem::path filePath = input["file"].as<std::string>();
     std::string fileContents = readFile(filePath);
-    Lexer lexer { fileContents };
+
+#if 1
+    benchLexer<SIMDLexer>(fileContents);
+    benchLexer<Lexer>(fileContents);
+#else
+    //printLexer<SIMDLexer>(fileContents);
+    compareLexers(fileContents);
+#endif
+
+    return 0;
+}
+
+template <typename T>
+void benchLexer(std::string_view fileContents)
+{
+    T lexer { fileContents };
 
     Timer timer {};
     size_t numTokens { 0 };
@@ -45,6 +66,22 @@ int main(int argc, const char** argv)
             break;
 
         numTokens++;
+    }
+    auto elapsed = timer.elapsed<std::chrono::milliseconds>();
+    spdlog::info("{} tokenized {:.3f}MB in {}ms", typeid(T).name(), fileContents.size() / (1000 * 1000.0f), elapsed.count());
+    spdlog::info("Number of tokens: {}", numTokens);
+}
+
+template <typename T>
+void printLexer(std::string_view fileContents)
+{
+    T lexer { fileContents };
+
+    while (true) {
+        Token token = lexer.next();
+        if (token.type == TokenType::NONE)
+            break;
+
         switch (token.type) {
         case TokenType::STRING: {
             spdlog::info("STRING:  \"{}\"", token.text);
@@ -60,11 +97,21 @@ int main(int argc, const char** argv)
         } break;
         };
     }
-    auto elapsed = timer.elapsed<std::chrono::milliseconds>();
-    spdlog::info("{:.3f}MB tokenized in {}ms", fileContents.size() / (1000 * 1000.0f), elapsed.count());
-    spdlog::info("Number of tokens: {}", numTokens);
+}
+void compareLexers(std::string_view fileContents)
+{
+    Lexer lexer { fileContents };
+    SIMDLexer simdLexer { fileContents };
 
-    return 0;
+    while (true) {
+        Token token = lexer.next();
+        Token simdToken = simdLexer.next();
+        spdlog::info("\"{}\" vs \"{}\"", token.text, simdToken.text);
+        assert(token == simdToken);
+
+		if (token.type == TokenType::NONE)
+            break;
+    }
 }
 
 boost::program_options::variables_map parseInput(int argc, const char** argv)
@@ -100,7 +147,13 @@ std::string readFile(std::filesystem::path file)
     assert(std::filesystem::exists(file) && std::filesystem::is_regular_file(file));
 
     std::ifstream t { file };
-    std::string str((std::istreambuf_iterator<char>(t)),
+    std::string str;
+
+    t.seekg(0, std::ios::end);
+    str.reserve(t.tellg());
+    t.seekg(0, std::ios::beg);
+
+    str.assign((std::istreambuf_iterator<char>(t)),
         std::istreambuf_iterator<char>());
     return str;
 }
