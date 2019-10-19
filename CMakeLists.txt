@@ -83,6 +83,8 @@ endif()
 include("projects/pandora/CMakeLists.txt")
 include("projects/torque/CMakeLists.txt")
 
+add_subdirectory("projects/pbrt_importer2/")
+
 #add_subdirectory("projects/diskbench/")
 #if (BUILD_VOXEL_EXPORT)
 #    include("projects/voxel/CMakeLists.txt")
