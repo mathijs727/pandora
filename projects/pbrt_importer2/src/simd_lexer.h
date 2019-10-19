@@ -12,7 +12,6 @@ private:
     inline __m128i peekCharsSSE() noexcept;
     inline char getChar() noexcept;
     inline char peekNextChar() noexcept;
-    //inline void ungetChar(char c);
 
 private:
     std::string_view m_text;

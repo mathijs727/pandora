@@ -6,7 +6,7 @@
 #include <spdlog/spdlog.h>
 
 // Inspiration taken from pbrt-parser by Ingo Wald:
-// https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/SIMDLexer.cpp
+// https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Lexer.cpp
 
 inline bool isSpecial(const char c) noexcept
 {
@@ -47,6 +47,19 @@ Token SIMDLexer::next() noexcept
         }
         break;
     }
+    /*alignas(16) const char ignoreMaskChars[16] { ' ', '\t', '\r', '\n', '#', -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+    const __m128i ignoreMask = _mm_load_si128(reinterpret_cast<const __m128i*>(ignoreMaskChars));
+    while (true) {
+        const __m128i peekedChars = peekCharsSSE();
+        const int offset = _mm_cmpistri(ignoreMask, peekedChars, _SIDD_UBYTE_OPS | _SIDD_CMP_RANGES);
+        m_location.col += offset;
+        if (offset != 16) {
+            m_cursor += offset + 1;
+            return Token { tokenStartLoc, TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart - 1) };
+        } else {
+            m_cursor += offset;
+        }
+    }*/
 
     const Loc tokenStartLoc = m_location;
     const size_t tokenStart = m_cursor - 1;
@@ -74,21 +87,15 @@ Token SIMDLexer::next() noexcept
     }
 
     // Literals
-    alignas(16) const char maskChars[16] = {
-        '#', '[', ',', ']', ' ', '\t', '\r', '\n', '"', -1, -1, -1, -1, -1, -1, -1
-    };
-    const __m128i mask = _mm_load_si128(reinterpret_cast<const __m128i*>(maskChars));
+    alignas(16) const char literalsMaskChars[16] { '#', '[', ',', ']', ' ', '\t', '\r', '\n', '"', -1, -1, -1, -1, -1, -1, -1 };
+    const __m128i literalsMask = _mm_load_si128(reinterpret_cast<const __m128i*>(literalsMaskChars));
     while (true) {
-        //const char nextC = peekNextChar();
-
         const __m128i peekedChars = peekCharsSSE();
-        const int offset = _mm_cmpistri(mask, peekedChars, _SIDD_UBYTE_OPS | _SIDD_CMP_EQUAL_ANY);
+        const int offset = _mm_cmpistri(literalsMask, peekedChars, _SIDD_UBYTE_OPS | _SIDD_CMP_EQUAL_ANY);
         m_location.col += offset;
+        m_cursor += offset;
         if (offset != 16) {
-            m_cursor += offset + 1;
-            return Token { tokenStartLoc, TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart - 1) };
-        } else {
-            m_cursor += offset;
+            return Token { tokenStartLoc, TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart) };
         }
     }
 
@@ -99,7 +106,7 @@ Token SIMDLexer::next() noexcept
 
 inline __m128i SIMDLexer::peekCharsSSE() noexcept
 {
-	// Seems to work fine without bounds check on Windows (it's measureably faster) but seems like undefined behavior?
+    // Seems to work fine without bounds check on Windows (it's measureably faster) but seems like undefined behavior?
     //if (m_cursor < m_stringLengthSSEBounds) {
     if constexpr (true) {
         return _mm_loadu_si128(reinterpret_cast<const __m128i*>(m_text.data() + m_cursor));

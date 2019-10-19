@@ -5,8 +5,8 @@
 // https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Lexer.h
 
 struct Loc {
-    int line { -1 };
-    int col { -1 };
+    int line { 0 };
+    int col { 0 };
 };
 
 enum class TokenType {
@@ -19,7 +19,7 @@ enum class TokenType {
 struct Token {
     Loc loc {};
     TokenType type { TokenType::NONE };
-    std::string_view text;
+    std::string_view text {};
 
     inline bool operator==(const Token& other) const
     {

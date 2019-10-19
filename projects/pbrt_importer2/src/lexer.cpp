@@ -15,7 +15,8 @@ inline bool isWhiteSpace(const char c) noexcept {
 Lexer::Lexer(std::string_view text)
     : m_text(text)
 {
-}
+    spdlog::info("Text length: {}", m_text.length());
+    }
 
 Token Lexer::next() noexcept
 {
@@ -71,13 +72,12 @@ Token Lexer::next() noexcept
     while (true) {
         const char nextC = peekNextChar();
         if (nextC == '#' || isSpecial(nextC) || isWhiteSpace(nextC) || nextC == '"' || nextC == -1) {
-            m_cursor++;
-            return Token { tokenStartLoc, TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart - 1) };
+            return Token { tokenStartLoc, TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart) };
         }
 
         c = getChar();
-        if (c < 0)
-            return Token { tokenStartLoc, TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart - 1) };
+        //if (c < 0)
+        //    return Token { tokenStartLoc, TokenType::LITERAL, m_text.substr(tokenStart, m_cursor - tokenStart - 1) };
     }
 
     // Should never reached
