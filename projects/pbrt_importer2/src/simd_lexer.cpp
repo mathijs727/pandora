@@ -19,17 +19,18 @@ static inline bool isWhiteSpace(const char c) noexcept
 
 SIMDLexer::SIMDLexer(std::string_view text)
     : m_text(text)
-    , m_stringLengthSSEBounds(text.length() - 16) // Instead of checking [cursor+16 < string.length()] we can check [cursor < string.length()-16] (very slightly faster)
+    , m_stringLength(static_cast<int64_t>(text.length()))
+    , m_stringLengthMinus16(m_stringLength - 16) // Instead of checking [cursor+16 < string.length()] we can check [cursor < string.length()-16] (very slightly faster)
 {
     if (text.length() < 16) {
         spdlog::error("File smaller than 16 bytes causing size_t underflow in m_stringLengthSSEBounds");
         throw std::runtime_error("size_t underflow!");
-	}
+    }
 }
 
 Token SIMDLexer::next() noexcept
 {
-	// Skip white space
+    // Skip white space
     char c;
     while (true) {
         c = getChar();
@@ -53,7 +54,7 @@ Token SIMDLexer::next() noexcept
         break;
     }
 
-    const size_t tokenStart = m_cursor;
+    const size_t tokenStart = m_cursor - 1;
 
     switch (c) {
     case '"': { // String
@@ -69,12 +70,14 @@ Token SIMDLexer::next() noexcept
         return Token { TokenType::STRING, m_text.substr(tokenStart + 1, m_cursor - tokenStart - 2) };
     } break;
     case '[': {
-        return Token {  TokenType::LIST_BEGIN, m_text.substr(tokenStart, 1) };
+        return Token { TokenType::LIST_BEGIN, m_text.substr(tokenStart, 1) };
     } break;
     case ']': {
-        return Token {TokenType::LIST_END, m_text.substr(tokenStart, 1) };
+        return Token { TokenType::LIST_END, m_text.substr(tokenStart, 1) };
     } break;
     default: {
+        moveCursor(-1);
+
         // Literals
         alignas(16) const char literalsMaskChars[16] { '#', '[', ',', ']', ' ', '\t', '\r', '\n', '"', -1, -1, -1, -1, -1, -1, -1 };
         const __m128i literalsMask = _mm_load_si128(reinterpret_cast<const __m128i*>(literalsMaskChars));

@@ -1,5 +1,6 @@
 #pragma once
 #include "lexer.h"
+#include "token.h"
 #include <nmmintrin.h>
 
 class SIMDLexer {
@@ -10,23 +11,23 @@ public:
 
 private:
     inline __m128i peekCharsSSE() const noexcept;
+    inline char peekChar() const noexcept;
     inline char getChar() noexcept;
 
-	inline void moveCursor(int offset) noexcept;
+    inline void moveCursor(int64_t offset) noexcept;
 
 private:
     std::string_view m_text;
-    size_t m_stringLengthSSEBounds;
 
-    size_t m_cursor { 0 };
+
+	const int64_t m_stringLength;
+    const int64_t m_stringLengthMinus16;
+    int64_t m_cursor { 0 };
 };
 
 inline __m128i SIMDLexer::peekCharsSSE() const noexcept
 {
-    // Seems to work fine without bounds check on Windows (it's measureably faster) but seems like undefined behavior?
-    //if constexpr (true) {
-    //if (m_cursor + 16 < m_text.length()) {
-    if (m_cursor < m_stringLengthSSEBounds) {
+    if (m_cursor < m_stringLengthMinus16) {
         return _mm_loadu_si128(reinterpret_cast<const __m128i*>(m_text.data() + m_cursor));
     } else {
         alignas(16) char chars[16];
@@ -41,15 +42,23 @@ inline __m128i SIMDLexer::peekCharsSSE() const noexcept
     }
 }
 
+inline char SIMDLexer::peekChar() const noexcept
+{
+    if (m_cursor >= m_stringLength)
+        return -1;
+
+    return m_text[m_cursor];
+}
+
 inline char SIMDLexer::getChar() noexcept
 {
-    if (m_cursor >= m_text.length())
+    if (m_cursor >= m_stringLength)
         return -1;
 
     return m_text[m_cursor++];
 }
 
-inline void SIMDLexer::moveCursor(int offset) noexcept
+inline void SIMDLexer::moveCursor(int64_t offset) noexcept
 {
-    m_cursor += static_cast<size_t>(offset);
+    m_cursor += offset;
 }
