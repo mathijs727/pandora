@@ -1,4 +1,4 @@
-#include "wald_lexer.h"
+#include "pbrt/lexer/wald_lexer.h"
 #include <array>
 #include <cstdio>
 #include <spdlog/spdlog.h>

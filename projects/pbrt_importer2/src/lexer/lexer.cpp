@@ -1,14 +1,16 @@
-#include "lexer.h"
+#include "pbrt/lexer/lexer.h"
 #include <array>
 #include <spdlog/spdlog.h>
 
 // Inspiration taken from pbrt-parser by Ingo Wald:
 // https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Lexer.cpp
 
-inline bool isSpecial(const char c) noexcept {
+inline bool isSpecial(const char c) noexcept
+{
     return (c == '[' || c == ']' || c == ',');
 }
-inline bool isWhiteSpace(const char c) noexcept {
+inline bool isWhiteSpace(const char c) noexcept
+{
     return (c == ' ' || c == '\t' || c == '\r' || c == '\n');
 }
 
@@ -16,7 +18,7 @@ Lexer::Lexer(std::string_view text)
     : m_text(text)
 {
     spdlog::info("Text length: {}", m_text.length());
-    }
+}
 
 Token Lexer::next() noexcept
 {
@@ -99,4 +101,3 @@ inline char Lexer::peekNextChar() noexcept
 
     return m_text[m_cursor];
 }
-

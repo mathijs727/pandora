@@ -1,6 +1,6 @@
-#include "lexer.h"
-#include "simd_lexer.h"
-#include "wald_lexer.h"
+#include "pbrt/lexer/lexer.h"
+#include "pbrt/lexer/simd_lexer.h"
+#include "pbrt/lexer/wald_lexer.h"
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
@@ -21,8 +21,10 @@ TEST(LexerScalar, Crown)
         Token token = lexer.next();
         WaldToken waldToken = waldLexer.next();
 
-        ASSERT_EQ(token.type, waldToken.type);
+		if (token.text != waldToken.text)
+            int i = 3;
         ASSERT_EQ(token.text, waldToken.text);
+        ASSERT_EQ(token.type, waldToken.type);
 
         if (token.type == TokenType::NONE)
             break;
@@ -99,8 +101,8 @@ std::string readFile(std::filesystem::path file)
     auto fileSize = ifs.tellg();
     ifs.seekg(0, std::ios::beg);
 
-    std::vector<char> bytes(fileSize);
-    ifs.read(bytes.data(), fileSize);
-
-    return std::string(bytes.data(), strlen(bytes.data()));
+    std::string out;
+    out.resize(fileSize);
+    ifs.read(out.data(), fileSize);
+    return out;
 }

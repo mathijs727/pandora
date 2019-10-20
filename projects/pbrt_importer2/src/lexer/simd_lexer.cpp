@@ -1,6 +1,5 @@
-#include "simd_lexer.h"
+#include "pbrt/lexer/simd_lexer.h"
 
-#include "lexer.h"
 #include <array>
 #include <nmmintrin.h>
 #include <spdlog/spdlog.h>
