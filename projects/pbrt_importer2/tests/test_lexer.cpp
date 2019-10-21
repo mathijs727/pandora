@@ -93,7 +93,6 @@ TEST(LexerSIMD, Landscape)
 
 std::string readFile(std::filesystem::path file)
 {
-    std::cout << file << std::endl;
     assert(std::filesystem::exists(file) && std::filesystem::is_regular_file(file));
 
     std::ifstream ifs { file, std::ios::in | std::ios::binary | std::ios::ate };

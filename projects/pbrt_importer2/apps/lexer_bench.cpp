@@ -16,15 +16,19 @@
 #include <fmt/format.h>
 #include <fstream>
 #include <iostream>
+#include <mio/mmap.hpp>
 #include <string>
 
 boost::program_options::variables_map parseInput(int argc, const char** argv);
 std::string readFile(std::filesystem::path file);
 
 template <typename T>
+void benchLexerMmap(std::filesystem::path filePath);
+template <typename T>
 void benchLexer(std::string_view fileContents);
 template <typename T>
 void benchLexerThreaded(std::string_view fileContents);
+
 template <typename T>
 void printLexer(std::string_view fileContents);
 
@@ -50,12 +54,38 @@ int main(int argc, const char** argv)
         spdlog::info("File loaded from disk in {}ms", elapsed.count());
     }
 
-    benchLexer<SIMDLexer>(fileContents);
-    benchLexer<Lexer>(fileContents);
+    //benchLexer<SIMDLexer>(fileContents);
+    //benchLexer<Lexer>(fileContents);
+
+	// Don't need the file anymore but it's good to read it into memory first to warm up the (file system) cache
     fileContents.clear();
-    //benchLexer<WaldLexer>(filePath.string());
+    benchLexerMmap<Lexer>(filePath);
+    benchLexerMmap<SIMDLexer>(filePath);
+    benchLexer<WaldLexer>(filePath.string());
 
     return 0;
+}
+
+template <typename T>
+void benchLexerMmap(std::filesystem::path filePath)
+{
+    auto file = mio::mmap_sink(filePath.string());
+    std::string_view fileContents { file.data(), file.length() };
+
+    T lexer { fileContents };
+
+    Timer timer {};
+    size_t numTokens { 0 };
+    while (true) {
+        auto token = lexer.next();
+        if (token.type == TokenType::NONE)
+            break;
+
+        numTokens++;
+    }
+    auto elapsed = timer.elapsed<std::chrono::milliseconds>();
+    spdlog::info("{} tokenized {:.3f}MB in {}ms", typeid(T).name(), fileContents.size() / (1000 * 1000.0f), elapsed.count());
+    spdlog::info("Number of tokens: {}", numTokens);
 }
 
 template <typename T>
@@ -80,7 +110,7 @@ void benchLexer(std::string_view fileContents)
 template <typename T>
 void benchLexerThreaded(std::string_view fileContents)
 {
-	// Run consumer of tokens (parser) on separate thread
+    // Run consumer of tokens (parser) on separate thread
     size_t numTokens { 0 };
 
     VitorianRing<Token> ringBuffer { 64 };

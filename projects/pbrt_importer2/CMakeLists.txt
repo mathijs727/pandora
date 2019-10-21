@@ -1,7 +1,3 @@
-# CMakeList.txt : Top-level CMake project file, do global configuration
-# and include sub-projects here.
-#
-cmake_minimum_required(VERSION 3.12)
 project("pbrt_importer2")
 
 add_library(pbrt_importer2 STATIC "")
@@ -12,7 +8,6 @@ target_compile_features(pbrt_importer2 PUBLIC cxx_std_17)
 target_link_libraries(pbrt_importer2 PRIVATE spdlog::spdlog fmt::fmt)
 
 include("apps/CMakeLists.txt")
-
 if (PANDORA_BUILD_TESTS)
 	include("tests/CMakeLists.txt")
 endif()

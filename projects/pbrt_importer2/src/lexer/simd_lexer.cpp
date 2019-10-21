@@ -57,16 +57,22 @@ Token SIMDLexer::next() noexcept
 
     switch (c) {
     case '"': { // String
+        // SIMD
+        alignas(16) const static char literalsMaskChars[16] { '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"' };
+        const __m128i stringEndMask = _mm_load_si128(reinterpret_cast<const __m128i*>(literalsMaskChars));
         while (true) {
-            c = getChar();
-            if (c < 0) {
-                spdlog::error("Could not find end of string literal (found eof instead)");
-                return Token {};
+            const __m128i peekedChars = peekCharsSSE();
+            const int offset = _mm_cmpistri(stringEndMask, peekedChars, _SIDD_UBYTE_OPS | _SIDD_CMP_EQUAL_EACH);
+            moveCursor(offset);
+            if (offset != 16) {
+                moveCursor(1);
+                return Token { TokenType::STRING, m_text.substr(tokenStart + 1, m_cursor - tokenStart - 2) };
             }
-            if (c == '"')
-                break;
         }
-        return Token { TokenType::STRING, m_text.substr(tokenStart + 1, m_cursor - tokenStart - 2) };
+
+        // Should never reached
+        assert(false);
+        return Token {};
     } break;
     case '[': {
         return Token { TokenType::LIST_BEGIN, m_text.substr(tokenStart, 1) };
@@ -78,7 +84,7 @@ Token SIMDLexer::next() noexcept
         moveCursor(-1);
 
         // Literals
-        alignas(16) const char literalsMaskChars[16] { '#', '[', ',', ']', ' ', '\t', '\r', '\n', '"', -1, -1, -1, -1, -1, -1, -1 };
+        alignas(16) const static char literalsMaskChars[16] { '#', '[', ',', ']', ' ', '\t', '\r', '\n', '"', -1, -1, -1, -1, -1, -1, -1 };
         const __m128i literalsMask = _mm_load_si128(reinterpret_cast<const __m128i*>(literalsMaskChars));
         while (true) {
             const __m128i peekedChars = peekCharsSSE();
