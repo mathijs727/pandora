@@ -58,8 +58,7 @@ Token SIMDLexer::next() noexcept
     switch (c) {
     case '"': { // String
         // SIMD
-        alignas(16) const static char literalsMaskChars[16] { '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"',  '"' };
-        const __m128i stringEndMask = _mm_load_si128(reinterpret_cast<const __m128i*>(literalsMaskChars));
+        const __m128i stringEndMask = _mm_set1_epi8('"');
         while (true) {
             const __m128i peekedChars = peekCharsSSE();
             const int offset = _mm_cmpistri(stringEndMask, peekedChars, _SIDD_UBYTE_OPS | _SIDD_CMP_EQUAL_EACH);
