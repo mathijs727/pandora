@@ -92,10 +92,11 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
             cameraFovX = glm::degrees(std::atan(aspectRatio * std::tan(glm::radians(cameraFov / 2.0f)))) * 2.0f;
         }
 
-        glm::mat4 cameraToWorldTransform = readMat4(cameraJson["camera_to_world_transform"]);
+        const glm::mat4 cameraToWorldTransform = readMat4(cameraJson["camera_to_world_transform"]);
+        const float aspectRatio = static_cast<float>(resolution.x) / static_cast<float>(resolution.y);
         //glm::vec4 position = cameraTransform * glm::vec4(0, 0, 0, 1);
         //std::cout << "Camera pos: [" << position.x << ", " << position.y << ", " << position.z << ", " << position.w << "]" << std::endl;
-        config.camera = std::make_unique<PerspectiveCamera>(resolution, cameraFovX, cameraToWorldTransform);
+        config.camera = std::make_unique<PerspectiveCamera>(aspectRatio, cameraFovX, cameraToWorldTransform);
         config.resolution = resolution;
     }
 

@@ -53,6 +53,7 @@ private:
     Sensor* m_pSensor;
     std::atomic_int m_currentRayIndex;
     glm::ivec2 m_resolution;
+    glm::vec2 m_fResolution;
     int m_maxPixelIndex;
 
     const Accel* m_pAccelerationStructure;

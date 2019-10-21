@@ -50,6 +50,7 @@ void NormalDebugIntegrator::render(const PerspectiveCamera& camera, Sensor& sens
     m_pSensor = &sensor;
     m_currentRayIndex.store(0);
     m_resolution = sensor.getResolution();
+    m_fResolution = sensor.getResolution();
     m_maxPixelIndex = m_resolution.x * m_resolution.y;
     m_pAccelerationStructure = &accel;
 
@@ -86,10 +87,8 @@ void NormalDebugIntegrator::spawnNewPaths(int numPaths)
         int x = pixelIndex % m_resolution.x;
         int y = pixelIndex / m_resolution.x;
 
-        CameraSample cameraSample;
-        cameraSample.pixel = { x, y };
-
-        Ray cameraRay = m_pCamera->generateRay(cameraSample);
+		const glm::vec2 cameraSample = glm::vec2(x, y) / m_fResolution;
+        const Ray cameraRay = m_pCamera->generateRay(cameraSample);
         m_pAccelerationStructure->intersect(cameraRay, RayState { glm::ivec2 { x, y } });
     }
 }

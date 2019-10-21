@@ -4,8 +4,8 @@
 #include "pandora/graphics_core/perspective_camera.h"
 #include "pandora/graphics_core/scene.h"
 #include "pandora/graphics_core/sensor.h"
-#include "pandora/utility/math.h"
 #include "pandora/samplers/rng/pcg.h"
+#include "pandora/utility/math.h"
 
 namespace pandora {
 
@@ -110,8 +110,8 @@ void SamplerIntegrator::spawnNewPaths(int numPaths)
         rayState.pathDepth = 0;
         rayState.rng = PcgRng(i);
 
-        CameraSample cameraSample;
-        cameraSample.pixel = glm::vec2(x, y) + rayState.rng.uniformFloat2();
+        const glm::vec2 resolution = m_pCurrentRenderData->fResolution;
+        const glm::vec2 cameraSample = glm::vec2(x, y) / resolution + rayState.rng.uniformFloat2();
 
         const Ray cameraRay = pRenderData->pCamera->generateRay(cameraSample);
         pRenderData->pAccelerationStructure->intersect(cameraRay, rayState);

@@ -113,7 +113,7 @@ int main(int argc, char** argv)
     });
 
     auto& camera = *renderConfig.camera;
-    auto& sensor = renderConfig.camera->getSensor();
+    Sensor sensor { renderConfig.resolution };
     auto previousTimestamp = std::chrono::high_resolution_clock::now();
     int samples = 0;
     while (!myWindow.shouldClose() && !pressedEscape) {
@@ -125,19 +125,18 @@ int main(int argc, char** argv)
             sensor.clear(glm::vec3(0.0f));
         }
 
-#if 0
+#if 1
         integrator.render(camera, sensor, *renderConfig.pScene, accel);
 #else
         samples = 0;
         sensor.clear(glm::vec3(0));
 
-        auto& sensor = renderConfig.camera->getSensor();
+        const glm::vec2 fResolution = renderConfig.resolution;
         tbb::blocked_range2d range { 0, renderConfig.resolution.x, 0, renderConfig.resolution.y };
         tbb::parallel_for(range, [&](tbb::blocked_range2d<int> subRange) {
             for (int y = subRange.cols().begin(); y < subRange.cols().end(); y++) {
                 for (int x = subRange.rows().begin(); x < subRange.rows().end(); x++) {
-                    CameraSample cameraSample { glm::vec2 { x, y } };
-                    Ray cameraRay = renderConfig.camera->generateRay(cameraSample);
+                    Ray cameraRay = renderConfig.camera->generateRay(glm::vec2(x, y) / fResolution);
                     auto hitOpt = accel.intersectFast(cameraRay);
                     if (hitOpt) {
                         auto si = hitOpt->pSceneObject->pShape->getShadingGeometry()->fillSurfaceInteraction(cameraRay, *hitOpt);

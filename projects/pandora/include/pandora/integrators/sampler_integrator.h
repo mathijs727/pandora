@@ -69,6 +69,7 @@ protected:
         Sensor* pSensor;
         std::atomic_int currentRayIndex;
         glm::ivec2 resolution;
+        glm::vec2 fResolution;
         int maxPixelIndex;
 
         const Scene* pScene;

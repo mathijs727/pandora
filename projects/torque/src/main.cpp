@@ -112,20 +112,21 @@ int main(int argc, char** argv)
 
     spdlog::info("Creating integrator");
     const int spp = vm["spp"].as<int>();
-    //NormalDebugIntegrator integrator { &taskGraph };
+    NormalDebugIntegrator integrator { &taskGraph };
     //DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
-    PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+    //PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Building acceleration structure");
     EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
+    Sensor sensor { renderConfig.resolution };
 
     {
         auto renderTimeStopWatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
 
         spdlog::info("Starting render");
 #if 1
-        integrator.render(*renderConfig.camera, renderConfig.camera->getSensor(), *renderConfig.pScene, accel);
+        integrator.render(*renderConfig.camera, sensor, *renderConfig.pScene, accel);
 #else
         auto& sensor = renderConfig.camera->getSensor();
         for (int y = 0; y < renderConfig.resolution.y; y++) {
@@ -142,8 +143,8 @@ int main(int argc, char** argv)
     }
 
 	spdlog::info("Writing output to {}.jpg/exr", vm["out"].as<std::string>());
-    writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".jpg", true);
-    writeOutputToFile(renderConfig.camera->getSensor(), spp, vm["out"].as<std::string>() + ".exr", false);
+    writeOutputToFile(sensor, spp, vm["out"].as<std::string>() + ".jpg", true);
+    writeOutputToFile(sensor, spp, vm["out"].as<std::string>() + ".exr", false);
 
 	spdlog::info("Writing statistics");
     g_stats.asyncTriggerSnapshot();
@@ -214,10 +215,12 @@ RenderConfig createDemoScene()
 {
     pandora::RenderConfig renderConfig;
     renderConfig.resolution = glm::ivec2(1280, 720);
+    const float aspectRatio = 1280.0f / 720.0f;
+
     {
         glm::mat4 transform { 1.0f };
         transform = glm::translate(transform, glm::vec3(0, 0, -5));
-        renderConfig.camera = std::make_unique<PerspectiveCamera>(renderConfig.resolution, 45.0f, transform);
+        renderConfig.camera = std::make_unique<PerspectiveCamera>(aspectRatio, 45.0f, transform);
     }
 
     SceneBuilder sceneBuilder;
