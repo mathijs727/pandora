@@ -11,6 +11,7 @@
 #include <pandora/graphics_core/pandora.h>
 #include <pandora/graphics_core/perspective_camera.h>
 #include <pandora/graphics_core/scene.h>
+#include <pandora/graphics_core/sensor.h>
 #include <stack>
 #include <tuple>
 #include <unordered_map>
@@ -21,15 +22,16 @@
 // https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Parser.h
 
 struct PBRTScene {
-    std::vector<pandora::PerspectiveCamera> cameras;
     pandora::Scene scene;
+    std::vector<std::unique_ptr<pandora::PerspectiveCamera>> cameras;
+    std::unique_ptr<pandora::Sensor> pSensor;
 };
 
 class Parser {
 public:
     Parser(std::filesystem::path basePath);
 
-    void parse(std::filesystem::path file);
+    PBRTScene parse(std::filesystem::path file);
 
 private:
     using ParamValue = std::variant<
@@ -41,24 +43,24 @@ private:
         std::vector<int>,
         std::vector<float>,
         std::vector<glm::vec3>>;
-    class ParamArray {
+    class Params {
     public:
         template <typename T>
-        inline void addValue(std::string_view key, T&& value)
+        inline void add(std::string_view key, T&& value)
         {
             m_values[key] = std::forward<T>(value);
         }
 
         template <typename T>
-        inline void getValue(std::string_view key)
+        inline T get(std::string_view key) const
         {
-            return m_values.find(key)->second;
+            return std::get<T>(m_values.find(key)->second);
         }
         template <typename T>
-        inline void getValue(std::string_view key, const T& default)
+        inline T get(std::string_view key, const T& default) const
         {
             if (auto iter = m_values.find(key); iter != std::end(m_values)) {
-                return iter->second;
+                return std::get<T>(iter->second);
             } else {
                 return default;
             }
@@ -91,7 +93,7 @@ private:
     std::vector<T> parseParamArray();
     template <typename T>
     std::variant<T, std::vector<T>> parseParamPossibleArray();
-    ParamArray parseParams();
+    Params parseParams();
 
     Token next();
     Token peek(unsigned ahead = 0);
@@ -99,15 +101,19 @@ private:
 
 private:
     std::filesystem::path m_basePath;
-    std::stack<std::pair<mio::mmap_source, std::unique_ptr<Lexer>>> m_lexerStack;
-    Lexer* m_currentLexer;
+    std::stack<std::pair<mio::mmap_source, Lexer>> m_lexerStack;
+	mio::mmap_source m_currentLexerSource;
+    Lexer m_currentLexer;
     std::deque<Token> m_peekQueue;
 
     bool m_transformStartActive { true };
     glm::mat4 m_currentTransform { glm::identity<glm::mat4>() };
     std::stack<glm::mat4> m_transformStack;
 
-    std::vector<pandora::PerspectiveCamera> m_cameras;
+    // We cannot create camera's as we parse because we need to compute the aspect ratio
+    // based on the film/sensor which might not be read a camera is defined.
+    std::vector<std::pair<glm::mat4, Params>> m_cameraParams;
+    std::unique_ptr<pandora::Sensor> m_pSensor;
     pandora::SceneBuilder m_pandoraSceneBuilder;
 
     std::stack<pandora::Material*> m_materialStack;

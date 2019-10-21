@@ -11,15 +11,44 @@ Parser::Parser(std::filesystem::path basePath)
 {
 }
 
-void Parser::parse(std::filesystem::path file)
+PBRTScene Parser::parse(std::filesystem::path file)
 {
     addLexer(file);
 
+    m_cameraParams.clear();
+    m_pSensor = nullptr;
+    m_pandoraSceneBuilder = pandora::SceneBuilder();
+
     parseScene();
+
+    assert(m_pSensor);
+    const glm::vec2 fResolution = m_pSensor->getResolution();
+    const float aspectRatio = fResolution.x / fResolution.y;
+    std::vector<std::unique_ptr<pandora::PerspectiveCamera>> cameras;
+    std::transform(std::begin(m_cameraParams), std::end(m_cameraParams), std::back_inserter(cameras),
+        [=](auto cameraData) {
+            const auto& [worldToCamera, cameraParams] = cameraData;
+
+            // PBRT defines field of view along shortest axis
+            float fov = 2.0f * cameraParams.get<float>("fov", 45.0f);
+            if (fResolution.x > fResolution.y)
+                fov = std::atan(std::tan(fov / 2.0f) * aspectRatio) * 2.0f;
+
+            return std::make_unique<pandora::PerspectiveCamera>(aspectRatio, fov, glm::inverse(worldToCamera));
+        });
+
+    return PBRTScene { m_pandoraSceneBuilder.build(), std::move(cameras), std::move(m_pSensor) };
 }
 
 void Parser::parseWorld()
 {
+    while (true) {
+        Token token = next();
+        assert(token);
+
+        if (token == "WorldEnd")
+            break;
+    }
 }
 
 void Parser::parseScene()
@@ -44,12 +73,42 @@ void Parser::parseScene()
                 continue;
             }
 
-
-			//pandora::PerspectiveCamera camera {};
-            //m_cameras.push_back(std::move(camera));
+            m_cameraParams.push_back({ m_currentTransform, std::move(params) });
+            continue;
         }
-        if (token.text == "WorldEnd")
-            break;
+        if (token == "Sampler") {
+            (void)next(); // Sampler type
+            (void)parseParams();
+            spdlog::warn("Advanced samplers are not supported in Pandora");
+            continue;
+        }
+        if (token == "Integrator") {
+            (void)next(); // Integrator type
+            (void)parseParams();
+            spdlog::warn("Ignoring Integrator command");
+            continue;
+        }
+        if (token == "Film") {
+            (void)next(); // Film type (always "image")
+
+            auto params = parseParams();
+            assert(!m_pSensor);
+
+            const int resolutionX = params.get<int>("xresolution", 640);
+            const int resolutionY = params.get<int>("yresolution", 480);
+            m_pSensor = std::make_unique<pandora::Sensor>(glm::ivec2(resolutionX, resolutionY));
+            continue;
+        }
+        if (token == "WorldBegin") {
+            // Reset CTM
+            m_currentTransform = glm::identity<glm::mat4>();
+            while (!m_transformStack.empty())
+                m_transformStack.pop();
+            m_transformStartActive = true;
+
+            parseWorld();
+            continue;
+        }
 
         spdlog::error("Unknown token {}", token.text);
     }
@@ -154,25 +213,25 @@ void Parser::popTransform() noexcept
     m_transformStack.pop();
 }
 
-Parser::ParamArray Parser::parseParams()
+Parser::Params Parser::parseParams()
 {
-    ParamArray params;
+    Params params;
     while (true) {
         Token token = peek();
 
         if (token.type != TokenType::STRING)
             return params;
 
-        auto&& [paramType, paramName] = splitStringFirstWhitespace(token.text);
+        auto&& [paramType, paramName] = splitStringFirstWhitespace(next().text);
         auto addParam = [&](auto v) {
-            params.addValue(paramName, v);
+            params.add(paramName, v);
         };
         auto addParamPossibleArray = [&](auto v) {
-			// v is std::variant<T, std::vector<T>>;
+            // v is std::variant<T, std::vector<T>>;
             if (v.index() == 0)
-				params.addValue(paramName, std::get<0>(v));
+                params.add(paramName, std::get<0>(v));
             else
-                params.addValue(paramName, std::get<1>(std::move(v)));
+                params.add(paramName, std::get<1>(std::move(v)));
         };
 
         if (paramType == "float") {
@@ -230,10 +289,10 @@ Token Parser::next()
 Token Parser::peek(unsigned i)
 {
     while (m_peekQueue.size() <= i) {
-        Token token = m_currentLexer->next();
+        Token token = m_currentLexer.next();
 
         if (token && token.text == "Include") {
-            Token fileNameToken = m_currentLexer->next();
+            Token fileNameToken = m_currentLexer.next();
             auto includedFilePath = m_basePath / fileNameToken.text;
             spdlog::info("Including file \"{}\"", includedFilePath.string());
 
@@ -252,8 +311,8 @@ Token Parser::peek(unsigned i)
             return Token();
         }
 
+        m_currentLexer = std::move(std::get<1>(m_lexerStack.top()));
         m_lexerStack.pop();
-        m_currentLexer = std::get<1>(m_lexerStack.top()).get();
         continue;
     }
 
@@ -262,12 +321,11 @@ Token Parser::peek(unsigned i)
 
 void Parser::addLexer(std::filesystem::path file)
 {
-    auto mappedFile = mio::mmap_source(file.string());
-    const std::string_view fileContents { mappedFile.data(), mappedFile.length() };
-    auto lexer = std::make_unique<Lexer>(fileContents);
+    m_lexerStack.push({ std::move(m_currentLexerSource), std::move(m_currentLexer) });
 
-    m_currentLexer = lexer.get();
-    m_lexerStack.emplace(std::move(mappedFile), std::move(lexer));
+    m_currentLexerSource = mio::mmap_source(file.string());
+    const std::string_view fileContents { m_currentLexerSource.data(), m_currentLexerSource.length() };
+    m_currentLexer = Lexer(fileContents);
 }
 
 inline bool isWhiteSpace(const char c) noexcept
@@ -278,18 +336,14 @@ inline bool isWhiteSpace(const char c) noexcept
 std::pair<std::string_view, std::string_view> splitStringFirstWhitespace(std::string_view string)
 {
     int i = 0;
-    while (!isWhiteSpace(string[i++]))
+    while (!isWhiteSpace(string[++i]))
         ;
 
     std::string_view subString1 = string.substr(0, i);
 
-    while (isWhiteSpace(string[i++]))
+    while (isWhiteSpace(string[++i]))
         ;
 
-    int substrStart = i;
-    while (isWhiteSpace(string[i++]))
-        ;
-
-    std::string_view subString2 = string.substr(substrStart);
+    std::string_view subString2 = string.substr(i);
     return { subString1, subString2 };
 }
