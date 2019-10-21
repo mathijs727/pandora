@@ -16,4 +16,17 @@ struct Token {
     {
         return type == other.type && text == other.text;
     }
+    inline bool operator==(const std::string_view other) const
+    {
+        return text == other;
+    }
+    inline bool operator!=(const std::string_view other) const
+    {
+        return text != other;
+    }
+
+    inline operator bool() const
+    {
+        return type != TokenType::NONE;
+    }
 };
