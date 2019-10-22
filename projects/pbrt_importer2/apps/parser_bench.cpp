@@ -2,27 +2,18 @@
 #include "timer.h"
 
 #include <boost/program_options.hpp>
-#include <spdlog/spdlog.h>
-#ifdef _WIN32
-#include <spdlog/sinks/msvc_sink.h>
-#else
-#include <spdlog/sinks/stdout_color_sinks.h>
-#endif
 #include <cassert>
 #include <filesystem>
 #include <iostream>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 
 boost::program_options::variables_map parseInput(int argc, const char** argv);
 
 int main(int argc, const char** argv)
 {
-#ifdef _WIN32
-    auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
-    spdlog::set_default_logger(vsLogger);
-#else
     auto colorLogger = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("color_logger");
     spdlog::set_default_logger(colorLogger);
-#endif
 
     auto input = parseInput(argc, argv);
 
@@ -36,7 +27,7 @@ int main(int argc, const char** argv)
         parser.parse(filePath);
         auto elapsed = timer.elapsed<std::chrono::milliseconds>();
 
-		spdlog::info("Time to parse: {}ms", elapsed.count());
+        spdlog::info("Time to parse: {}ms", elapsed.count());
     }
 
     return 0;

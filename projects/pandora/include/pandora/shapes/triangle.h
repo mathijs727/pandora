@@ -91,6 +91,8 @@ public:
     static TriangleShape loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh, const glm::mat4& transformMatrix);
 
 private:
+    static std::optional<TriangleShape> loadFromPlyFile(std::filesystem::path filePath, std::optional<glm::mat4> transform);
+
     static std::optional<TriangleShape> loadFromFileSingleShape(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals);
     static TriangleShape createAssimpMesh(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
 

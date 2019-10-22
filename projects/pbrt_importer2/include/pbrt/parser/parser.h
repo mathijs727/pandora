@@ -66,6 +66,11 @@ private:
     // Parse everything in WorldBegin/WorldEnd
     void parseWorld(PBRTIntermediateScene& scene);
     std::shared_ptr<pandora::Material> parseMaterial(const Token& tokenType) noexcept;
+    void parseLightSource(PBRTIntermediateScene& scene);
+    void parseShape(PBRTIntermediateScene& scene);
+    void parseTriangleShape(PBRTIntermediateScene& scene);
+    void parsePlymesh(PBRTIntermediateScene& scene);
+    void parseTexture();
 
     // Parse everything in the root scene file
     void parseScene(PBRTIntermediateScene& scene);
