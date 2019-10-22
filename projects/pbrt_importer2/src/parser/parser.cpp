@@ -39,6 +39,7 @@ PBRTScene Parser::parse(std::filesystem::path file)
 
             return pandora::PerspectiveCamera(aspectRatio, fov, glm::inverse(worldToCamera));
         });
+    m_asyncWorkTaskGroup.wait();
 
     return PBRTScene { intermediateScene.sceneBuilder.build(), std::move(cameras), intermediateScene.resolution };
 }
@@ -159,26 +160,13 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
             auto params = parseParams();
 
             if (shapeType == "plymesh") {
-                // Load mesh
-                auto filePath = m_basePath / params.get<std::string_view>("filename");
-                std::optional<pandora::TriangleShape> shapeOpt;
-                if (m_currentTransform == glm::identity<glm::mat4>())
-                    shapeOpt = pandora::TriangleShape::loadFromFileSingleShape(filePath);
-                else
-                    shapeOpt = pandora::TriangleShape::loadFromFileSingleShape(filePath, m_currentTransform);
-                if (!shapeOpt) {
-                    spdlog::error("Failed to load plymesh \"{}\"", filePath.string());
-                    continue;
-                }
-                auto pShape = std::make_shared<pandora::TriangleShape>(std::move(*shapeOpt));
-
-                // Create scene object
+                // Create scene object with deferred shape
                 std::shared_ptr<pandora::SceneObject> pSceneObject;
                 if (m_graphicsState.emittedAreaLight) {
-                    pSceneObject = scene.sceneBuilder.addSceneObject(pShape, m_graphicsState.pMaterial);
+                    pSceneObject = scene.sceneBuilder.addSceneObject(nullptr, m_graphicsState.pMaterial);
                 } else {
                     auto pAreaLight = std::make_unique<pandora::AreaLight>(*m_graphicsState.emittedAreaLight);
-                    pSceneObject = scene.sceneBuilder.addSceneObject(pShape, m_graphicsState.pMaterial, std::move(pAreaLight));
+                    pSceneObject = scene.sceneBuilder.addSceneObject(nullptr, m_graphicsState.pMaterial, std::move(pAreaLight));
                 }
 
                 // Add to scene if not an instance template
@@ -187,6 +175,22 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
                 } else {
                     scene.sceneBuilder.attachObject(m_currentObject->pSceneNode, pSceneObject);
                 }
+
+                m_asyncWorkTaskGroup.run([=]() {
+                    // Load mesh
+                    auto filePath = m_basePath / params.get<std::string_view>("filename");
+                    std::optional<pandora::TriangleShape> shapeOpt;
+                    if (m_currentTransform == glm::identity<glm::mat4>())
+                        shapeOpt = pandora::TriangleShape::loadFromFileSingleShape(filePath);
+                    else
+                        shapeOpt = pandora::TriangleShape::loadFromFileSingleShape(filePath, m_currentTransform);
+                    if (!shapeOpt) {
+                        spdlog::error("Failed to load plymesh \"{}\"", filePath.string());
+                        return;
+                    }
+                    auto pShape = std::make_shared<pandora::TriangleShape>(std::move(*shapeOpt));
+                    pSceneObject->pShape = pShape;
+                });
             } else if (shapeType == "trianglemesh") {
                 // Load mesh
                 std::vector<int> integerIndices = std::move(params.get<std::vector<int>>("indices"));

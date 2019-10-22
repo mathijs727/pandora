@@ -16,6 +16,7 @@
 #include <pandora/graphics_core/sensor.h>
 #include <pandora/textures/image_texture.h>
 #include <stack>
+#include <tbb/task_group.h>
 #include <tuple>
 #include <unordered_map>
 #include <variant>
@@ -99,6 +100,8 @@ private:
     Lexer m_currentLexer;
     std::deque<Token> m_peekQueue;
 
+	tbb::task_group m_asyncWorkTaskGroup;
+
     // CTM
     bool m_transformStartActive { true };
     glm::mat4 m_currentTransform { glm::identity<glm::mat4>() };
@@ -118,7 +121,7 @@ private:
     std::stack<Object> m_objectStack;
     std::optional<Object> m_currentObject;
     std::unordered_map<std::string, std::shared_ptr<pandora::SceneNode>> m_objects;
-	
+
     TextureCache m_textureCache;
     std::unordered_map<std::string, std::shared_ptr<pandora::Texture<float>>> m_namedFloatTextures;
     std::unordered_map<std::string, std::shared_ptr<pandora::Texture<glm::vec3>>> m_namedVec3Textures;
