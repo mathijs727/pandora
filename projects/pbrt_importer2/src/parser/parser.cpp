@@ -1,6 +1,13 @@
 #include "pbrt/parser/parser.h"
 #include <charconv>
 #include <glm/gtc/matrix_transform.hpp>
+#include <pandora/lights/area_light.h>
+#include <pandora/lights/distant_light.h>
+#include <pandora/lights/environment_light.h>
+#include <pandora/materials/matte_material.h>
+#include <pandora/shapes/triangle.h>
+#include <pandora/textures/constant_texture.h>
+#include <pandora/textures/image_texture.h>
 #include <spdlog/spdlog.h>
 #include <tuple>
 
@@ -15,17 +22,13 @@ PBRTScene Parser::parse(std::filesystem::path file)
 {
     addLexer(file);
 
-    m_cameraParams.clear();
-    m_pSensor = nullptr;
-    m_pandoraSceneBuilder = pandora::SceneBuilder();
+    PBRTIntermediateScene intermediateScene;
+    parseScene(intermediateScene);
 
-    parseScene();
-
-    assert(m_pSensor);
-    const glm::vec2 fResolution = m_pSensor->getResolution();
+    const glm::vec2 fResolution = intermediateScene.resolution;
     const float aspectRatio = fResolution.x / fResolution.y;
-    std::vector<std::unique_ptr<pandora::PerspectiveCamera>> cameras;
-    std::transform(std::begin(m_cameraParams), std::end(m_cameraParams), std::back_inserter(cameras),
+    std::vector<pandora::PerspectiveCamera> cameras;
+    std::transform(std::begin(intermediateScene.cameras), std::end(intermediateScene.cameras), std::back_inserter(cameras),
         [=](auto cameraData) {
             const auto& [worldToCamera, cameraParams] = cameraData;
 
@@ -34,13 +37,13 @@ PBRTScene Parser::parse(std::filesystem::path file)
             if (fResolution.x > fResolution.y)
                 fov = std::atan(std::tan(fov / 2.0f) * aspectRatio) * 2.0f;
 
-            return std::make_unique<pandora::PerspectiveCamera>(aspectRatio, fov, glm::inverse(worldToCamera));
+            return pandora::PerspectiveCamera(aspectRatio, fov, glm::inverse(worldToCamera));
         });
 
-    return PBRTScene { m_pandoraSceneBuilder.build(), std::move(cameras), std::move(m_pSensor) };
+    return PBRTScene { intermediateScene.sceneBuilder.build(), std::move(cameras), intermediateScene.resolution };
 }
 
-void Parser::parseWorld()
+void Parser::parseWorld(PBRTIntermediateScene& scene)
 {
     while (true) {
         Token token = next();
@@ -48,10 +51,160 @@ void Parser::parseWorld()
 
         if (token == "WorldEnd")
             break;
+
+        if (token == "AttributeBegin") {
+            pushAttributes();
+            continue;
+        }
+        if (token == "AttributeEnd") {
+            popAttributes();
+            continue;
+        }
+
+        if (token == "LightSource") {
+            std::string_view lightType = next().text;
+            auto params = parseParams();
+            if (lightType == "distant") {
+                const glm::vec3 pointFrom = params.get<glm::vec3>("from", glm::vec3(0));
+                const glm::vec3 pointTo = params.get<glm::vec3>("to", glm::vec3(0, 0, 1));
+                const glm::vec3 direction = glm::normalize(pointTo - pointFrom);
+                glm::vec3 L = params.get<glm::vec3>("L", glm::vec3(1));
+
+                auto pLight = std::make_unique<pandora::DistantLight>(
+                    m_currentTransform, L, direction);
+                scene.sceneBuilder.addInfiniteLight(std::move(pLight));
+            } else if (lightType == "infinite") {
+                const glm::vec3 L = params.get<glm::vec3>("L", glm::vec3(1));
+
+                std::shared_ptr<pandora::Texture<glm::vec3>> pTexture;
+                if (params.contains("mapname")) {
+                    pTexture = scene.textureCache.getImageTexture<glm::vec3>(m_basePath / params.get<std::string_view>("mapname"));
+                } else {
+                    pTexture = scene.textureCache.getConstantTexture(glm::vec3(1));
+                }
+            } else {
+                spdlog::warn("Ignoring light of unsupported type \"{}\"", lightType);
+            }
+            continue;
+        }
+        if (token == "AreaLightSource") {
+            std::string_view lightType = next().text;
+            auto params = parseParams();
+            if (lightType == "diffuse") {
+                m_graphicsState.emittedAreaLight = params.get<glm::vec3>("L", glm::vec3(1));
+            } else {
+                spdlog::warn("Ignoring area light of unsupported type \"{}\"", lightType);
+            }
+            continue;
+        }
+        if (token == "Material") {
+            std::string_view materialType = next().text;
+            auto params = parseParams();
+
+            if (materialType == "matte") {
+                const glm::vec3 kd = params.get<glm::vec3>("Kd", glm::vec3(0.5f));
+                const float sigma = params.get<float>("sigma", 0.0f);
+                const auto pKdTexture = scene.textureCache.getConstantTexture(kd);
+                const auto pSigmaTexture = scene.textureCache.getConstantTexture(sigma);
+                m_graphicsState.pMaterial = std::make_shared<pandora::MatteMaterial>(pKdTexture, pSigmaTexture);
+            } else {
+                spdlog::warn("Replacing material of unsupported type \"{}\" by matte white", materialType);
+                const auto pKdTexture = scene.textureCache.getConstantTexture(0.5f);
+                const auto pSigmaTexture = scene.textureCache.getConstantTexture(0.0f);
+                m_graphicsState.pMaterial = std::make_shared<pandora::MatteMaterial>(pKdTexture, pSigmaTexture);
+            }
+        }
+        if (token == "Shape") {
+            std::string_view shapeType = next().text;
+            auto params = parseParams();
+
+            if (shapeType == "plymesh") {
+                // Load mesh
+                auto filePath = m_basePath / params.get<std::string_view>("filename");
+                auto shapeOpt = pandora::TriangleShape::loadFromFileSingleShape(filePath, m_currentTransform);
+                if (!shapeOpt) {
+                    spdlog::error("Failed to load plymesh \"{}\"", filePath.string());
+                    continue;
+                }
+                auto pShape = std::make_shared<pandora::TriangleShape>(std::move(*shapeOpt));
+
+                // Create scene object
+                std::shared_ptr<pandora::SceneObject> pSceneObject;
+                if (m_graphicsState.emittedAreaLight) {
+                    pSceneObject = scene.sceneBuilder.addSceneObject(pShape, m_graphicsState.pMaterial);
+                } else {
+                    auto pAreaLight = std::make_unique<pandora::AreaLight>(*m_graphicsState.emittedAreaLight);
+                    pSceneObject = scene.sceneBuilder.addSceneObject(pShape, m_graphicsState.pMaterial, std::move(pAreaLight));
+                }
+
+                // Add to scene if not an instance template
+                if (!m_currentObject) {
+                    scene.sceneBuilder.attachObjectToRoot(pSceneObject);
+                } else {
+                    scene.sceneBuilder.attachObject(m_currentObject->pSceneNode, pSceneObject);
+                }
+            } else if (shapeType == "trianglemesh") {
+                // Load mesh
+                std::vector<int> integerIndices = std::move(params.get<std::vector<int>>("indices"));
+                assert(integerIndices.size() % 3 == 0);
+                std::vector<glm::uvec3> indices;
+                indices.resize(integerIndices.size() / 3);
+                for (size_t i = 0, i3 = 0; i < indices.size(); i++, i3 += 3) {
+                    indices[i] = glm::uvec3(integerIndices[i3 + 0], integerIndices[i3 + 1], integerIndices[i3 + 2]);
+                }
+                integerIndices.clear();
+
+                std::vector<glm::vec3> positions = std::move(params.get<std::vector<glm::vec3>>("P"));
+                std::vector<glm::vec3> normals;
+                if (params.contains("N"))
+                    normals = std::move(params.get<std::vector<glm::vec3>>("N"));
+                std::vector<glm::vec2> uvCoords;
+                if (params.contains("uv")) {
+                    auto floatUvCoords = std::move(params.get<std::vector<float>>("uv"));
+
+                    uvCoords.resize(indices.size());
+                    for (size_t i = 0, i2 = 0; i < uvCoords.size(); i++, i2 += 2) {
+                        uvCoords[i] = glm::vec2(floatUvCoords[i2 + 0], floatUvCoords[i2 + 1]);
+                    }
+                    floatUvCoords.clear();
+                }
+                std::vector<glm::vec3> tangents;
+                if (params.contains("S"))
+                    tangents = std::move(params.get<std::vector<glm::vec3>>("S"));
+
+                auto pShape = std::make_shared<pandora::TriangleShape>(
+                    std::move(indices),
+                    std::move(positions),
+                    std::move(normals),
+                    std::move(uvCoords),
+                    std::move(tangents));
+
+                // Create scene object
+                std::shared_ptr<pandora::SceneObject> pSceneObject;
+                if (m_graphicsState.emittedAreaLight) {
+                    pSceneObject = scene.sceneBuilder.addSceneObject(pShape, m_graphicsState.pMaterial);
+                } else {
+                    auto pAreaLight = std::make_unique<pandora::AreaLight>(*m_graphicsState.emittedAreaLight);
+                    pSceneObject = scene.sceneBuilder.addSceneObject(pShape, m_graphicsState.pMaterial, std::move(pAreaLight));
+                }
+
+                // Add to scene if not an instance template
+                if (!m_currentObject) {
+                    scene.sceneBuilder.attachObjectToRoot(pSceneObject);
+                } else {
+                    scene.sceneBuilder.attachObject(m_currentObject->pSceneNode, pSceneObject);
+                }
+            } else {
+                spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
+            }
+            continue;
+        }
+
+        spdlog::error("Unknown token {}", token.text);
     }
 }
 
-void Parser::parseScene()
+void Parser::parseScene(PBRTIntermediateScene& scene)
 {
     while (peek()) {
         Token token = next();
@@ -73,7 +226,7 @@ void Parser::parseScene()
                 continue;
             }
 
-            m_cameraParams.push_back({ m_currentTransform, std::move(params) });
+            scene.cameras.push_back({ m_currentTransform, std::move(params) });
             continue;
         }
         if (token == "Sampler") {
@@ -92,11 +245,10 @@ void Parser::parseScene()
             (void)next(); // Film type (always "image")
 
             auto params = parseParams();
-            assert(!m_pSensor);
 
             const int resolutionX = params.get<int>("xresolution", 640);
             const int resolutionY = params.get<int>("yresolution", 480);
-            m_pSensor = std::make_unique<pandora::Sensor>(glm::ivec2(resolutionX, resolutionY));
+            scene.resolution = glm::ivec2(resolutionX, resolutionY);
             continue;
         }
         if (token == "WorldBegin") {
@@ -106,7 +258,7 @@ void Parser::parseScene()
                 m_transformStack.pop();
             m_transformStartActive = true;
 
-            parseWorld();
+            parseWorld(scene);
             continue;
         }
 
@@ -196,10 +348,15 @@ bool Parser::parseTransform(const Token& token) noexcept
 
 void Parser::pushAttributes() noexcept
 {
+    m_graphicsStateStack.push(m_graphicsState);
+    pushTransform();
 }
 
 void Parser::popAttributes() noexcept
 {
+    m_graphicsState = std::move(m_graphicsStateStack.top());
+    m_graphicsStateStack.pop();
+    popTransform();
 }
 
 void Parser::pushTransform() noexcept
@@ -213,7 +370,7 @@ void Parser::popTransform() noexcept
     m_transformStack.pop();
 }
 
-Parser::Params Parser::parseParams()
+Params Parser::parseParams()
 {
     Params params;
     while (true) {
@@ -240,8 +397,10 @@ Parser::Params Parser::parseParams()
             addParam(parseParam<glm::vec3>());
         } else if (paramType == "blackbody") {
             spdlog::warn("Blackbody type not suported, replacing by white");
+            (void)next(); // List begin token
             (void)next(); // Color temperature in Kelvin
             const float scale = parse<float>();
+            (void)next(); // List end token
             addParam(glm::vec3(scale));
         } else if (paramType == "rgb") {
             addParam(parseParam<glm::vec3>());

@@ -1,5 +1,7 @@
 #pragma once
+#include "params.h"
 #include "pbrt/lexer/lexer.h"
+#include "texture_cache.h"
 #include <EASTL/fixed_hash_map.h>
 #include <charconv>
 #include <deque>
@@ -12,6 +14,7 @@
 #include <pandora/graphics_core/perspective_camera.h>
 #include <pandora/graphics_core/scene.h>
 #include <pandora/graphics_core/sensor.h>
+#include <pandora/textures/image_texture.h>
 #include <stack>
 #include <tuple>
 #include <unordered_map>
@@ -21,10 +24,37 @@
 // Inspiration taken from pbrt-parser by Ingo Wald:
 // https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Parser.h
 
+// Camera creation has to be deferred because it relies on the aspect ratio of the output (defined by Film command)
+struct PBRTCamera {
+    glm::mat4 transform;
+    Params createParams;
+};
+
+struct PBRTIntermediateScene {
+    pandora::SceneBuilder sceneBuilder;
+
+    std::vector<PBRTCamera> cameras;
+    glm::ivec2 resolution;
+
+    TextureCache textureCache;
+};
+
 struct PBRTScene {
     pandora::Scene scene;
-    std::vector<std::unique_ptr<pandora::PerspectiveCamera>> cameras;
-    std::unique_ptr<pandora::Sensor> pSensor;
+    std::vector<pandora::PerspectiveCamera> cameras;
+    pandora::Sensor sensor;
+};
+
+struct GraphicsState {
+    // AreaLight has no copy constructor???
+    std::unordered_map<std::string, std::shared_ptr<pandora::Material>> namedMaterials;
+    std::unordered_map<std::string, std::shared_ptr<pandora::Texture<float>>> namedFloatTextures;
+    std::unordered_map<std::string, std::shared_ptr<pandora::Texture<glm::vec3>>> namedVec3Textures;
+
+    std::optional<glm::vec3> emittedAreaLight;
+    std::shared_ptr<pandora::Material> pMaterial;
+
+    bool reverseOrientation { false };
 };
 
 class Parser {
@@ -34,47 +64,11 @@ public:
     PBRTScene parse(std::filesystem::path file);
 
 private:
-    using ParamValue = std::variant<
-        int,
-        float,
-        glm::vec3,
-        glm::mat4,
-        std::string_view,
-        std::vector<int>,
-        std::vector<float>,
-        std::vector<glm::vec3>>;
-    class Params {
-    public:
-        template <typename T>
-        inline void add(std::string_view key, T&& value)
-        {
-            m_values[key] = std::forward<T>(value);
-        }
-
-        template <typename T>
-        inline T get(std::string_view key) const
-        {
-            return std::get<T>(m_values.find(key)->second);
-        }
-        template <typename T>
-        inline T get(std::string_view key, const T& default) const
-        {
-            if (auto iter = m_values.find(key); iter != std::end(m_values)) {
-                return std::get<T>(iter->second);
-            } else {
-                return default;
-            }
-        }
-
-    private:
-        std::unordered_map<std::string_view, ParamValue> m_values;
-    };
-
     // Parse everything in WorldBegin/WorldEnd
-    void parseWorld();
+    void parseWorld(PBRTIntermediateScene& scene);
 
     // Parse everything in the root scene file
-    void parseScene();
+    void parseScene(PBRTIntermediateScene& scene);
 
     bool parseTransform(const Token& token) noexcept;
 
@@ -102,22 +96,27 @@ private:
 private:
     std::filesystem::path m_basePath;
     std::stack<std::pair<mio::mmap_source, Lexer>> m_lexerStack;
-	mio::mmap_source m_currentLexerSource;
+    mio::mmap_source m_currentLexerSource;
     Lexer m_currentLexer;
     std::deque<Token> m_peekQueue;
 
+    // CTM
     bool m_transformStartActive { true };
     glm::mat4 m_currentTransform { glm::identity<glm::mat4>() };
     std::stack<glm::mat4> m_transformStack;
 
-    // We cannot create camera's as we parse because we need to compute the aspect ratio
-    // based on the film/sensor which might not be read a camera is defined.
-    std::vector<std::pair<glm::mat4, Params>> m_cameraParams;
-    std::unique_ptr<pandora::Sensor> m_pSensor;
-    pandora::SceneBuilder m_pandoraSceneBuilder;
+    // Graphics state stack
+    GraphicsState m_graphicsState;
+    std::stack<GraphicsState> m_graphicsStateStack;
 
-    std::stack<pandora::Material*> m_materialStack;
-    std::stack<pandora::SceneNode*> m_objectStack;
+    // Object stack
+    struct Object {
+        //std::shared_ptr<pandora::Material> pMaterial;
+        std::shared_ptr<pandora::SceneNode> pSceneNode;
+        //glm::mat4 transform;
+    };
+    std::vector<Object> m_objectStack;
+    std::optional<Object> m_currentObject;
 
     //pandora::SceneBuilder m_pandoraSceneBuilder;
     //std::unordered_map<std::string, pandora::SceneNode> m_namedObjects;

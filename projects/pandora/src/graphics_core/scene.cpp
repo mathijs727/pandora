@@ -53,6 +53,11 @@ void SceneBuilder::attachObject(std::shared_ptr<SceneNode> pParent, std::shared_
     pParent->objects.push_back(pSceneObject);
 }
 
+void SceneBuilder::attachObjectToRoot(std::shared_ptr<SceneObject> pSceneObject)
+{
+    m_pRoot->objects.push_back(pSceneObject);
+}
+
 std::shared_ptr<SceneNode> SceneBuilder::addSceneNode()
 {
     return std::make_shared<SceneNode>();

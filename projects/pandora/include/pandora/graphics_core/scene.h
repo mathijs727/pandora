@@ -44,6 +44,7 @@ public:
     std::shared_ptr<SceneObject> addSceneObjectToRoot(std::shared_ptr<Shape> pShape, std::shared_ptr<Material> pMaterial);
     std::shared_ptr<SceneObject> addSceneObjectToRoot(std::shared_ptr<Shape> pShape, std::shared_ptr<Material> pMaterial, std::unique_ptr<AreaLight>&& pAreaLight);
     void attachObject(std::shared_ptr<SceneNode> pParent, std::shared_ptr<SceneObject> pSceneObject);
+    void attachObjectToRoot(std::shared_ptr<SceneObject> pSceneObject);
 
     std::shared_ptr<SceneNode> addSceneNode();
     std::shared_ptr<SceneNode> addSceneNodeToRoot();
