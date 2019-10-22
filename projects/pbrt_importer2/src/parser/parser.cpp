@@ -18,12 +18,13 @@ Parser::Parser(std::filesystem::path basePath)
 {
 }
 
-PBRTScene Parser::parse(std::filesystem::path file)
+void Parser::parse(std::filesystem::path file)
 {
     addLexer(file);
 
     PBRTIntermediateScene intermediateScene;
     parseScene(intermediateScene);
+    m_asyncWorkTaskGroup.wait();
 
     const glm::vec2 fResolution = intermediateScene.resolution;
     const float aspectRatio = fResolution.x / fResolution.y;
@@ -39,9 +40,8 @@ PBRTScene Parser::parse(std::filesystem::path file)
 
             return pandora::PerspectiveCamera(aspectRatio, fov, glm::inverse(worldToCamera));
         });
-    m_asyncWorkTaskGroup.wait();
 
-    return PBRTScene { intermediateScene.sceneBuilder.build(), std::move(cameras), intermediateScene.resolution };
+    //return PBRTScene { intermediateScene.sceneBuilder.build(), std::move(cameras), intermediateScene.resolution };
 }
 
 void Parser::parseWorld(PBRTIntermediateScene& scene)
@@ -53,6 +53,9 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
 
         if (token == "WorldEnd")
             break;
+
+        if (parseTransform(token))
+            continue;
 
         if (token == "AttributeBegin") {
             pushAttributes();
@@ -126,6 +129,10 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
         }
         if (token == "ObjectInstance") {
             const std::string_view name = next().text;
+            if (m_objects.find(std::string(name)) == std::end(m_objects)) {
+                spdlog::error("ObjectInstance {} not found", name);
+                continue;
+            }
             auto pSceneNode = m_objects.find(std::string(name))->second;
             if (m_currentObject) {
                 if (m_currentTransform == glm::identity<glm::mat4>())
@@ -133,10 +140,11 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
                 else
                     scene.sceneBuilder.attachNode(m_currentObject->pSceneNode, pSceneNode, m_currentTransform);
             } else {
-                if (m_currentTransform == glm::identity<glm::mat4>())
+                if (m_currentTransform == glm::identity<glm::mat4>()) {
                     scene.sceneBuilder.attachNodeToRoot(pSceneNode);
-                else
+                } else {
                     scene.sceneBuilder.attachNodeToRoot(pSceneNode, m_currentTransform);
+                }
             }
             continue;
         }
@@ -167,7 +175,7 @@ void Parser::parseLightSource(PBRTIntermediateScene& scene)
             pTexture = m_textureCache.getConstantTexture(glm::vec3(1.0f));
         }
 
-		auto pLight = std::make_unique<pandora::EnvironmentLight>(m_currentTransform, L, pTexture);
+        auto pLight = std::make_unique<pandora::EnvironmentLight>(m_currentTransform, L, pTexture);
         scene.sceneBuilder.addInfiniteLight(std::move(pLight));
     } else {
         spdlog::warn("Ignoring light of unsupported type \"{}\"", lightType);
@@ -177,21 +185,19 @@ void Parser::parseLightSource(PBRTIntermediateScene& scene)
 void Parser::parseShape(PBRTIntermediateScene& scene)
 {
     std::string_view shapeType = next().text;
+    auto params = parseParams();
 
     if (shapeType == "plymesh") {
-        parsePlymesh(scene);
+        parsePlymesh(scene, std::move(params));
     } else if (shapeType == "trianglemesh") {
-        parseTriangleShape(scene);
+        parseTriangleShape(scene, params);
     } else {
-        (void)parseParams();
         spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
     }
 }
 
-void Parser::parseTriangleShape(PBRTIntermediateScene& scene)
+void Parser::parseTriangleShape(PBRTIntermediateScene& scene, const Params& params)
 {
-    auto params = parseParams();
-
     // Create scene object
     std::shared_ptr<pandora::SceneObject> pSceneObject;
     if (m_graphicsState.emittedAreaLight) {
@@ -210,7 +216,7 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene)
 
     m_asyncWorkTaskGroup.run([=, params = std::move(params)]() {
         // Load mesh
-        std::vector<int> integerIndices = std::move(params.get<std::vector<int>>("indices"));
+        std::vector<int> integerIndices = params.get<std::vector<int>>("indices");
         assert(integerIndices.size() % 3 == 0);
         std::vector<glm::uvec3> indices;
         indices.resize(integerIndices.size() / 3);
@@ -219,13 +225,13 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene)
         }
         integerIndices.clear();
 
-        std::vector<glm::vec3> positions = std::move(params.get<std::vector<glm::vec3>>("P"));
+        std::vector<glm::vec3> positions = params.get<std::vector<glm::vec3>>("P");
         std::vector<glm::vec3> normals;
         if (params.contains("N"))
-            normals = std::move(params.get<std::vector<glm::vec3>>("N"));
+            normals = params.get<std::vector<glm::vec3>>("N");
         std::vector<glm::vec2> uvCoords;
         if (params.contains("uv")) {
-            auto floatUvCoords = std::move(params.get<std::vector<float>>("uv"));
+            auto floatUvCoords = params.get<std::vector<float>>("uv");
 
             uvCoords.resize(indices.size());
             for (size_t i = 0, i2 = 0; i < uvCoords.size(); i++, i2 += 2) {
@@ -235,7 +241,7 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene)
         }
         std::vector<glm::vec3> tangents;
         if (params.contains("S"))
-            tangents = std::move(params.get<std::vector<glm::vec3>>("S"));
+            tangents = params.get<std::vector<glm::vec3>>("S");
 
         std::shared_ptr<pandora::TriangleShape> pShape;
         if (m_currentTransform == glm::identity<glm::mat4>()) {
@@ -258,10 +264,8 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene)
     });
 }
 
-void Parser::parsePlymesh(PBRTIntermediateScene& scene)
+void Parser::parsePlymesh(PBRTIntermediateScene& scene, Params&& params)
 {
-    auto params = parseParams();
-
     // Create scene object with deferred shape
     std::shared_ptr<pandora::SceneObject> pSceneObject;
     if (m_graphicsState.emittedAreaLight) {
@@ -278,7 +282,7 @@ void Parser::parsePlymesh(PBRTIntermediateScene& scene)
         scene.sceneBuilder.attachObject(m_currentObject->pSceneNode, pSceneObject);
     }
 
-    m_asyncWorkTaskGroup.run([=]() {
+    m_asyncWorkTaskGroup.run([=, params = std::move(params)]() {
         // Load mesh
         auto filePath = m_basePath / params.get<std::string_view>("filename");
         std::optional<pandora::TriangleShape> shapeOpt;
@@ -629,13 +633,17 @@ Token Parser::peek(unsigned i)
             continue;
         }
 
+        // Async tasks may hold references (i.e. std::string_view in Params) to the mapped file. So we have
+        // to wait for the tasks to finish before we unmap the input file.
+        m_asyncWorkTaskGroup.wait();
+
         // Encountered end of file
         if (m_lexerStack.empty()) {
             // Nothing to back off to, return end of file indicator
             return Token();
         }
 
-        m_currentLexer = std::move(std::get<1>(m_lexerStack.top()));
+        std::tie(m_currentLexerSource, m_currentLexer) = std::move(m_lexerStack.top());
         m_lexerStack.pop();
         continue;
     }
@@ -645,7 +653,8 @@ Token Parser::peek(unsigned i)
 
 void Parser::addLexer(std::filesystem::path file)
 {
-    m_lexerStack.push({ std::move(m_currentLexerSource), std::move(m_currentLexer) });
+    if (m_currentLexerSource.is_mapped())
+        m_lexerStack.push({ std::move(m_currentLexerSource), std::move(m_currentLexer) });
 
     m_currentLexerSource = mio::mmap_source(file.string());
     const std::string_view fileContents { m_currentLexerSource.data(), m_currentLexerSource.length() };

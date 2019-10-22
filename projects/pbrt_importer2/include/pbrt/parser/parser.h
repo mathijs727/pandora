@@ -60,7 +60,7 @@ class Parser {
 public:
     Parser(std::filesystem::path basePath);
 
-    PBRTScene parse(std::filesystem::path file);
+    void parse(std::filesystem::path file);
 
 private:
     // Parse everything in WorldBegin/WorldEnd
@@ -68,8 +68,8 @@ private:
     std::shared_ptr<pandora::Material> parseMaterial(const Token& tokenType) noexcept;
     void parseLightSource(PBRTIntermediateScene& scene);
     void parseShape(PBRTIntermediateScene& scene);
-    void parseTriangleShape(PBRTIntermediateScene& scene);
-    void parsePlymesh(PBRTIntermediateScene& scene);
+    void parseTriangleShape(PBRTIntermediateScene& scene, const Params& params);
+    void parsePlymesh(PBRTIntermediateScene& scene, Params&& params);
     void parseTexture();
 
     // Parse everything in the root scene file
