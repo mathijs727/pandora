@@ -51,6 +51,8 @@ public:
     std::shared_ptr<SceneNode> addSceneNodeToRoot(const glm::mat4& transform);
     void attachNode(std::shared_ptr<SceneNode> pParent, std::shared_ptr<SceneNode> pChild);
     void attachNode(std::shared_ptr<SceneNode> pParent, std::shared_ptr<SceneNode> pChild, const glm::mat4& transform);
+    void attachNodeToRoot(std::shared_ptr<SceneNode> pChild);
+    void attachNodeToRoot(std::shared_ptr<SceneNode> pChild, const glm::mat4& transform);
 
 	void makeRootNode(std::shared_ptr<SceneNode> pNewRoot);
 

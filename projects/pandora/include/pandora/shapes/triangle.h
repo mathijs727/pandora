@@ -69,6 +69,13 @@ public:
         std::vector<glm::vec3>&& normals,
         std::vector<glm::vec2>&& uvCoords,
         std::vector<glm::vec3>&& tangents);
+    TriangleShape(
+        std::vector<glm::uvec3>&& indices,
+        std::vector<glm::vec3>&& positions,
+        std::vector<glm::vec3>&& normals,
+        std::vector<glm::vec2>&& uvCoords,
+        std::vector<glm::vec3>&& tangents,
+		const glm::mat4& transform);
 
     const IntersectGeometry* getIntersectGeometry() const final;
     const ShadingGeometry* getShadingGeometry() const final;

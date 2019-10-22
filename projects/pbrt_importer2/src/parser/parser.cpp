@@ -48,6 +48,7 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
     while (true) {
         Token token = next();
         assert(token);
+        assert(token.type == TokenType::LITERAL);
 
         if (token == "WorldEnd")
             break;
@@ -78,9 +79,9 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
 
                 std::shared_ptr<pandora::Texture<glm::vec3>> pTexture;
                 if (params.contains("mapname")) {
-                    pTexture = scene.textureCache.getImageTexture<glm::vec3>(m_basePath / params.get<std::string_view>("mapname"));
+                    pTexture = m_textureCache.getImageTexture<glm::vec3>(m_basePath / params.get<std::string_view>("mapname"));
                 } else {
-                    pTexture = scene.textureCache.getConstantTexture(glm::vec3(1));
+                    pTexture = m_textureCache.getConstantTexture(glm::vec3(1));
                 }
             } else {
                 spdlog::warn("Ignoring light of unsupported type \"{}\"", lightType);
@@ -98,21 +99,60 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
             continue;
         }
         if (token == "Material") {
-            std::string_view materialType = next().text;
+            const Token typeToken = next();
+            auto pMaterial = parseMaterial(typeToken);
+            m_graphicsState.pMaterial = pMaterial;
+            continue;
+        }
+        if (token == "MakeNamedMaterial") {
+            const std::string_view name = next().text;
+            auto pMaterial = parseMaterial(Token {});
+            m_graphicsState.namedMaterials[std::string(name)] = pMaterial;
+            continue;
+        }
+        if (token == "NamedMaterial") {
+            const std::string_view name = next().text;
+            m_graphicsState.pMaterial = m_graphicsState.namedMaterials.find(std::string(name))->second;
+            continue;
+        }
+        if (token == "Texture") {
+            std::string_view textureName = next().text;
+            std::string_view textureType = next().text;
+            std::string_view mapType = next().text;
             auto params = parseParams();
 
-            if (materialType == "matte") {
-                const glm::vec3 kd = params.get<glm::vec3>("Kd", glm::vec3(0.5f));
-                const float sigma = params.get<float>("sigma", 0.0f);
-                const auto pKdTexture = scene.textureCache.getConstantTexture(kd);
-                const auto pSigmaTexture = scene.textureCache.getConstantTexture(sigma);
-                m_graphicsState.pMaterial = std::make_shared<pandora::MatteMaterial>(pKdTexture, pSigmaTexture);
+            if (textureType == "float") {
+                std::shared_ptr<pandora::Texture<float>> pTexture;
+                if (mapType == "constant") {
+                    float value = params.get<float>("value", 1.0f);
+                    pTexture = m_textureCache.getConstantTexture(value);
+                } else if (mapType == "imagemap") {
+                    std::string_view fileName = params.get<std::string_view>("filename");
+                    std::filesystem::path filePath = m_basePath / fileName;
+                    pTexture = m_textureCache.getImageTexture<float>(filePath);
+                } else {
+                    spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
+                    pTexture = m_textureCache.getConstantTexture(1.0f);
+                }
+                m_namedFloatTextures[std::string(mapType)] = pTexture;
+            } else if (textureType == "spectrum" || textureType == "rgb" || textureType == "color") {
+                std::shared_ptr<pandora::Texture<glm::vec3>> pTexture;
+                if (mapType == "constant") {
+                    glm::vec3 value = params.get<glm::vec3>("value", glm::vec3(1.0f));
+                    pTexture = m_textureCache.getConstantTexture(value);
+                } else if (mapType == "imagemap") {
+                    std::string_view fileName = params.get<std::string_view>("filename");
+                    std::filesystem::path filePath = m_basePath / fileName;
+                    pTexture = m_textureCache.getImageTexture<glm::vec3>(filePath);
+                } else {
+                    spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
+                    pTexture = m_textureCache.getConstantTexture(glm::vec3(1.0f));
+                }
+                m_namedVec3Textures[std::string(mapType)] = pTexture;
             } else {
-                spdlog::warn("Replacing material of unsupported type \"{}\" by matte white", materialType);
-                const auto pKdTexture = scene.textureCache.getConstantTexture(0.5f);
-                const auto pSigmaTexture = scene.textureCache.getConstantTexture(0.0f);
-                m_graphicsState.pMaterial = std::make_shared<pandora::MatteMaterial>(pKdTexture, pSigmaTexture);
+                spdlog::error("Unsupported texture type \"{}\"", textureType);
             }
+            continue;
         }
         if (token == "Shape") {
             std::string_view shapeType = next().text;
@@ -121,7 +161,11 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
             if (shapeType == "plymesh") {
                 // Load mesh
                 auto filePath = m_basePath / params.get<std::string_view>("filename");
-                auto shapeOpt = pandora::TriangleShape::loadFromFileSingleShape(filePath, m_currentTransform);
+                std::optional<pandora::TriangleShape> shapeOpt;
+                if (m_currentTransform == glm::identity<glm::mat4>())
+                    shapeOpt = pandora::TriangleShape::loadFromFileSingleShape(filePath);
+                else
+                    shapeOpt = pandora::TriangleShape::loadFromFileSingleShape(filePath, m_currentTransform);
                 if (!shapeOpt) {
                     spdlog::error("Failed to load plymesh \"{}\"", filePath.string());
                     continue;
@@ -172,12 +216,23 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
                 if (params.contains("S"))
                     tangents = std::move(params.get<std::vector<glm::vec3>>("S"));
 
-                auto pShape = std::make_shared<pandora::TriangleShape>(
-                    std::move(indices),
-                    std::move(positions),
-                    std::move(normals),
-                    std::move(uvCoords),
-                    std::move(tangents));
+                std::shared_ptr<pandora::TriangleShape> pShape;
+                if (m_currentTransform == glm::identity<glm::mat4>()) {
+                    pShape = std::make_shared<pandora::TriangleShape>(
+                        std::move(indices),
+                        std::move(positions),
+                        std::move(normals),
+                        std::move(uvCoords),
+                        std::move(tangents));
+                } else {
+                    pShape = std::make_shared<pandora::TriangleShape>(
+                        std::move(indices),
+                        std::move(positions),
+                        std::move(normals),
+                        std::move(uvCoords),
+                        std::move(tangents),
+                        m_currentTransform);
+                }
 
                 // Create scene object
                 std::shared_ptr<pandora::SceneObject> pSceneObject;
@@ -199,8 +254,75 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
             }
             continue;
         }
+        if (token == "ObjectBegin") {
+            if (m_currentObject) {
+                m_objectStack.push(std::move(*m_currentObject));
+                m_currentObject.reset();
+            }
+
+            const std::string_view name = next().text;
+            m_currentObject = Object { std::string(name), scene.sceneBuilder.addSceneNode() };
+        }
+        if (token == "ObjectEnd") {
+            assert(m_currentObject);
+            m_objects[m_currentObject->name] = std::move(m_currentObject->pSceneNode);
+
+            if (!m_objectStack.empty()) {
+                m_currentObject = m_objectStack.top();
+                m_objectStack.pop();
+            } else {
+                m_currentObject.reset();
+            }
+        }
+        if (token == "ObjectInstance") {
+            const std::string_view name = next().text;
+            auto pSceneNode = m_objects.find(std::string(name))->second;
+            if (m_currentObject) {
+                if (m_currentTransform == glm::identity<glm::mat4>())
+                    scene.sceneBuilder.attachNode(m_currentObject->pSceneNode, pSceneNode);
+                else
+                    scene.sceneBuilder.attachNode(m_currentObject->pSceneNode, pSceneNode, m_currentTransform);
+            } else {
+                if (m_currentTransform == glm::identity<glm::mat4>())
+                    scene.sceneBuilder.attachNodeToRoot(pSceneNode);
+                else
+                    scene.sceneBuilder.attachNodeToRoot(pSceneNode, m_currentTransform);
+            }
+        }
 
         spdlog::error("Unknown token {}", token.text);
+    }
+}
+
+std::shared_ptr<pandora::Material> Parser::parseMaterial(const Token& typeToken) noexcept
+{
+    auto params = parseParams();
+    const std::string_view materialType = typeToken ? typeToken.text : params.get<std::string_view>("type");
+
+    if (materialType == "matte") {
+        std::shared_ptr<pandora::Texture<glm::vec3>> pKdTexture;
+        if (!params.contains("Kd") || params.isOfType<glm::vec3>("Kd")) {
+            const glm::vec3 kd = params.get<glm::vec3>("Kd", glm::vec3(0.5f));
+            pKdTexture = m_textureCache.getConstantTexture(kd);
+        } else {
+            const std::string_view textureName = params.get<std::string_view>("Kd");
+            pKdTexture = m_namedVec3Textures.find(std::string(textureName))->second;
+        }
+
+        std::shared_ptr<pandora::Texture<float>> pSigmaTexture;
+        if (!params.contains("sigma") || params.isOfType<float>("sigma")) {
+            const float sigma = params.get<float>("sigma", 0.0f);
+            pSigmaTexture = m_textureCache.getConstantTexture(sigma);
+        } else {
+            const std::string_view textureName = params.get<std::string_view>("sigma");
+            pSigmaTexture = m_namedFloatTextures.find(std::string(textureName))->second;
+        }
+        return std::make_shared<pandora::MatteMaterial>(pKdTexture, pSigmaTexture);
+    } else {
+        spdlog::warn("Replacing material of unsupported type \"{}\" by matte white", materialType);
+        const auto pKdTexture = m_textureCache.getConstantTexture(glm::vec3(0.5f));
+        const auto pSigmaTexture = m_textureCache.getConstantTexture(0.0f);
+        return std::make_shared<pandora::MatteMaterial>(pKdTexture, pSigmaTexture);
     }
 }
 
@@ -403,6 +525,8 @@ Params Parser::parseParams()
             (void)next(); // List end token
             addParam(glm::vec3(scale));
         } else if (paramType == "rgb") {
+            addParam(parseParam<glm::vec3>());
+        } else if (paramType == "spectrum") {
             addParam(parseParam<glm::vec3>());
         } else if (paramType == "integer") {
             addParamPossibleArray(parseParamPossibleArray<int>());

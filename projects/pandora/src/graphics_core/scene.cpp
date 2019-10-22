@@ -1,4 +1,4 @@
- #include "pandora/graphics_core/scene.h"
+#include "pandora/graphics_core/scene.h"
 
 namespace pandora {
 
@@ -89,6 +89,16 @@ void SceneBuilder::attachNode(std::shared_ptr<SceneNode> pParent, std::shared_pt
     pChild->pParent = pParent.get();
 }
 
+void SceneBuilder::attachNodeToRoot(std::shared_ptr<SceneNode> pChild)
+{
+    attachNode(m_pRoot, pChild);
+}
+
+void SceneBuilder::attachNodeToRoot(std::shared_ptr<SceneNode> pChild, const glm::mat4& transform)
+{
+    attachNode(m_pRoot, pChild, transform);
+}
+
 void SceneBuilder::makeRootNode(std::shared_ptr<SceneNode> pNewRoot)
 {
     m_pRoot = pNewRoot;
@@ -109,7 +119,7 @@ Scene SceneBuilder::build()
 
 void SceneBuilder::attachLightRecurse(SceneNode* pNode, std::optional<glm::mat4> transform)
 {
-	// Attach area lights at this node
+    // Attach area lights at this node
     for (auto pObject : pNode->objects) {
         if (pObject->pAreaLight) {
             if (transform)
@@ -119,8 +129,8 @@ void SceneBuilder::attachLightRecurse(SceneNode* pNode, std::optional<glm::mat4>
         }
     }
 
-	// Recurse to children
-    for (auto [pChild, childTransform]: pNode->children) {
+    // Recurse to children
+    for (auto [pChild, childTransform] : pNode->children) {
         std::optional<glm::mat4> totalTransform = transform;
         if (childTransform) {
             if (totalTransform)

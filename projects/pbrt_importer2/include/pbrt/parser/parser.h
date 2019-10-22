@@ -35,8 +35,6 @@ struct PBRTIntermediateScene {
 
     std::vector<PBRTCamera> cameras;
     glm::ivec2 resolution;
-
-    TextureCache textureCache;
 };
 
 struct PBRTScene {
@@ -66,6 +64,7 @@ public:
 private:
     // Parse everything in WorldBegin/WorldEnd
     void parseWorld(PBRTIntermediateScene& scene);
+    std::shared_ptr<pandora::Material> parseMaterial(const Token& tokenType) noexcept;
 
     // Parse everything in the root scene file
     void parseScene(PBRTIntermediateScene& scene);
@@ -112,12 +111,17 @@ private:
     // Object stack
     struct Object {
         //std::shared_ptr<pandora::Material> pMaterial;
+        std::string name;
         std::shared_ptr<pandora::SceneNode> pSceneNode;
         //glm::mat4 transform;
     };
-    std::vector<Object> m_objectStack;
+    std::stack<Object> m_objectStack;
     std::optional<Object> m_currentObject;
-
+    std::unordered_map<std::string, std::shared_ptr<pandora::SceneNode>> m_objects;
+	
+    TextureCache m_textureCache;
+    std::unordered_map<std::string, std::shared_ptr<pandora::Texture<float>>> m_namedFloatTextures;
+    std::unordered_map<std::string, std::shared_ptr<pandora::Texture<glm::vec3>>> m_namedVec3Textures;
     //pandora::SceneBuilder m_pandoraSceneBuilder;
     //std::unordered_map<std::string, pandora::SceneNode> m_namedObjects;
 };

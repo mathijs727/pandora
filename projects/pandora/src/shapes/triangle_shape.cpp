@@ -43,6 +43,42 @@ static glm::vec3 assimpVec(const aiVector3D& v)
     return glm::vec3(v.x, v.y, v.z);
 }
 
+static std::vector<glm::vec3> transformPoints(std::vector<glm::vec3>&& points, const glm::mat4& matrix)
+{
+    pandora::Transform transform { matrix };
+    std::vector<glm::vec3> out;
+    out.resize(points.size());
+    std::transform(std::begin(points), std::end(points), std::begin(out),
+        [&](const glm::vec3& p) {
+            return transform.transformPoint(p);
+        });
+    return out;
+}
+
+static std::vector<glm::vec3> transformNormals(std::vector<glm::vec3>&& normals, const glm::mat4& matrix)
+{
+    pandora::Transform transform { matrix };
+    std::vector<glm::vec3> out;
+    out.resize(normals.size());
+    std::transform(std::begin(normals), std::end(normals), std::begin(out),
+        [&](const glm::vec3& n) {
+            return transform.transformNormal(n);
+        });
+    return out;
+}
+
+static std::vector<glm::vec3> transformVectors(std::vector<glm::vec3>&& vectors, const glm::mat4& matrix)
+{
+    pandora::Transform transform { matrix };
+    std::vector<glm::vec3> out;
+    out.resize(vectors.size());
+    std::transform(std::begin(vectors), std::end(vectors), std::begin(out),
+        [&](const glm::vec3& v) {
+            return transform.transformVector(v);
+        });
+    return out;
+}
+
 namespace pandora {
 
 TriangleShape TriangleShape::loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh, const glm::mat4& transformMatrix)
@@ -126,6 +162,29 @@ TriangleShape::TriangleShape(
     , m_shadingGeometry(
           std::unique_ptr<TriangleShadingGeometry>(
               new TriangleShadingGeometry(m_intersectGeometry.get(), std::move(normals), std::move(uvCoords), std::move(tangents))))
+    , m_bounds(m_intersectGeometry->computeBounds())
+    , m_numPrimitives(m_intersectGeometry->numPrimitives())
+{
+}
+
+TriangleShape::TriangleShape(
+    std::vector<glm::uvec3>&& indices,
+    std::vector<glm::vec3>&& positions,
+    std::vector<glm::vec3>&& normals,
+    std::vector<glm::vec2>&& uvCoords,
+    std::vector<glm::vec3>&& tangents,
+    const glm::mat4& transform)
+    // Cannot use std::make_shared to access private constructor of friend class
+    : m_intersectGeometry(
+        std::unique_ptr<TriangleIntersectGeometry>(
+            new TriangleIntersectGeometry(std::move(indices), transformPoints(std::move(positions), transform))))
+    , m_shadingGeometry(
+          std::unique_ptr<TriangleShadingGeometry>(
+              new TriangleShadingGeometry(
+                  m_intersectGeometry.get(),
+                  transformNormals(std::move(normals), transform),
+                  std::move(uvCoords),
+                  transformPoints(std::move(tangents), transform))))
     , m_bounds(m_intersectGeometry->computeBounds())
     , m_numPrimitives(m_intersectGeometry->numPrimitives())
 {
