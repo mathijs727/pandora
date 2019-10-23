@@ -4,6 +4,6 @@
 
 namespace pbrt {
 
-pandora::RenderConfig loadFromPBRTFile(std::filesystem::path filePath);
+pandora::RenderConfig loadFromPBRTFile(std::filesystem::path filePath, bool loadTextures = false);
 
 }

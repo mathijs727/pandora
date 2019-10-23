@@ -12,8 +12,9 @@
 
 std::pair<std::string_view, std::string_view> splitStringFirstWhitespace(std::string_view string);
 
-Parser::Parser(std::filesystem::path basePath)
+Parser::Parser(std::filesystem::path basePath, bool loadTextures)
     : m_basePath(basePath)
+    , m_loadTextures(loadTextures)
 {
 }
 
@@ -391,7 +392,7 @@ void Parser::parseTexture()
         if (mapType == "constant") {
             float value = params.get<float>("value", 1.0f);
             pTexture = m_textureCache.getConstantTexture(value);
-        } else if (mapType == "imagemap") {
+        } else if (mapType == "imagemap" && m_loadTextures) {
             std::string_view fileName = params.get<std::string_view>("filename");
             std::filesystem::path filePath = m_basePath / fileName;
             pTexture = m_textureCache.getImageTexture<float>(filePath);
@@ -405,7 +406,7 @@ void Parser::parseTexture()
         if (mapType == "constant") {
             glm::vec3 value = params.get<glm::vec3>("value", glm::vec3(1.0f));
             pTexture = m_textureCache.getConstantTexture(value);
-        } else if (mapType == "imagemap") {
+        } else if (mapType == "imagemap" && m_loadTextures) {
             std::string_view fileName = params.get<std::string_view>("filename");
             std::filesystem::path filePath = m_basePath / fileName;
             pTexture = m_textureCache.getImageTexture<glm::vec3>(filePath);

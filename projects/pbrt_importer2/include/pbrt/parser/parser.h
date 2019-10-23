@@ -58,7 +58,7 @@ struct GraphicsState {
 
 class Parser {
 public:
-    Parser(std::filesystem::path basePath);
+    Parser(std::filesystem::path basePath, bool loadTextures = true);
 
     pandora::RenderConfig parse(std::filesystem::path file);
 
@@ -100,7 +100,9 @@ private:
     void addLexer(std::filesystem::path file);
 
 private:
-    std::filesystem::path m_basePath;
+    const bool m_loadTextures;
+    const std::filesystem::path m_basePath;
+
     std::stack<std::pair<std::shared_ptr<mio::mmap_source>, SIMDLexer>> m_lexerStack;
     std::shared_ptr<mio::mmap_source> m_pCurrentLexerSource;
     SIMDLexer m_currentLexer;
