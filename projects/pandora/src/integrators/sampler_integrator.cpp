@@ -26,6 +26,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, 
     pRenderData->pSensor = &sensor;
     pRenderData->currentRayIndex.store(0);
     pRenderData->resolution = resolution;
+    pRenderData->fResolution = glm::vec2(resolution);
     pRenderData->maxPixelIndex = resolution.x * resolution.y;
     pRenderData->pScene = &scene;
     pRenderData->pAccelerationStructure = &accel;
@@ -111,7 +112,7 @@ void SamplerIntegrator::spawnNewPaths(int numPaths)
         rayState.rng = PcgRng(i);
 
         const glm::vec2 resolution = m_pCurrentRenderData->fResolution;
-        const glm::vec2 cameraSample = glm::vec2(x, y) / resolution + rayState.rng.uniformFloat2();
+        const glm::vec2 cameraSample = (glm::vec2(x, y) + rayState.rng.uniformFloat2()) / resolution;
 
         const Ray cameraRay = pRenderData->pCamera->generateRay(cameraSample);
         pRenderData->pAccelerationStructure->intersect(cameraRay, rayState);
