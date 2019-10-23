@@ -267,7 +267,9 @@ inline std::vector<T> Parser::parseParamArray()
     } else if constexpr (std::is_same_v<T, glm::vec2>) {
         eastl::fixed_vector<std::tuple<std::string_view, std::string_view>, 8> tokenStrings;
         while (peek().type != TokenType::LIST_END) {
-            tokenStrings.emplace_back(next().text, next().text);
+            auto x = next().text;
+            auto y = next().text;
+            tokenStrings.emplace_back(x, y);
         }
 
         res.resize(tokenStrings.size());
@@ -282,7 +284,10 @@ inline std::vector<T> Parser::parseParamArray()
     } else if constexpr (std::is_same_v<T, glm::vec3>) {
         eastl::fixed_vector<std::tuple<std::string_view, std::string_view, std::string_view>, 8> tokenStrings;
         while (peek().type != TokenType::LIST_END) {
-            tokenStrings.emplace_back(next().text, next().text, next().text);
+            auto x = next().text;
+            auto y = next().text;
+            auto z = next().text;
+            tokenStrings.emplace_back(x, y, z);
         }
 
         res.resize(tokenStrings.size());

@@ -100,8 +100,8 @@ int main(int argc, char** argv)
     spdlog::info("Creating integrator");
     tasking::TaskGraph taskGraph;
     const int spp = vm["spp"].as<int>();
-    //NormalDebugIntegrator integrator { &taskGraph };
-    DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+    NormalDebugIntegrator integrator { &taskGraph };
+    //DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
     //PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Building acceleration structure");
@@ -127,7 +127,7 @@ int main(int argc, char** argv)
             sensor.clear(glm::vec3(0.0f));
         }
 
-#if 1
+#if 0
         integrator.render(camera, sensor, *renderConfig.pScene, accel, samples);
 #else
         samples = 0;
