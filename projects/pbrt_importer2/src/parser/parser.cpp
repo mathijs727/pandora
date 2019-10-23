@@ -24,7 +24,6 @@ pandora::RenderConfig Parser::parse(std::filesystem::path file)
     PBRTIntermediateScene intermediateScene;
     parseScene(intermediateScene);
     m_asyncWorkTaskGroup.wait();
-
     const glm::vec2 fResolution = intermediateScene.resolution;
     const float aspectRatio = fResolution.x / fResolution.y;
     std::vector<pandora::PerspectiveCamera> cameras;
@@ -277,10 +276,10 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, Params&& params)
     // Create scene object
     std::shared_ptr<pandora::SceneObject> pSceneObject;
     if (m_graphicsState.emittedAreaLight) {
-        pSceneObject = scene.sceneBuilder.addSceneObject(nullptr, m_graphicsState.pMaterial);
-    } else {
         auto pAreaLight = std::make_unique<pandora::AreaLight>(*m_graphicsState.emittedAreaLight);
         pSceneObject = scene.sceneBuilder.addSceneObject(nullptr, m_graphicsState.pMaterial, std::move(pAreaLight));
+    } else {
+        pSceneObject = scene.sceneBuilder.addSceneObject(nullptr, m_graphicsState.pMaterial);
     }
 
     // Add to scene if not an instance template
@@ -341,10 +340,10 @@ void Parser::parsePlymesh(PBRTIntermediateScene& scene, Params&& params)
     // Create scene object with deferred shape
     std::shared_ptr<pandora::SceneObject> pSceneObject;
     if (m_graphicsState.emittedAreaLight) {
-        pSceneObject = scene.sceneBuilder.addSceneObject(nullptr, m_graphicsState.pMaterial);
-    } else {
         auto pAreaLight = std::make_unique<pandora::AreaLight>(*m_graphicsState.emittedAreaLight);
         pSceneObject = scene.sceneBuilder.addSceneObject(nullptr, m_graphicsState.pMaterial, std::move(pAreaLight));
+    } else {
+        pSceneObject = scene.sceneBuilder.addSceneObject(nullptr, m_graphicsState.pMaterial);
     }
 
     // Add to scene if not an instance template
