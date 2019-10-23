@@ -18,7 +18,7 @@ Parser::Parser(std::filesystem::path basePath)
 {
 }
 
-void Parser::parse(std::filesystem::path file)
+PBRTScene Parser::parse(std::filesystem::path file)
 {
     addLexer(file);
 
@@ -41,12 +41,18 @@ void Parser::parse(std::filesystem::path file)
             return pandora::PerspectiveCamera(aspectRatio, fov, glm::inverse(worldToCamera));
         });
 
-    //return PBRTScene { intermediateScene.sceneBuilder.build(), std::move(cameras), intermediateScene.resolution };
+    return PBRTScene { intermediateScene.sceneBuilder.build(), std::move(cameras), intermediateScene.resolution };
 }
 
 void Parser::parseWorld(PBRTIntermediateScene& scene)
 {
     while (true) {
+        // Make a copy of the lexer source so it doesn't immediately get deleted when
+        // an include statement is encountered. This is a trade-off so we can keep working
+        // with std::string_view's instead of making copies.
+        auto pLexerSource = m_pCurrentLexerSource;
+        (void)pLexerSource;
+
         Token token = next();
         assert(token);
         assert(token.type == TokenType::LITERAL);
@@ -152,6 +158,75 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
         spdlog::error("Unknown token {}", token.text);
     }
 }
+
+void Parser::parseScene(PBRTIntermediateScene& scene)
+{
+    while (peek()) {
+        // Make a copy of the lexer source so it doesn't immediately get deleted when
+        // an include statement is encountered. This is a trade-off so we can keep working
+        // with std::string_view's instead of making copies.
+        auto pLexerSource = m_pCurrentLexerSource;
+        (void)pLexerSource;
+
+        Token token = next();
+        if (!token)
+            break;
+
+        if (token.type != TokenType::LITERAL) {
+            spdlog::error("Unexpected non-literal token type \"{}\" with text \"{}\"", token.type, token.text);
+        }
+
+        if (parseTransform(token))
+            continue;
+
+        if (token == "Camera") {
+            std::string_view cameraType = next().text;
+            auto params = parseParams();
+            if (cameraType != "perspective") {
+                spdlog::error("Unsupported camera type \"{}\"", cameraType);
+                continue;
+            }
+
+            scene.cameras.push_back({ m_currentTransform, std::move(params) });
+            continue;
+        }
+        if (token == "Sampler") {
+            (void)next(); // Sampler type
+            (void)parseParams();
+            spdlog::warn("Advanced samplers are not supported in Pandora");
+            continue;
+        }
+        if (token == "Integrator") {
+            (void)next(); // Integrator type
+            (void)parseParams();
+            spdlog::warn("Ignoring Integrator command");
+            continue;
+        }
+        if (token == "Film") {
+            (void)next(); // Film type (always "image")
+
+            auto params = parseParams();
+
+            const int resolutionX = params.get<int>("xresolution", 640);
+            const int resolutionY = params.get<int>("yresolution", 480);
+            scene.resolution = glm::ivec2(resolutionX, resolutionY);
+            continue;
+        }
+        if (token == "WorldBegin") {
+            // Reset CTM
+            m_currentTransform = glm::identity<glm::mat4>();
+            while (!m_transformStack.empty())
+                m_transformStack.pop();
+            m_transformStartActive = true;
+
+            parseWorld(scene);
+            continue;
+        }
+
+        spdlog::error("Unknown token {}", token.text);
+    }
+}
+
 void Parser::parseLightSource(PBRTIntermediateScene& scene)
 {
     std::string_view lightType = next().text;
@@ -190,13 +265,13 @@ void Parser::parseShape(PBRTIntermediateScene& scene)
     if (shapeType == "plymesh") {
         parsePlymesh(scene, std::move(params));
     } else if (shapeType == "trianglemesh") {
-        parseTriangleShape(scene, params);
+        parseTriangleShape(scene, std::move(params));
     } else {
         spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
     }
 }
 
-void Parser::parseTriangleShape(PBRTIntermediateScene& scene, const Params& params)
+void Parser::parseTriangleShape(PBRTIntermediateScene& scene, Params&& params)
 {
     // Create scene object
     std::shared_ptr<pandora::SceneObject> pSceneObject;
@@ -214,9 +289,11 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, const Params& para
         scene.sceneBuilder.attachObject(m_currentObject->pSceneNode, pSceneObject);
     }
 
-    m_asyncWorkTaskGroup.run([=, params = std::move(params)]() {
+    m_asyncWorkTaskGroup.run([=, params = std::move(params), pLexerSource = m_pCurrentLexerSource]() {
+        Params& mutParams = const_cast<Params&>(params);
+
         // Load mesh
-        std::vector<int> integerIndices = params.get<std::vector<int>>("indices");
+        std::vector<int> integerIndices = mutParams.getMove<std::vector<int>>("indices");
         assert(integerIndices.size() % 3 == 0);
         std::vector<glm::uvec3> indices;
         indices.resize(integerIndices.size() / 3);
@@ -225,23 +302,17 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, const Params& para
         }
         integerIndices.clear();
 
-        std::vector<glm::vec3> positions = params.get<std::vector<glm::vec3>>("P");
+        std::vector<glm::vec3> positions = mutParams.getMove<std::vector<glm::vec3>>("P");
         std::vector<glm::vec3> normals;
         if (params.contains("N"))
-            normals = params.get<std::vector<glm::vec3>>("N");
+            normals = mutParams.getMove<std::vector<glm::vec3>>("N");
         std::vector<glm::vec2> uvCoords;
-        if (params.contains("uv")) {
-            auto floatUvCoords = params.get<std::vector<float>>("uv");
-
-            uvCoords.resize(indices.size());
-            for (size_t i = 0, i2 = 0; i < uvCoords.size(); i++, i2 += 2) {
-                uvCoords[i] = glm::vec2(floatUvCoords[i2 + 0], floatUvCoords[i2 + 1]);
-            }
-            floatUvCoords.clear();
+        if (params.contains("st")) {
+            uvCoords = mutParams.getMove<std::vector<glm::vec2>>("st");
         }
         std::vector<glm::vec3> tangents;
         if (params.contains("S"))
-            tangents = params.get<std::vector<glm::vec3>>("S");
+            tangents = mutParams.getMove<std::vector<glm::vec3>>("S");
 
         std::shared_ptr<pandora::TriangleShape> pShape;
         if (m_currentTransform == glm::identity<glm::mat4>()) {
@@ -282,7 +353,10 @@ void Parser::parsePlymesh(PBRTIntermediateScene& scene, Params&& params)
         scene.sceneBuilder.attachObject(m_currentObject->pSceneNode, pSceneObject);
     }
 
-    m_asyncWorkTaskGroup.run([=, params = std::move(params)]() {
+    // Make a copy of the lexer source so it doesn't immediately get deleted when
+    // an include statement is encountered. This is a trade-off so we can keep working
+    // with std::string_view's instead of making copies.
+    m_asyncWorkTaskGroup.run([=, params = std::move(params), pLexerSource = m_pCurrentLexerSource]() {
         // Load mesh
         auto filePath = m_basePath / params.get<std::string_view>("filename");
         std::optional<pandora::TriangleShape> shapeOpt;
@@ -368,68 +442,6 @@ std::shared_ptr<pandora::Material> Parser::parseMaterial(const Token& typeToken)
         const auto pKdTexture = m_textureCache.getConstantTexture(glm::vec3(0.5f));
         const auto pSigmaTexture = m_textureCache.getConstantTexture(0.0f);
         return std::make_shared<pandora::MatteMaterial>(pKdTexture, pSigmaTexture);
-    }
-}
-
-void Parser::parseScene(PBRTIntermediateScene& scene)
-{
-    while (peek()) {
-        Token token = next();
-        if (!token)
-            break;
-
-        if (token.type != TokenType::LITERAL) {
-            spdlog::error("Unexpected non-literal token type \"{}\" with text \"{}\"", token.type, token.text);
-        }
-
-        if (parseTransform(token))
-            continue;
-
-        if (token == "Camera") {
-            std::string_view cameraType = next().text;
-            auto params = parseParams();
-            if (cameraType != "perspective") {
-                spdlog::error("Unsupported camera type \"{}\"", cameraType);
-                continue;
-            }
-
-            scene.cameras.push_back({ m_currentTransform, std::move(params) });
-            continue;
-        }
-        if (token == "Sampler") {
-            (void)next(); // Sampler type
-            (void)parseParams();
-            spdlog::warn("Advanced samplers are not supported in Pandora");
-            continue;
-        }
-        if (token == "Integrator") {
-            (void)next(); // Integrator type
-            (void)parseParams();
-            spdlog::warn("Ignoring Integrator command");
-            continue;
-        }
-        if (token == "Film") {
-            (void)next(); // Film type (always "image")
-
-            auto params = parseParams();
-
-            const int resolutionX = params.get<int>("xresolution", 640);
-            const int resolutionY = params.get<int>("yresolution", 480);
-            scene.resolution = glm::ivec2(resolutionX, resolutionY);
-            continue;
-        }
-        if (token == "WorldBegin") {
-            // Reset CTM
-            m_currentTransform = glm::identity<glm::mat4>();
-            while (!m_transformStack.empty())
-                m_transformStack.pop();
-            m_transformStartActive = true;
-
-            parseWorld(scene);
-            continue;
-        }
-
-        spdlog::error("Unknown token {}", token.text);
     }
 }
 
@@ -583,6 +595,8 @@ Params Parser::parseParams()
             addParamPossibleArray(parseParamPossibleArray<glm::vec3>());
         } else if (paramType == "point") {
             addParamPossibleArray(parseParamPossibleArray<glm::vec3>());
+        } else if (paramType == "point2") {
+            addParamPossibleArray(parseParamPossibleArray<glm::vec2>());
         } else if (paramType == "point3") {
             addParamPossibleArray(parseParamPossibleArray<glm::vec3>());
         } else if (paramType == "vector") {
@@ -622,7 +636,7 @@ Token Parser::peek(unsigned i)
         if (token && token.text == "Include") {
             Token fileNameToken = m_currentLexer.next();
             auto includedFilePath = m_basePath / fileNameToken.text;
-            spdlog::info("Including file \"{}\"", includedFilePath.string());
+            spdlog::info("Including file \"{}\" ({})", includedFilePath.string());
 
             addLexer(includedFilePath);
             continue;
@@ -643,7 +657,7 @@ Token Parser::peek(unsigned i)
             return Token();
         }
 
-        std::tie(m_currentLexerSource, m_currentLexer) = std::move(m_lexerStack.top());
+        std::tie(m_pCurrentLexerSource, m_currentLexer) = std::move(m_lexerStack.top());
         m_lexerStack.pop();
         continue;
     }
@@ -653,11 +667,11 @@ Token Parser::peek(unsigned i)
 
 void Parser::addLexer(std::filesystem::path file)
 {
-    if (m_currentLexerSource.is_mapped())
-        m_lexerStack.push({ std::move(m_currentLexerSource), std::move(m_currentLexer) });
+    if (m_pCurrentLexerSource)
+        m_lexerStack.push({ std::move(m_pCurrentLexerSource), std::move(m_currentLexer) });
 
-    m_currentLexerSource = mio::mmap_source(file.string());
-    const std::string_view fileContents { m_currentLexerSource.data(), m_currentLexerSource.length() };
+    m_pCurrentLexerSource = std::make_shared<mio::mmap_source>(file.string());
+    const std::string_view fileContents { m_pCurrentLexerSource->data(), m_pCurrentLexerSource->length() };
     m_currentLexer = Lexer(fileContents);
 }
 

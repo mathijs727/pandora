@@ -6,11 +6,7 @@
 
 #include <boost/program_options.hpp>
 #include <spdlog/spdlog.h>
-#ifdef _WIN32
-#include <spdlog/sinks/msvc_sink.h>
-#else
 #include <spdlog/sinks/stdout_color_sinks.h>
-#endif
 #include <cassert>
 #include <filesystem>
 #include <fmt/format.h>
@@ -34,17 +30,13 @@ void printLexer(std::string_view fileContents);
 
 int main(int argc, const char** argv)
 {
-#ifdef _WIN32
-    auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
-    spdlog::set_default_logger(vsLogger);
-#else
     auto colorLogger = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("color_logger");
     spdlog::set_default_logger(colorLogger);
-#endif
 
     auto input = parseInput(argc, argv);
 
     std::filesystem::path filePath = input["file"].as<std::string>();
+    assert(std::filesystem::exists(filePath));
     std::string fileContents;
     {
         Timer timer {};
@@ -56,6 +48,8 @@ int main(int argc, const char** argv)
 
     //benchLexer<SIMDLexer>(fileContents);
     //benchLexer<Lexer>(fileContents);
+
+	printLexer<Lexer>(fileContents);
 
 	// Don't need the file anymore but it's good to read it into memory first to warm up the (file system) cache
     fileContents.clear();

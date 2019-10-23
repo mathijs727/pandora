@@ -17,7 +17,6 @@ inline bool isWhiteSpace(const char c) noexcept
 Lexer::Lexer(std::string_view text)
     : m_text(text)
 {
-    spdlog::info("Text length: {}", m_text.length());
 }
 
 Token Lexer::next() noexcept

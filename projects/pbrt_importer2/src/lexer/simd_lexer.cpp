@@ -21,10 +21,6 @@ SIMDLexer::SIMDLexer(std::string_view text)
     , m_stringLength(static_cast<int64_t>(text.length()))
     , m_stringLengthMinus16(m_stringLength - 16) // Instead of checking [cursor+16 < string.length()] we can check [cursor < string.length()-16] (very slightly faster)
 {
-    if (text.length() < 16) {
-        spdlog::error("File smaller than 16 bytes causing size_t underflow in m_stringLengthSSEBounds");
-        throw std::runtime_error("size_t underflow!");
-    }
 }
 
 Token SIMDLexer::next() noexcept

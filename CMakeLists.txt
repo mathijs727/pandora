@@ -36,6 +36,7 @@ find_package(TBB COMPONENTS tbb tbbmalloc tbbmalloc_proxy REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(OpenImageIO REQUIRED)
 find_package(Embree3 REQUIRED)
+find_package(vectorclass REQUIRED)
 #find_package(hpx REQUIRED)
 
 # WARNING: temporary hack because using the assimp::assimp target exported by assimp will try to link against a DLL (and fail)

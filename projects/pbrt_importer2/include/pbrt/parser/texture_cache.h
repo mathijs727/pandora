@@ -24,8 +24,13 @@ struct hash<glm::vec3> {
 class TextureCache {
 public:
     template <typename T>
-    std::shared_ptr<pandora::ImageTexture<T>> getImageTexture(std::filesystem::path filePath)
+    std::shared_ptr<pandora::Texture<T>> getImageTexture(std::filesystem::path filePath)
     {
+        if (!std::filesystem::exists(filePath)) {
+            spdlog::warn("Cannot find texture \"{}\", replacing with constant value", filePath.string());
+            return getConstantTexture<T>(T(0.5f));
+		}
+
         auto& cache = std::get<ImageCache<T>>(m_imageTextures);
         if (auto iter = cache.find(filePath.string()); iter != std::end(cache)) {
             return iter->second;
@@ -37,7 +42,7 @@ public:
     }
 
     template <typename T>
-    std::shared_ptr<pandora::ConstantTexture<T>> getConstantTexture(T value)
+    std::shared_ptr<pandora::Texture<T>> getConstantTexture(T value)
     {
         auto& cache = std::get<ConstantCache<T>>(m_constantTextures);
         if (auto iter = cache.find(value); iter != std::end(cache)) {

@@ -3,8 +3,11 @@
 #include "pbrt/lexer/lexer.h"
 #include "texture_cache.h"
 #include <EASTL/fixed_hash_map.h>
+#include <EASTL/fixed_vector.h>
+#include <algorithm>
 #include <charconv>
 #include <deque>
+#include <execution>
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -60,21 +63,20 @@ class Parser {
 public:
     Parser(std::filesystem::path basePath);
 
-    void parse(std::filesystem::path file);
+    PBRTScene parse(std::filesystem::path file);
 
 private:
     // Parse everything in WorldBegin/WorldEnd
     void parseWorld(PBRTIntermediateScene& scene);
-    std::shared_ptr<pandora::Material> parseMaterial(const Token& tokenType) noexcept;
-    void parseLightSource(PBRTIntermediateScene& scene);
-    void parseShape(PBRTIntermediateScene& scene);
-    void parseTriangleShape(PBRTIntermediateScene& scene, const Params& params);
-    void parsePlymesh(PBRTIntermediateScene& scene, Params&& params);
-    void parseTexture();
-
     // Parse everything in the root scene file
     void parseScene(PBRTIntermediateScene& scene);
 
+    std::shared_ptr<pandora::Material> parseMaterial(const Token& tokenType) noexcept;
+    void parseLightSource(PBRTIntermediateScene& scene);
+    void parseShape(PBRTIntermediateScene& scene);
+    void parseTriangleShape(PBRTIntermediateScene& scene, Params&& params);
+    void parsePlymesh(PBRTIntermediateScene& scene, Params&& params);
+    void parseTexture();
     bool parseTransform(const Token& token) noexcept;
 
     void pushAttributes() noexcept;
@@ -83,6 +85,8 @@ private:
     void pushTransform() noexcept;
     void popTransform() noexcept;
 
+    template <typename T>
+    static T parse(std::string_view string) noexcept;
     template <typename T>
     T parse() noexcept;
 
@@ -100,12 +104,12 @@ private:
 
 private:
     std::filesystem::path m_basePath;
-    std::stack<std::pair<mio::mmap_source, Lexer>> m_lexerStack;
-    mio::mmap_source m_currentLexerSource;
+    std::stack<std::pair<std::shared_ptr<mio::mmap_source>, Lexer>> m_lexerStack;
+    std::shared_ptr<mio::mmap_source> m_pCurrentLexerSource;
     Lexer m_currentLexer;
     std::deque<Token> m_peekQueue;
 
-	tbb::task_group m_asyncWorkTaskGroup;
+    tbb::task_group m_asyncWorkTaskGroup;
 
     // CTM
     bool m_transformStartActive { true };
@@ -141,23 +145,39 @@ inline std::string_view Parser::parse<std::string_view>() noexcept
 }
 
 template <>
+inline int Parser::parse<int>(std::string_view tokenText) noexcept
+{
+    int result;
+    std::from_chars(tokenText.data(), tokenText.data() + tokenText.length(), result);
+    return result;
+}
+
+template <>
+inline float Parser::parse<float>(std::string_view tokenText) noexcept
+{
+    float result;
+    std::from_chars(tokenText.data(), tokenText.data() + tokenText.length(), result);
+    return result;
+}
+
+template <>
 inline int Parser::parse<int>() noexcept
 {
-    Token token = next();
-
-    int result;
-    std::from_chars(token.text.data(), token.text.data() + token.text.length(), result);
-    return result;
+    return parse<int>(next().text);
 }
 
 template <>
 inline float Parser::parse<float>() noexcept
 {
-    Token token = next();
+    return parse<float>(next().text);
+}
 
-    float result;
-    std::from_chars(token.text.data(), token.text.data() + token.text.length(), result);
-    return result;
+template <>
+inline glm::vec2 Parser::parse<glm::vec2>() noexcept
+{
+    const float x = parse<float>();
+    const float y = parse<float>();
+    return glm::vec2(x, y);
 }
 
 template <>
@@ -222,12 +242,61 @@ inline T Parser::parseParam()
 template <typename T>
 inline std::vector<T> Parser::parseParamArray()
 {
+    static constexpr size_t parallelThreshold = 1000;
+
     auto listBeginToken = next();
     assert(listBeginToken.type == TokenType::LIST_BEGIN);
 
     std::vector<T> res;
-    while (peek().type != TokenType::LIST_END) {
-        res.push_back(parse<T>());
+    if constexpr (std::is_same_v<T, int> || std::is_same_v<T, float>) {
+        eastl::fixed_vector<std::string_view, 8> tokenStrings;
+        while (peek().type != TokenType::LIST_END) {
+            tokenStrings.emplace_back(next().text);
+        }
+
+        res.resize(tokenStrings.size());
+        constexpr auto operation = [](const std::string_view string) {
+            return parse<T>(string);
+        };
+        if (tokenStrings.size() > parallelThreshold) {
+            std::transform(std::execution::par_unseq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
+        } else {
+            std::transform(std::execution::seq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
+        }
+    } else if constexpr (std::is_same_v<T, glm::vec2>) {
+        eastl::fixed_vector<std::tuple<std::string_view, std::string_view>, 8> tokenStrings;
+        while (peek().type != TokenType::LIST_END) {
+            tokenStrings.emplace_back(next().text, next().text);
+        }
+
+        res.resize(tokenStrings.size());
+        constexpr auto operation = [](const auto& strings) {
+            return glm::vec2(parse<float>(std::get<0>(strings)), parse<float>(std::get<1>(strings)));
+        };
+        if (tokenStrings.size() > parallelThreshold / 2) {
+            std::transform(std::execution::par_unseq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
+        } else {
+            std::transform(std::execution::seq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
+        }
+    } else if constexpr (std::is_same_v<T, glm::vec3>) {
+        eastl::fixed_vector<std::tuple<std::string_view, std::string_view, std::string_view>, 8> tokenStrings;
+        while (peek().type != TokenType::LIST_END) {
+            tokenStrings.emplace_back(next().text, next().text, next().text);
+        }
+
+        res.resize(tokenStrings.size());
+        constexpr auto operation = [](const auto& strings) {
+            return glm::vec3(parse<float>(std::get<0>(strings)), parse<float>(std::get<1>(strings)), parse<float>(std::get<2>(strings)));
+        };
+        if (tokenStrings.size() > parallelThreshold / 3) {
+            std::transform(std::execution::par_unseq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
+        } else {
+            std::transform(std::execution::seq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
+        }
+    } else {
+        while (peek().type != TokenType::LIST_END) {
+            res.push_back(parse<T>());
+        }
     }
 
     auto listEndToken = next();
