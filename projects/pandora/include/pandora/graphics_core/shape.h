@@ -32,7 +32,7 @@ public:
     // TODO:
     //virtual void serialize() = 0;
 
-    virtual SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& hitInfo) const = 0;
+    virtual SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const = 0;
 };
 
 class Shape {

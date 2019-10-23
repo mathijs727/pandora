@@ -143,7 +143,7 @@ int main(int argc, char** argv)
                     if (hitOpt) {
                         auto si = hitOpt->pSceneObject->pShape->getShadingGeometry()->fillSurfaceInteraction(cameraRay, *hitOpt);
                         float cos = glm::dot(si.shading.normal, -cameraRay.direction);
-                        //float cos = glm::dot(hitOpt->geometricNormal, -cameraRay.direction);
+                        //float cos = glm::abs(glm::dot(hitOpt->geometricNormal, -cameraRay.direction));
                         sensor.addPixelContribution(glm::ivec2 { x, y }, glm::vec3(cos));
                     }
                 }

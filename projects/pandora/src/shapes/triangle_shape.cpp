@@ -136,27 +136,27 @@ TriangleShape TriangleShape::loadSerialized(const serialization::TriangleMesh* p
     }
     tangents.shrink_to_fit();
 
-    std::vector<glm::vec2> uvCoords;
-    if (pSerializedTriangleMesh->uvCoords()) {
-        uvCoords.resize(pSerializedTriangleMesh->uvCoords()->size());
+    std::vector<glm::vec2> texCoords;
+    if (pSerializedTriangleMesh->texCoords()) {
+        texCoords.resize(pSerializedTriangleMesh->texCoords()->size());
         std::transform(
-            pSerializedTriangleMesh->uvCoords()->begin(),
-            pSerializedTriangleMesh->uvCoords()->end(),
-            std::begin(uvCoords),
+            pSerializedTriangleMesh->texCoords()->begin(),
+            pSerializedTriangleMesh->texCoords()->end(),
+            std::begin(texCoords),
             [](const serialization::Vec2* uv) {
                 return deserialize(*uv);
             });
     }
-    uvCoords.shrink_to_fit();
+    texCoords.shrink_to_fit();
 
-    return TriangleShape(std::move(indices), std::move(positions), std::move(normals), std::move(uvCoords), std::move(tangents));
+    return TriangleShape(std::move(indices), std::move(positions), std::move(normals), std::move(texCoords), std::move(tangents));
 }
 
 TriangleShape::TriangleShape(
     std::vector<glm::uvec3>&& indices,
     std::vector<glm::vec3>&& positions,
     std::vector<glm::vec3>&& normals,
-    std::vector<glm::vec2>&& uvCoords,
+    std::vector<glm::vec2>&& texCoords,
     std::vector<glm::vec3>&& tangents)
     // Cannot use std::make_shared to access private constructor of friend class
     : m_intersectGeometry(
@@ -164,7 +164,7 @@ TriangleShape::TriangleShape(
             new TriangleIntersectGeometry(std::move(indices), std::move(positions))))
     , m_shadingGeometry(
           std::unique_ptr<TriangleShadingGeometry>(
-              new TriangleShadingGeometry(m_intersectGeometry.get(), std::move(normals), std::move(uvCoords), std::move(tangents))))
+              new TriangleShadingGeometry(m_intersectGeometry.get(), std::move(normals), std::move(texCoords), std::move(tangents))))
     , m_bounds(m_intersectGeometry->computeBounds())
     , m_numPrimitives(m_intersectGeometry->numPrimitives())
 {
@@ -174,7 +174,7 @@ TriangleShape::TriangleShape(
     std::vector<glm::uvec3>&& indices,
     std::vector<glm::vec3>&& positions,
     std::vector<glm::vec3>&& normals,
-    std::vector<glm::vec2>&& uvCoords,
+    std::vector<glm::vec2>&& texCoords,
     std::vector<glm::vec3>&& tangents,
     const glm::mat4& transform)
     // Cannot use std::make_shared to access private constructor of friend class
@@ -186,7 +186,7 @@ TriangleShape::TriangleShape(
               new TriangleShadingGeometry(
                   m_intersectGeometry.get(),
                   transformNormals(std::move(normals), transform),
-                  std::move(uvCoords),
+                  std::move(texCoords),
                   transformPoints(std::move(tangents), transform))))
     , m_bounds(m_intersectGeometry->computeBounds())
     , m_numPrimitives(m_intersectGeometry->numPrimitives())
@@ -226,7 +226,7 @@ TriangleShape TriangleShape::createAssimpMesh(const aiScene* scene, const unsign
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
     std::vector<glm::vec3> tangents;
-    std::vector<glm::vec2> uvCoords;
+    std::vector<glm::vec2> texCoords;
 
     // Triangles
     for (unsigned i = 0; i < mesh->mNumFaces; i++) {
@@ -254,7 +254,7 @@ TriangleShape TriangleShape::createAssimpMesh(const aiScene* scene, const unsign
     // UV mapping
     if (mesh->HasTextureCoords(0)) {
         for (unsigned i = 0; i < mesh->mNumVertices; i++) {
-            uvCoords.push_back(glm::vec2(assimpVec(mesh->mTextureCoords[0][i])));
+            texCoords.push_back(glm::vec2(assimpVec(mesh->mTextureCoords[0][i])));
         }
     }
 
@@ -262,7 +262,7 @@ TriangleShape TriangleShape::createAssimpMesh(const aiScene* scene, const unsign
         std::move(indices),
         std::move(positions),
         std::move(normals),
-        std::move(uvCoords),
+        std::move(texCoords),
         std::move(tangents));
 }
 
@@ -424,10 +424,10 @@ flatbuffers::Offset<serialization::TriangleMesh> TriangleShape::serialize(flatbu
     if (!m_shadingGeometry->m_tangents.empty())
         tangents = builder.CreateVectorOfStructs(
             reinterpret_cast<const serialization::Vec3*>(m_shadingGeometry->m_tangents.data()), m_shadingGeometry->m_tangents.size());
-    flatbuffers::Offset<flatbuffers::Vector<const serialization::Vec2*>> uvCoords = 0;
-    if (!m_shadingGeometry->m_uvCoords.empty())
-        uvCoords = builder.CreateVectorOfStructs(
-            reinterpret_cast<const serialization::Vec2*>(m_shadingGeometry->m_uvCoords.data()), m_shadingGeometry->m_uvCoords.size());
+    flatbuffers::Offset<flatbuffers::Vector<const serialization::Vec2*>> texCoords = 0;
+    if (!m_shadingGeometry->m_texCoords.empty())
+        texCoords = builder.CreateVectorOfStructs(
+            reinterpret_cast<const serialization::Vec2*>(m_shadingGeometry->m_texCoords.data()), m_shadingGeometry->m_texCoords.size());
 
     auto bounds = m_bounds.serialize();
     return serialization::CreateTriangleMesh(
@@ -436,7 +436,7 @@ flatbuffers::Offset<serialization::TriangleMesh> TriangleShape::serialize(flatbu
         positions,
         normals,
         tangents,
-        uvCoords,
+        texCoords,
         &bounds);
 }
 
@@ -488,10 +488,10 @@ std::optional<TriangleShape> TriangleShape::loadFromPlyFile(std::filesystem::pat
         std::memcpy(normals.data(), plyNormals->buffer.get(), plyNormals->buffer.size_bytes());
     }
 
-    std::vector<glm::vec2> uvCoords;
+    std::vector<glm::vec2> texCoords;
     if (hasUvCoords) {
-        uvCoords.resize(plyUvCoords->count);
-        std::memcpy(uvCoords.data(), plyUvCoords->buffer.get(), plyUvCoords->buffer.size_bytes());
+        texCoords.resize(plyUvCoords->count);
+        std::memcpy(texCoords.data(), plyUvCoords->buffer.get(), plyUvCoords->buffer.size_bytes());
     }
 
     // TODO
@@ -503,7 +503,7 @@ std::optional<TriangleShape> TriangleShape::loadFromPlyFile(std::filesystem::pat
         tangents = transformPoints(std::move(tangents), *optTransform);
     }
 
-    return TriangleShape(std::move(indices), std::move(positions), std::move(normals), std::move(uvCoords), std::move(tangents));
+    return TriangleShape(std::move(indices), std::move(positions), std::move(normals), std::move(texCoords), std::move(tangents));
 }
 
 }

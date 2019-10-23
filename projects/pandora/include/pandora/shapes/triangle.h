@@ -42,22 +42,24 @@ private:
 
 class TriangleShadingGeometry : public ShadingGeometry {
 public:
-    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& hitInfo) const final;
+    SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& hit) const final;
 
 private:
     friend class TriangleShape;
     TriangleShadingGeometry(
         const TriangleIntersectGeometry* pIntersectGeometry,
         std::vector<glm::vec3>&& normals,
-        std::vector<glm::vec2>&& uvCoords,
+        std::vector<glm::vec2>&& texCoords,
 		std::vector<glm::vec3>&& tangents);
 
-    void getUVs(unsigned primitiveID, gsl::span<glm::vec2, 3> uv) const;
+    void getTexCoords(unsigned primitiveID, gsl::span<glm::vec2, 3> st) const;
+    void getPositions(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
+    void getShadingNormals(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
 
 private:
     const TriangleIntersectGeometry* m_pIntersectGeometry;
     std::vector<glm::vec3> m_normals;
-    std::vector<glm::vec2> m_uvCoords;
+    std::vector<glm::vec2> m_texCoords;
     std::vector<glm::vec3> m_tangents;
 };
 
@@ -67,13 +69,13 @@ public:
         std::vector<glm::uvec3>&& indices,
         std::vector<glm::vec3>&& positions,
         std::vector<glm::vec3>&& normals,
-        std::vector<glm::vec2>&& uvCoords,
+        std::vector<glm::vec2>&& texCoords,
         std::vector<glm::vec3>&& tangents);
     TriangleShape(
         std::vector<glm::uvec3>&& indices,
         std::vector<glm::vec3>&& positions,
         std::vector<glm::vec3>&& normals,
-        std::vector<glm::vec2>&& uvCoords,
+        std::vector<glm::vec2>&& texCoords,
         std::vector<glm::vec3>&& tangents,
 		const glm::mat4& transform);
 
@@ -137,7 +139,7 @@ public:
         std::vector<glm::vec3>&& positions,
         std::vector<glm::vec3>&& normals,
         std::vector<glm::vec3>&& tangents,
-        std::vector<glm::vec2>&& uvCoords);
+        std::vector<glm::vec2>&& texCoords);
     TriangleMesh(const TriangleMesh&) = delete;
     TriangleMesh(TriangleMesh&&) = default;
     TriangleMesh(const serialization::TriangleMesh* serializedTriangleMesh);
@@ -196,7 +198,7 @@ private:
     std::vector<glm::vec3> m_positions;
     std::vector<glm::vec3> m_normals;
     std::vector<glm::vec3> m_tangents;
-    std::vector<glm::vec2> m_uvCoords;
+    std::vector<glm::vec2> m_texCoords;
 
     Bounds m_bounds;
 };

@@ -8,7 +8,7 @@ table TriangleMesh
 	positions: [Vec3];
 	normals: [Vec3];
 	tangents: [Vec3];
-	uvCoords: [Vec2];
+	texCoords: [Vec2];
 	bounds: Bounds;
 }
 

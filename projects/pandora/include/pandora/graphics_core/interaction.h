@@ -11,10 +11,10 @@ namespace pandora {
 struct Interaction {
 public:
     Interaction() = default;
-    inline Interaction(const glm::vec3& position, const glm::vec3& wo, const glm::vec3& normal)
+    inline Interaction(const glm::vec3& position, const glm::vec3& normal, const glm::vec3& wo)
         : position(position)
-        , wo(wo)
         , normal(normal)
+        , wo(wo)
     {
     }
 
@@ -34,20 +34,21 @@ public:
     BSDF* pBSDF { nullptr };
 
     glm::vec2 uv;
-    glm::vec3 dpdu, dpdv;
-    glm::vec3 dndu, dndv;
+    //glm::vec3 dpdu, dpdv;
+    //glm::vec3 dndu, dndv;
 
     struct Shading {
         glm::vec3 normal;
-        glm::vec3 dpdu, dpdv;
-        glm::vec3 dndu, dndv;
+        glm::vec2 st;
+        //glm::vec3 dpdu, dpdv;
+        //glm::vec3 dndu, dndv;
     } shading;
 
 public:
     SurfaceInteraction() = default;
-    SurfaceInteraction(const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv);
+    SurfaceInteraction(const glm::vec3& p, const glm::vec3& normal, const glm::vec2& uv, const glm::vec3& wo);
 
-    void setShadingGeometry(const glm::vec3& dpdus, const glm::vec3& dpdvs, const glm::vec3& dndus, const glm::vec3& dndvs, bool orientationIsAuthoritative);
+    void setShadingGeometry(const glm::vec3& shadingNormal, const glm::vec2& textureCoords);
 
     void computeScatteringFunctions(const Ray& ray, MemoryArena& arena);
 

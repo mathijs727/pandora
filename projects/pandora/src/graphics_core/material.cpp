@@ -2,12 +2,19 @@
 #include "pandora/graphics_core/interaction.h"
 #include <iostream>
 
+static glm::vec3 arbitraryNonParallelVec(const glm::vec3& ref)
+{
+    if (ref.x > 0.5f)
+        return glm::vec3(0, 1, 0);
+    else
+        return glm::vec3(1, 0, 0);
+}
+
 namespace pandora {
 BSDF::BSDF(const SurfaceInteraction& si) //, float eta)
-    : // m_eta(eta),
-    m_ns(si.shading.normal)
+    : m_ns(si.shading.normal)
     , m_ng(si.normal)
-    , m_ss(glm::normalize(si.shading.dpdu))
+    , m_ss(glm::normalize(glm::cross(m_ns, arbitraryNonParallelVec(m_ns))))
     , m_ts(glm::normalize(glm::cross(m_ns, m_ss)))
 {
 }

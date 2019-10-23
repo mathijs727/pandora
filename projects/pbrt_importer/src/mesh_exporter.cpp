@@ -63,7 +63,7 @@ pybind11::tuple PandoraMeshBatch::addTriangleMesh(
     auto positions = reinterpretNumpyArray<glm::vec3>(npPositions);
     auto normals = reinterpretNumpyArray<glm::vec3>(npNormals);
     auto tangents = reinterpretNumpyArray<glm::vec3>(npTangents);
-    auto uvCoords = reinterpretNumpyArray<glm::vec2>(npUVCoords);
+    auto texCoords = reinterpretNumpyArray<glm::vec2>(npUVCoords);
 
     pandora::ALWAYS_ASSERT(pythonTransform.ndim() == 2);
     pandora::ALWAYS_ASSERT(pythonTransform.shape(0) == 4);
@@ -107,9 +107,9 @@ pybind11::tuple PandoraMeshBatch::addTriangleMesh(
     }
 
     std::vector<glm::vec2> outUVCoords;
-    if (!uvCoords.empty()) {
-        pandora::ALWAYS_ASSERT(uvCoords.size() == positions.size());
-        std::copy(std::begin(uvCoords), std::end(uvCoords), std::back_inserter(outUVCoords));
+    if (!texCoords.empty()) {
+        pandora::ALWAYS_ASSERT(texCoords.size() == positions.size());
+        std::copy(std::begin(texCoords), std::end(texCoords), std::back_inserter(outUVCoords));
     }
 
     pandora::TriangleShape pandoraShape = pandora::TriangleShape(

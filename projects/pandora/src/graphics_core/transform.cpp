@@ -89,15 +89,11 @@ SurfaceInteraction Transform::transform(const SurfaceInteraction& si) const
     result.wo = glm::normalize(transformVector(si.normal));
     result.uv = si.uv;
     result.normal = glm::normalize(transformNormal(si.normal));
-    result.dpdu = transformVector(si.dpdu);
+    /*result.dpdu = transformVector(si.dpdu);
     result.dpdv = transformVector(si.dpdv);
     result.dndu = transformNormal(si.dndu);
-    result.dndv = transformNormal(si.dndv);
+    result.dndv = transformNormal(si.dndv);*/
     result.shading.normal = glm::normalize(transformNormal(si.shading.normal));
-    result.shading.dpdu = transformVector(si.shading.dpdu);
-    result.shading.dpdv = transformVector(si.shading.dpdv);
-    result.shading.dndu = transformNormal(si.shading.dndu);
-    result.shading.dndv = transformNormal(si.shading.dndv);
     result.position = transformPoint(si.position);
 
     result.shading.normal = faceForward(result.shading.normal, result.normal);

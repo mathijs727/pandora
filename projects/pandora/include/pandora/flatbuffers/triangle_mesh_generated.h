@@ -19,7 +19,7 @@ struct TriangleMesh FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_POSITIONS = 6,
     VT_NORMALS = 8,
     VT_TANGENTS = 10,
-    VT_UVCOORDS = 12,
+    VT_TEXCOORDS = 12,
     VT_BOUNDS = 14
   };
   const flatbuffers::Vector<const Vec3u *> *indices() const {
@@ -46,11 +46,11 @@ struct TriangleMesh FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<const Vec3 *> *mutable_tangents() {
     return GetPointer<flatbuffers::Vector<const Vec3 *> *>(VT_TANGENTS);
   }
-  const flatbuffers::Vector<const Vec2 *> *uvCoords() const {
-    return GetPointer<const flatbuffers::Vector<const Vec2 *> *>(VT_UVCOORDS);
+  const flatbuffers::Vector<const Vec2 *> *texCoords() const {
+    return GetPointer<const flatbuffers::Vector<const Vec2 *> *>(VT_TEXCOORDS);
   }
-  flatbuffers::Vector<const Vec2 *> *mutable_uvCoords() {
-    return GetPointer<flatbuffers::Vector<const Vec2 *> *>(VT_UVCOORDS);
+  flatbuffers::Vector<const Vec2 *> *mutable_texCoords() {
+    return GetPointer<flatbuffers::Vector<const Vec2 *> *>(VT_TEXCOORDS);
   }
   const Bounds *bounds() const {
     return GetStruct<const Bounds *>(VT_BOUNDS);
@@ -68,8 +68,8 @@ struct TriangleMesh FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(normals()) &&
            VerifyOffset(verifier, VT_TANGENTS) &&
            verifier.VerifyVector(tangents()) &&
-           VerifyOffset(verifier, VT_UVCOORDS) &&
-           verifier.VerifyVector(uvCoords()) &&
+           VerifyOffset(verifier, VT_TEXCOORDS) &&
+           verifier.VerifyVector(texCoords()) &&
            VerifyField<Bounds>(verifier, VT_BOUNDS) &&
            verifier.EndTable();
   }
@@ -90,8 +90,8 @@ struct TriangleMeshBuilder {
   void add_tangents(flatbuffers::Offset<flatbuffers::Vector<const Vec3 *>> tangents) {
     fbb_.AddOffset(TriangleMesh::VT_TANGENTS, tangents);
   }
-  void add_uvCoords(flatbuffers::Offset<flatbuffers::Vector<const Vec2 *>> uvCoords) {
-    fbb_.AddOffset(TriangleMesh::VT_UVCOORDS, uvCoords);
+  void add_texCoords(flatbuffers::Offset<flatbuffers::Vector<const Vec2 *>> texCoords) {
+    fbb_.AddOffset(TriangleMesh::VT_TEXCOORDS, texCoords);
   }
   void add_bounds(const Bounds *bounds) {
     fbb_.AddStruct(TriangleMesh::VT_BOUNDS, bounds);
@@ -114,11 +114,11 @@ inline flatbuffers::Offset<TriangleMesh> CreateTriangleMesh(
     flatbuffers::Offset<flatbuffers::Vector<const Vec3 *>> positions = 0,
     flatbuffers::Offset<flatbuffers::Vector<const Vec3 *>> normals = 0,
     flatbuffers::Offset<flatbuffers::Vector<const Vec3 *>> tangents = 0,
-    flatbuffers::Offset<flatbuffers::Vector<const Vec2 *>> uvCoords = 0,
+    flatbuffers::Offset<flatbuffers::Vector<const Vec2 *>> texCoords = 0,
     const Bounds *bounds = 0) {
   TriangleMeshBuilder builder_(_fbb);
   builder_.add_bounds(bounds);
-  builder_.add_uvCoords(uvCoords);
+  builder_.add_texCoords(texCoords);
   builder_.add_tangents(tangents);
   builder_.add_normals(normals);
   builder_.add_positions(positions);
@@ -132,20 +132,20 @@ inline flatbuffers::Offset<TriangleMesh> CreateTriangleMeshDirect(
     const std::vector<Vec3> *positions = nullptr,
     const std::vector<Vec3> *normals = nullptr,
     const std::vector<Vec3> *tangents = nullptr,
-    const std::vector<Vec2> *uvCoords = nullptr,
+    const std::vector<Vec2> *texCoords = nullptr,
     const Bounds *bounds = 0) {
   auto indices__ = indices ? _fbb.CreateVectorOfStructs<Vec3u>(*indices) : 0;
   auto positions__ = positions ? _fbb.CreateVectorOfStructs<Vec3>(*positions) : 0;
   auto normals__ = normals ? _fbb.CreateVectorOfStructs<Vec3>(*normals) : 0;
   auto tangents__ = tangents ? _fbb.CreateVectorOfStructs<Vec3>(*tangents) : 0;
-  auto uvCoords__ = uvCoords ? _fbb.CreateVectorOfStructs<Vec2>(*uvCoords) : 0;
+  auto texCoords__ = texCoords ? _fbb.CreateVectorOfStructs<Vec2>(*texCoords) : 0;
   return pandora::serialization::CreateTriangleMesh(
       _fbb,
       indices__,
       positions__,
       normals__,
       tangents__,
-      uvCoords__,
+      texCoords__,
       bounds);
 }
 

@@ -10,20 +10,12 @@
 namespace pandora {
 
 SurfaceInteraction::SurfaceInteraction(
-    const glm::vec3& p, const glm::vec2& uv, const glm::vec3& wo, const glm::vec3& dpdu, const glm::vec3& dpdv, const glm::vec3& dndu, const glm::vec3& dndv)
-    : Interaction(p, glm::normalize(glm::cross(dpdu, dpdv)), wo)
+    const glm::vec3& p, const glm::vec3& normal, const glm::vec2& uv, const glm::vec3& wo)
+    : Interaction(p, normal, wo)
     , uv(uv)
-    , dpdu(dpdu)
-    , dpdv(dpdv)
-    , dndu(dndu)
-    , dndv(dndv)
 {
     // Initialize shading geometry from true geometry
     shading.normal = normal;
-    shading.dpdu = dpdu;
-    shading.dpdv = dpdv;
-    shading.dndu = dndu;
-    shading.dndv = dndv;
 
     // TODO: adjust normal based on orientation and handedness
 }
@@ -46,24 +38,6 @@ glm::vec3 SurfaceInteraction::Le(const glm::vec3& w) const
 // PBRTv3 page 231
 glm::vec3 offsetRayOrigin(const Interaction& i1, const glm::vec3& dir)
 {
-    // More accurate if we'd actually go through the trouble of keeping track of the error
-    /*glm::vec3 error(RAY_EPSILON);
-
-    float d = glm::dot(glm::abs(i1.normal), error);
-    glm::vec3 offset = d * i1.normal;
-    if (glm::dot(i1.normal, dir) < 0.0f)
-        offset = -offset;
-
-    glm::vec3 po = i1.position + offset;
-    // Round offset point p0 away from p
-    for (int i = 0; i < 3; i++) {
-        if (offset[i] > 0.0f)
-            po[i] = nextFloatUp(po[i]);
-        else if (offset[i] < 0.0f)
-            po[i] = nextFloatDown(po[i]);
-    }
-    return po;*/
-
     if (glm::dot(i1.normal, dir) > 0.0f) { // Faster
         return i1.position + i1.normal * RAY_EPSILON;
     } else {
@@ -85,26 +59,10 @@ Ray computeRayWithEpsilon(const Interaction& i1, const glm::vec3& dir)
     return Ray(offsetRayOrigin(i1, dir), dir);
 }
 
-void SurfaceInteraction::setShadingGeometry(
-    const glm::vec3& dpdus,
-    const glm::vec3& dpdvs,
-    const glm::vec3& dndus,
-    const glm::vec3& dndvs,
-    bool orientationIsAuthoritative)
+void SurfaceInteraction::setShadingGeometry(const glm::vec3& shadingNormal, const glm::vec2& textureCoords)
 {
-    // Compute shading normal
-    shading.normal = glm::normalize(glm::cross(dpdus, dpdvs));
-    // TODO: adjust normal based on orientation and handedness (page 119)
-    if (orientationIsAuthoritative)
-        normal = faceForward(normal, shading.normal);
-    else
-        shading.normal = faceForward(shading.normal, normal);
-
-    // Initialize shading partial derivative values
-    shading.dpdu = dpdus;
-    shading.dpdv = dpdvs;
-    shading.dndu = dndus;
-    shading.dndv = dndvs;
+    shading.normal = shadingNormal;
+    shading.st = textureCoords;
 }
 
 

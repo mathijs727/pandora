@@ -127,7 +127,7 @@ inline std::optional<RayHit> EmbreeAccelerationStructure<HitRayState, AnyHitRayS
 
         RayHit hit;
         hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
-        hit.geometricNormal = glm::normalize(hit.geometricNormal);
+        hit.geometricNormal = glm::normalize(glm::dot(-ray.direction, hit.geometricNormal) > 0.0f ? hit.geometricNormal : -hit.geometricNormal);
         hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
         hit.transform = transform;
         hit.pSceneObject = pSceneObject;
@@ -242,7 +242,7 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
 
             RayHit hit;
             hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
-            hit.geometricNormal = glm::normalize(hit.geometricNormal);
+            hit.geometricNormal = glm::normalize(glm::dot(-ray.direction, hit.geometricNormal) > 0.0f ? hit.geometricNormal : -hit.geometricNormal);
             hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
             hit.transform = transform;
             hit.pSceneObject = pSceneObject;
