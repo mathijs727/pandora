@@ -273,14 +273,14 @@ std::optional<TriangleShape> TriangleShape::loadFromFileSingleShape(std::filesys
         return {};
     }
 
-    if (filePath.extension() == ".ply") {
+    /*if (filePath.extension() == ".ply") {
         // Assimp is really slow so use tiny ply to parse ply files
         // https://github.com/ddiakopoulos/tinyply
         if (objTransform == glm::identity<glm::mat4>())
             return loadFromPlyFile(filePath, {});
         else
             return loadFromPlyFile(filePath, objTransform);
-    } else {
+    } else*/ {
         Assimp::Importer importer;
         const aiScene* scene = importer.ReadFile(filePath.string().data(), aiProcess_GenNormals | aiProcess_Triangulate);
 
@@ -451,33 +451,51 @@ std::optional<TriangleShape> TriangleShape::loadFromPlyFile(std::filesystem::pat
     tinyply::PlyFile file;
     file.parse_header(ss);
 
-    bool hasUvCoords = false;
+    bool hasIndices = false;
+    bool hasTexCoords = false;
     bool hasNormals = false;
     for (auto e : file.get_elements()) {
-        if (e.name == "vertex") {
+        if (e.name == "face") {
+            for (auto p : e.properties) {
+                if (p.name == "vertex_indices")
+                    hasIndices = true;
+            }
+        } else if (e.name == "vertex") {
             for (auto p : e.properties) {
                 if (p.name == "nx")
                     hasNormals = true;
                 if (p.name == "u")
-                    hasUvCoords = true;
+                    hasTexCoords = true;
             }
         }
     }
 
-    std::shared_ptr<tinyply::PlyData> plyIndices = file.request_properties_from_element("face", { "vertex_indices" });
+    std::shared_ptr<tinyply::PlyData> plyIndices;
+    if (hasIndices)
+        plyIndices = file.request_properties_from_element("face", { "vertex_indices" });
     std::shared_ptr<tinyply::PlyData> plyVertices = file.request_properties_from_element("vertex", { "x", "y", "z" });
     std::shared_ptr<tinyply::PlyData> plyNormals;
     if (hasNormals)
         plyNormals = file.request_properties_from_element("vertex", { "nx", "ny", "nz" });
-    std::shared_ptr<tinyply::PlyData> plyUvCoords;
-    if (hasUvCoords)
-        plyUvCoords = file.request_properties_from_element("vertex", { "u", "v" });
+    std::shared_ptr<tinyply::PlyData> plyTexCoords;
+    if (hasTexCoords)
+        plyTexCoords = file.request_properties_from_element("vertex", { "u", "v" });
 
     file.read(ss);
 
-    std::vector<glm::uvec3> indices { plyIndices->count };
-    size_t size = plyIndices->buffer.size_bytes();
-    std::memcpy(indices.data(), plyIndices->buffer.get(), size);
+    std::vector<glm::uvec3> indices;
+    if (hasIndices) {
+        ALWAYS_ASSERT(plyIndices->count % 3 == 0);
+        indices.resize(plyIndices->count);
+        size_t size = plyIndices->buffer.size_bytes();
+        std::memcpy(indices.data(), plyIndices->buffer.get(), size);
+    } else {
+        ALWAYS_ASSERT(plyVertices->count % 3 == 0);
+        indices.reserve(plyVertices->count / 3);
+        for (size_t i = 0; i < plyVertices->count; i += 3) {
+            indices.push_back(glm::uvec3(i, i + 1, i + 2));
+        }
+    }
 
     std::vector<glm::vec3> positions { plyVertices->count };
     std::memcpy(positions.data(), plyVertices->buffer.get(), plyVertices->buffer.size_bytes());
@@ -489,9 +507,9 @@ std::optional<TriangleShape> TriangleShape::loadFromPlyFile(std::filesystem::pat
     }
 
     std::vector<glm::vec2> texCoords;
-    if (hasUvCoords) {
-        texCoords.resize(plyUvCoords->count);
-        std::memcpy(texCoords.data(), plyUvCoords->buffer.get(), plyUvCoords->buffer.size_bytes());
+    if (hasTexCoords) {
+        texCoords.resize(plyTexCoords->count);
+        std::memcpy(texCoords.data(), plyTexCoords->buffer.get(), plyTexCoords->buffer.size_bytes());
     }
 
     // TODO
