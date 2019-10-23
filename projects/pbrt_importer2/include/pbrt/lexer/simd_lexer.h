@@ -5,6 +5,7 @@
 
 class SIMDLexer {
 public:
+    SIMDLexer() = default;
     SIMDLexer(std::string_view text);
 
     Token next() noexcept;
@@ -20,8 +21,8 @@ private:
     std::string_view m_text;
 
 
-	const int64_t m_stringLength;
-    const int64_t m_stringLengthMinus16;
+	int64_t m_stringLength;
+    int64_t m_stringLengthMinus16;
     int64_t m_cursor { 0 };
 };
 

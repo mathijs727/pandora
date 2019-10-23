@@ -1,3 +1,4 @@
+#include "src/parse_float.h"
 #include "src/crack_atof.h"
 #include <algorithm>
 #include <array>
@@ -78,7 +79,7 @@ std::vector<T> stringToVector(const std::string_view string)
             cursor++;
 
         const size_t tokenStart = cursor;
-        while (cursor < stringSize  && !isSpace(string[cursor]))
+        while (cursor < stringSize && !isSpace(string[cursor]))
             cursor++;
 
         if (cursor == tokenStart)
@@ -141,12 +142,12 @@ int main()
         myString += " 1000.0";
     myString += "  ";
 
-	std::cout << "Parsing string of " << myString.size() / 1000000.0f << "MB" << std::endl;
+    std::cout << "Parsing string of " << myString.size() / 1000000.0f << "MB" << std::endl;
 
     using clock = std::chrono::high_resolution_clock;
 
     auto start = clock::now();
-    auto result = stringToVector<double>(myString);
+    auto result = stringToVector<float>(myString);
     auto end = clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

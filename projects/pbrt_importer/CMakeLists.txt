@@ -43,6 +43,6 @@ add_custom_command(
 message("Python3_VERSION: ${Python3_VERSION}")
 
 #find_package(TBB COMPONENTS tbb tbbmalloc REQUIRED)
-add_executable(benchmark "benchmark.cpp" "src/crack_atof.cpp")
-target_link_libraries(benchmark PRIVATE TBB::tbb TBB::tbbmalloc TBB::tbbmalloc_proxy)
-target_compile_features(benchmark PRIVATE cxx_std_17)
+add_executable(string_to_float_benchmark "benchmark.cpp" "src/crack_atof.cpp")
+target_link_libraries(string_to_float_benchmark PRIVATE TBB::tbb TBB::tbbmalloc TBB::tbbmalloc_proxy)
+target_compile_features(string_to_float_benchmark PRIVATE cxx_std_17)

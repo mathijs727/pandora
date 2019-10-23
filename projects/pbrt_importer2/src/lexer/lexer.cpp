@@ -16,6 +16,7 @@ inline bool isWhiteSpace(const char c) noexcept
 
 Lexer::Lexer(std::string_view text)
     : m_text(text)
+    , m_stringLength(text.length())
 {
 }
 
@@ -87,7 +88,7 @@ Token Lexer::next() noexcept
 
 inline char Lexer::getChar() noexcept
 {
-    if (m_cursor >= m_text.length())
+    if (m_cursor >= m_stringLength)
         return -1;
 
     return m_text[m_cursor++];
@@ -95,7 +96,7 @@ inline char Lexer::getChar() noexcept
 
 inline char Lexer::peekNextChar() noexcept
 {
-    if (m_cursor >= m_text.length())
+    if (m_cursor >= m_stringLength)
         return -1;
 
     return m_text[m_cursor];

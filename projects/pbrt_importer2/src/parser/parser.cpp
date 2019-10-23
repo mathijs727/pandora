@@ -1,5 +1,4 @@
 #include "pbrt/parser/parser.h"
-#include <charconv>
 #include <glm/gtc/matrix_transform.hpp>
 #include <pandora/lights/area_light.h>
 #include <pandora/lights/distant_light.h>
@@ -267,7 +266,7 @@ void Parser::parseShape(PBRTIntermediateScene& scene)
     } else if (shapeType == "trianglemesh") {
         parseTriangleShape(scene, std::move(params));
     } else {
-        spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
+        //spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
     }
 }
 
@@ -390,7 +389,7 @@ void Parser::parseTexture()
             std::filesystem::path filePath = m_basePath / fileName;
             pTexture = m_textureCache.getImageTexture<float>(filePath);
         } else {
-            spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
+            //spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
             pTexture = m_textureCache.getConstantTexture(1.0f);
         }
         m_namedFloatTextures[std::string(mapType)] = pTexture;
@@ -404,7 +403,7 @@ void Parser::parseTexture()
             std::filesystem::path filePath = m_basePath / fileName;
             pTexture = m_textureCache.getImageTexture<glm::vec3>(filePath);
         } else {
-            spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
+            //spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
             pTexture = m_textureCache.getConstantTexture(glm::vec3(1.0f));
         }
         m_namedVec3Textures[std::string(mapType)] = pTexture;
@@ -628,6 +627,19 @@ Token Parser::next()
     return token;
 }
 
+static std::pair<size_t, std::string_view> formatByteSize(size_t sizeBytes)
+{
+    if (sizeBytes < 1024) {
+        return { sizeBytes, "B" };
+    } else if (sizeBytes < 1024 * 1024) {
+        return { sizeBytes / 1024, "KB" };
+    } else if (sizeBytes < 1024 * 1024 * 1024) {
+        return { sizeBytes / (1024 * 1024), "MB" };
+    } else {
+        return { sizeBytes / (1024 * 1024 * 1024), "GB" };
+    }
+}
+
 Token Parser::peek(unsigned i)
 {
     while (m_peekQueue.size() <= i) {
@@ -636,7 +648,9 @@ Token Parser::peek(unsigned i)
         if (token && token.text == "Include") {
             Token fileNameToken = m_currentLexer.next();
             auto includedFilePath = m_basePath / fileNameToken.text;
-            spdlog::info("Including file \"{}\" ({})", includedFilePath.string());
+
+            const auto [fileSize, fileSizeType] = formatByteSize(std::filesystem::file_size(includedFilePath));
+            spdlog::info("Including file \"{}\" ({} {})", includedFilePath.string(), fileSize, fileSizeType);
 
             addLexer(includedFilePath);
             continue;
@@ -672,7 +686,7 @@ void Parser::addLexer(std::filesystem::path file)
 
     m_pCurrentLexerSource = std::make_shared<mio::mmap_source>(file.string());
     const std::string_view fileContents { m_pCurrentLexerSource->data(), m_pCurrentLexerSource->length() };
-    m_currentLexer = Lexer(fileContents);
+    m_currentLexer = SIMDLexer(fileContents);
 }
 
 inline bool isWhiteSpace(const char c) noexcept

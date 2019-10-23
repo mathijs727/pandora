@@ -20,5 +20,6 @@ private:
 private:
     std::string_view m_text {};
 
+    size_t m_stringLength { 0 };
     size_t m_cursor { 0 };
 };

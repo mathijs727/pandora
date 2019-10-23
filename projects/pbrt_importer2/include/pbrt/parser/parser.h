@@ -1,6 +1,8 @@
 #pragma once
+#include "crack_atof.h"
 #include "params.h"
 #include "pbrt/lexer/lexer.h"
+#include "pbrt/lexer/simd_lexer.h"
 #include "texture_cache.h"
 #include <EASTL/fixed_hash_map.h>
 #include <EASTL/fixed_vector.h>
@@ -104,9 +106,9 @@ private:
 
 private:
     std::filesystem::path m_basePath;
-    std::stack<std::pair<std::shared_ptr<mio::mmap_source>, Lexer>> m_lexerStack;
+    std::stack<std::pair<std::shared_ptr<mio::mmap_source>, SIMDLexer>> m_lexerStack;
     std::shared_ptr<mio::mmap_source> m_pCurrentLexerSource;
-    Lexer m_currentLexer;
+    SIMDLexer m_currentLexer;
     std::deque<Token> m_peekQueue;
 
     tbb::task_group m_asyncWorkTaskGroup;
@@ -155,9 +157,13 @@ inline int Parser::parse<int>(std::string_view tokenText) noexcept
 template <>
 inline float Parser::parse<float>(std::string_view tokenText) noexcept
 {
-    float result;
-    std::from_chars(tokenText.data(), tokenText.data() + tokenText.length(), result);
-    return result;
+    // Float parsing is a significant bottleneck in the WDAS Moana scene. Use a string-to-float parser that is faster
+    // than MSVCs std::from_chars (tested at MSVC version 19.23.28106.4).
+    // Float parser copied from: https://github.com/shaovoon/floatbench
+    //float result;
+    //std::from_chars(tokenText.data(), tokenText.data() + tokenText.length(), result);
+    //return result;
+    return static_cast<float>(crackAtof(tokenText));
 }
 
 template <>
