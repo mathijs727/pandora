@@ -100,8 +100,8 @@ int main(int argc, char** argv)
     spdlog::info("Creating integrator");
     tasking::TaskGraph taskGraph;
     const int spp = vm["spp"].as<int>();
-    NormalDebugIntegrator integrator { &taskGraph };
-    //DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+    //NormalDebugIntegrator integrator { &taskGraph };
+    DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
     //PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Building acceleration structure");
@@ -127,8 +127,8 @@ int main(int argc, char** argv)
             sensor.clear(glm::vec3(0.0f));
         }
 
-#if 0
-        integrator.render(camera, sensor, *renderConfig.pScene, accel);
+#if 1
+        integrator.render(camera, sensor, *renderConfig.pScene, accel, samples);
 #else
         samples = 0;
         sensor.clear(glm::vec3(0));
@@ -141,9 +141,9 @@ int main(int argc, char** argv)
                     Ray cameraRay = renderConfig.camera->generateRay(glm::vec2(x, y) / fResolution);
                     auto hitOpt = accel.intersectFast(cameraRay);
                     if (hitOpt) {
-                        auto si = hitOpt->pSceneObject->pShape->getShadingGeometry()->fillSurfaceInteraction(cameraRay, *hitOpt);
-                        float cos = glm::dot(si.shading.normal, -cameraRay.direction);
-                        //float cos = glm::abs(glm::dot(hitOpt->geometricNormal, -cameraRay.direction));
+                        const auto si = hitOpt->pSceneObject->pShape->getShadingGeometry()->fillSurfaceInteraction(cameraRay, *hitOpt);
+                        const float cos = glm::dot(si.shading.normal, -cameraRay.direction);
+                        //const float cos = glm::abs(glm::dot(hitOpt->geometricNormal, -cameraRay.direction));
                         sensor.addPixelContribution(glm::ivec2 { x, y }, glm::vec3(cos));
                     }
                 }

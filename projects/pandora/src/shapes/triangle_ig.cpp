@@ -83,7 +83,11 @@ Interaction TriangleIntersectGeometry::samplePrimitive(unsigned primitiveID, Pcg
 Interaction TriangleIntersectGeometry::samplePrimitive(unsigned primitiveID, const Interaction& ref, PcgRng& rng) const
 {
     (void)ref;
-    return samplePrimitive(primitiveID, rng);
+    auto it = samplePrimitive(primitiveID, rng);
+    auto dir = it.position - ref.position;
+    if (glm::dot(it.normal, -dir) < 0.0f)
+        it.normal = -it.normal;
+    return it;
 }
 
 // PBRTv3 page 837

@@ -44,8 +44,10 @@ NormalDebugIntegrator::NormalDebugIntegrator(
 {
 }
 
-void NormalDebugIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel)
+void NormalDebugIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed)
 {
+    (void)seed;
+
     m_pCamera = &camera;
     m_pSensor = &sensor;
     m_currentRayIndex.store(0);

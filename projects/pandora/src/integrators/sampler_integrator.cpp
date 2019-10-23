@@ -17,7 +17,7 @@ SamplerIntegrator::SamplerIntegrator(tasking::TaskGraph* pTaskGraph, int maxDept
 {
 }
 
-void SamplerIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel)
+void SamplerIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed)
 {
     auto resolution = sensor.getResolution();
 
@@ -25,6 +25,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, 
     pRenderData->pCamera = &camera;
     pRenderData->pSensor = &sensor;
     pRenderData->currentRayIndex.store(0);
+    pRenderData->seed = PcgRng(seed).uniformU64();
     pRenderData->resolution = resolution;
     pRenderData->fResolution = glm::vec2(resolution);
     pRenderData->maxPixelIndex = resolution.x * resolution.y;
@@ -109,7 +110,7 @@ void SamplerIntegrator::spawnNewPaths(int numPaths)
         rayState.pixel = glm::ivec2 { x, y };
         rayState.weight = glm::vec3(1.0f);
         rayState.pathDepth = 0;
-        rayState.rng = PcgRng(i);
+        rayState.rng = PcgRng(pRenderData->seed + i);
 
         const glm::vec2 resolution = m_pCurrentRenderData->fResolution;
         const glm::vec2 cameraSample = (glm::vec2(x, y) + rayState.rng.uniformFloat2()) / resolution;

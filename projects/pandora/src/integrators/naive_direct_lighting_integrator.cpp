@@ -24,7 +24,8 @@ DirectLightingIntegrator::DirectLightingIntegrator(
                       // TODO: make this use pMemoryResource
                       MemoryArena memoryArena;
                       auto si = pShadingGeometry->fillSurfaceInteraction(ray, rayHit);
-                      pMaterial->computeScatteringFunctions(si, memoryArena);
+                      if (pMaterial)
+                          pMaterial->computeScatteringFunctions(si, memoryArena);
                       si.pSceneObject = rayHit.pSceneObject;
                       si.localToWorld = rayHit.transform;
                       this->rayHit(ray, si, state, memoryArena);

@@ -74,7 +74,7 @@ Spectrum EnvironmentLight::Le(const Ray& ray) const
 {
     // PBRTv3 page 741
     glm::vec3 w = glm::normalize(worldToLight(ray.direction)); // TODO: worldToLight()
-    glm::vec2 st(sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_pi<float>());
+    glm::vec2 st { sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_pi<float>() };
     return m_l * m_texture->evaluate(st);
 }
 

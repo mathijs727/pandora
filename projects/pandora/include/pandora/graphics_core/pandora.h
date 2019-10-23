@@ -25,7 +25,7 @@ class AreaLight;
 class BxDF;
 class BSDF;
 class Material;
-class LambertMaterial;
+class MatteMaterial;
 class MirrorMaterial;
 
 class Sampler;

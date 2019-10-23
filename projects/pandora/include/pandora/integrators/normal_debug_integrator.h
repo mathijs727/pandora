@@ -30,7 +30,7 @@ public:
     AnyMissTaskHandle anyMissTaskHandle() const;
 
     using Accel = EmbreeAccelerationStructure<RayState, AnyRayState>;
-    void render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel);
+    void render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed = 0);
 
 private:
     void rayHit(const Ray& ray, const SurfaceInteraction& si, const RayState& state);

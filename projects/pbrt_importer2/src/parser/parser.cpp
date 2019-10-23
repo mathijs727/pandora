@@ -19,11 +19,16 @@ Parser::Parser(std::filesystem::path basePath)
 
 pandora::RenderConfig Parser::parse(std::filesystem::path file)
 {
+    m_graphicsState.pMaterial = std::make_shared<pandora::MatteMaterial>(
+        m_textureCache.getConstantTexture(glm::vec3(0.0f)),
+        m_textureCache.getConstantTexture(0.0f));
+
     addLexer(file);
 
     PBRTIntermediateScene intermediateScene;
     parseScene(intermediateScene);
     m_asyncWorkTaskGroup.wait();
+
     const glm::vec2 fResolution = intermediateScene.resolution;
     const float aspectRatio = fResolution.x / fResolution.y;
     std::vector<pandora::PerspectiveCamera> cameras;
@@ -278,6 +283,7 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, Params&& params)
     if (m_graphicsState.emittedAreaLight) {
         auto pAreaLight = std::make_unique<pandora::AreaLight>(*m_graphicsState.emittedAreaLight);
         pSceneObject = scene.sceneBuilder.addSceneObject(nullptr, m_graphicsState.pMaterial, std::move(pAreaLight));
+        pAreaLight.reset();
     } else {
         pSceneObject = scene.sceneBuilder.addSceneObject(nullptr, m_graphicsState.pMaterial);
     }
@@ -482,7 +488,7 @@ bool Parser::parseTransform(const Token& token) noexcept
         const glm::vec3 target = parse<glm::vec3>();
         const glm::vec3 up = parse<glm::vec3>();
         glm::mat4 transform = glm::lookAtLH(eye, target, up);
-        m_currentTransform = glm::scale(glm::mat4(1), glm::vec3(1,-1,1)) * transform;
+        m_currentTransform = glm::scale(glm::mat4(1), glm::vec3(1, -1, 1)) * transform;
         return true;
     }
     if (token == "Scale") {

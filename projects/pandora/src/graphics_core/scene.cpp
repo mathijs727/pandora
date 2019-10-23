@@ -26,7 +26,9 @@ std::shared_ptr<SceneObject> pandora::SceneBuilder::addSceneObject(
     std::shared_ptr<Material> pMaterial,
     std::unique_ptr<AreaLight>&& pAreaLight)
 {
-    return std::make_shared<SceneObject>(SceneObject { pShape, pMaterial, pAreaLight.get() });
+    auto* pAreaLightNonOwning = pAreaLight.get();
+    m_lights.push_back(std::move(pAreaLight));
+    return std::make_shared<SceneObject>(SceneObject { pShape, pMaterial, pAreaLightNonOwning });
 }
 
 std::shared_ptr<SceneObject> pandora::SceneBuilder::addSceneObjectToRoot(

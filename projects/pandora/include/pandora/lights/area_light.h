@@ -23,7 +23,7 @@ private:
 
 private:
     const glm::vec3 m_emmitedLight;
-    const Shape* m_pShape;
+    const Shape* m_pShape { nullptr };
     std::optional<Transform> m_transform;
 };
 

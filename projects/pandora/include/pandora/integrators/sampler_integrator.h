@@ -38,7 +38,7 @@ public:
     using AnyMissTaskHandle = tasking::TaskHandle<std::tuple<Ray, AnyRayState>>;
 
     using Accel = EmbreeAccelerationStructure<RayState, AnyRayState>;
-    void render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel);
+    void render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed = 891379);
 
 protected:
     void spawnNewPaths(int numPaths);
@@ -68,6 +68,7 @@ protected:
         const PerspectiveCamera* pCamera;
         Sensor* pSensor;
         std::atomic_int currentRayIndex;
+        size_t seed;
         glm::ivec2 resolution;
         glm::vec2 fResolution;
         int maxPixelIndex;
