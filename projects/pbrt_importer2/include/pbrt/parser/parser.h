@@ -15,6 +15,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <memory>
 #include <mio/mmap.hpp>
+#include <pandora/graphics_core/load_from_file.h>
 #include <pandora/graphics_core/pandora.h>
 #include <pandora/graphics_core/perspective_camera.h>
 #include <pandora/graphics_core/scene.h>
@@ -43,12 +44,6 @@ struct PBRTIntermediateScene {
     glm::ivec2 resolution;
 };
 
-struct PBRTScene {
-    pandora::Scene scene;
-    std::vector<pandora::PerspectiveCamera> cameras;
-    pandora::Sensor sensor;
-};
-
 struct GraphicsState {
     // AreaLight has no copy constructor???
     std::unordered_map<std::string, std::shared_ptr<pandora::Material>> namedMaterials;
@@ -65,7 +60,7 @@ class Parser {
 public:
     Parser(std::filesystem::path basePath);
 
-    PBRTScene parse(std::filesystem::path file);
+    pandora::RenderConfig parse(std::filesystem::path file);
 
 private:
     // Parse everything in WorldBegin/WorldEnd

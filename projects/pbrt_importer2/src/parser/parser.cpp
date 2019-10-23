@@ -17,7 +17,7 @@ Parser::Parser(std::filesystem::path basePath)
 {
 }
 
-PBRTScene Parser::parse(std::filesystem::path file)
+pandora::RenderConfig Parser::parse(std::filesystem::path file)
 {
     addLexer(file);
 
@@ -33,14 +33,16 @@ PBRTScene Parser::parse(std::filesystem::path file)
             const auto& [worldToCamera, cameraParams] = cameraData;
 
             // PBRT defines field of view along shortest axis
-            float fov = 2.0f * cameraParams.get<float>("fov", 45.0f);
+            float fov = cameraParams.get<float>("fov", 45.0f);
             if (fResolution.x > fResolution.y)
-                fov = std::atan(std::tan(fov / 2.0f) * aspectRatio) * 2.0f;
+                fov = glm::degrees(std::atan(std::tan(glm::radians(fov / 2.0f)) * aspectRatio) * 2.0f);
 
             return pandora::PerspectiveCamera(aspectRatio, fov, glm::inverse(worldToCamera));
         });
 
-    return PBRTScene { intermediateScene.sceneBuilder.build(), std::move(cameras), intermediateScene.resolution };
+    auto pScene = std::make_unique<pandora::Scene>(intermediateScene.sceneBuilder.build());
+    auto pCamera = std::make_unique<pandora::PerspectiveCamera>(cameras[0]);
+    return pandora::RenderConfig { std::move(pScene), std::move(pCamera), intermediateScene.resolution };
 }
 
 void Parser::parseWorld(PBRTIntermediateScene& scene)
@@ -266,7 +268,7 @@ void Parser::parseShape(PBRTIntermediateScene& scene)
     } else if (shapeType == "trianglemesh") {
         parseTriangleShape(scene, std::move(params));
     } else {
-        //spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
+        spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
     }
 }
 
@@ -389,7 +391,7 @@ void Parser::parseTexture()
             std::filesystem::path filePath = m_basePath / fileName;
             pTexture = m_textureCache.getImageTexture<float>(filePath);
         } else {
-            //spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
+            spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
             pTexture = m_textureCache.getConstantTexture(1.0f);
         }
         m_namedFloatTextures[std::string(mapType)] = pTexture;
@@ -403,7 +405,7 @@ void Parser::parseTexture()
             std::filesystem::path filePath = m_basePath / fileName;
             pTexture = m_textureCache.getImageTexture<glm::vec3>(filePath);
         } else {
-            //spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
+            spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
             pTexture = m_textureCache.getConstantTexture(glm::vec3(1.0f));
         }
         m_namedVec3Textures[std::string(mapType)] = pTexture;
@@ -477,10 +479,11 @@ bool Parser::parseTransform(const Token& token) noexcept
         return true;
     }
     if (token == "LookAt") {
-        glm::vec3 eye = parse<glm::vec3>();
-        glm::vec3 target = parse<glm::vec3>();
-        glm::vec3 up = parse<glm::vec3>();
-        m_currentTransform *= glm::lookAt(eye, target, up);
+        const glm::vec3 eye = parse<glm::vec3>();
+        const glm::vec3 target = parse<glm::vec3>();
+        const glm::vec3 up = parse<glm::vec3>();
+        glm::mat4 transform = glm::lookAtLH(eye, target, up);
+        m_currentTransform = glm::scale(glm::mat4(1), glm::vec3(1,-1,1)) * transform;
         return true;
     }
     if (token == "Scale") {

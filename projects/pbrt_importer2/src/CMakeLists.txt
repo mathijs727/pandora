@@ -1,7 +1,8 @@
-target_sources(pbrt_importer2
+target_sources(libPbrt_importer2
     PRIVATE
         "${CMAKE_CURRENT_LIST_DIR}/lexer/lexer.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/lexer/simd_lexer.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/lexer/wald_lexer.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/parser/crack_atof.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/parser/parser.cpp")
+		"${CMAKE_CURRENT_LIST_DIR}/parser/parser.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/pbrt_importer.cpp")

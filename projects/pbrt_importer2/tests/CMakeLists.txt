@@ -2,7 +2,7 @@ add_executable(pbrt_importer2_tests
 	"${CMAKE_CURRENT_LIST_DIR}/main.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/test_lexer.cpp")
 
-target_link_libraries(pbrt_importer2_tests PRIVATE GTest::GTest pbrt_importer2)
+target_link_libraries(pbrt_importer2_tests PRIVATE GTest::GTest libPbrt_importer2)
 target_compile_features(pbrt_importer2_tests PRIVATE cxx_std_17)
 
 if (MSVC)

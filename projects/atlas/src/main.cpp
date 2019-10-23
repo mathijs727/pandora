@@ -11,6 +11,7 @@
 #include "ui/fps_camera_controls.h"
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
+#include "pbrt/pbrt_importer.h"
 
 #include "pandora/graphics_core/load_from_file.h"
 #include <boost/program_options.hpp>
@@ -88,7 +89,8 @@ int main(int argc, char** argv)
     g_stats.config.spp = vm["spp"].as<int>();
 
     spdlog::info("Loading scene");
-    RenderConfig renderConfig = loadFromFile(vm["file"].as<std::string>());
+    const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
+    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath) : loadFromFile(sceneFilePath);
     const glm::ivec2 resolution = renderConfig.resolution;
 
     Window myWindow(resolution.x, resolution.y, "Atlas - Pandora viewer");
@@ -125,7 +127,7 @@ int main(int argc, char** argv)
             sensor.clear(glm::vec3(0.0f));
         }
 
-#if 1
+#if 0
         integrator.render(camera, sensor, *renderConfig.pScene, accel);
 #else
         samples = 0;
