@@ -295,7 +295,7 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, Params&& params)
         scene.sceneBuilder.attachObject(m_currentObject->pSceneNode, pSceneObject);
     }
 
-    m_asyncWorkTaskGroup.run([=, params = std::move(params), pLexerSource = m_pCurrentLexerSource]() {
+    m_asyncWorkTaskGroup.run([transform = m_currentTransform, pSceneObject, params = std::move(params), pLexerSource = m_pCurrentLexerSource]() {
         Params& mutParams = const_cast<Params&>(params);
 
         // Load mesh
@@ -321,7 +321,7 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, Params&& params)
             tangents = mutParams.getMove<std::vector<glm::vec3>>("S");
 
         std::shared_ptr<pandora::TriangleShape> pShape;
-        if (m_currentTransform == glm::identity<glm::mat4>()) {
+        if (transform == glm::identity<glm::mat4>()) {
             pShape = std::make_shared<pandora::TriangleShape>(
                 std::move(indices),
                 std::move(positions),
@@ -335,7 +335,7 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, Params&& params)
                 std::move(normals),
                 std::move(texCoords),
                 std::move(tangents),
-                m_currentTransform);
+                transform);
         }
         pSceneObject->pShape = pShape;
     });
@@ -362,14 +362,14 @@ void Parser::parsePlymesh(PBRTIntermediateScene& scene, Params&& params)
     // Make a copy of the lexer source so it doesn't immediately get deleted when
     // an include statement is encountered. This is a trade-off so we can keep working
     // with std::string_view's instead of making copies.
-    m_asyncWorkTaskGroup.run([=, params = std::move(params), pLexerSource = m_pCurrentLexerSource]() {
+    m_asyncWorkTaskGroup.run([basePath = m_basePath, transform = m_currentTransform, pSceneObject, params = std::move(params), pLexerSource = m_pCurrentLexerSource]() {
         // Load mesh
-        auto filePath = m_basePath / params.get<std::string_view>("filename");
+        auto filePath = basePath / params.get<std::string_view>("filename");
         std::optional<pandora::TriangleShape> shapeOpt;
-        if (m_currentTransform == glm::identity<glm::mat4>())
+        if (transform == glm::identity<glm::mat4>())
             shapeOpt = pandora::TriangleShape::loadFromFileSingleShape(filePath);
         else
-            shapeOpt = pandora::TriangleShape::loadFromFileSingleShape(filePath, m_currentTransform);
+            shapeOpt = pandora::TriangleShape::loadFromFileSingleShape(filePath, transform);
         if (!shapeOpt) {
             spdlog::error("Failed to load plymesh \"{}\"", filePath.string());
             return;
@@ -399,7 +399,7 @@ void Parser::parseTexture()
             spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
             pTexture = m_textureCache.getConstantTexture(1.0f);
         }
-        m_namedFloatTextures[std::string(mapType)] = pTexture;
+        m_namedFloatTextures[std::string(textureName)] = pTexture;
     } else if (textureType == "spectrum" || textureType == "rgb" || textureType == "color") {
         std::shared_ptr<pandora::Texture<glm::vec3>> pTexture;
         if (mapType == "constant") {
@@ -413,7 +413,7 @@ void Parser::parseTexture()
             spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
             pTexture = m_textureCache.getConstantTexture(glm::vec3(1.0f));
         }
-        m_namedVec3Textures[std::string(mapType)] = pTexture;
+        m_namedVec3Textures[std::string(textureName)] = pTexture;
     } else {
         spdlog::error("Unsupported texture type \"{}\"", textureType);
     }
