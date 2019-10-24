@@ -6,17 +6,18 @@
 #include <embree3/rtcore.h>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+#include <stream/evictable.h>
 
 namespace pandora {
 
-class Shape {
+class Shape : public stream::Evictable {
 public:
+    Shape(bool resident);
     virtual ~Shape() = default;
 
     virtual unsigned numPrimitives() const = 0;
     virtual Bounds getBounds() const = 0;
 
-    virtual size_t sizeBytes() const = 0;
     virtual RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const = 0;
 
     virtual float primitiveArea(unsigned primitiveID) const = 0;

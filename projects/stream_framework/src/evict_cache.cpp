@@ -5,12 +5,14 @@
 
 namespace stream {
 
-EvictLRUCache::EvictLRUCache(gsl::span<Evictable*> items, size_t maxMemory)
-    : m_maxMemory(maxMemory)
+EvictLRUCache::EvictLRUCache(std::unique_ptr<stream::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory)
+    : m_pDeserializer(std::move(pDeserializer))
+    , m_maxMemory(maxMemory)
     , m_items(items.size())
 {
     for (auto [i, pItem] : enumerate(items)) {
         m_items[i].pItem = pItem;
+        m_pointerToItemIndex[pItem] = i;
 
         if (pItem->isResident()) {
             auto iter = m_residentItems.insert(std::end(m_residentItems), static_cast<uint32_t>(i));
@@ -57,14 +59,14 @@ bool EvictLRUCache::checkResidencyIsValid() const
     if (m_usedMemory != actualMemUsage)
         return false;
 
-	return true;
+    return true;
 }
 
 void EvictLRUCache::evict(size_t desiredMemoryUsage)
 {
     spdlog::info("Evicting items from EvictLRUCache");
 
-	// Have to increment iterator before calling erase
+    // Have to increment iterator before calling erase
     //for (auto iter = std::begin(m_residentItems); iter != std::end(m_residentItems); iter++) {
     auto iter = std::begin(m_residentItems);
     while (iter != std::end(m_residentItems)) {
@@ -91,8 +93,14 @@ void EvictLRUCache::evict(size_t desiredMemoryUsage)
     }
 }
 
-EvictLRUCache EvictLRUCache::Builder::build(size_t maxMemory) {
-    return EvictLRUCache(m_items, maxMemory);
+EvictLRUCache::Builder::Builder(std::unique_ptr<Serializer>&& pSerializer)
+    : m_pSerializer(std::move(pSerializer))
+{
+}
+
+EvictLRUCache EvictLRUCache::Builder::build(size_t maxMemory)
+{
+    return EvictLRUCache(m_pSerializer->createDeserializer(), m_items, maxMemory);
 }
 
 }

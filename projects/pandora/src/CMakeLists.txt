@@ -10,6 +10,7 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/material.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/perspective_camera.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/sampler.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/shape.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/spectrum.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/scene.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/graphics_core/sensor.cpp"

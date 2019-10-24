@@ -7,9 +7,9 @@ Evictable::Evictable(bool resident)
 {
 }
 
-void Evictable::makeResident()
+void Evictable::makeResident(Deserializer& deserializer)
 {
-    doMakeResident();
+    doMakeResident(deserializer);
     m_isResident = true;
 }
 

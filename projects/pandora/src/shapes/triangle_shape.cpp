@@ -70,18 +70,6 @@ static std::vector<glm::vec3> transformNormals(std::vector<glm::vec3>&& normals,
     return out;
 }
 
-static std::vector<glm::vec3> transformVectors(std::vector<glm::vec3>&& vectors, const glm::mat4& matrix)
-{
-    pandora::Transform transform { matrix };
-    std::vector<glm::vec3> out;
-    out.resize(vectors.size());
-    std::transform(std::begin(vectors), std::end(vectors), std::begin(out),
-        [&](const glm::vec3& v) {
-            return transform.transformVector(v);
-        });
-    return out;
-}
-
 namespace pandora {
 
 TriangleShape::TriangleShape(
@@ -89,7 +77,8 @@ TriangleShape::TriangleShape(
     std::vector<glm::vec3>&& positions,
     std::vector<glm::vec3>&& normals,
     std::vector<glm::vec2>&& texCoords)
-    : m_numPrimitives(static_cast<unsigned>(indices.size()))
+    : Shape(true)
+    , m_numPrimitives(static_cast<unsigned>(indices.size()))
     , m_indices(std::move(indices))
     , m_positions(std::move(positions))
     , m_normals(std::move(normals))
@@ -112,7 +101,8 @@ TriangleShape::TriangleShape(
     std::vector<glm::vec3>&& normals,
     std::vector<glm::vec2>&& texCoords,
     const glm::mat4& transform)
-    : m_numPrimitives(static_cast<unsigned>(indices.size()))
+    : Shape(true)
+    , m_numPrimitives(static_cast<unsigned>(indices.size()))
     , m_indices(std::move(indices))
     , m_positions(transformPoints(std::move(positions), transform))
     , m_normals(transformNormals(std::move(normals), transform))
@@ -127,6 +117,15 @@ TriangleShape::TriangleShape(
     m_positions.shrink_to_fit();
     m_normals.shrink_to_fit();
     m_texCoords.shrink_to_fit();
+}
+
+void TriangleShape::doEvict()
+{
+
+}
+
+void TriangleShape::doMakeResident()
+{
 }
 
 unsigned TriangleShape::numPrimitives() const

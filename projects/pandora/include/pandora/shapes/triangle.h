@@ -25,10 +25,13 @@ public:
         std::vector<glm::vec2>&& texCoords,
         const glm::mat4& transform);
 
+    // Evictable
+    size_t sizeBytes() const final;
+
+    // Shape
     unsigned numPrimitives() const final;
     Bounds getBounds() const final;
 
-    size_t sizeBytes() const final;
     RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const final;
 
     float primitiveArea(unsigned primitiveID) const final;
@@ -50,6 +53,11 @@ public:
     static TriangleShape loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh, const glm::mat4& transformMatrix);
 
 private:
+    // Evictable
+    void doEvict() final;
+    void doMakeResident() final;
+
+    // Shape
     bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const;
 
     static std::optional<TriangleShape> loadFromPlyFile(std::filesystem::path filePath, std::optional<glm::mat4> transform);
