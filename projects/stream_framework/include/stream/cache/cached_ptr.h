@@ -35,7 +35,8 @@ inline CachedPtr<T>::CachedPtr(T* pItem, std::atomic_int* pRefCount)
     : m_pItem(pItem)
     , m_pRefCount(pRefCount)
 {
-    m_pRefCount->fetch_add(1);
+    if (m_pRefCount)
+		m_pRefCount->fetch_add(1);
 }
 
 template <typename T>
@@ -52,7 +53,8 @@ inline CachedPtr<T>::CachedPtr(const CachedPtr& other) noexcept
     : m_pItem(other.m_pItem)
     , m_pRefCount(other.m_pRefCount)
 {
-    m_pRefCount->fetch_add(1);
+    if (m_pRefCount)
+		m_pRefCount->fetch_add(1);
 }
 
 template <typename T>
@@ -75,7 +77,8 @@ inline T& CachedPtr<T>::operator=(const CachedPtr& other) noexcept
 {
     m_pItem = other.m_pItem;
     m_pRefCount = other.m_pRefCount;
-    m_pRefCount->fetch_add(1);
+    if (m_pRefCount)
+		m_pRefCount->fetch_add(1);
     return *this;
 }
 
