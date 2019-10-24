@@ -1,18 +1,18 @@
-#include "stream/cache/evict_cache.h"
+#include "stream/cache/lru_cache.h"
 #include "enumerate.h"
 #include <cassert>
 #include <spdlog/spdlog.h>
 
 namespace stream {
 
-EvictLRUCache::EvictLRUCache(std::unique_ptr<stream::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory)
+LRUCache::LRUCache(std::unique_ptr<stream::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory)
     : m_pDeserializer(std::move(pDeserializer))
     , m_maxMemory(maxMemory)
     , m_items(items.size())
 {
     for (auto [i, pItem] : enumerate(items)) {
         m_items[i].pItem = pItem;
-        m_pointerToItemIndex[pItem] = i;
+        m_pointerToItemIndex[pItem] = static_cast<uint32_t>(i);
 
         if (pItem->isResident()) {
             auto iter = m_residentItems.insert(std::end(m_residentItems), static_cast<uint32_t>(i));
@@ -26,17 +26,17 @@ EvictLRUCache::EvictLRUCache(std::unique_ptr<stream::Deserializer>&& pDeserializ
     assert(checkResidencyIsValid());
 
     if (m_usedMemory > m_maxMemory) {
-        spdlog::info("Evicting items in EvictLRUCache constructor");
+        spdlog::info("Evicting items in LRUCache constructor");
         evict(m_maxMemory / 4 * 3);
     }
 }
 
-size_t EvictLRUCache::memoryUsage() const noexcept
+size_t LRUCache::memoryUsage() const noexcept
 {
     return m_usedMemory;
 }
 
-bool EvictLRUCache::checkResidencyIsValid() const
+bool LRUCache::checkResidencyIsValid() const
 {
     for (uint32_t i : m_residentItems) {
         if (!m_items[i].pItem->isResident())
@@ -62,9 +62,9 @@ bool EvictLRUCache::checkResidencyIsValid() const
     return true;
 }
 
-void EvictLRUCache::evict(size_t desiredMemoryUsage)
+void LRUCache::evict(size_t desiredMemoryUsage)
 {
-    spdlog::info("Evicting items from EvictLRUCache");
+    spdlog::info("Evicting items from LRUCache");
 
     // Have to increment iterator before calling erase
     //for (auto iter = std::begin(m_residentItems); iter != std::end(m_residentItems); iter++) {
@@ -89,18 +89,18 @@ void EvictLRUCache::evict(size_t desiredMemoryUsage)
     }
 
     if (m_usedMemory > desiredMemoryUsage) {
-        spdlog::error("EvictLRUCache was not able to evict enough memory");
+        spdlog::error("LRUCache was not able to evict enough memory");
     }
 }
 
-EvictLRUCache::Builder::Builder(std::unique_ptr<Serializer>&& pSerializer)
+LRUCache::Builder::Builder(std::unique_ptr<Serializer>&& pSerializer)
     : m_pSerializer(std::move(pSerializer))
 {
 }
 
-EvictLRUCache EvictLRUCache::Builder::build(size_t maxMemory)
+LRUCache LRUCache::Builder::build(size_t maxMemory)
 {
-    return EvictLRUCache(m_pSerializer->createDeserializer(), m_items, maxMemory);
+    return LRUCache(m_pSerializer->createDeserializer(), m_items, maxMemory);
 }
 
 }

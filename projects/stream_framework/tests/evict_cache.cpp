@@ -1,4 +1,5 @@
-#include "stream/cache/evict_cache.h"
+#include "stream/cache/lru_cache.h"
+#include "stream/serialize/dummy_serializer.h"
 #include <cstddef>
 #include <gsl/span>
 #include <gtest/gtest.h>
@@ -44,27 +45,13 @@ struct DummyData : public stream::Evictable {
     }
 };
 
-class DummyDeserializer : public stream::Deserializer {
-    const void* map(const stream::Allocation&) final { return nullptr; };
-    void unmap(const stream::Allocation&) final {};
-};
-class DummySerializer : public stream::Serializer {
-    std::pair<stream::Allocation, void*> allocateAndMap(size_t) final { return { stream::Allocation {}, nullptr }; };
-    void unmapPreviousAllocations() final {};
-
-    std::unique_ptr<stream::Deserializer> createDeserializer() final
-    {
-        return std::make_unique<DummyDeserializer>();
-    }
-};
-
-TEST(EvictLRUCache, MakesResident)
+TEST(LRUCache, MakesResident)
 {
     std::vector<DummyData> data;
     for (int i = 0; i < 50; i++)
         data.push_back(DummyData(i, false));
 
-    stream::EvictLRUCache::Builder builder { std::make_unique<DummySerializer>() };
+    stream::LRUCache::Builder builder { std::make_unique<stream::DummySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         builder.registerCacheable(&data[i]);
     }
@@ -77,14 +64,14 @@ TEST(EvictLRUCache, MakesResident)
     }
 }
 
-TEST(EvictLRUCache, ManualEvictFail)
+TEST(LRUCache, ManualEvictFail)
 {
     std::vector<DummyData> data;
     for (int i = 0; i < 50; i++) {
         data.push_back(DummyData(i, i % 2 == 0));
     }
 
-    stream::EvictLRUCache::Builder builder { std::make_unique<DummySerializer>() };
+    stream::LRUCache::Builder builder { std::make_unique<stream::DummySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         builder.registerCacheable(&data[i]);
     }
@@ -99,13 +86,13 @@ TEST(EvictLRUCache, ManualEvictFail)
     ASSERT_FALSE(cache.checkResidencyIsValid());
 }
 
-TEST(EvictLRUCache, MemoryUsage)
+TEST(LRUCache, MemoryUsage)
 {
     std::vector<DummyData> data;
     for (int i = 0; i < 50; i++)
         data.push_back(DummyData(i, false));
 
-    stream::EvictLRUCache::Builder builder { std::make_unique<DummySerializer>() };
+    stream::LRUCache::Builder builder { std::make_unique<stream::DummySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         builder.registerCacheable(&data[i]);
     }
@@ -126,13 +113,13 @@ TEST(EvictLRUCache, MemoryUsage)
     ASSERT_LE(memoryUsed, maxMemory);
 }
 
-TEST(EvictLRUCache, EvictionHoldItems)
+TEST(LRUCache, EvictionHoldItems)
 {
     std::vector<DummyData> data;
     for (int i = 0; i < 50; i++)
         data.push_back(DummyData(i, false));
 
-    stream::EvictLRUCache::Builder builder { std::make_unique<DummySerializer>() };
+    stream::LRUCache::Builder builder { std::make_unique<stream::DummySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         builder.registerCacheable(&data[i]);
     }

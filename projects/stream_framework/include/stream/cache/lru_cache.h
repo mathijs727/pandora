@@ -13,7 +13,7 @@
 
 namespace stream {
 
-class EvictLRUCache {
+class LRUCache {
 public:
     class Builder;
     template <typename T>
@@ -23,7 +23,7 @@ public:
     bool checkResidencyIsValid() const;
 
 private:
-    EvictLRUCache(std::unique_ptr<stream::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory);
+    LRUCache(std::unique_ptr<stream::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory);
 
     void evict(size_t desiredMemoryUsage);
 
@@ -45,14 +45,14 @@ private:
     std::unordered_map<Evictable*, uint32_t> m_pointerToItemIndex;
 };
 
-class EvictLRUCache::Builder {
+class LRUCache::Builder {
 public:
     Builder(std::unique_ptr<stream::Serializer>&& pSerializer);
 
     template <typename T>
     void registerCacheable(T* pItem);
 
-    EvictLRUCache build(size_t maxMemory);
+    LRUCache build(size_t maxMemory);
 
 private:
     std::unique_ptr<stream::Serializer> m_pSerializer;
@@ -60,7 +60,7 @@ private:
 };
 
 template <typename T>
-inline CachedPtr<T> EvictLRUCache::makeResident(T* pEvictable)
+inline CachedPtr<T> LRUCache::makeResident(T* pEvictable)
 {
     // NOTE: thread-safe only if get() is called from one thread at a time (ref count may be modified by any thread concurrently).
     const uint32_t itemIndex = m_pointerToItemIndex[pEvictable];
@@ -95,7 +95,7 @@ inline CachedPtr<T> EvictLRUCache::makeResident(T* pEvictable)
 }
 
 template <typename T>
-inline void EvictLRUCache::Builder::registerCacheable(T* pItem)
+inline void LRUCache::Builder::registerCacheable(T* pItem)
 {
     m_items.push_back(pItem);
 }

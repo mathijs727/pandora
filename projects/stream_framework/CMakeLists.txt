@@ -1,5 +1,5 @@
 add_library(stream
-	"src/cache/evict_cache.cpp"
+	"src/cache/lru_cache.cpp"
 	"src/cache/evictable.cpp"
 	"src/serialize/file_serializer.cpp"
 	"src/task_graph.cpp")

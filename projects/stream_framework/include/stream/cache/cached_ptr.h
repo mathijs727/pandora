@@ -21,7 +21,7 @@ public:
     T* get() const noexcept;
 
 private:
-    friend class EvictLRUCache;
+    friend class LRUCache;
     CachedPtr(T* pItem, std::atomic_int* pRefCount);
 
 private:

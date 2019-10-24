@@ -1,5 +1,6 @@
 #include "stream/task_graph.h"
-#include "stream/cache.h"
+#include "stream/cache/lru_cache.h"
+#include "stream/serialize/dummy_serializer.h"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <random>
@@ -8,7 +9,7 @@
 
 TEST(TaskGraph, SingleTask)
 {
-    constexpr size_t range = 128 * 1024;
+    constexpr size_t range = 1024;
 
     std::vector<int> output;
     output.resize(range, 0);
@@ -30,7 +31,7 @@ TEST(TaskGraph, SingleTask)
 
 TEST(TaskGraph, TaskChain)
 {
-    constexpr size_t range = 128 * 1024;
+    constexpr size_t range = 1024;
 
     std::vector<int> output;
     output.resize(range, 0);
@@ -72,7 +73,7 @@ TEST(TaskGraph, TaskChain)
 
 TEST(TaskGraph, StaticData)
 {
-    constexpr size_t range = 128 * 1024;
+    constexpr size_t range = 1024;
 
     std::vector<int> output;
     output.resize(range, 0);
@@ -107,63 +108,75 @@ TEST(TaskGraph, StaticData)
 
 TEST(TaskGraph, CachedStaticData)
 {
-    constexpr size_t range = 128 * 1024;
-    constexpr int numCacheItems = 100;
+    constexpr size_t range = 1024;
+    constexpr int numCacheItems = 50;
     constexpr int cacheSizeInItems = 8;
 
-    struct StaticData {
-        StaticData(StaticData&&) = default;
-        StaticData(int v)
-            : val(v)
+    struct StaticData : public stream::Evictable {
+        int v;
+        std::vector<int> data;
+
+        StaticData(int x, bool initiallyResident)
+            : Evictable(initiallyResident)
+            , v(x)
         {
+            if (initiallyResident)
+                _doMakeResident();
         }
-        StaticData(gsl::span<const std::byte> data)
+        size_t sizeBytes() const override
         {
-            const StaticData* pData = reinterpret_cast<const StaticData*>(data.data());
-            val = pData->val;
+            return sizeof(StaticData) + data.capacity() * sizeof(int);
         }
 
-        size_t sizeBytes()
+        void serialize(stream::Serializer& serializer)
         {
-            return sizeof(StaticData);
-        }
-        std::vector<std::byte> serialize() const
-        {
-            auto start = reinterpret_cast<const std::byte*>(this);
-
-            std::vector<std::byte> data;
-            std::copy(start, start + sizeof(StaticData), std::back_inserter(data));
-            return data;
         }
 
-        int val;
-        uint8_t dummy[1020];
+        void doEvict() override
+        {
+            data.clear();
+            data.shrink_to_fit();
+        }
+
+        void doMakeResident(stream::Deserializer&) override
+        {
+            _doMakeResident();
+        }
+
+        void _doMakeResident()
+        {
+            data.resize(1000);
+            data.shrink_to_fit();
+            std::fill(std::begin(data), std::end(data), v);
+        }
     };
 
-    std::array<stream::CacheHandle<StaticData>, numCacheItems> cacheItems;
-
-    stream::LRUCache<StaticData>::Builder cacheBuilder;
+    std::vector<StaticData> cacheItems;
     for (int i = 0; i < numCacheItems; i++) {
-        auto handle = cacheBuilder.registerCacheable(StaticData(123));
-        cacheItems[i] = handle;
+        cacheItems.push_back(StaticData(123, false));
     }
+
+    stream::LRUCache::Builder cacheBuilder { std::make_unique<stream::DummySerializer>() };
+    for (auto& cacheItem : cacheItems)
+        cacheBuilder.registerCacheable(&cacheItem);
+
     auto cache = cacheBuilder.build(cacheSizeInItems * sizeof(StaticData));
 
     std::vector<int> output;
     output.resize(range, 0);
 
-	struct StaticDataCollection {
-        std::shared_ptr<StaticData> pStaticData;
-	};
+    struct StaticDataCollection {
+        stream::CachedPtr<StaticData> pStaticData;
+    };
 
     tasking::TaskGraph g;
-        auto task = g.addTask<int, StaticDataCollection>(
+    auto task = g.addTask<int, StaticDataCollection>(
         [&](gsl::span<const int> numbers, const StaticDataCollection* pStaticDataCollection, std::pmr::memory_resource* pMemoryResource) {
             for (const int number : numbers)
-                output[number] = number + pStaticDataCollection->pStaticData->val;
+                output[number] = number + pStaticDataCollection->pStaticData->v;
         },
         [&]() -> StaticDataCollection {
-            return StaticDataCollection { cache.get(cacheItems[std::rand() % numCacheItems]) };
+            return StaticDataCollection { cache.makeResident(&cacheItems[std::rand() % numCacheItems]) };
         });
 
     for (int i = 0; i < range; i++)
@@ -172,5 +185,5 @@ TEST(TaskGraph, CachedStaticData)
     g.run();
 
     for (int i = 0; i < range; i++)
-        ASSERT_EQ(output[i], i + 123);
+        ASSERT_EQ(output[i], 123 + i);
 }
