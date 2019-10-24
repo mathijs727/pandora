@@ -1,5 +1,5 @@
 #pragma once
-#include "templates.h"
+#include "stream/templates.h"
 #include <cstdint>
 
 namespace stream {

@@ -6,7 +6,7 @@
 #include <embree3/rtcore.h>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
-#include <stream/evictable.h>
+#include <stream/cache/evictable.h>
 
 namespace pandora {
 

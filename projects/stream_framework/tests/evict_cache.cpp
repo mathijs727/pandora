@@ -1,4 +1,4 @@
-#include "stream/evict_cache.h"
+#include "stream/cache/evict_cache.h"
 #include <cstddef>
 #include <gsl/span>
 #include <gtest/gtest.h>
@@ -21,7 +21,7 @@ struct DummyData : public stream::Evictable {
         return sizeof(DummyData) + data.size() * sizeof(int);
     }
 
-    void serialize(stream::Serializer& serializer) const
+    void serialize(stream::Serializer& serializer)
     {
     }
 

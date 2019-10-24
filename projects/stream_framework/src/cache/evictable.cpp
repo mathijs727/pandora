@@ -1,4 +1,4 @@
-#include "stream/evictable.h"
+#include "stream/cache/evictable.h"
 
 namespace stream {
 

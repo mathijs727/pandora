@@ -121,11 +121,62 @@ TriangleShape::TriangleShape(
 
 void TriangleShape::doEvict()
 {
-
 }
 
-void TriangleShape::doMakeResident()
+void TriangleShape::doMakeResident(stream::Deserializer& deserializer)
 {
+    const void* pData = deserializer.map(m_serializedStateHandle);
+    const auto* pSerializedTriangleMesh = serialization::GetTriangleMesh(pData);
+
+    std::vector<glm::uvec3> indices;
+    indices.resize(pSerializedTriangleMesh->indices()->size());
+    std::transform(
+        pSerializedTriangleMesh->indices()->begin(),
+        pSerializedTriangleMesh->indices()->end(),
+        std::begin(indices),
+        [](const serialization::Vec3u* t) {
+            return deserialize(*t);
+        });
+    indices.shrink_to_fit();
+
+    std::vector<glm::vec3> positions;
+    positions.resize(pSerializedTriangleMesh->positions()->size());
+    std::transform(
+        pSerializedTriangleMesh->positions()->begin(),
+        pSerializedTriangleMesh->positions()->end(),
+        std::begin(positions),
+        [](const serialization::Vec3* p) {
+            return deserialize(*p);
+        });
+    positions.shrink_to_fit();
+
+    std::vector<glm::vec3> normals;
+    if (pSerializedTriangleMesh->normals()) {
+        normals.resize(pSerializedTriangleMesh->normals()->size());
+        std::transform(
+            pSerializedTriangleMesh->normals()->begin(),
+            pSerializedTriangleMesh->normals()->end(),
+            std::begin(normals),
+            [](const serialization::Vec3* n) {
+                return deserialize(*n);
+            });
+    }
+    normals.shrink_to_fit();
+
+    std::vector<glm::vec2> texCoords;
+    if (pSerializedTriangleMesh->texCoords()) {
+        texCoords.resize(pSerializedTriangleMesh->texCoords()->size());
+        std::transform(
+            pSerializedTriangleMesh->texCoords()->begin(),
+            pSerializedTriangleMesh->texCoords()->end(),
+            std::begin(texCoords),
+            [](const serialization::Vec2* uv) {
+                return deserialize(*uv);
+            });
+    }
+    texCoords.shrink_to_fit();
+
+    deserializer.unmap(m_serializedStateHandle);
 }
 
 unsigned TriangleShape::numPrimitives() const
@@ -333,8 +384,9 @@ std::vector<TriangleShape> TriangleShape::loadFromFile(std::filesystem::path fil
     return result;
 }
 
-flatbuffers::Offset<serialization::TriangleMesh> TriangleShape::serialize(flatbuffers::FlatBufferBuilder& builder) const
+void TriangleShape::serialize(stream::Serializer& serializer)
 {
+    flatbuffers::FlatBufferBuilder builder;
     auto triangles = builder.CreateVectorOfStructs(
         reinterpret_cast<const serialization::Vec3u*>(m_indices.data()), m_indices.size());
     auto positions = builder.CreateVectorOfStructs(
@@ -349,13 +401,23 @@ flatbuffers::Offset<serialization::TriangleMesh> TriangleShape::serialize(flatbu
             reinterpret_cast<const serialization::Vec2*>(m_texCoords.data()), m_texCoords.size());
 
     auto bounds = m_bounds.serialize();
-    return serialization::CreateTriangleMesh(
+    auto triangleMesh = serialization::CreateTriangleMesh(
         builder,
         triangles,
         positions,
         normals,
         texCoords,
         &bounds);
+    builder.Finish(triangleMesh);
+
+    const void* pSerializedBuffer = builder.GetBufferPointer();
+    size_t size = builder.GetSize();
+
+    auto [allocation, pOutBuffer] = serializer.allocateAndMap(size);
+    std::memcpy(pOutBuffer, pSerializedBuffer, size);
+    serializer.unmapPreviousAllocations();
+
+    m_serializedStateHandle = allocation;
 }
 
 std::optional<TriangleShape> TriangleShape::loadFromPlyFile(std::filesystem::path filePath, std::optional<glm::mat4> optTransform)

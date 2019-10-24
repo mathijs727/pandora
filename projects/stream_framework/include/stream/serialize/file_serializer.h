@@ -1,6 +1,6 @@
 #pragma once
-#include "stream/evictable.h"
-#include "stream/serializer.h"
+#include "stream/cache/evictable.h"
+#include "stream/serialize/serializer.h"
 #include <deque>
 #include <filesystem>
 #include <mio/mmap.hpp>

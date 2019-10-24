@@ -1,9 +1,7 @@
 #pragma once
+#include <stream/serialize/serializer.h>
 
 namespace stream {
-
-class Serializer;
-class Deserializer;
 
 class Evictable {
 public:
@@ -11,7 +9,7 @@ public:
     virtual ~Evictable() {};
 
     virtual size_t sizeBytes() const = 0;
-    virtual void serialize(Serializer& serializer) const = 0;
+    virtual void serialize(Serializer& serializer) = 0;
 
     void evict();
     void makeResident(Deserializer& deserializer);

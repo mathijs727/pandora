@@ -1,8 +1,8 @@
 #pragma once
-#include "stream/cached_ptr.h"
-#include "stream/evictable.h"
-#include "stream/handle.h"
-#include "stream/serializer.h"
+#include "stream/cache/cached_ptr.h"
+#include "stream/cache/evictable.h"
+#include "stream/cache/handle.h"
+#include "stream/serialize/serializer.h"
 #include <atomic>
 #include <cassert>
 #include <cstddef>

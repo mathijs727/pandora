@@ -1,4 +1,4 @@
-#include "stream/cache.h"
+#include "stream/cache/cache.h"
 #include <cstddef>
 #include <gsl/span>
 #include <gtest/gtest.h>

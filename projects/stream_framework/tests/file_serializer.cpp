@@ -1,4 +1,4 @@
-#include "stream/file_serializer.h"
+#include "stream/serialize/file_serializer.h"
 #include <gtest/gtest.h>
 #include <vector>
 #include <optional>

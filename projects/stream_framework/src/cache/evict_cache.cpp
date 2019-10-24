@@ -1,4 +1,4 @@
-#include "stream/evict_cache.h"
+#include "stream/cache/evict_cache.h"
 #include "enumerate.h"
 #include <cassert>
 #include <spdlog/spdlog.h>
