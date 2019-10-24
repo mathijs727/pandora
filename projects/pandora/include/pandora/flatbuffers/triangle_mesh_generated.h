@@ -18,9 +18,8 @@ struct TriangleMesh FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_INDICES = 4,
     VT_POSITIONS = 6,
     VT_NORMALS = 8,
-    VT_TANGENTS = 10,
-    VT_TEXCOORDS = 12,
-    VT_BOUNDS = 14
+    VT_TEXCOORDS = 10,
+    VT_BOUNDS = 12
   };
   const flatbuffers::Vector<const Vec3u *> *indices() const {
     return GetPointer<const flatbuffers::Vector<const Vec3u *> *>(VT_INDICES);
@@ -39,12 +38,6 @@ struct TriangleMesh FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   flatbuffers::Vector<const Vec3 *> *mutable_normals() {
     return GetPointer<flatbuffers::Vector<const Vec3 *> *>(VT_NORMALS);
-  }
-  const flatbuffers::Vector<const Vec3 *> *tangents() const {
-    return GetPointer<const flatbuffers::Vector<const Vec3 *> *>(VT_TANGENTS);
-  }
-  flatbuffers::Vector<const Vec3 *> *mutable_tangents() {
-    return GetPointer<flatbuffers::Vector<const Vec3 *> *>(VT_TANGENTS);
   }
   const flatbuffers::Vector<const Vec2 *> *texCoords() const {
     return GetPointer<const flatbuffers::Vector<const Vec2 *> *>(VT_TEXCOORDS);
@@ -66,8 +59,6 @@ struct TriangleMesh FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(positions()) &&
            VerifyOffset(verifier, VT_NORMALS) &&
            verifier.VerifyVector(normals()) &&
-           VerifyOffset(verifier, VT_TANGENTS) &&
-           verifier.VerifyVector(tangents()) &&
            VerifyOffset(verifier, VT_TEXCOORDS) &&
            verifier.VerifyVector(texCoords()) &&
            VerifyField<Bounds>(verifier, VT_BOUNDS) &&
@@ -86,9 +77,6 @@ struct TriangleMeshBuilder {
   }
   void add_normals(flatbuffers::Offset<flatbuffers::Vector<const Vec3 *>> normals) {
     fbb_.AddOffset(TriangleMesh::VT_NORMALS, normals);
-  }
-  void add_tangents(flatbuffers::Offset<flatbuffers::Vector<const Vec3 *>> tangents) {
-    fbb_.AddOffset(TriangleMesh::VT_TANGENTS, tangents);
   }
   void add_texCoords(flatbuffers::Offset<flatbuffers::Vector<const Vec2 *>> texCoords) {
     fbb_.AddOffset(TriangleMesh::VT_TEXCOORDS, texCoords);
@@ -113,13 +101,11 @@ inline flatbuffers::Offset<TriangleMesh> CreateTriangleMesh(
     flatbuffers::Offset<flatbuffers::Vector<const Vec3u *>> indices = 0,
     flatbuffers::Offset<flatbuffers::Vector<const Vec3 *>> positions = 0,
     flatbuffers::Offset<flatbuffers::Vector<const Vec3 *>> normals = 0,
-    flatbuffers::Offset<flatbuffers::Vector<const Vec3 *>> tangents = 0,
     flatbuffers::Offset<flatbuffers::Vector<const Vec2 *>> texCoords = 0,
     const Bounds *bounds = 0) {
   TriangleMeshBuilder builder_(_fbb);
   builder_.add_bounds(bounds);
   builder_.add_texCoords(texCoords);
-  builder_.add_tangents(tangents);
   builder_.add_normals(normals);
   builder_.add_positions(positions);
   builder_.add_indices(indices);
@@ -131,20 +117,17 @@ inline flatbuffers::Offset<TriangleMesh> CreateTriangleMeshDirect(
     const std::vector<Vec3u> *indices = nullptr,
     const std::vector<Vec3> *positions = nullptr,
     const std::vector<Vec3> *normals = nullptr,
-    const std::vector<Vec3> *tangents = nullptr,
     const std::vector<Vec2> *texCoords = nullptr,
     const Bounds *bounds = 0) {
   auto indices__ = indices ? _fbb.CreateVectorOfStructs<Vec3u>(*indices) : 0;
   auto positions__ = positions ? _fbb.CreateVectorOfStructs<Vec3>(*positions) : 0;
   auto normals__ = normals ? _fbb.CreateVectorOfStructs<Vec3>(*normals) : 0;
-  auto tangents__ = tangents ? _fbb.CreateVectorOfStructs<Vec3>(*tangents) : 0;
   auto texCoords__ = texCoords ? _fbb.CreateVectorOfStructs<Vec2>(*texCoords) : 0;
   return pandora::serialization::CreateTriangleMesh(
       _fbb,
       indices__,
       positions__,
       normals__,
-      tangents__,
       texCoords__,
       bounds);
 }

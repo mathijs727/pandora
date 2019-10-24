@@ -35,7 +35,7 @@ int main(int argc, char** argv)
 {
     auto colorLogger = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("color_logger");
     spdlog::set_default_logger(colorLogger);
-    spdlog::set_level(spdlog::level::critical);
+    //spdlog::set_level(spdlog::level::critical);
 
     spdlog::info("Parsing input");
 
@@ -133,7 +133,7 @@ int main(int argc, char** argv)
                     Ray cameraRay = renderConfig.camera->generateRay(glm::vec2(x, y) / fResolution);
                     auto hitOpt = accel.intersectFast(cameraRay);
                     if (hitOpt) {
-                        const auto si = hitOpt->pSceneObject->pShape->getShadingGeometry()->fillSurfaceInteraction(cameraRay, *hitOpt);
+                        const auto si = hitOpt->pSceneObject->pShape->fillSurfaceInteraction(cameraRay, *hitOpt);
                         const float cos = glm::dot(si.shading.normal, -cameraRay.direction);
                         //const float cos = glm::abs(glm::dot(hitOpt->geometricNormal, -cameraRay.direction));
                         sensor.addPixelContribution(glm::ivec2 { x, y }, glm::vec3(cos));

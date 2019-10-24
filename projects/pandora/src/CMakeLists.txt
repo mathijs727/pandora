@@ -18,8 +18,8 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/flatbuffers/data_conversion.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/shapes/tinyply.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_ig.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_sg.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_intersect.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_shading.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_shape.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/integrators/naive_direct_lighting_integrator.cpp"

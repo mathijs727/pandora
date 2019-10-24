@@ -7,27 +7,18 @@
 
 namespace pandora {
 
-TriangleIntersectGeometry::TriangleIntersectGeometry(
-    std::vector<glm::uvec3>&& indices,
-    std::vector<glm::vec3>&& positions)
-    : m_indices(std::move(indices))
-    , m_positions(std::move(positions))
+size_t TriangleShape::sizeBytes() const
 {
-    m_indices.shrink_to_fit();
-    m_positions.shrink_to_fit();
-}
-
-size_t TriangleIntersectGeometry::sizeBytes() const
-{
-    size_t size = sizeof(TriangleIntersectGeometry);
+    size_t size = sizeof(TriangleShape);
     size += m_indices.size() * sizeof(glm::uvec3);
     size += m_positions.size() * sizeof(glm::vec3);
+    size += m_normals.size() * sizeof(glm::vec3);
+    size += m_texCoords.size() * sizeof(glm::vec2);
     return size;
 }
 
-RTCGeometry TriangleIntersectGeometry::createEmbreeGeometry(RTCDevice embreeDevice) const
+RTCGeometry TriangleShape::createEmbreeGeometry(RTCDevice embreeDevice) const
 {
-
     RTCGeometry embreeGeometry = rtcNewGeometry(embreeDevice, RTC_GEOMETRY_TYPE_TRIANGLE);
     rtcSetSharedGeometryBuffer(
         embreeGeometry,
@@ -51,7 +42,7 @@ RTCGeometry TriangleIntersectGeometry::createEmbreeGeometry(RTCDevice embreeDevi
     return embreeGeometry;
 }
 
-float TriangleIntersectGeometry::primitiveArea(unsigned primitiveID) const
+float TriangleShape::primitiveArea(unsigned primitiveID) const
 {
     glm::uvec3 triangle = m_indices[primitiveID];
     const glm::vec3& p0 = m_positions[triangle[0]];
@@ -61,7 +52,7 @@ float TriangleIntersectGeometry::primitiveArea(unsigned primitiveID) const
 }
 
 // PBRTv3 page 839
-Interaction TriangleIntersectGeometry::samplePrimitive(unsigned primitiveID, PcgRng& rng) const
+Interaction TriangleShape::samplePrimitive(unsigned primitiveID, PcgRng& rng) const
 {
     // Compute uniformly sampled barycentric coordinates
     // https://github.com/mmp/pbrt-v3/blob/master/src/shapes/triangle.cpp
@@ -80,7 +71,7 @@ Interaction TriangleIntersectGeometry::samplePrimitive(unsigned primitiveID, Pcg
 }
 
 // PBRTv3 page 837
-Interaction TriangleIntersectGeometry::samplePrimitive(unsigned primitiveID, const Interaction& ref, PcgRng& rng) const
+Interaction TriangleShape::samplePrimitive(unsigned primitiveID, const Interaction& ref, PcgRng& rng) const
 {
     (void)ref;
     auto it = samplePrimitive(primitiveID, rng);
@@ -91,14 +82,14 @@ Interaction TriangleIntersectGeometry::samplePrimitive(unsigned primitiveID, con
 }
 
 // PBRTv3 page 837
-float TriangleIntersectGeometry::pdfPrimitive(unsigned primitiveID, const Interaction& ref) const
+float TriangleShape::pdfPrimitive(unsigned primitiveID, const Interaction& ref) const
 {
     (void)ref;
     return 1.0f / primitiveArea(primitiveID);
 }
 
 // PBRTv3 page 837
-float TriangleIntersectGeometry::pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const
+float TriangleShape::pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const
 {
     if (glm::dot(ref.normal, wi) <= 0.0f)
         return 0.0f;
@@ -119,7 +110,7 @@ float TriangleIntersectGeometry::pdfPrimitive(unsigned primitiveID, const Intera
     return distSquared / (cosNormal * primArea);
 }
 
-void TriangleIntersectGeometry::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const
+void TriangleShape::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const
 {
     // Map world space to [0, 1]
     float scale = maxComponent(gridBounds.extent());
@@ -223,20 +214,7 @@ void TriangleIntersectGeometry::voxelize(VoxelGrid& grid, const Bounds& gridBoun
     }
 }
 
-unsigned TriangleIntersectGeometry::numPrimitives() const
-{
-    return static_cast<unsigned>(m_indices.size());
-}
-
-Bounds TriangleIntersectGeometry::computeBounds() const
-{
-    Bounds bounds;
-    for (const glm::vec3& p : m_positions)
-        bounds.grow(p);
-    return bounds;
-}
-
-bool TriangleIntersectGeometry::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const
+bool TriangleShape::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const
 {
 #if 1
     // Based on PBRT v3 triangle intersection test (page 158):

@@ -1,3 +1,4 @@
+
 #include "pandora/lights/area_light.h"
 #include "pandora/graphics_core/scene.h"
 #include "pandora/shapes/triangle.h"
@@ -19,17 +20,15 @@ glm::vec3 AreaLight::light(const Interaction& interaction, const glm::vec3& w) c
 
 LightSample AreaLight::sampleLi(const Interaction& ref, PcgRng& rng) const
 {
-    const auto* intersectGeom = m_pShape->getIntersectGeometry();
-
     const uint32_t numPrimitives = m_pShape->numPrimitives();
     const uint32_t primitiveID = rng.uniformU32() % numPrimitives;
-    Interaction pointOnShape = intersectGeom->samplePrimitive(primitiveID, ref, rng);
+    Interaction pointOnShape = m_pShape->samplePrimitive(primitiveID, ref, rng);
     if (m_transform)
         pointOnShape = m_transform->transform(pointOnShape);
 
     LightSample result;
     result.wi = glm::normalize(pointOnShape.position - ref.position);
-    result.pdf = intersectGeom->pdfPrimitive(primitiveID, ref, result.wi);
+    result.pdf = m_pShape->pdfPrimitive(primitiveID, ref, result.wi);
     result.visibilityRay = computeRayWithEpsilon(ref, pointOnShape);
     result.radiance = light(pointOnShape, -result.wi);
     return result;

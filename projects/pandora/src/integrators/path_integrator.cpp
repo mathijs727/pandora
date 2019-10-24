@@ -18,12 +18,12 @@ PathIntegrator::PathIntegrator(
           pTaskGraph->addTask<std::tuple<Ray, RayHit, RayState>>(
               [this](gsl::span<const std::tuple<Ray, RayHit, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, rayHit, state] : hits) {
-                      auto pShadingGeometry = rayHit.pSceneObject->pShape->getShadingGeometry();
+                      auto pShape = rayHit.pSceneObject->pShape.get();
                       auto pMaterial = rayHit.pSceneObject->pMaterial;
 
                       // TODO: make this use pMemoryResource
                       MemoryArena memoryArena;
-                      auto si = pShadingGeometry->fillSurfaceInteraction(ray, rayHit);
+                      auto si = pShape->fillSurfaceInteraction(ray, rayHit);
                       pMaterial->computeScatteringFunctions(si, memoryArena);
                       si.pSceneObject = rayHit.pSceneObject;
                       si.localToWorld = rayHit.transform;

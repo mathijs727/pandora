@@ -317,9 +317,6 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, Params&& params)
         if (params.contains("st")) {
             texCoords = mutParams.getMove<std::vector<glm::vec2>>("st");
         }
-        std::vector<glm::vec3> tangents;
-        if (params.contains("S"))
-            tangents = mutParams.getMove<std::vector<glm::vec3>>("S");
 
         std::shared_ptr<pandora::TriangleShape> pShape;
         if (transform == glm::identity<glm::mat4>()) {
@@ -327,15 +324,13 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, Params&& params)
                 std::move(indices),
                 std::move(positions),
                 std::move(normals),
-                std::move(texCoords),
-                std::move(tangents));
+                std::move(texCoords));
         } else {
             pShape = std::make_shared<pandora::TriangleShape>(
                 std::move(indices),
                 std::move(positions),
                 std::move(normals),
                 std::move(texCoords),
-                std::move(tangents),
                 transform);
         }
         pSceneObject->pShape = pShape;

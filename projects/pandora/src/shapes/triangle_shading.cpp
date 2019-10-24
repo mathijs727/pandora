@@ -37,22 +37,7 @@ static glm::vec3 assimpVec(const aiVector3D& v)
 
 namespace pandora {
 
-TriangleShadingGeometry::TriangleShadingGeometry(
-    const TriangleIntersectGeometry* pIntersectGeometry,
-    std::vector<glm::vec3>&& normals,
-    std::vector<glm::vec2>&& texCoords,
-    std::vector<glm::vec3>&& tangents)
-    : m_pIntersectGeometry(pIntersectGeometry)
-    , m_normals(std::move(normals))
-    , m_texCoords(std::move(texCoords))
-    , m_tangents(std::move(tangents))
-{
-    m_normals.shrink_to_fit();
-    m_texCoords.shrink_to_fit();
-    m_tangents.shrink_to_fit();
-}
-
-SurfaceInteraction pandora::TriangleShadingGeometry::fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const
+SurfaceInteraction pandora::TriangleShape::fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const
 {
 
     const float b0 = 1 - rayHit.geometricUV.x - rayHit.geometricUV.y;
@@ -85,25 +70,25 @@ SurfaceInteraction pandora::TriangleShadingGeometry::fillSurfaceInteraction(cons
     return si;
 }
 
-void TriangleShadingGeometry::getTexCoords(unsigned primitiveID, gsl::span<glm::vec2, 3> texCoord) const
+void TriangleShape::getTexCoords(unsigned primitiveID, gsl::span<glm::vec2, 3> texCoord) const
 {
-    glm::ivec3 indices = m_pIntersectGeometry->m_indices[primitiveID];
+    glm::ivec3 indices = m_indices[primitiveID];
     texCoord[0] = m_texCoords[indices[0]];
     texCoord[1] = m_texCoords[indices[1]];
     texCoord[2] = m_texCoords[indices[2]];
 }
 
-void TriangleShadingGeometry::getPositions(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const
+void TriangleShape::getPositions(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const
 {
-    glm::ivec3 indices = m_pIntersectGeometry->m_indices[primitiveID];
-    p[0] = m_pIntersectGeometry->m_positions[indices[0]];
-    p[1] = m_pIntersectGeometry->m_positions[indices[1]];
-    p[2] = m_pIntersectGeometry->m_positions[indices[2]];
+    glm::ivec3 indices = m_indices[primitiveID];
+    p[0] = m_positions[indices[0]];
+    p[1] = m_positions[indices[1]];
+    p[2] = m_positions[indices[2]];
 }
 
-void TriangleShadingGeometry::getShadingNormals(unsigned primitiveID, gsl::span<glm::vec3, 3> ns) const
+void TriangleShape::getShadingNormals(unsigned primitiveID, gsl::span<glm::vec3, 3> ns) const
 {
-    glm::ivec3 indices = m_pIntersectGeometry->m_indices[primitiveID];
+    glm::ivec3 indices = m_indices[primitiveID];
     ns[0] = m_normals[indices[0]];
     ns[1] = m_normals[indices[1]];
     ns[2] = m_normals[indices[2]];

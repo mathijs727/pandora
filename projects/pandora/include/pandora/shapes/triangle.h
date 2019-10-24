@@ -11,8 +11,23 @@ struct aiScene;
 
 namespace pandora {
 
-class TriangleIntersectGeometry : public IntersectGeometry {
+class TriangleShape : public Shape {
 public:
+    TriangleShape(
+        std::vector<glm::uvec3>&& indices,
+        std::vector<glm::vec3>&& positions,
+        std::vector<glm::vec3>&& normals,
+        std::vector<glm::vec2>&& texCoords);
+    TriangleShape(
+        std::vector<glm::uvec3>&& indices,
+        std::vector<glm::vec3>&& positions,
+        std::vector<glm::vec3>&& normals,
+        std::vector<glm::vec2>&& texCoords,
+        const glm::mat4& transform);
+
+    unsigned numPrimitives() const final;
+    Bounds getBounds() const final;
+
     size_t sizeBytes() const final;
     RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const final;
 
@@ -23,87 +38,37 @@ public:
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const final;
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const final;
 
-    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const final;
-
-private:
-    friend class TriangleShadingGeometry;
-    friend class TriangleShape;
-    TriangleIntersectGeometry(std::vector<glm::uvec3>&& indices, std::vector<glm::vec3>&& positions);
-
-    unsigned numPrimitives() const;
-    Bounds computeBounds() const;
-
-    bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const;
-
-private:
-    std::vector<glm::uvec3> m_indices;
-    std::vector<glm::vec3> m_positions;
-};
-
-class TriangleShadingGeometry : public ShadingGeometry {
-public:
     SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& hit) const final;
 
+    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const final;
+
+    static std::optional<TriangleShape> loadFromFileSingleShape(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
+    static std::vector<TriangleShape> loadFromFile(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
+
+    flatbuffers::Offset<serialization::TriangleMesh> serialize(flatbuffers::FlatBufferBuilder& builder) const;
+    //static std::vector<TriangleShape> loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh);
+    static TriangleShape loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh, const glm::mat4& transformMatrix);
+
 private:
-    friend class TriangleShape;
-    TriangleShadingGeometry(
-        const TriangleIntersectGeometry* pIntersectGeometry,
-        std::vector<glm::vec3>&& normals,
-        std::vector<glm::vec2>&& texCoords,
-		std::vector<glm::vec3>&& tangents);
+    bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const;
+
+    static std::optional<TriangleShape> loadFromPlyFile(std::filesystem::path filePath, std::optional<glm::mat4> transform);
+
+    static std::optional<TriangleShape> loadFromFileSingleShape(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals);
+    static TriangleShape createAssimpMesh(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
 
     void getTexCoords(unsigned primitiveID, gsl::span<glm::vec2, 3> st) const;
     void getPositions(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
     void getShadingNormals(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const;
 
 private:
-    const TriangleIntersectGeometry* m_pIntersectGeometry;
-    std::vector<glm::vec3> m_normals;
-    std::vector<glm::vec2> m_texCoords;
-    std::vector<glm::vec3> m_tangents;
-};
-
-class TriangleShape : public Shape {
-public:
-    TriangleShape(
-        std::vector<glm::uvec3>&& indices,
-        std::vector<glm::vec3>&& positions,
-        std::vector<glm::vec3>&& normals,
-        std::vector<glm::vec2>&& texCoords,
-        std::vector<glm::vec3>&& tangents);
-    TriangleShape(
-        std::vector<glm::uvec3>&& indices,
-        std::vector<glm::vec3>&& positions,
-        std::vector<glm::vec3>&& normals,
-        std::vector<glm::vec2>&& texCoords,
-        std::vector<glm::vec3>&& tangents,
-		const glm::mat4& transform);
-
-    const IntersectGeometry* getIntersectGeometry() const final;
-    const ShadingGeometry* getShadingGeometry() const final;
-
-    unsigned numPrimitives() const final;
-    Bounds getBounds() const final;
-
-    static std::optional<TriangleShape> loadFromFileSingleShape(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
-    static std::vector<TriangleShape> loadFromFile(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
-
-	flatbuffers::Offset<serialization::TriangleMesh> serialize(flatbuffers::FlatBufferBuilder& builder) const;
-    //static std::vector<TriangleShape> loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh);
-    static TriangleShape loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh, const glm::mat4& transformMatrix);
-
-private:
-    static std::optional<TriangleShape> loadFromPlyFile(std::filesystem::path filePath, std::optional<glm::mat4> transform);
-
-    static std::optional<TriangleShape> loadFromFileSingleShape(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals);
-    static TriangleShape createAssimpMesh(const aiScene* scene, const unsigned meshIndex, const glm::mat4& transform, bool ignoreVertexNormals);
-
-private:
-    std::unique_ptr<TriangleIntersectGeometry> m_intersectGeometry;
-    std::unique_ptr<TriangleShadingGeometry> m_shadingGeometry;
-
     Bounds m_bounds;
     unsigned m_numPrimitives;
+
+    std::vector<glm::uvec3> m_indices;
+    std::vector<glm::vec3> m_positions;
+    std::vector<glm::vec3> m_normals;
+    std::vector<glm::vec2> m_texCoords;
 };
 
 }

@@ -58,8 +58,7 @@ RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pScen
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
     for (const auto& pSceneObject : pSceneNode->objects) {
         const Shape* pShape = pSceneObject->pShape.get();
-        const IntersectGeometry* pIntersectGeometry = pShape->getIntersectGeometry();
-        RTCGeometry embreeGeometry = pIntersectGeometry->createEmbreeGeometry(m_embreeDevice);
+        RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(m_embreeDevice);
         rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
         rtcCommitGeometry(embreeGeometry);
 
