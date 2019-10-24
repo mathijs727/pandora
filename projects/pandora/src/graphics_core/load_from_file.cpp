@@ -182,6 +182,16 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         //assert(SUBDIVIDE_LEVEL == 1);
         spdlog::info("Loading geometry");
         std::vector<std::shared_ptr<Shape>> shapes;
+
+        {
+            size_t size = 0;
+            for (const auto& xxx : sceneJson["shapes"])
+                size++;
+            shapes.resize(size);
+		}
+
+        tbb::task_group tg;
+        size_t i = 0;
         for (const auto jsonGeometry : sceneJson["shapes"]) {
             auto geometryType = jsonGeometry["type"].get<std::string>();
             auto geometryFile = basePath / std::filesystem::path(jsonGeometry["filename"].get<std::string>());
@@ -194,32 +204,28 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
                 if (jsonGeometry.find("transform") != jsonGeometry.end()) {
                     glm::mat4 transform = getTransform(jsonGeometry["transform"]);
-                    auto pShape = std::make_shared<TriangleShape>(
-                        TriangleShape::loadSerialized(serialization::GetTriangleMesh(mappedFile.data()), transform));
-                    /*for (int subDiv = 0; subDiv < SUBDIVIDE_LEVEL; subDiv++) {
-                        meshOpt->subdivide();
-                    }*/
-                    shapes.push_back(pShape);
+                    tg.run([i, &shapes, mappedFile = std::move(mappedFile), transform]() {
+                        shapes[i] = std::make_shared<TriangleShape>(
+                            TriangleShape::loadSerialized(serialization::GetTriangleMesh(mappedFile.data()), transform));
+                    });
                 } else {
-                    auto pShape = std::make_shared<TriangleShape>(
-                        TriangleShape::loadSerialized(serialization::GetTriangleMesh(mappedFile.data()), glm::mat4(1.0f)));
-                    /*for (int subDiv = 0; subDiv < SUBDIVIDE_LEVEL; subDiv++) {
-                        meshOpt->subdivide();
-                    }*/
-                    shapes.push_back(pShape);
+                    tg.run([i, &shapes, mappedFile = std::move(mappedFile)]() {
+                        shapes[i] = std::make_shared<TriangleShape>(
+                            TriangleShape::loadSerialized(serialization::GetTriangleMesh(mappedFile.data()), glm::mat4(1.0f)));
+                    });
                 }
             } else {
                 glm::mat4 transform = getTransform(jsonGeometry["transform"]);
-                std::optional<TriangleShape> meshOpt = TriangleShape::loadFromFileSingleShape(geometryFile, transform);
-                ALWAYS_ASSERT(meshOpt.has_value());
+                tg.run([i, &shapes, geometryFile, transform]() {
+                    std::optional<TriangleShape> meshOpt = TriangleShape::loadFromFileSingleShape(geometryFile, transform);
+                    ALWAYS_ASSERT(meshOpt.has_value());
 
-                /*for (int subDiv = 0; subDiv < SUBDIVIDE_LEVEL; subDiv++) {
-                    meshOpt->subdivide();
-                }*/
-
-                shapes.push_back(std::make_shared<TriangleShape>(std::move(*meshOpt)));
+                    shapes[i] = std::make_shared<TriangleShape>(std::move(*meshOpt));
+                });
             }
+            i++;
         }
+        tg.wait();
 
         // Create scene objects
         spdlog::info("Creating scene objects");
@@ -264,7 +270,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
                 if (auto iter = childLink.find("transform"); iter != std::end(childLink)) {
                     sceneBuilder.attachNode(pSceneNode, pChildNode, getTransform(childLink["transform"]));
-				} else {
+                } else {
                     sceneBuilder.attachNode(pSceneNode, pChildNode);
                 }
             }

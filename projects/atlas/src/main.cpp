@@ -19,11 +19,7 @@
 #include <iostream>
 #include <spdlog/spdlog.h>
 #include <xmmintrin.h>
-#ifdef _WIN32
-#include <spdlog/sinks/msvc_sink.h>
-#else
 #include <spdlog/sinks/stdout_color_sinks.h>
-#endif
 #include <tbb/blocked_range2d.h>
 #include <tbb/parallel_for.h>
 
@@ -37,13 +33,9 @@ RenderConfig createStaticScene();
 
 int main(int argc, char** argv)
 {
-#ifdef _WIN32
-    auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
-    spdlog::set_default_logger(vsLogger);
-#else
     auto colorLogger = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("color_logger");
     spdlog::set_default_logger(colorLogger);
-#endif
+    spdlog::set_level(spdlog::level::critical);
 
     spdlog::info("Parsing input");
 
@@ -127,7 +119,7 @@ int main(int argc, char** argv)
             sensor.clear(glm::vec3(0.0f));
         }
 
-#if 1
+#if 0
         integrator.render(camera, sensor, *renderConfig.pScene, accel, samples);
 #else
         samples = 0;
