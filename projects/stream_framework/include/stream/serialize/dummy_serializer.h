@@ -4,10 +4,12 @@
 namespace stream {
 
 class DummyDeserializer : public stream::Deserializer {
+public:
     const void* map(const stream::Allocation&) final { return nullptr; };
     void unmap(const stream::Allocation&) final {};
 };
 class DummySerializer : public stream::Serializer {
+public:
     std::pair<stream::Allocation, void*> allocateAndMap(size_t) final { return { stream::Allocation {}, nullptr }; };
     void unmapPreviousAllocations() final {};
 

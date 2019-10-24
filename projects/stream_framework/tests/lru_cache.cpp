@@ -1,5 +1,5 @@
 #include "stream/cache/lru_cache.h"
-#include "stream/serialize/dummy_serializer.h"
+#include "stream/serialize/in_memory_serializer.h"
 #include <cstddef>
 #include <gsl/span>
 #include <gtest/gtest.h>
@@ -7,41 +7,38 @@
 #include <vector>
 
 struct DummyData : public stream::Evictable {
-    int v;
-    std::vector<int> data;
+    int value;
+    stream::Allocation alloc;
 
-    DummyData(int x, bool initiallyResident)
-        : Evictable(initiallyResident)
-        , v(x)
+    DummyData(int v)
+        : Evictable(true)
+        , value(v)
     {
-        if (initiallyResident)
-            _doMakeResident();
     }
     size_t sizeBytes() const override
     {
-        return sizeof(DummyData) + data.size() * sizeof(int);
+        return sizeof(DummyData);
     }
 
     void serialize(stream::Serializer& serializer)
     {
+        auto [allocation, pInt] = serializer.allocateAndMap(sizeof(int));
+        std::memcpy(pInt, &value, sizeof(int));
+        serializer.unmapPreviousAllocations();
+
+		alloc = allocation;
     }
 
     void doEvict() override
     {
-        data.clear();
-        data.shrink_to_fit();
+        value = -1;
     }
 
-    void doMakeResident(stream::Deserializer&) override
+    void doMakeResident(stream::Deserializer& deserializer) override
     {
-        _doMakeResident();
-    }
-
-    void _doMakeResident()
-    {
-        data.resize(1000);
-        data.shrink_to_fit();
-        std::fill(std::begin(data), std::end(data), v);
+        const int* pInt = reinterpret_cast<const int*>(deserializer.map(alloc));
+        value = *pInt;
+        deserializer.unmap(alloc);
     }
 };
 
@@ -49,12 +46,15 @@ TEST(LRUCache, MakesResident)
 {
     std::vector<DummyData> data;
     for (int i = 0; i < 50; i++)
-        data.push_back(DummyData(i, false));
+        data.push_back(DummyData(i));
 
-    stream::LRUCache::Builder builder { std::make_unique<stream::DummySerializer>() };
+    stream::LRUCache::Builder builder { std::make_unique<stream::InMemorySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
-        builder.registerCacheable(&data[i]);
+        builder.registerCacheable(&data[i], false);
     }
+
+	for (const DummyData& item : data)
+        ASSERT_FALSE(item.isResident());
 
     const size_t maxMemory = data.size() * 750;
     auto cache = builder.build(maxMemory);
@@ -68,9 +68,9 @@ TEST(LRUCache, RegisterAndEvict)
 {
     std::vector<DummyData> data;
     for (int i = 0; i < 50; i++)
-        data.push_back(DummyData(i, false));
+        data.push_back(DummyData(i));
 
-    stream::LRUCache::Builder builder { std::make_unique<stream::DummySerializer>() };
+    stream::LRUCache::Builder builder { std::make_unique<stream::InMemorySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         builder.registerCacheable(&data[i], true);
     }
@@ -109,9 +109,9 @@ TEST(LRUCache, MemoryUsage)
 {
     std::vector<DummyData> data;
     for (int i = 0; i < 50; i++)
-        data.push_back(DummyData(i, false));
+        data.push_back(DummyData(i));
 
-    stream::LRUCache::Builder builder { std::make_unique<stream::DummySerializer>() };
+    stream::LRUCache::Builder builder { std::make_unique<stream::InMemorySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         builder.registerCacheable(&data[i]);
     }
@@ -121,8 +121,7 @@ TEST(LRUCache, MemoryUsage)
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         auto pItem = cache.makeResident(&data[i]);
         ASSERT_TRUE(pItem->isResident());
-        ASSERT_GT(pItem->data.size(), 0);
-        ASSERT_EQ(pItem.get(), &data[i]);
+        ASSERT_EQ(pItem->value, i);
     }
 
     size_t memoryUsed = 0;
@@ -136,9 +135,9 @@ TEST(LRUCache, EvictionHoldItems)
 {
     std::vector<DummyData> data;
     for (int i = 0; i < 50; i++)
-        data.push_back(DummyData(i, false));
+        data.push_back(DummyData(i));
 
-    stream::LRUCache::Builder builder { std::make_unique<stream::DummySerializer>() };
+    stream::LRUCache::Builder builder { std::make_unique<stream::InMemorySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         builder.registerCacheable(&data[i]);
     }

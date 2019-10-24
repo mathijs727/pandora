@@ -3,6 +3,7 @@ add_library(stream
 	"src/cache/lru_cache.cpp"
 	"src/cache/evictable.cpp"
 	"src/serialize/file_serializer.cpp"
+	"src/serialize/in_memory_serializer.cpp"
 	"src/task_graph.cpp")
 
 target_include_directories(stream
