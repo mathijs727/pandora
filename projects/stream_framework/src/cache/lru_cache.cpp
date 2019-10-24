@@ -102,6 +102,8 @@ void LRUCache::Builder::registerCacheable(Evictable* pItem, bool evict)
 {
     m_items.push_back(pItem);
 
+	pItem->serialize(*m_pSerializer);
+
 	if (pItem->isResident())
         pItem->evict();
 }
