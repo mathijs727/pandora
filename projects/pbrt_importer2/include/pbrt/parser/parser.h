@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include <mutex>
 
 // Inspiration taken from pbrt-parser by Ingo Wald:
 // https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Parser.h
@@ -40,7 +41,9 @@ struct PBRTCamera {
 
 struct PBRTIntermediateScene {
     pandora::SceneBuilder sceneBuilder;
-    //stream::Cache geometryCache;
+
+	std::mutex geometryCacheMutex;
+    stream::CacheBuilder* pGeometryCacheBuilder;
 
     std::vector<PBRTCamera> cameras;
     glm::ivec2 resolution;
@@ -62,7 +65,7 @@ class Parser {
 public:
     Parser(std::filesystem::path basePath, bool loadTextures = true);
 
-    pandora::RenderConfig parse(std::filesystem::path file);
+    pandora::RenderConfig parse(std::filesystem::path file, stream::CacheBuilder* pGeometryCacheBuilder = nullptr);
 
 private:
     // Parse everything in WorldBegin/WorldEnd

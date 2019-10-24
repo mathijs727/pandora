@@ -98,9 +98,12 @@ LRUCache::Builder::Builder(std::unique_ptr<Serializer>&& pSerializer)
 {
 }
 
-void LRUCache::Builder::registerCacheable(Evictable* pItem)
+void LRUCache::Builder::registerCacheable(Evictable* pItem, bool evict)
 {
     m_items.push_back(pItem);
+
+	if (pItem->isResident())
+        pItem->evict();
 }
 
 LRUCache LRUCache::Builder::build(size_t maxMemory)

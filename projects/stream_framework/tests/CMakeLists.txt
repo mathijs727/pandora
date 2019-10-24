@@ -1,6 +1,5 @@
 add_executable(stream_test
-	#"cache.cpp"
-	"evict_cache.cpp"
+	"lru_cache.cpp"
 	"task_graph.cpp"
 	"file_serializer.cpp"
 	"main.cpp")

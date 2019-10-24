@@ -11,13 +11,13 @@ public:
     class Builder;
 
     template <typename T>
-    CachedPtr<T> makeResident(T* pEvictable);
+    CachedPtr<T> makeResident(T* pEvictable, bool evict = false);
 
 private:
     DummyCache();
 };
 
-class DummyCache::Builder : CacheBuilder {
+class DummyCache::Builder : public CacheBuilder {
 public:
     void registerCacheable(Evictable* pItem);
 
@@ -25,7 +25,7 @@ public:
 };
 
 template <typename T>
-inline CachedPtr<T> DummyCache::makeResident(T* pEvictable)
+inline CachedPtr<T> DummyCache::makeResident(T* pEvictable, bool)
 {
     return CachedPtr<T>(pEvictable, nullptr);
 }

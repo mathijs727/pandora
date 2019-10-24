@@ -64,7 +64,26 @@ TEST(LRUCache, MakesResident)
     }
 }
 
-TEST(LRUCache, ManualEvictFail)
+TEST(LRUCache, RegisterAndEvict)
+{
+    std::vector<DummyData> data;
+    for (int i = 0; i < 50; i++)
+        data.push_back(DummyData(i, false));
+
+    stream::LRUCache::Builder builder { std::make_unique<stream::DummySerializer>() };
+    for (int i = 0; i < static_cast<int>(data.size()); i++) {
+        builder.registerCacheable(&data[i], true);
+    }
+
+    const size_t maxMemory = data.size() * 750;
+    auto cache = builder.build(maxMemory);
+    for (int i = 0; i < static_cast<int>(data.size()); i++) {
+        auto pSharedOwner = cache.makeResident(&data[i]);
+        ASSERT_TRUE(pSharedOwner->isResident());
+    }
+}
+
+/*TEST(LRUCache, ManualEvictFail)
 {
     std::vector<DummyData> data;
     for (int i = 0; i < 50; i++) {
@@ -84,7 +103,7 @@ TEST(LRUCache, ManualEvictFail)
         item.evict();
 
     ASSERT_FALSE(cache.checkResidencyIsValid());
-}
+}*/
 
 TEST(LRUCache, MemoryUsage)
 {

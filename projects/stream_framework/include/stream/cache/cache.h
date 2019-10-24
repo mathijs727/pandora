@@ -6,7 +6,7 @@ namespace stream {
 
 class CacheBuilder {
 public:
-    virtual void registerCacheable(Evictable* pItem) = 0;
+    virtual void registerCacheable(Evictable* pItem, bool evict = false) = 0;
 };
 
 }

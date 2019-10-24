@@ -46,11 +46,11 @@ private:
     std::unordered_map<Evictable*, uint32_t> m_pointerToItemIndex;
 };
 
-class LRUCache::Builder : CacheBuilder {
+class LRUCache::Builder : public CacheBuilder {
 public:
     Builder(std::unique_ptr<stream::Serializer>&& pSerializer);
 
-    void registerCacheable(Evictable* pItem);
+    void registerCacheable(Evictable* pItem, bool evict = false);
 
     LRUCache build(size_t maxMemory);
 
