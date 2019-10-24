@@ -1,4 +1,5 @@
 #pragma once
+#include "stream/cache/cache.h"
 #include "stream/cache/cached_ptr.h"
 #include "stream/cache/evictable.h"
 #include "stream/cache/handle.h"
@@ -45,12 +46,11 @@ private:
     std::unordered_map<Evictable*, uint32_t> m_pointerToItemIndex;
 };
 
-class LRUCache::Builder {
+class LRUCache::Builder : CacheBuilder {
 public:
     Builder(std::unique_ptr<stream::Serializer>&& pSerializer);
 
-    template <typename T>
-    void registerCacheable(T* pItem);
+    void registerCacheable(Evictable* pItem);
 
     LRUCache build(size_t maxMemory);
 
@@ -92,12 +92,6 @@ inline CachedPtr<T> LRUCache::makeResident(T* pEvictable)
         }
         return result;
     }
-}
-
-template <typename T>
-inline void LRUCache::Builder::registerCacheable(T* pItem)
-{
-    m_items.push_back(pItem);
 }
 
 }

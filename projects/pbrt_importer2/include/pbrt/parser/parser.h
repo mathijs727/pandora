@@ -22,6 +22,7 @@
 #include <pandora/graphics_core/sensor.h>
 #include <pandora/textures/image_texture.h>
 #include <stack>
+#include <stream/cache/lru_cache.h>
 #include <tbb/task_group.h>
 #include <tuple>
 #include <unordered_map>
@@ -39,6 +40,7 @@ struct PBRTCamera {
 
 struct PBRTIntermediateScene {
     pandora::SceneBuilder sceneBuilder;
+    //stream::Cache geometryCache;
 
     std::vector<PBRTCamera> cameras;
     glm::ivec2 resolution;

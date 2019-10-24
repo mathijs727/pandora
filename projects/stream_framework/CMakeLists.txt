@@ -1,4 +1,5 @@
 add_library(stream
+	"src/cache/dummy_cache.cpp"
 	"src/cache/lru_cache.cpp"
 	"src/cache/evictable.cpp"
 	"src/serialize/file_serializer.cpp"

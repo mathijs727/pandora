@@ -22,6 +22,7 @@ public:
 
 private:
     friend class LRUCache;
+    friend class DummyCache;
     CachedPtr(T* pItem, std::atomic_int* pRefCount);
 
 private:

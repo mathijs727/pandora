@@ -98,6 +98,11 @@ LRUCache::Builder::Builder(std::unique_ptr<Serializer>&& pSerializer)
 {
 }
 
+void LRUCache::Builder::registerCacheable(Evictable* pItem)
+{
+    m_items.push_back(pItem);
+}
+
 LRUCache LRUCache::Builder::build(size_t maxMemory)
 {
     return LRUCache(m_pSerializer->createDeserializer(), m_items, maxMemory);
