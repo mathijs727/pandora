@@ -7,21 +7,23 @@
 #include "pandora/materials/matte_material.h"
 #include "pandora/shapes/triangle.h"
 #include "pandora/textures/constant_texture.h"
+#include "pbrt/pbrt_importer.h"
 #include "stream/task_graph.h"
 #include "ui/fps_camera_controls.h"
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
-#include "pbrt/pbrt_importer.h"
 
 #include "pandora/graphics_core/load_from_file.h"
+#include "stream/cache/lru_cache.h"
+#include "stream/serialize/in_memory_serializer.h"
 #include <boost/program_options.hpp>
 #include <chrono>
 #include <iostream>
-#include <spdlog/spdlog.h>
-#include <xmmintrin.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 #include <tbb/blocked_range2d.h>
 #include <tbb/parallel_for.h>
+#include <xmmintrin.h>
 
 using namespace pandora;
 using namespace atlas;
@@ -81,9 +83,24 @@ int main(int argc, char** argv)
     g_stats.config.spp = vm["spp"].as<int>();
 
     spdlog::info("Loading scene");
+    stream::LRUCache::Builder cacheBuilder { std::make_unique<stream::InMemorySerializer>() };
+
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
-    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, false) : loadFromFile(sceneFilePath);
+    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false) : loadFromFile(sceneFilePath);
     const glm::ivec2 resolution = renderConfig.resolution;
+
+    stream::LRUCache geometryCache = cacheBuilder.build(1024 * 1024 * 1024);
+
+    std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
+        for (const auto& pSceneObject : pSceneNode->objects) {
+            geometryCache.makeResident(pSceneObject->pShape.get());
+        }
+
+        for (const auto& [pChild, _] : pSceneNode->children) {
+            makeShapeResident(pChild);
+        }
+    };
+    makeShapeResident(renderConfig.pScene->pRoot);
 
     Window myWindow(resolution.x, resolution.y, "Atlas - Pandora viewer");
     FramebufferGL frameBuffer(resolution.x, resolution.y);

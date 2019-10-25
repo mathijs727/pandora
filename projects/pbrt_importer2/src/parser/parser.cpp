@@ -18,9 +18,9 @@ Parser::Parser(std::filesystem::path basePath, bool loadTextures)
 {
 }
 
-pandora::RenderConfig Parser::parse(std::filesystem::path file, stream::CacheBuilder* pGeometryCacheBuilder = nullptr)
+pandora::RenderConfig Parser::parse(std::filesystem::path file, stream::CacheBuilder* pGeometryCacheBuilder)
 {
-	// Set a default material
+    // Set a default material
     m_graphicsState.pMaterial = std::make_shared<pandora::MatteMaterial>(
         m_textureCache.getConstantTexture(glm::vec3(0.0f)),
         m_textureCache.getConstantTexture(0.0f));
@@ -336,10 +336,11 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, Params&& params)
                 transform);
         }
 
-		if (scene.pGeometryCacheBuilder) {
+        // Cache builders & serializers are not thread-safe so serializing/storing the geometry should happen sequentially.
+        // TODO: make cache builders & serializers thread-safe because this lock may cause a serious bottleneck.
+        if (scene.pGeometryCacheBuilder) {
             std::unique_lock l { scene.geometryCacheMutex };
-
-			scene.pGeometryCacheBuilder->registerCacheable(pShape.get());
+            scene.pGeometryCacheBuilder->registerCacheable(pShape.get(), true);
         }
 
         pSceneObject->pShape = pShape;
@@ -367,7 +368,7 @@ void Parser::parsePlymesh(PBRTIntermediateScene& scene, Params&& params)
     // Make a copy of the lexer source so it doesn't immediately get deleted when
     // an include statement is encountered. This is a trade-off so we can keep working
     // with std::string_view's instead of making copies.
-    m_asyncWorkTaskGroup.run([basePath = m_basePath, transform = m_currentTransform, pSceneObject, params = std::move(params), pLexerSource = m_pCurrentLexerSource]() {
+    m_asyncWorkTaskGroup.run([basePath = m_basePath, transform = m_currentTransform, pSceneObject, params = std::move(params), pLexerSource = m_pCurrentLexerSource, &scene]() {
         // Load mesh
         auto filePath = basePath / params.get<std::string_view>("filename");
         std::optional<pandora::TriangleShape> shapeOpt;
@@ -380,6 +381,14 @@ void Parser::parsePlymesh(PBRTIntermediateScene& scene, Params&& params)
             return;
         }
         auto pShape = std::make_shared<pandora::TriangleShape>(std::move(*shapeOpt));
+
+        // Cache builders & serializers are not thread-safe so serializing/storing the geometry should happen sequentially.
+        // TODO: make cache builders & serializers thread-safe because this lock may cause a serious bottleneck.
+        if (scene.pGeometryCacheBuilder) {
+            std::unique_lock l { scene.geometryCacheMutex };
+            scene.pGeometryCacheBuilder->registerCacheable(pShape.get(), true);
+        }
+
         pSceneObject->pShape = pShape;
     });
 }
