@@ -19,7 +19,7 @@ public:
     struct AnyRayState {
         glm::ivec2 pixel;
     };
-    using HitTaskHandle = tasking::TaskHandle<std::tuple<Ray, RayHit, RayState>>;
+    using HitTaskHandle = tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, RayState>>;
     using MissTaskHandle = tasking::TaskHandle<std::tuple<Ray, RayState>>;
     using AnyHitTaskHandle = tasking::TaskHandle<std::tuple<Ray, AnyRayState>>;
     using AnyMissTaskHandle = tasking::TaskHandle<std::tuple<Ray, AnyRayState>>;

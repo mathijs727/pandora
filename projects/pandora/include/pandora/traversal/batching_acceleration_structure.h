@@ -11,25 +11,23 @@
 
 namespace pandora {
 
-class EmbreeAccelerationStructureBuilder;
+class BatchingAccelerationStructureBuilder;
 
 template <typename HitRayState, typename AnyHitRayState>
-class EmbreeAccelerationStructure {
+class BatchingAccelerationStructure {
 public:
-    ~EmbreeAccelerationStructure();
+    ~BatchingAccelerationStructure();
 
     void intersect(const Ray& ray, const HitRayState& state) const;
     void intersectAny(const Ray& ray, const AnyHitRayState& state) const;
-
-    std::optional<SurfaceInteraction> intersectDebug(const Ray& ray) const;
 
 private:
     void intersectKernel(gsl::span<const std::tuple<Ray, HitRayState>> data, std::pmr::memory_resource* pMemoryResource);
     void intersectAnyKernel(gsl::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource);
 
 private:
-    friend class EmbreeAccelerationStructureBuilder;
-    EmbreeAccelerationStructure(
+    friend class BatchingAccelerationStructureBuilder;
+    BatchingAccelerationStructure(
         RTCDevice embreeDevice, RTCScene embreeScene,
         tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
@@ -49,12 +47,12 @@ private:
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> m_onAnyMissTask;
 };
 
-class EmbreeAccelerationStructureBuilder {
+class BatchingAccelerationStructureBuilder {
 public:
-    EmbreeAccelerationStructureBuilder(const Scene& scene, tasking::TaskGraph* pTaskGraph);
+    BatchingAccelerationStructureBuilder(Scene* pScene, tasking::TaskGraph* pTaskGraph);
 
     template <typename HitRayState, typename AnyHitRayState>
-    EmbreeAccelerationStructure<HitRayState, AnyHitRayState> build(
+    BatchingAccelerationStructure<HitRayState, AnyHitRayState> build(
         tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask);
 
@@ -63,6 +61,7 @@ private:
     static void verifyInstanceDepth(const SceneNode* pNode, int depth = 0);
 
 private:
+    Scene* m_pScene;
     RTCDevice m_embreeDevice;
     RTCScene m_embreeScene;
     std::unordered_map<const SceneNode*, RTCScene> m_sceneCache;
@@ -71,7 +70,7 @@ private:
 };
 
 template <typename HitRayState, typename AnyHitRayState>
-inline std::optional<SurfaceInteraction> EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectDebug(const Ray& ray) const
+inline std::optional<SurfaceInteraction> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectDebug(const Ray& ray) const
 {
     RTCIntersectContext context {};
 
@@ -142,15 +141,15 @@ inline std::optional<SurfaceInteraction> EmbreeAccelerationStructure<HitRayState
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline EmbreeAccelerationStructure<HitRayState, AnyHitRayState> EmbreeAccelerationStructureBuilder::build(
+inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccelerationStructureBuilder::build(
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask)
 {
-    return EmbreeAccelerationStructure(m_embreeDevice, m_embreeScene, hitTask, missTask, anyHitTask, anyMissTask, m_pTaskGraph);
+    return BatchingAccelerationStructure(m_embreeDevice, m_embreeScene, hitTask, missTask, anyHitTask, anyMissTask, m_pTaskGraph);
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::EmbreeAccelerationStructure(
+inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingAccelerationStructure(
     RTCDevice embreeDevice, RTCScene embreeScene,
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
@@ -172,26 +171,26 @@ inline EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::EmbreeAccelerat
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::~EmbreeAccelerationStructure()
+inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::~BatchingAccelerationStructure()
 {
     rtcReleaseScene(m_embreeScene);
     rtcReleaseDevice(m_embreeDevice);
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersect(const Ray& ray, const HitRayState& state) const
+inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersect(const Ray& ray, const HitRayState& state) const
 {
     m_pTaskGraph->enqueue(m_intersectTask, std::tuple { ray, state });
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectAny(const Ray& ray, const AnyHitRayState& state) const
+inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectAny(const Ray& ray, const AnyHitRayState& state) const
 {
     m_pTaskGraph->enqueue(m_intersectAnyTask, std::tuple { ray, state });
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectKernel(
+inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectKernel(
     gsl::span<const std::tuple<Ray, HitRayState>> data, std::pmr::memory_resource* pMemoryResource)
 {
     RTCIntersectContext context {};
@@ -261,7 +260,7 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectAnyKernel(
+inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectAnyKernel(
     gsl::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource)
 {
     RTCIntersectContext context {};

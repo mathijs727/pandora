@@ -15,18 +15,13 @@ PathIntegrator::PathIntegrator(
     tasking::TaskGraph* pTaskGraph, int maxDepth, int spp, LightStrategy strategy)
     : SamplerIntegrator(pTaskGraph, maxDepth, spp, strategy)
     , m_hitTask(
-          pTaskGraph->addTask<std::tuple<Ray, RayHit, RayState>>(
-              [this](gsl::span<const std::tuple<Ray, RayHit, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
-                  for (const auto& [ray, rayHit, state] : hits) {
-                      auto pShape = rayHit.pSceneObject->pShape.get();
-                      auto pMaterial = rayHit.pSceneObject->pMaterial;
+          pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, RayState>>(
+              [this](gsl::span<const std::tuple<Ray, SurfaceInteraction, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
+                  for (auto [ray, si, state] : hits) {
 
                       // TODO: make this use pMemoryResource
                       MemoryArena memoryArena;
-                      auto si = pShape->fillSurfaceInteraction(ray, rayHit);
-                      pMaterial->computeScatteringFunctions(si, memoryArena);
-                      si.pSceneObject = rayHit.pSceneObject;
-                      si.localToWorld = rayHit.transform;
+                      si.computeScatteringFunctions(ray, memoryArena);
                       this->rayHit(ray, si, state, memoryArena);
                   }
               }))

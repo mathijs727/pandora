@@ -65,6 +65,12 @@ void SurfaceInteraction::setShadingGeometry(const glm::vec3& shadingNormal, cons
     shading.st = textureCoords;
 }
 
+void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, MemoryArena& arena)
+{
+    // TODO: compute ray differentials
+    pSceneObject->pMaterial->computeScatteringFunctions(*this, arena);
+    assert(pBSDF);
+}
 
 }
 

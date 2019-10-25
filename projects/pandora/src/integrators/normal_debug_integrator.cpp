@@ -10,13 +10,9 @@ NormalDebugIntegrator::NormalDebugIntegrator(
     tasking::TaskGraph* pTaskGraph)
     : m_pTaskGraph(pTaskGraph)
     , m_hitTask(
-          pTaskGraph->addTask<std::tuple<Ray, RayHit, RayState>>(
-              [this](gsl::span<const std::tuple<Ray, RayHit, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
-                  for (const auto& [ray, rayHit, state] : hits) {
-                      SurfaceInteraction si;
-                      si.pSceneObject = rayHit.pSceneObject;
-                      si.normal = rayHit.geometricNormal;
-                      si.uv = rayHit.geometricUV;
+          pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, RayState>>(
+              [this](gsl::span<const std::tuple<Ray, SurfaceInteraction, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
+                  for (const auto& [ray, si, state] : hits) {
                       this->rayHit(ray, si, state);
                   }
               }))

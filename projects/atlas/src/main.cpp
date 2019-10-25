@@ -136,7 +136,7 @@ int main(int argc, char** argv)
             sensor.clear(glm::vec3(0.0f));
         }
 
-#if 0
+#if 1
         integrator.render(camera, sensor, *renderConfig.pScene, accel, samples);
 #else
         samples = 0;
@@ -148,11 +148,10 @@ int main(int argc, char** argv)
             for (int y = subRange.cols().begin(); y < subRange.cols().end(); y++) {
                 for (int x = subRange.rows().begin(); x < subRange.rows().end(); x++) {
                     Ray cameraRay = renderConfig.camera->generateRay(glm::vec2(x, y) / fResolution);
-                    auto hitOpt = accel.intersectFast(cameraRay);
-                    if (hitOpt) {
-                        const auto si = hitOpt->pSceneObject->pShape->fillSurfaceInteraction(cameraRay, *hitOpt);
-                        const float cos = glm::dot(si.shading.normal, -cameraRay.direction);
-                        //const float cos = glm::abs(glm::dot(hitOpt->geometricNormal, -cameraRay.direction));
+                    auto siOpt = accel.intersectDebug(cameraRay);
+                    if (siOpt) {
+                        const float cos = glm::dot(siOpt->shading.normal, -cameraRay.direction);
+                        //const float cos = glm::abs(glm::dot(siOpt->geometricNormal, -cameraRay.direction));
                         sensor.addPixelContribution(glm::ivec2 { x, y }, glm::vec3(cos));
                     }
                 }
