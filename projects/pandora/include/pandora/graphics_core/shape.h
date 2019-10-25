@@ -17,6 +17,7 @@ public:
 
     virtual unsigned numPrimitives() const = 0;
     virtual Bounds getBounds() const = 0;
+    virtual Bounds getPrimitiveBounds(unsigned primitiveID) const = 0;
 
     virtual RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const = 0;
 

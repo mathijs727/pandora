@@ -1,5 +1,6 @@
 #pragma once
 #include "pandora/graphics_core/pandora.h"
+#include "stream/cache/lru_cache.h"
 #include "stream/task_graph.h"
 #include <embree3/rtcore.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -34,6 +35,10 @@ private:
         tasking::TaskGraph* pTaskGraph);
 
 private:
+    struct BatchingPoint {
+        Scene subScene;
+    };
+
     RTCDevice m_embreeDevice;
     RTCScene m_embreeScene;
 
@@ -49,7 +54,7 @@ private:
 
 class BatchingAccelerationStructureBuilder {
 public:
-    BatchingAccelerationStructureBuilder(Scene* pScene, tasking::TaskGraph* pTaskGraph);
+    BatchingAccelerationStructureBuilder(stream::LRUCache* pcache, Scene* pScene, tasking::TaskGraph* pTaskGraph);
 
     template <typename HitRayState, typename AnyHitRayState>
     BatchingAccelerationStructure<HitRayState, AnyHitRayState> build(
@@ -57,6 +62,8 @@ public:
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask);
 
 private:
+    void splitLargeSceneObjectsRecurse(SceneNode* pNode, unsigned maxSize);
+
     RTCScene buildRecurse(const SceneNode* pNode);
     static void verifyInstanceDepth(const SceneNode* pNode, int depth = 0);
 
@@ -68,77 +75,6 @@ private:
 
     tasking::TaskGraph* m_pTaskGraph;
 };
-
-template <typename HitRayState, typename AnyHitRayState>
-inline std::optional<SurfaceInteraction> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectDebug(const Ray& ray) const
-{
-    RTCIntersectContext context {};
-
-    RTCRayHit embreeRayHit;
-    embreeRayHit.ray.org_x = ray.origin.x;
-    embreeRayHit.ray.org_y = ray.origin.y;
-    embreeRayHit.ray.org_z = ray.origin.z;
-    embreeRayHit.ray.dir_x = ray.direction.x;
-    embreeRayHit.ray.dir_y = ray.direction.y;
-    embreeRayHit.ray.dir_z = ray.direction.z;
-
-    embreeRayHit.ray.tnear = ray.tnear;
-    embreeRayHit.ray.tfar = ray.tfar;
-
-    embreeRayHit.ray.time = 0.0f;
-    embreeRayHit.ray.mask = 0xFFFFFFFF;
-    embreeRayHit.ray.id = 0;
-    embreeRayHit.ray.flags = 0;
-    embreeRayHit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
-    for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
-        embreeRayHit.hit.instID[i] = RTC_INVALID_GEOMETRY_ID;
-    }
-    rtcIntersect1(m_embreeScene, &context, &embreeRayHit);
-
-    if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
-        std::optional<glm::mat4> transform;
-        const SceneObject* pSceneObject { nullptr };
-
-        if (embreeRayHit.hit.instID[0] == 0) {
-            pSceneObject = reinterpret_cast<const SceneObject*>(
-                rtcGetGeometryUserData(rtcGetGeometry(m_embreeScene, embreeRayHit.hit.geomID)));
-        } else {
-            glm::mat4 accumulatedTransform { 1.0f };
-            RTCScene scene = m_embreeScene;
-            for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
-                unsigned geomID = embreeRayHit.hit.instID[i];
-                if (geomID == RTC_INVALID_GEOMETRY_ID)
-                    break;
-
-                RTCGeometry geometry = rtcGetGeometry(scene, geomID);
-
-                glm::mat4 localTransform;
-                rtcGetGeometryTransform(geometry, 0.0f, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR, glm::value_ptr(localTransform));
-                accumulatedTransform *= localTransform;
-
-                scene = reinterpret_cast<RTCScene>(rtcGetGeometryUserData(geometry));
-            }
-
-            transform = accumulatedTransform;
-            pSceneObject = reinterpret_cast<const SceneObject*>(
-                rtcGetGeometryUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
-        }
-
-        RayHit hit;
-        hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
-        hit.geometricNormal = glm::normalize(glm::dot(-ray.direction, hit.geometricNormal) > 0.0f ? hit.geometricNormal : -hit.geometricNormal);
-        hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
-        hit.primitiveID = embreeRayHit.hit.primID;
-
-        const auto* pShape = pSceneObject->pShape.get();
-        auto si = pShape->fillSurfaceInteraction(ray, hit);
-        si.pSceneObject = pSceneObject;
-        si.localToWorld = transform;
-        return si;
-    } else {
-        return {};
-    }
-}
 
 template <typename HitRayState, typename AnyHitRayState>
 inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccelerationStructureBuilder::build(

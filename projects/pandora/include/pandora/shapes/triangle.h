@@ -31,6 +31,9 @@ public:
     // Shape
     unsigned numPrimitives() const final;
     Bounds getBounds() const final;
+    Bounds getPrimitiveBounds(unsigned primitiveID) const final;
+
+	TriangleShape subMesh(gsl::span<const unsigned> primitives) const;
 
     RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const final;
 
