@@ -19,6 +19,7 @@ protected:
 
 private:
     friend class LRUCache;
+    friend class DummyCache;
     void evict();
     void makeResident(Deserializer& deserializer);
 

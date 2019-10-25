@@ -14,12 +14,12 @@ public:
     CachedPtr<T> makeResident(T* pEvictable, bool evict = false);
 
 private:
-    DummyCache();
+    DummyCache() = default;
 };
 
 class DummyCache::Builder : public CacheBuilder {
 public:
-    void registerCacheable(Evictable* pItem);
+    void registerCacheable(Evictable* pItem, bool evict = false) final;
 
     DummyCache build();
 };
