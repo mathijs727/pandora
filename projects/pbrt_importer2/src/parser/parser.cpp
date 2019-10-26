@@ -55,15 +55,15 @@ pandora::RenderConfig Parser::parse(std::filesystem::path file, stream::CacheBui
 void Parser::parseWorld(PBRTIntermediateScene& scene)
 {
     while (true) {
+        Token token = next();
+        assert(token);
+        assert(token.type == TokenType::LITERAL);
+
         // Make a copy of the lexer source so it doesn't immediately get deleted when
         // an include statement is encountered. This is a trade-off so we can keep working
         // with std::string_view's instead of making copies.
         auto pLexerSource = m_pCurrentLexerSource;
         (void)pLexerSource;
-
-        Token token = next();
-        assert(token);
-        assert(token.type == TokenType::LITERAL);
 
         if (token == "WorldEnd")
             break;
@@ -170,15 +170,15 @@ void Parser::parseWorld(PBRTIntermediateScene& scene)
 void Parser::parseScene(PBRTIntermediateScene& scene)
 {
     while (peek()) {
+        Token token = next();
+        if (!token)
+            break;
+
         // Make a copy of the lexer source so it doesn't immediately get deleted when
         // an include statement is encountered. This is a trade-off so we can keep working
         // with std::string_view's instead of making copies.
         auto pLexerSource = m_pCurrentLexerSource;
         (void)pLexerSource;
-
-        Token token = next();
-        if (!token)
-            break;
 
         if (token.type != TokenType::LITERAL) {
             spdlog::error("Unexpected non-literal token type \"{}\" with text \"{}\"", token.type, token.text);
@@ -252,7 +252,7 @@ void Parser::parseLightSource(PBRTIntermediateScene& scene)
         const glm::vec3 L = params.get<glm::vec3>("L", glm::vec3(1));
 
         std::shared_ptr<pandora::Texture<glm::vec3>> pTexture;
-        if (params.contains("mapname")) {
+        if (params.contains("mapname") && m_loadTextures) {
             pTexture = m_textureCache.getImageTexture<glm::vec3>(m_basePath / params.get<std::string_view>("mapname"));
         } else {
             pTexture = m_textureCache.getConstantTexture(glm::vec3(1.0f));
@@ -275,7 +275,7 @@ void Parser::parseShape(PBRTIntermediateScene& scene)
     } else if (shapeType == "trianglemesh") {
         parseTriangleShape(scene, std::move(params));
     } else {
-        spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
+        // spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
     }
 }
 
@@ -408,7 +408,10 @@ void Parser::parseTexture()
         } else if (mapType == "imagemap" && m_loadTextures) {
             std::string_view fileName = params.get<std::string_view>("filename");
             std::filesystem::path filePath = m_basePath / fileName;
-            pTexture = m_textureCache.getImageTexture<float>(filePath);
+            if (m_loadTextures)
+                pTexture = m_textureCache.getImageTexture<float>(filePath);
+            else
+                pTexture = m_textureCache.getConstantTexture(1.0f);
         } else {
             spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
             pTexture = m_textureCache.getConstantTexture(1.0f);
@@ -422,7 +425,10 @@ void Parser::parseTexture()
         } else if (mapType == "imagemap" && m_loadTextures) {
             std::string_view fileName = params.get<std::string_view>("filename");
             std::filesystem::path filePath = m_basePath / fileName;
-            pTexture = m_textureCache.getImageTexture<glm::vec3>(filePath);
+            if (m_loadTextures)
+                pTexture = m_textureCache.getImageTexture<glm::vec3>(filePath);
+            else
+                pTexture = m_textureCache.getConstantTexture(glm::vec3(1.0f));
         } else {
             spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
             pTexture = m_textureCache.getConstantTexture(glm::vec3(1.0f));
