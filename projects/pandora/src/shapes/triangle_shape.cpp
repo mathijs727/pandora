@@ -195,6 +195,17 @@ Bounds TriangleShape::getBounds() const
     return m_bounds;
 }
 
+Bounds TriangleShape::getPrimitiveBounds(unsigned primitiveID) const
+{
+    const glm::uvec3 triangle = m_indices[primitiveID];
+
+    Bounds bounds;
+    bounds.grow(m_positions[triangle.x]);
+    bounds.grow(m_positions[triangle.y]);
+    bounds.grow(m_positions[triangle.z]);
+    return bounds;
+}
+
 TriangleShape TriangleShape::createAssimpMesh(const aiScene* scene, const unsigned meshIndex, const glm::mat4& matrix, bool ignoreVertexNormals)
 {
     const aiMesh* mesh = scene->mMeshes[meshIndex];
