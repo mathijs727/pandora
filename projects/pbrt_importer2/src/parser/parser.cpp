@@ -413,7 +413,7 @@ void Parser::parseTexture()
             else
                 pTexture = m_textureCache.getConstantTexture(1.0f);
         } else {
-            spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
+            //spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
             pTexture = m_textureCache.getConstantTexture(1.0f);
         }
         m_namedFloatTextures[std::string(textureName)] = pTexture;
@@ -430,7 +430,7 @@ void Parser::parseTexture()
             else
                 pTexture = m_textureCache.getConstantTexture(glm::vec3(1.0f));
         } else {
-            spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
+            //spdlog::warn("Replacing texture with unsupported map type \"{}\" by constant texture", mapType);
             pTexture = m_textureCache.getConstantTexture(glm::vec3(1.0f));
         }
         m_namedVec3Textures[std::string(textureName)] = pTexture;

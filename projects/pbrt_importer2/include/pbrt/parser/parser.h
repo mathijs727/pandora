@@ -29,6 +29,7 @@
 #include <variant>
 #include <vector>
 #include <mutex>
+#include <EASTL/bonus/fixed_ring_buffer.h>
 
 // Inspiration taken from pbrt-parser by Ingo Wald:
 // https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Parser.h
@@ -111,7 +112,8 @@ private:
     std::stack<std::pair<std::shared_ptr<mio::mmap_source>, SIMDLexer>> m_lexerStack;
     std::shared_ptr<mio::mmap_source> m_pCurrentLexerSource;
     SIMDLexer m_currentLexer;
-    std::deque<Token> m_peekQueue;
+    //std::deque<Token> m_peekQueue;
+    eastl::fixed_ring_buffer<Token, 8> m_peekQueue { 8 };
 
     tbb::task_group m_asyncWorkTaskGroup;
 
@@ -256,7 +258,7 @@ inline std::vector<T> Parser::parseParamArray()
     assert(listBeginToken.type == TokenType::LIST_BEGIN);
 
     std::vector<T> res;
-    if constexpr (std::is_same_v<T, int> || std::is_same_v<T, float>) {
+    /*if constexpr (std::is_same_v<T, int> || std::is_same_v<T, float>) {
         eastl::fixed_vector<std::string_view, 8> tokenStrings;
         while (peek().type != TokenType::LIST_END) {
             tokenStrings.emplace_back(next().text);
@@ -306,7 +308,7 @@ inline std::vector<T> Parser::parseParamArray()
         } else {
             std::transform(std::execution::seq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
         }
-    } else {
+    } else*/ {
         while (peek().type != TokenType::LIST_END) {
             res.push_back(parse<T>());
         }

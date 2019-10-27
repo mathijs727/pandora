@@ -86,7 +86,7 @@ int main(int argc, char** argv)
     stream::LRUCache::Builder cacheBuilder { std::make_unique<stream::InMemorySerializer>() };
 
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
-    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false) : loadFromFile(sceneFilePath);
+    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, nullptr, false) : loadFromFile(sceneFilePath);
     const glm::ivec2 resolution = renderConfig.resolution;
 
     stream::LRUCache geometryCache = cacheBuilder.build(1024 * 1024 * 1024);
