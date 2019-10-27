@@ -1,9 +1,11 @@
 #pragma once
 #include "crack_atof.h"
+#include "crack_atof_avx2.h"
 #include "params.h"
 #include "pbrt/lexer/lexer.h"
 #include "pbrt/lexer/simd_lexer.h"
 #include "texture_cache.h"
+#include <EASTL/bonus/fixed_ring_buffer.h>
 #include <EASTL/fixed_hash_map.h>
 #include <EASTL/fixed_vector.h>
 #include <algorithm>
@@ -15,6 +17,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <memory>
 #include <mio/mmap.hpp>
+#include <mutex>
 #include <pandora/graphics_core/load_from_file.h>
 #include <pandora/graphics_core/pandora.h>
 #include <pandora/graphics_core/perspective_camera.h>
@@ -28,8 +31,6 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
-#include <mutex>
-#include <EASTL/bonus/fixed_ring_buffer.h>
 
 // Inspiration taken from pbrt-parser by Ingo Wald:
 // https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Parser.h
@@ -43,7 +44,7 @@ struct PBRTCamera {
 struct PBRTIntermediateScene {
     pandora::SceneBuilder sceneBuilder;
 
-	std::mutex geometryCacheMutex;
+    std::mutex geometryCacheMutex;
     stream::CacheBuilder* pGeometryCacheBuilder;
 
     std::vector<PBRTCamera> cameras;
@@ -167,7 +168,11 @@ inline float Parser::parse<float>(std::string_view tokenText) noexcept
     //float result;
     //std::from_chars(tokenText.data(), tokenText.data() + tokenText.length(), result);
     //return result;
-    return static_cast<float>(crackAtof(tokenText));
+
+    //return static_cast<float>(crackAtof(tokenText));
+
+	// AVX2 port of crackAtof is even faster (WARNING: does not support exponential numbers (i.e. 10e5))
+    return crack_atof_avx2(tokenText);
 }
 
 template <>
@@ -308,7 +313,8 @@ inline std::vector<T> Parser::parseParamArray()
         } else {
             std::transform(std::execution::seq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
         }
-    } else*/ {
+    } else*/
+    {
         while (peek().type != TokenType::LIST_END) {
             res.push_back(parse<T>());
         }
