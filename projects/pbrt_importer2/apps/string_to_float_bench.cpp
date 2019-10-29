@@ -26,7 +26,7 @@ void testValidity()
 		const float actualValue = dist(e);
 		std::string string = std::to_string(actualValue);
 
-		const float parsedValue = crack_atof_sse(string);
+		const float parsedValue = crack_atof_avx512(string);
 		assert(std::abs(parsedValue - actualValue) < 0.001f);
 	}
 }
@@ -43,9 +43,9 @@ int main()
 		std::string_view string = "0.6799910069";
 		//float y = stringToVector<float>(string);
 		//float y = static_cast<float>(crackAtof(string));
-		float y = crack_atof_sse(string);
+		//float y = crack_atof_sse(string);
 		//float y = crack_atof_avx2(string);
-		//float y = crack_atof_avx512(string);
+		float y = crack_atof_avx512(string);
 	}
 	auto end = clock::now();
 

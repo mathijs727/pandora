@@ -10,5 +10,5 @@ target_sources(libPbrt_importer2
         "${CMAKE_CURRENT_LIST_DIR}/pbrt_importer.cpp")
 
 if (${PANDORA_ISA_AVX512})
-	target_sources(libPbrt_importer2 PRIVATE "${CMAKE_CURRENT_LIST_DIR}/util/crack_atof_avx512.cpp")
+	target_sources(libPbrt_importer2 PRIVATE "${CMAKE_CURRENT_LIST_DIR}/util/crack_atof_avx512_hybrid.cpp")
 endif()

@@ -689,10 +689,6 @@ Token Parser::peek(unsigned i)
             continue;
         }
 
-        // Async tasks may hold references (i.e. std::string_view in Params) to the mapped file. So we have
-        // to wait for the tasks to finish before we unmap the input file.
-        m_asyncWorkTaskGroup.wait();
-
         // Encountered end of file
         if (m_lexerStack.empty()) {
             // Nothing to back off to, return end of file indicator
