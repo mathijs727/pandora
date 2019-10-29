@@ -88,12 +88,10 @@ int main(int argc, char** argv)
 	stream::DummyCache::Builder dummyCacheBuilder;
 
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
-    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &dummyCacheBuilder, false) : loadFromFile(sceneFilePath);
+    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, nullptr, false) : loadFromFile(sceneFilePath);
     const glm::ivec2 resolution = renderConfig.resolution;
 
-	exit(0);
-
-    stream::LRUCache geometryCache = cacheBuilder.build(1024 * 1024 * 1024);
+    /*stream::LRUCache geometryCache = cacheBuilder.build(1024 * 1024 * 1024);
 
     std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
         for (const auto& pSceneObject : pSceneNode->objects) {
@@ -104,7 +102,7 @@ int main(int argc, char** argv)
             makeShapeResident(pChild);
         }
     };
-    makeShapeResident(renderConfig.pScene->pRoot);
+    makeShapeResident(renderConfig.pScene->pRoot);*/
 
     Window myWindow(resolution.x, resolution.y, "Atlas - Pandora viewer");
     FramebufferGL frameBuffer(resolution.x, resolution.y);
@@ -140,7 +138,7 @@ int main(int argc, char** argv)
             sensor.clear(glm::vec3(0.0f));
         }
 
-#if 1
+#if 0
         integrator.render(camera, sensor, *renderConfig.pScene, accel, samples);
 #else
         samples = 0;

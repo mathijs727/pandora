@@ -173,8 +173,14 @@ inline float Parser::parse<float>(std::string_view tokenText) noexcept
 
     //return static_cast<float>(crackAtof(tokenText));
 
+	return crack_atof_sse(tokenText);
+
+#ifdef PBRT_ATOF_AVX512
+	return crack_atof_avx512(tokenText);
+#else
 	// AVX2 port of crackAtof is even faster (WARNING: does not support exponential numbers (i.e. 10e5))
     return crack_atof_avx2(tokenText);
+#endif
 }
 
 template <>

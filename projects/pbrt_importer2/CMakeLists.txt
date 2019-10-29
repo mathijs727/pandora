@@ -5,6 +5,10 @@ include("${CMAKE_CURRENT_LIST_DIR}/src/CMakeLists.txt")
 target_include_directories(libPbrt_importer2 PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/")
 target_compile_features(libPbrt_importer2 PUBLIC cxx_std_17)
 
+if (PANDORA_ISA_AVX512)
+	target_compile_definitions(libPbrt_importer2 PUBLIC -DPBRT_ATOF_AVX512=1)
+endif()
+
 target_link_libraries(libPbrt_importer2 PUBLIC
 	libPandora
 	eastl
