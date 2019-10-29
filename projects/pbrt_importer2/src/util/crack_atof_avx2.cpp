@@ -1,4 +1,4 @@
-#include "pbrt/parser/crack_atof_avx2.h"
+#include "pbrt/util/crack_atof_avx2.h"
 #include <array>
 #include <cassert>
 #include <charconv>

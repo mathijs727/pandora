@@ -1,6 +1,7 @@
 #include "src/crack_atof.h"
 #include "src/crack_atof_sse.h"
 #include "src/crack_atof_avx2.h"
+#include "src/crack_atof_avx512.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -38,12 +39,13 @@ int main()
 
     auto start = clock::now();
     //auto result = stringToVector<double>(myString);
-    for (size_t i = 0; i < 100 * 1000 * 1000; i++) {
-        std::string_view string = "-6169.610840";
+    for (size_t i = 0; i < 1000 * 1000 * 1000; i++) {
+        std::string_view string = "0.6799910069";
         //float y = stringToVector<float>(string);
         //float y = static_cast<float>(crackAtof(string));
         //float y = crack_atof_sse(string);
-        float y = crack_atof_avx2(string);
+		//float y = crack_atof_avx2(string);
+		float y = crack_atof_avx512(string);
     }
     auto end = clock::now();
 

@@ -1,4 +1,4 @@
-#include "pbrt/parser/crack_atof.h"
+#include "pbrt/util/crack_atof.h"
 
 // Copied from:
 // https://github.com/shaovoon/floatbench/blob/master/BenchmarkFloatConv/BenchmarkFloatConv/BenchmarkFloatConv.cpp

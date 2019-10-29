@@ -97,15 +97,6 @@ pybind11::tuple PandoraMeshBatch::addTriangleMesh(
             });
     }
 
-    std::vector<glm::vec3> outTangents;
-    if (!tangents.empty()) {
-        pandora::ALWAYS_ASSERT(tangents.size() == triangles.size());
-        std::transform(std::begin(tangents), std::end(tangents), std::back_inserter(outTangents),
-            [&](auto t) {
-                return transform.transformNormal(t); // Is this the correct transform?
-            });
-    }
-
     std::vector<glm::vec2> outUVCoords;
     if (!texCoords.empty()) {
         pandora::ALWAYS_ASSERT(texCoords.size() == positions.size());
@@ -116,11 +107,10 @@ pybind11::tuple PandoraMeshBatch::addTriangleMesh(
         std::move(outTriangles),
         std::move(outPositions),
         std::move(outNormals),
-        std::move(outUVCoords),
-        std::move(outTangents));
+        std::move(outUVCoords));
 
-    flatbuffers::FlatBufferBuilder fbb;
-    auto serializedMesh = pandoraShape.serialize(fbb);
+    /*flatbuffers::FlatBufferBuilder fbb;
+    auto serializedMesh = pandoraShape.serialize();
     fbb.Finish(serializedMesh);
 
     //spdlog::info("Write to file {}", m_filename);
@@ -128,5 +118,5 @@ pybind11::tuple PandoraMeshBatch::addTriangleMesh(
     size_t startByte = m_currentPos;
     m_currentPos += fbb.GetSize();
 
-    return pybind11::make_tuple(m_filename, startByte, fbb.GetSize());
+    return pybind11::make_tuple(m_filename, startByte, fbb.GetSize());*/
 }

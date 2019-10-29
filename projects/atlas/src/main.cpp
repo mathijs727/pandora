@@ -15,6 +15,7 @@
 
 #include "pandora/graphics_core/load_from_file.h"
 #include "stream/cache/lru_cache.h"
+#include "stream/cache/dummy_cache.h"
 #include "stream/serialize/in_memory_serializer.h"
 #include <boost/program_options.hpp>
 #include <chrono>
@@ -84,10 +85,13 @@ int main(int argc, char** argv)
 
     spdlog::info("Loading scene");
     stream::LRUCache::Builder cacheBuilder { std::make_unique<stream::InMemorySerializer>() };
+	stream::DummyCache::Builder dummyCacheBuilder;
 
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
-    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, nullptr, false) : loadFromFile(sceneFilePath);
+    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &dummyCacheBuilder, false) : loadFromFile(sceneFilePath);
     const glm::ivec2 resolution = renderConfig.resolution;
+
+	exit(0);
 
     stream::LRUCache geometryCache = cacheBuilder.build(1024 * 1024 * 1024);
 

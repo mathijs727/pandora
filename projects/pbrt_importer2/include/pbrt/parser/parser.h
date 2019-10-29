@@ -1,6 +1,8 @@
 #pragma once
-#include "crack_atof.h"
-#include "crack_atof_avx2.h"
+#include "pbrt/util/crack_atof.h"
+#include "pbrt/util/crack_atof_sse.h"
+#include "pbrt/util/crack_atof_avx2.h"
+#include "pbrt/util/crack_atof_avx512.h"
 #include "params.h"
 #include "pbrt/lexer/lexer.h"
 #include "pbrt/lexer/simd_lexer.h"
@@ -169,10 +171,10 @@ inline float Parser::parse<float>(std::string_view tokenText) noexcept
     //std::from_chars(tokenText.data(), tokenText.data() + tokenText.length(), result);
     //return result;
 
-    //return static_cast<float>(crackAtof(tokenText));
+    return static_cast<float>(crackAtof(tokenText));
 
 	// AVX2 port of crackAtof is even faster (WARNING: does not support exponential numbers (i.e. 10e5))
-    return crack_atof_avx2(tokenText);
+    //return crack_atof_avx2(tokenText);
 }
 
 template <>
