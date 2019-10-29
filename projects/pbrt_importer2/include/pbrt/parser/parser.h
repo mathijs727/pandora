@@ -1,11 +1,11 @@
 #pragma once
-#include "pbrt/util/crack_atof.h"
-#include "pbrt/util/crack_atof_sse.h"
-#include "pbrt/util/crack_atof_avx2.h"
-#include "pbrt/util/crack_atof_avx512.h"
 #include "params.h"
 #include "pbrt/lexer/lexer.h"
 #include "pbrt/lexer/simd_lexer.h"
+#include "pbrt/util/crack_atof.h"
+#include "pbrt/util/crack_atof_avx2.h"
+#include "pbrt/util/crack_atof_avx512.h"
+#include "pbrt/util/crack_atof_sse.h"
 #include "texture_cache.h"
 #include <EASTL/bonus/fixed_ring_buffer.h>
 #include <EASTL/fixed_hash_map.h>
@@ -65,6 +65,43 @@ struct GraphicsState {
     bool reverseOrientation { false };
 };
 
+// Fully inlined / no error checking ring buffer makes the parser much faster than using a
+// std::deque or even eastl::fixed_ring_buffer.
+template <typename T, size_t N>
+class RingBuffer {
+public:
+    inline void push_back(T v)
+    {
+        m_data[m_back] = v;
+        m_back = (m_back + 1) % N;
+        ++m_size;
+    }
+    inline T pop_front()
+    {
+        size_t index = m_front;
+        m_front = (m_front + 1) % N;
+        --m_size;
+        return m_data[index];
+    }
+
+    inline size_t size() const
+    {
+        return m_size;
+    }
+
+    inline T operator[](size_t i) const
+    {
+        size_t index = (m_front + i) % N;
+        return m_data[index];
+    };
+
+private:
+    T m_data[N];
+    size_t m_front { 0 };
+    size_t m_back { 0 };
+    size_t m_size { 0 };
+};
+
 class Parser {
 public:
     Parser(std::filesystem::path basePath, bool loadTextures = true);
@@ -116,7 +153,8 @@ private:
     std::shared_ptr<mio::mmap_source> m_pCurrentLexerSource;
     SIMDLexer m_currentLexer;
     //std::deque<Token> m_peekQueue;
-    eastl::fixed_ring_buffer<Token, 8> m_peekQueue { 8 };
+    //eastl::fixed_ring_buffer<Token, 8> m_peekQueue { 8 };
+    RingBuffer<Token, 8> m_peekQueue;
 
     tbb::task_group m_asyncWorkTaskGroup;
 
@@ -173,12 +211,12 @@ inline float Parser::parse<float>(std::string_view tokenText) noexcept
 
     //return static_cast<float>(crackAtof(tokenText));
 
-	return crack_atof_sse(tokenText);
+    //return crack_atof_sse(tokenText);
 
 #ifdef PBRT_ATOF_AVX512
-	return crack_atof_avx512(tokenText);
+    return crack_atof_avx512(tokenText);
 #else
-	// AVX2 port of crackAtof is even faster (WARNING: does not support exponential numbers (i.e. 10e5))
+    // AVX2 port of crackAtof is even faster (WARNING: does not support exponential numbers (i.e. 10e5))
     return crack_atof_avx2(tokenText);
 #endif
 }
