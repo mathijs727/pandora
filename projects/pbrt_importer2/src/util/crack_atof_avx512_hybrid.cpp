@@ -87,5 +87,5 @@ float crack_atof_avx512(std::string_view string)
 	alignas(16) float sumData[4];
 	_mm_store_ps(sumData, hsum4);
 
-	return  (sumData[0] + sumData[1]);
+	return sign * (sumData[0] + sumData[1]);
 }
