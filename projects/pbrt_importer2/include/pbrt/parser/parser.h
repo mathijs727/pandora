@@ -7,13 +7,8 @@
 #include "pbrt/util/crack_atof_avx512.h"
 #include "pbrt/util/crack_atof_sse.h"
 #include "texture_cache.h"
-#include <EASTL/bonus/fixed_ring_buffer.h>
-#include <EASTL/fixed_hash_map.h>
-#include <EASTL/fixed_vector.h>
 #include <algorithm>
 #include <charconv>
-#include <deque>
-#include <execution>
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -303,67 +298,12 @@ inline T Parser::parseParam()
 template <typename T>
 inline std::vector<T> Parser::parseParamArray()
 {
-    static constexpr size_t parallelThreshold = 1000;
-
     auto listBeginToken = next();
     assert(listBeginToken.type == TokenType::LIST_BEGIN);
 
     std::vector<T> res;
-    /*if constexpr (std::is_same_v<T, int> || std::is_same_v<T, float>) {
-        eastl::fixed_vector<std::string_view, 8> tokenStrings;
-        while (peek().type != TokenType::LIST_END) {
-            tokenStrings.emplace_back(next().text);
-        }
-
-        res.resize(tokenStrings.size());
-        constexpr auto operation = [](const std::string_view string) {
-            return parse<T>(string);
-        };
-        if (tokenStrings.size() > parallelThreshold) {
-            std::transform(std::execution::par_unseq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
-        } else {
-            std::transform(std::execution::seq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
-        }
-    } else if constexpr (std::is_same_v<T, glm::vec2>) {
-        eastl::fixed_vector<std::tuple<std::string_view, std::string_view>, 8> tokenStrings;
-        while (peek().type != TokenType::LIST_END) {
-            auto x = next().text;
-            auto y = next().text;
-            tokenStrings.emplace_back(x, y);
-        }
-
-        res.resize(tokenStrings.size());
-        constexpr auto operation = [](const auto& strings) {
-            return glm::vec2(parse<float>(std::get<0>(strings)), parse<float>(std::get<1>(strings)));
-        };
-        if (tokenStrings.size() > parallelThreshold / 2) {
-            std::transform(std::execution::par_unseq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
-        } else {
-            std::transform(std::execution::seq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
-        }
-    } else if constexpr (std::is_same_v<T, glm::vec3>) {
-        eastl::fixed_vector<std::tuple<std::string_view, std::string_view, std::string_view>, 8> tokenStrings;
-        while (peek().type != TokenType::LIST_END) {
-            auto x = next().text;
-            auto y = next().text;
-            auto z = next().text;
-            tokenStrings.emplace_back(x, y, z);
-        }
-
-        res.resize(tokenStrings.size());
-        constexpr auto operation = [](const auto& strings) {
-            return glm::vec3(parse<float>(std::get<0>(strings)), parse<float>(std::get<1>(strings)), parse<float>(std::get<2>(strings)));
-        };
-        if (tokenStrings.size() > parallelThreshold / 3) {
-            std::transform(std::execution::par_unseq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
-        } else {
-            std::transform(std::execution::seq, std::begin(tokenStrings), std::end(tokenStrings), std::begin(res), operation);
-        }
-    } else*/
-    {
-        while (peek().type != TokenType::LIST_END) {
-            res.push_back(parse<T>());
-        }
+    while (peek().type != TokenType::LIST_END) {
+        res.push_back(parse<T>());
     }
 
     auto listEndToken = next();

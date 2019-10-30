@@ -76,7 +76,7 @@ float crack_atof_avx512(std::string_view string)
 	const __m256 powers_1 = _mm256_loadu_ps(powerLUT.data() + startOffset + 0);
 	const __m256 sum_1 = _mm256_mul_ps(powers_1, chars_ps_1);
 	const __m256 powers_2 = _mm256_loadu_ps(powerLUT.data() + startOffset + 8);
-	// FMA faster than regular sum on Intel 9800X (but slower on AMD 3900X)?
+	// FMA faster than mul+add on Intel 9800X (but slower on AMD 3900X)?
 	const __m256 sum = _mm256_fmadd_ps(powers_2, chars_ps_2, sum_1);
 
 	// Horizontal sum
