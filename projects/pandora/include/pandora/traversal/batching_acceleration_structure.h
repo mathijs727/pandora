@@ -14,6 +14,14 @@ namespace pandora {
 
 class BatchingAccelerationStructureBuilder;
 
+namespace batching_impl {
+    struct BatchingPoint {
+        ~BatchingPoint();
+
+        RTCScene embreeSubScene;
+    };
+}
+
 template <typename HitRayState, typename AnyHitRayState>
 class BatchingAccelerationStructure {
 public:
@@ -35,12 +43,8 @@ private:
         tasking::TaskGraph* pTaskGraph);
 
 private:
-    struct BatchingPoint {
-        Scene subScene;
-    };
-
     RTCDevice m_embreeDevice;
-    RTCScene m_embreeScene;
+    RTCScene m_rootEmbreeScene;
 
     tasking::TaskGraph* m_pTaskGraph;
     tasking::TaskHandle<std::tuple<Ray, HitRayState>> m_intersectTask;
@@ -54,7 +58,8 @@ private:
 
 class BatchingAccelerationStructureBuilder {
 public:
-    BatchingAccelerationStructureBuilder(stream::LRUCache* pcache, Scene* pScene, tasking::TaskGraph* pTaskGraph);
+    BatchingAccelerationStructureBuilder(
+        Scene* pScene, stream::LRUCache* pCache, tasking::TaskGraph* pTaskGraph, unsigned primitivesPerBatchingPoint);
 
     template <typename HitRayState, typename AnyHitRayState>
     BatchingAccelerationStructure<HitRayState, AnyHitRayState> build(
@@ -62,7 +67,7 @@ public:
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask);
 
 private:
-    void splitLargeSceneObjectsRecurse(SceneNode* pNode, unsigned maxSize);
+    void splitLargeSceneObjectsRecurse(SceneNode* pNode, stream::LRUCache* pCache, unsigned maxSize);
 
     RTCScene buildRecurse(const SceneNode* pNode);
     static void verifyInstanceDepth(const SceneNode* pNode, int depth = 0);
@@ -70,8 +75,6 @@ private:
 private:
     Scene* m_pScene;
     RTCDevice m_embreeDevice;
-    RTCScene m_embreeScene;
-    std::unordered_map<const SceneNode*, RTCScene> m_sceneCache;
 
     tasking::TaskGraph* m_pTaskGraph;
 };

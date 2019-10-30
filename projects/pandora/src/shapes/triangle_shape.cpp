@@ -93,6 +93,8 @@ TriangleShape::TriangleShape(
     m_positions.shrink_to_fit();
     m_normals.shrink_to_fit();
     m_texCoords.shrink_to_fit();
+
+    ALWAYS_ASSERT(indices.size() < std::numeric_limits<unsigned>::max());
 }
 
 TriangleShape::TriangleShape(
@@ -117,6 +119,8 @@ TriangleShape::TriangleShape(
     m_positions.shrink_to_fit();
     m_normals.shrink_to_fit();
     m_texCoords.shrink_to_fit();
+
+    ALWAYS_ASSERT(indices.size() < std::numeric_limits<unsigned>::max());
 }
 
 void TriangleShape::doEvict()
