@@ -43,12 +43,12 @@ private:
         ~BatchingPoint();
 
         Bounds getBounds() const;
-        std::optional<bool> intersect(Ray&, RayHit&, const HitRayState&);
+        std::optional<bool> intersect(Ray&, SurfaceInteraction&, const HitRayState&);
         std::optional<bool> intersectAny(Ray&, const AnyHitRayState&);
 
     private:
-        RTCScene embreeSubScene;
-        std::shared_ptr<SceneNode> pSubSceneRoot;
+        RTCScene m_embreeSubScene;
+        std::shared_ptr<SceneNode> m_pSubSceneRoot;
     };
 
 private:
@@ -120,9 +120,71 @@ Bounds BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint
 
 template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersect(
-    Ray& ray, RayHit& rayHit, const HitRayState& userState)
+    Ray& ray, SurfaceInteraction& si, const HitRayState& userState)
 {
     // TODO: batching
+    RTCIntersectContext context {};
+
+    RTCRayHit embreeRayHit;
+    embreeRayHit.ray.org_x = ray.origin.x;
+    embreeRayHit.ray.org_y = ray.origin.y;
+    embreeRayHit.ray.org_z = ray.origin.z;
+    embreeRayHit.ray.dir_x = ray.direction.x;
+    embreeRayHit.ray.dir_y = ray.direction.y;
+    embreeRayHit.ray.dir_z = ray.direction.z;
+
+    embreeRayHit.ray.tnear = ray.tnear;
+    embreeRayHit.ray.tfar = ray.tfar;
+
+    embreeRayHit.ray.time = 0.0f;
+    embreeRayHit.ray.mask = 0xFFFFFFFF;
+    embreeRayHit.ray.id = 0;
+    embreeRayHit.ray.flags = 0;
+    embreeRayHit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
+    rtcIntersect1(m_embreeSubScene, &context, &embreeRayHit);
+
+    if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
+        std::optional<glm::mat4> transform;
+        const SceneObject* pSceneObject { nullptr };
+
+        if (embreeRayHit.hit.instID[0] == 0) {
+            pSceneObject = reinterpret_cast<const SceneObject*>(
+                rtcGetGeometryUserData(rtcGetGeometry(m_embreeSubScene, embreeRayHit.hit.geomID)));
+        } else {
+            glm::mat4 accumulatedTransform { 1.0f };
+            RTCScene scene = m_embreeSubScene;
+            for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
+                unsigned geomID = embreeRayHit.hit.instID[i];
+                if (geomID == 0)
+                    break;
+
+                RTCGeometry geometry = rtcGetGeometry(scene, geomID);
+
+                glm::mat4 localTransform;
+                rtcGetGeometryTransform(geometry, 0.0f, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR, glm::value_ptr(localTransform));
+                accumulatedTransform *= localTransform;
+
+                scene = reinterpret_cast<RTCScene>(rtcGetGeometryUserData(geometry));
+            }
+
+            transform = accumulatedTransform;
+            pSceneObject = reinterpret_cast<const SceneObject*>(
+                rtcGetGeometryUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
+        }
+
+        hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
+        hit.geometricNormal = glm::normalize(glm::dot(-ray.direction, hit.geometricNormal) > 0.0f ? hit.geometricNormal : -hit.geometricNormal);
+        hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
+        hit.primitiveID = embreeRayHit.hit.primID;
+
+        const auto* pShape = pSceneObject->pShape.get();
+        auto si = pShape->fillSurfaceInteraction(ray, hit);
+        si.pSceneObject = pSceneObject;
+        si.localToWorld = transform;
+        m_pTaskGraph->enqueue(m_onHitTask, std::tuple { ray, si, state });
+    } else {
+        m_pTaskGraph->enqueue(m_onMissTask, std::tuple { ray, state });
+    }
 }
 
 template <typename HitRayState, typename AnyHitRayState>
@@ -148,14 +210,9 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
     embreeRay.id = 0;
     embreeRay.flags = 0;
 
-    rtcOccluded1(m_embreeScene, &context, &embreeRay);
+    rtcOccluded1(m_embreeSubScene, &context, &embreeRay);
 
-    constexpr float negativeInfinity = -std::numeric_limits<float>::infinity();
-    if (embreeRay.tfar == negativeInfinity) {
-        m_pTaskGraph->enqueue(m_onAnyHitTask, std::tuple { ray, state });
-    } else {
-        m_pTaskGraph->enqueue(m_onAnyMissTask, std::tuple { ray, state });
-    }
+    ray.tfar = embeeRay.tfar;
 }
 
 template <typename HitRayState, typename AnyHitRayState>

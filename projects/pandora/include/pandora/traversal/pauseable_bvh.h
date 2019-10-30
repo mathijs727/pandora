@@ -30,12 +30,8 @@ public:
     virtual size_t sizeBytes() const = 0;
 
     // Returns true if the ray exited the BVH; false if the ray was paused
-    virtual std::optional<bool> intersect(Ray& ray, RayHit& hit, const HitRayState& userState) const = 0;
-    virtual std::optional<bool> intersect(Ray& ray, RayHit& hit, const HitRayState& userState, PauseableBVHInsertHandle handle) const = 0;
-
-    // Returns true if the ray exited the BVH; false if the ray was paused
-    //virtual std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const HitRayState& userState) const = 0;
-    //virtual std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const HitRayState& userState, PauseableBVHInsertHandle handle) const = 0;
+    virtual std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const HitRayState& userState) const = 0;
+    virtual std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const HitRayState& userState, PauseableBVHInsertHandle handle) const = 0;
 
     virtual std::optional<bool> intersectAny(Ray& ray, const AnyHitRayState& userState) const = 0;
     virtual std::optional<bool> intersectAny(Ray& ray, const AnyHitRayState& userState, PauseableBVHInsertHandle handle) const = 0;

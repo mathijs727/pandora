@@ -1,4 +1,5 @@
 #pragma once
+#include "pandora/graphics_core/interaction.h"
 #include "pandora/graphics_core/ray.h"
 #include "pandora/traversal/pauseable_bvh.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
@@ -24,20 +25,20 @@ public:
 
     size_t sizeBytes() const override final;
 
-    std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const HitRayState& userState) const override final;
-    std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const HitRayState& userState, PauseableBVHInsertHandle handle) const override final;
+    //std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const HitRayState& userState) const override final;
+    //std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const HitRayState& userState, PauseableBVHInsertHandle handle) const override final;
 
-    //std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const override final;
-    //std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
+    std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const HitRayState& userState) const override final;
+    std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const HitRayState& userState, PauseableBVHInsertHandle handle) const override final;
 
     std::optional<bool> intersectAny(Ray& ray, const AnyHitRayState& userState) const override final;
     std::optional<bool> intersectAny(Ray& ray, const AnyHitRayState& userState, PauseableBVHInsertHandle handle) const override final;
-
+	
     gsl::span<LeafObj*> leafs() { return m_leafs; }
 
 private:
     template <bool AnyHit, typename UserState>
-    std::optional<bool> intersectT(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const;
+    std::optional<bool> intersectT(Ray& ray, SurfaceInteraction& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const;
 
     struct TestBVHData {
         int numPrimitives = 0;
@@ -215,64 +216,34 @@ inline size_t PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::sizeBytes() c
 }
 
 template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
-inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersect(Ray& ray, RayHit& rayHit, const HitRayState& userState) const
-{
-    return intersect(ray, rayHit, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
-}
-
-template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
-inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersect(Ray& ray, RayHit& rayHit, const HitRayState& userState, PauseableBVHInsertHandle insertInfo) const
-{
-    // TODO: remove the whole function using SFINAE
-    if constexpr (is_pauseable_leaf_obj<LeafObj, UserState>::has_intersect_rayhit) {
-        return intersectT<false, HitRayState>(ray, rayHit, userState, insertInfo);
-    } else {
-        (void)ray;
-        (void)rayHit;
-        (void)userState;
-        (void)insertInfo;
-        return false;
-    }
-}
-
-/*template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
-inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const
+inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersect(Ray& ray, SurfaceInteraction& si, const HitRayState& userState) const
 {
     return intersect(ray, si, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
 }
 
 template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
-inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersect(Ray& ray, SurfaceInteraction& si, const HitRayState& userState, PauseableBVHInsertHandle insertInfo) const
 {
-    // TODO: remove the whole function using SFINAE
-    if constexpr (is_pauseable_leaf_obj<LeafObj, UserState>::has_intersect_si) {
-        return intersectT<false, SurfaceInteraction>(ray, si, userState, insertInfo);
-    } else {
-        (void)ray;
-        (void)si;
-        (void)userState;
-        (void)insertInfo;
-        return false;
-    }
-}*/
+	return intersectT<false, HitRayState>(ray, si, userState, insertInfo);
+}
 
 template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
 inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersectAny(Ray& ray, const AnyHitRayState& userState) const
 {
-    RayHit dummyHitInfo = {};
-    return intersectT<true>(ray, dummyHitInfo, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
+    SurfaceInteraction dummySI {};
+    return intersectT<true>(ray, dummySI, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
 }
 
 template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
 inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersectAny(Ray& ray, const AnyHitRayState& userState, PauseableBVHInsertHandle insertInfo) const
 {
-    RayHit dummyHitInfo = {};
-    return intersectT<true>(ray, dummyHitInfo, userState, insertInfo);
+    SurfaceInteraction dummySI {};
+    return intersectT<true>(ray, dummySI, userState, insertInfo);
 }
 
 template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
 template <bool AnyHit, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersectT(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersectT(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
 {
     struct SIMDRay {
         simd::vec4_f32 originX;
@@ -365,7 +336,7 @@ inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::
                         if (*optResult)
                             return true;
                     } else {
-                        auto optResult = leaf.intersect(ray, hitInfo, userState, { nodeHandle, stack });
+                        auto optResult = leaf.intersect(ray, si, userState, { nodeHandle, stack });
                         if (!optResult)
                             return {}; // Ray was paused
 
