@@ -1,6 +1,7 @@
 #include "pandora/graphics_core/bounds.h"
 #include "pandora/flatbuffers/data_conversion.h"
 #include <algorithm>
+#include <embree3/rtcore.h>
 
 namespace pandora {
 
@@ -13,6 +14,12 @@ Bounds::Bounds()
 Bounds::Bounds(glm::vec3 lower, glm::vec3 upper)
     : min(lower)
     , max(upper)
+{
+}
+
+Bounds::Bounds(const RTCBounds& bounds)
+    : min(bounds.lower_x, bounds.lower_y, bounds.lower_z)
+    , max(bounds.upper_x, bounds.upper_y, bounds.upper_z)
 {
 }
 

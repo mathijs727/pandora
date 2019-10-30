@@ -1,5 +1,7 @@
 #pragma once
+#include "pandora/graphics_core/bounds.h"
 #include "pandora/graphics_core/pandora.h"
+#include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "stream/cache/lru_cache.h"
 #include "stream/task_graph.h"
 #include <embree3/rtcore.h>
@@ -13,14 +15,6 @@
 namespace pandora {
 
 class BatchingAccelerationStructureBuilder;
-
-namespace batching_impl {
-    struct BatchingPoint {
-        ~BatchingPoint();
-
-        RTCScene embreeSubScene;
-    };
-}
 
 template <typename HitRayState, typename AnyHitRayState>
 class BatchingAccelerationStructure {
@@ -42,9 +36,25 @@ private:
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
         tasking::TaskGraph* pTaskGraph);
 
+    class BatchingPoint {
+    public:
+        BatchingPoint(RTCScene embreeSubScene, const std::shared_ptr<SceneNode>& pSubSceneRoot);
+        BatchingPoint(BatchingPoint&&);
+        ~BatchingPoint();
+
+        Bounds getBounds() const;
+        std::optional<bool> intersect(Ray&, RayHit&, const HitRayState&);
+        std::optional<bool> intersectAny(Ray&, const AnyHitRayState&);
+
+    private:
+        RTCScene embreeSubScene;
+        std::shared_ptr<SceneNode> pSubSceneRoot;
+    };
+
 private:
     RTCDevice m_embreeDevice;
-    RTCScene m_rootEmbreeScene;
+    //RTCScene m_rootEmbreeScene;
+    PauseableBVH4<BatchingPoint, HitRayState, AnyHitRayState> m_topLevelBVH;
 
     tasking::TaskGraph* m_pTaskGraph;
     tasking::TaskHandle<std::tuple<Ray, HitRayState>> m_intersectTask;
@@ -69,15 +79,84 @@ public:
 private:
     void splitLargeSceneObjectsRecurse(SceneNode* pNode, stream::LRUCache* pCache, unsigned maxSize);
 
-    RTCScene buildRecurse(const SceneNode* pNode);
-    static void verifyInstanceDepth(const SceneNode* pNode, int depth = 0);
-
 private:
     Scene* m_pScene;
     RTCDevice m_embreeDevice;
 
+    std::vector<std::shared_ptr<SceneNode>> m_subScenes;
+
     tasking::TaskGraph* m_pTaskGraph;
 };
+
+template <typename HitRayState, typename AnyHitRayState>
+BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
+    RTCScene embreeSubScene, const std::shared_ptr<SceneNode>& pSubSceneRoot)
+    : embreeSubScene(embreeSubScene)
+    , pSubSceneRoot(pSubSceneRoot)
+{
+}
+
+template <typename HitRayState, typename AnyHitRayState>
+BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(BatchingPoint&& other)
+    : embreeSubScene(other.embreeSubScene)
+    , pSubSceneRoot(std::move(other.pSubSceneRoot))
+{
+    other.embreeSubScene = nullptr;
+}
+
+template <typename HitRayState, typename AnyHitRayState>
+BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::~BatchingPoint()
+{
+    if (embreeSubScene)
+        rtcReleaseScene(embreeSubScene);
+}
+template <typename HitRayState, typename AnyHitRayState>
+Bounds BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::getBounds() const
+{
+    RTCBounds embreeBounds;
+    rtcGetSceneBounds(m_rootEmbreeScene, &embreeBounds);
+    return Bounds(embreeBounds)
+}
+
+template <typename HitRayState, typename AnyHitRayState>
+std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersect(
+    Ray& ray, RayHit& rayHit, const HitRayState& userState)
+{
+    // TODO: batching
+}
+
+template <typename HitRayState, typename AnyHitRayState>
+std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectAny(
+    Ray& ray, const AnyHitRayState& userState)
+{
+    // TODO: batching
+    RTCIntersectContext context {};
+
+    RTCRay embreeRay;
+    embreeRay.org_x = ray.origin.x;
+    embreeRay.org_y = ray.origin.y;
+    embreeRay.org_z = ray.origin.z;
+    embreeRay.dir_x = ray.direction.x;
+    embreeRay.dir_y = ray.direction.y;
+    embreeRay.dir_z = ray.direction.z;
+
+    embreeRay.tnear = ray.tnear;
+    embreeRay.tfar = ray.tfar;
+
+    embreeRay.time = 0.0f;
+    embreeRay.mask = 0xFFFFFFFF;
+    embreeRay.id = 0;
+    embreeRay.flags = 0;
+
+    rtcOccluded1(m_embreeScene, &context, &embreeRay);
+
+    constexpr float negativeInfinity = -std::numeric_limits<float>::infinity();
+    if (embreeRay.tfar == negativeInfinity) {
+        m_pTaskGraph->enqueue(m_onAnyHitTask, std::tuple { ray, state });
+    } else {
+        m_pTaskGraph->enqueue(m_onAnyMissTask, std::tuple { ray, state });
+    }
+}
 
 template <typename HitRayState, typename AnyHitRayState>
 inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccelerationStructureBuilder::build(

@@ -7,15 +7,16 @@
 #include <embree3/rtcore.h>
 #include <memory>
 #include <spdlog/spdlog.h>
-#include <tbb/concurrent_queue.h>
 #include <tbb/concurrent_vector.h>
+#include <unordered_map>
 #include <vector>
 
 namespace pandora {
 
 static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const TriangleShape& original, unsigned maxSize, RTCDevice embreeDevice);
 static std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice);
-static batching_impl::BatchingPoint createBatchingPoint(const Scene& subScene, RTCDevice embreeDevice);
+static void verifyInstanceDepth(const SceneNode* pSceneNode, int depth = 0);
+static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
 
 BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     Scene* pScene,
@@ -24,20 +25,21 @@ BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     unsigned primitivesPerBatchingPoint)
 {
     m_embreeDevice = rtcNewDevice(nullptr);
+    rtcSetDeviceErrorFunction(m_embreeDevice, embreeErrorFunc, nullptr);
 
     // NOTE: modifies pScene in place
     //
     // Split large shapes into smaller sub shpaes so we can guarantee that the batching poinst never exceed the given size.
     // This should also help with reducing the spatial extent of the batching points by (hopefully) splitting spatially large shapes.
+    spdlog::info("Splitting large scene objects");
     splitLargeSceneObjectsRecurse(pScene->pRoot.get(), pCache, primitivesPerBatchingPoint / 8);
 
-    auto subScenes = createSubScenes(*pScene, primitivesPerBatchingPoint, m_embreeDevice);
-    std::vector<batching_impl::BatchingPoint> batchingPoints;
+    spdlog::info("Splitting scene into sub scenes");
+    m_subScenes = createSubScenes(*pScene, primitivesPerBatchingPoint, m_embreeDevice);
 }
 
 void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(SceneNode* pSceneNode, stream::LRUCache* pCache, unsigned maxSize)
 {
-    RTCScene embreeScene = rtcNewScene(m_embreeDevice);
     std::vector<std::shared_ptr<SceneObject>> outObjects;
     for (const auto& pSceneObject : pSceneNode->objects) {
         // TODO
@@ -69,22 +71,6 @@ void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(SceneNo
     for (auto childLink : pSceneNode->children) {
         auto&& [pChildNode, optTransform] = childLink;
         splitLargeSceneObjectsRecurse(pChildNode.get(), pCache, maxSize);
-    }
-}
-
-RTCScene BatchingAccelerationStructureBuilder::buildRecurse(const SceneNode* pNode)
-{
-    return RTCScene();
-}
-
-void BatchingAccelerationStructureBuilder::verifyInstanceDepth(const SceneNode* pNode, int depth)
-{
-}
-
-namespace batching_impl {
-    BatchingPoint::~BatchingPoint()
-    {
-        rtcReleaseScene(embreeSubScene);
     }
 }
 
@@ -228,12 +214,7 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
         auto* pNode = static_cast<InnerNode*>(pMem);
         for (unsigned i = 0; i < childCount; i++) {
             const auto* pBounds = ppBounds[i];
-
-            Bounds bounds {
-                glm::vec3(pBounds->lower_x, pBounds->lower_y, pBounds->lower_z),
-                glm::vec3(pBounds->upper_x, pBounds->upper_y, pBounds->upper_z)
-            };
-            pNode->childBounds[i] = bounds;
+            pNode->childBounds[i] = Bounds(*pBounds);
         }
     };
     arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
@@ -247,6 +228,7 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
             const auto& prim = prims[i];
             pNode->sceneObjectPaths.emplace_back(std::move(primitivePaths[prim.primID]));
         }
+        return pNode;
     };
     auto* bvhRoot = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
 
@@ -354,9 +336,98 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
     return subSceneRoots;
 }
 
-batching_impl::BatchingPoint createBatchingPoint(const Scene& subScene, RTCDevice embreeDevice)
+static RTCScene buildRecurse(const SceneNode* pSceneNode, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
 {
-    return batching_impl::BatchingPoint();
+    RTCScene embreeScene = rtcNewScene(embreeDevice);
+    for (const auto& pSceneObject : pSceneNode->objects) {
+        const Shape* pShape = pSceneObject->pShape.get();
+        RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(embreeDevice);
+        rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
+        rtcCommitGeometry(embreeGeometry);
+
+        unsigned geometryID = rtcAttachGeometry(embreeScene, embreeGeometry);
+        (void)geometryID;
+    }
+
+    for (const auto&& [geomID, childLink] : enumerate(pSceneNode->children)) {
+        auto&& [pChildNode, optTransform] = childLink;
+
+        RTCScene childScene;
+        if (auto iter = sceneCache.find(pChildNode.get()); iter != std::end(sceneCache)) {
+            childScene = iter->second;
+        } else {
+            childScene = buildRecurse(pChildNode.get(), embreeDevice, sceneCache);
+            sceneCache[pChildNode.get()] = childScene;
+        }
+
+        RTCGeometry embreeInstanceGeometry = rtcNewGeometry(embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
+        rtcSetGeometryInstancedScene(embreeInstanceGeometry, childScene);
+        rtcSetGeometryUserData(embreeInstanceGeometry, childScene);
+        if (optTransform) {
+            rtcSetGeometryTransform(
+                embreeInstanceGeometry, 0,
+                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
+                glm::value_ptr(*optTransform));
+        } else {
+            glm::mat4 identityMatrix = glm::identity<glm::mat4>();
+            rtcSetGeometryTransform(
+                embreeInstanceGeometry, 0,
+                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
+                glm::value_ptr(identityMatrix));
+        }
+        rtcCommitGeometry(embreeInstanceGeometry);
+        // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
+        // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of RTC_INVALID_GEOMETRY_ID).
+        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geomID + 1);
+    }
+
+    rtcCommitScene(embreeScene);
+    return embreeScene;
+}
+
+/*batching_impl::BatchingPoint createBatchingPoint(const std::shared_ptr<SceneNode> pSubSceneRoot, RTCDevice embreeDevice)
+{
+    verifyInstanceDepth(pSubSceneRoot.get());
+
+    std::unordered_map<const SceneNode*, RTCScene> sceneCache;
+    RTCScene embreeSubScene = buildRecurse(pSubSceneRoot.get(), embreeDevice, sceneCache);
+
+    return batching_impl::BatchingPoint { embreeSubScene, pSubSceneRoot };
+}*/
+
+static void verifyInstanceDepth(const SceneNode* pSceneNode, int depth)
+{
+    for (const auto& [pChildNode, optTransform] : pSceneNode->children) {
+        verifyInstanceDepth(pChildNode.get(), depth + 1);
+    }
+    ALWAYS_ASSERT(depth <= RTC_MAX_INSTANCE_LEVEL_COUNT);
+}
+
+static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
+{
+    switch (code) {
+    case RTC_ERROR_NONE:
+        spdlog::error("RTC_ERROR_NONE {}", str);
+        break;
+    case RTC_ERROR_UNKNOWN:
+        spdlog::error("RTC_ERROR_UNKNOWN {}", str);
+        break;
+    case RTC_ERROR_INVALID_ARGUMENT:
+        spdlog::error("RTC_ERROR_INVALID_ARGUMENT {}", str);
+        break;
+    case RTC_ERROR_INVALID_OPERATION:
+        spdlog::error("RTC_ERROR_INVALID_OPERATION {}", str);
+        break;
+    case RTC_ERROR_OUT_OF_MEMORY:
+        spdlog::error("RTC_ERROR_OUT_OF_MEMORY {}", str);
+        break;
+    case RTC_ERROR_UNSUPPORTED_CPU:
+        spdlog::error("RTC_ERROR_UNSUPPORTED_CPU {}", str);
+        break;
+    case RTC_ERROR_CANCELLED:
+        spdlog::error("RTC_ERROR_CANCELLED {}", str);
+        break;
+    }
 }
 
 }

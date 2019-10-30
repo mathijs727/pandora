@@ -3,12 +3,15 @@
 #include "pandora/graphics_core/ray.h"
 #include "pandora/flatbuffers/data_types_generated.h"
 
+struct RTCBounds;
+
 namespace pandora {
 
 struct Bounds {
 public:
     Bounds();
     Bounds(glm::vec3 lower, glm::vec3 upper);
+    Bounds(const RTCBounds& embreeBounds);
     Bounds(const serialization::Bounds& serialized);
 
     bool operator==(const Bounds& other) const;

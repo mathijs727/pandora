@@ -1,18 +1,22 @@
 #pragma once
+#include "pandora/graphics_core/ray.h"
 #include "pandora/traversal/pauseable_bvh.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
 #include "simd/intrinsics.h"
 #include "simd/simd4.h"
 #include <embree3/rtcore.h>
+#include <iostream>
 #include <limits>
 #include <nmmintrin.h> // popcnt
+#include <optional>
+#include <spdlog/spdlog.h>
 #include <tbb/concurrent_vector.h>
 #include <tuple>
 
 namespace pandora {
 
-template <typename LeafObj, typename UserState>
-class PauseableBVH4 : PauseableBVH<LeafObj, UserState> {
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+class PauseableBVH4 : PauseableBVH<LeafObj, HitRayState, AnyHitRayState> {
 public:
     PauseableBVH4(gsl::span<LeafObj> object);
     PauseableBVH4(PauseableBVH4&&) = default;
@@ -20,20 +24,20 @@ public:
 
     size_t sizeBytes() const override final;
 
-    std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState) const override final;
-    std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
+    std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const HitRayState& userState) const override final;
+    std::optional<bool> intersect(Ray& ray, RayHit& hitInfo, const HitRayState& userState, PauseableBVHInsertHandle handle) const override final;
 
-    std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const override final;
-    std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
+    //std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const override final;
+    //std::optional<bool> intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
 
-    std::optional<bool> intersectAny(Ray& ray, const UserState& userState) const override final;
-    std::optional<bool> intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle handle) const override final;
+    std::optional<bool> intersectAny(Ray& ray, const AnyHitRayState& userState) const override final;
+    std::optional<bool> intersectAny(Ray& ray, const AnyHitRayState& userState, PauseableBVHInsertHandle handle) const override final;
 
     gsl::span<LeafObj*> leafs() { return m_leafs; }
 
 private:
-    template <bool AnyHit, typename HitInfo>
-    std::optional<bool> intersectT(Ray& ray, HitInfo& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const;
+    template <bool AnyHit, typename UserState>
+    std::optional<bool> intersectT(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const;
 
     struct TestBVHData {
         int numPrimitives = 0;
@@ -104,8 +108,8 @@ private:
     uint32_t m_rootHandle;
 };
 
-template <typename LeafObj, typename UserState>
-inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> leafs)
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::PauseableBVH4(gsl::span<LeafObj> leafs)
     : m_innerNodeAllocator(leafs.size() * 2)
     , m_leafAllocator(leafs.size())
 {
@@ -201,8 +205,8 @@ inline PauseableBVH4<LeafObj, UserState>::PauseableBVH4(gsl::span<LeafObj> leafs
     testBVH();
 }
 
-template <typename LeafObj, typename UserState>
-inline size_t PauseableBVH4<LeafObj, UserState>::sizeBytes() const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline size_t PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::sizeBytes() const
 {
     size_t size = sizeof(decltype(*this));
     size += m_innerNodeAllocator.sizeBytes();
@@ -210,18 +214,18 @@ inline size_t PauseableBVH4<LeafObj, UserState>::sizeBytes() const
     return size;
 }
 
-template <typename LeafObj, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& rayHit, const UserState& userState) const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersect(Ray& ray, RayHit& rayHit, const HitRayState& userState) const
 {
     return intersect(ray, rayHit, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
 }
 
-template <typename LeafObj, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, RayHit& rayHit, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersect(Ray& ray, RayHit& rayHit, const HitRayState& userState, PauseableBVHInsertHandle insertInfo) const
 {
     // TODO: remove the whole function using SFINAE
     if constexpr (is_pauseable_leaf_obj<LeafObj, UserState>::has_intersect_rayhit) {
-        return intersectT<false>(ray, rayHit, userState, insertInfo);
+        return intersectT<false, HitRayState>(ray, rayHit, userState, insertInfo);
     } else {
         (void)ray;
         (void)rayHit;
@@ -231,14 +235,14 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray
     }
 }
 
-template <typename LeafObj, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const
+/*template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState) const
 {
     return intersect(ray, si, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
 }
 
-template <typename LeafObj, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersect(Ray& ray, SurfaceInteraction& si, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
 {
     // TODO: remove the whole function using SFINAE
     if constexpr (is_pauseable_leaf_obj<LeafObj, UserState>::has_intersect_si) {
@@ -250,25 +254,25 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersect(Ray& ray
         (void)insertInfo;
         return false;
     }
-}
+}*/
 
-template <typename LeafObj, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectAny(Ray& ray, const UserState& userState) const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersectAny(Ray& ray, const AnyHitRayState& userState) const
 {
     RayHit dummyHitInfo = {};
     return intersectT<true>(ray, dummyHitInfo, userState, { m_rootHandle, 0xFFFFFFFFFFFFFFFF });
 }
 
-template <typename LeafObj, typename UserState>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectAny(Ray& ray, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersectAny(Ray& ray, const AnyHitRayState& userState, PauseableBVHInsertHandle insertInfo) const
 {
     RayHit dummyHitInfo = {};
     return intersectT<true>(ray, dummyHitInfo, userState, insertInfo);
 }
 
-template <typename LeafObj, typename UserState>
-template <bool AnyHit, typename HitInfo>
-inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectT(Ray& ray, HitInfo& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+template <bool AnyHit, typename UserState>
+inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::intersectT(Ray& ray, RayHit& hitInfo, const UserState& userState, PauseableBVHInsertHandle insertInfo) const
 {
     struct SIMDRay {
         simd::vec4_f32 originX;
@@ -393,8 +397,8 @@ inline std::optional<bool> PauseableBVH4<LeafObj, UserState>::intersectT(Ray& ra
     return hit;
 }
 
-template <typename LeafObj, typename UserState>
-inline void PauseableBVH4<LeafObj, UserState>::testBVH() const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline void PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::testBVH() const
 {
     TestBVHData results;
     testBVHRecurse(&m_innerNodeAllocator.get(m_rootHandle), 0, results);
@@ -410,8 +414,8 @@ inline void PauseableBVH4<LeafObj, UserState>::testBVH() const
     std::cout << std::endl;
 }
 
-template <typename LeafObj, typename UserState>
-inline void PauseableBVH4<LeafObj, UserState>::testBVHRecurse(const BVHNode* node, int depth, TestBVHData& out) const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline void PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::testBVHRecurse(const BVHNode* node, int depth, TestBVHData& out) const
 {
     unsigned numChildrenReference = 0;
     for (unsigned childIdx = 0; childIdx < 4; childIdx++) {
@@ -432,16 +436,16 @@ inline void PauseableBVH4<LeafObj, UserState>::testBVHRecurse(const BVHNode* nod
     out.numChildrenHistogram[numChildren]++;
 }
 
-template <typename LeafObj, typename UserState>
-inline uint32_t PauseableBVH4<LeafObj, UserState>::generateFinalBVH(ConstructionInnerNode* node)
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline uint32_t PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::generateFinalBVH(ConstructionInnerNode* node)
 {
     auto [handle, ptr] = m_innerNodeAllocator.allocate();
     generateFinalBVHRecurse(node, 0, 0, handle);
     return handle;
 }
 
-template <typename LeafObj, typename UserState>
-inline void PauseableBVH4<LeafObj, UserState>::generateFinalBVHRecurse(ConstructionInnerNode* constructionInnerNode, uint32_t parentHandle, uint32_t depth, uint32_t outHandle)
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline void PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::generateFinalBVHRecurse(ConstructionInnerNode* constructionInnerNode, uint32_t parentHandle, uint32_t depth, uint32_t outHandle)
 {
     assert(constructionInnerNode->children.size() == constructionInnerNode->childrenBounds.size());
     BVHNode& outNode = m_innerNodeAllocator.get(outHandle);
@@ -510,8 +514,8 @@ inline void PauseableBVH4<LeafObj, UserState>::generateFinalBVHRecurse(Construct
     }
 }
 
-template <typename LeafObj, typename UserState>
-inline std::vector<LeafObj*> PauseableBVH4<LeafObj, UserState>::collectLeafs() const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline std::vector<LeafObj*> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::collectLeafs() const
 {
     // Leafs get moved from their original location and then once more when the leaf allocator is compacted.
     // So we can only collect the final leaf objects after the BVH is created.
@@ -520,8 +524,8 @@ inline std::vector<LeafObj*> PauseableBVH4<LeafObj, UserState>::collectLeafs() c
     return result;
 }
 
-template <typename LeafObj, typename UserState>
-inline void PauseableBVH4<LeafObj, UserState>::collectLeafsRecurse(const BVHNode& node, std::vector<LeafObj*>& outLeafObjects) const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline void PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::collectLeafsRecurse(const BVHNode& node, std::vector<LeafObj*>& outLeafObjects) const
 {
     unsigned numChildrenReference = 0;
     for (unsigned childIdx = 0; childIdx < 4; childIdx++) {
@@ -533,16 +537,16 @@ inline void PauseableBVH4<LeafObj, UserState>::collectLeafsRecurse(const BVHNode
     }
 }
 
-template <typename LeafObj, typename UserState>
-inline void* PauseableBVH4<LeafObj, UserState>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline void* PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr)
 {
     auto ptr = rtcThreadLocalAlloc(alloc, sizeof(ConstructionInnerNode), 8);
     new (ptr) ConstructionInnerNode();
     return ptr;
 }
 
-template <typename LeafObj, typename UserState>
-inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr)
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline void PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr)
 {
     assert(numChildren <= 4);
 
@@ -553,8 +557,8 @@ inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetChildren(void* nodePt
     }
 }
 
-template <typename LeafObj, typename UserState>
-inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetBounds(void* nodePtr, const RTCBounds** embreeBounds, unsigned numChildren, void* userPtr)
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline void PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::innerNodeSetBounds(void* nodePtr, const RTCBounds** embreeBounds, unsigned numChildren, void* userPtr)
 {
     assert(numChildren <= 4);
 
@@ -572,8 +576,8 @@ inline void PauseableBVH4<LeafObj, UserState>::innerNodeSetBounds(void* nodePtr,
     }
 }
 
-template <typename LeafObj, typename UserState>
-inline void* PauseableBVH4<LeafObj, UserState>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline void* PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
 {
     assert(numPrims == 1);
 
@@ -585,34 +589,34 @@ inline void* PauseableBVH4<LeafObj, UserState>::leafCreate(RTCThreadLocalAllocat
     return leafNodePtr;
 }
 
-template <typename LeafObj, typename UserState>
-inline uint32_t PauseableBVH4<LeafObj, UserState>::BVHNode::numChildren() const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline uint32_t PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::BVHNode::numChildren() const
 {
     return _mm_popcnt_u32(validMask);
 }
 
-template <typename LeafObj, typename UserState>
-inline bool PauseableBVH4<LeafObj, UserState>::BVHNode::isLeaf(unsigned childIdx) const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline bool PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::BVHNode::isLeaf(unsigned childIdx) const
 {
     return (validMask & leafMask) & (1 << childIdx);
 }
 
-template <typename LeafObj, typename UserState>
-inline bool PauseableBVH4<LeafObj, UserState>::BVHNode::isInnerNode(unsigned childIdx) const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline bool PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::BVHNode::isInnerNode(unsigned childIdx) const
 {
     return (validMask & (~leafMask)) & (1 << childIdx);
 }
 
-template <typename LeafObj, typename UserState>
-inline uint32_t PauseableBVH4<LeafObj, UserState>::BVHNode::getInnerChildHandle(unsigned childIdx) const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline uint32_t PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::BVHNode::getInnerChildHandle(unsigned childIdx) const
 {
     uint32_t innerNodeMaskBefore = (validMask & (~leafMask)) & ((1 << childIdx) - 1);
     auto innerNodesBefore = _mm_popcnt_u32(innerNodeMaskBefore);
     return firstChildHandle + innerNodesBefore;
 }
 
-template <typename LeafObj, typename UserState>
-inline uint32_t PauseableBVH4<LeafObj, UserState>::BVHNode::getLeafChildHandle(unsigned childIdx) const
+template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
+inline uint32_t PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::BVHNode::getLeafChildHandle(unsigned childIdx) const
 {
     uint32_t leafNodeMaskBefore = (validMask & leafMask) & ((1 << childIdx) - 1);
     auto leafNodesBefore = _mm_popcnt_u32(leafNodeMaskBefore);

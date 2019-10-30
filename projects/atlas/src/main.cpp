@@ -7,6 +7,8 @@
 #include "pandora/materials/matte_material.h"
 #include "pandora/shapes/triangle.h"
 #include "pandora/textures/constant_texture.h"
+#include "pandora/traversal/batching_acceleration_structure.h"
+#include "pandora/traversal/embree_acceleration_structure.h"
 #include "pbrt/pbrt_importer.h"
 #include "stream/task_graph.h"
 #include "ui/fps_camera_controls.h"
@@ -14,8 +16,8 @@
 #include "ui/window.h"
 
 #include "pandora/graphics_core/load_from_file.h"
-#include "stream/cache/lru_cache.h"
 #include "stream/cache/dummy_cache.h"
+#include "stream/cache/lru_cache.h"
 #include "stream/serialize/in_memory_serializer.h"
 #include <boost/program_options.hpp>
 #include <chrono>
@@ -85,13 +87,13 @@ int main(int argc, char** argv)
 
     spdlog::info("Loading scene");
     stream::LRUCache::Builder cacheBuilder { std::make_unique<stream::InMemorySerializer>() };
-	stream::DummyCache::Builder dummyCacheBuilder;
+    //stream::DummyCache::Builder dummyCacheBuilder;
 
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
     RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, nullptr, false) : loadFromFile(sceneFilePath);
     const glm::ivec2 resolution = renderConfig.resolution;
 
-    /*stream::LRUCache geometryCache = cacheBuilder.build(1024 * 1024 * 1024);
+    stream::LRUCache geometryCache = cacheBuilder.build(1024 * 1024 * 1024);
 
     std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
         for (const auto& pSceneObject : pSceneNode->objects) {
@@ -102,7 +104,7 @@ int main(int argc, char** argv)
             makeShapeResident(pChild);
         }
     };
-    makeShapeResident(renderConfig.pScene->pRoot);*/
+    makeShapeResident(renderConfig.pScene->pRoot);
 
     Window myWindow(resolution.x, resolution.y, "Atlas - Pandora viewer");
     FramebufferGL frameBuffer(resolution.x, resolution.y);
@@ -116,7 +118,8 @@ int main(int argc, char** argv)
     PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Building acceleration structure");
-    EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
+    //EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
+    BatchingAccelerationStructureBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 10000 };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
     bool pressedEscape = false;
