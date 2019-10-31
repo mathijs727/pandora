@@ -15,7 +15,6 @@ namespace pandora {
 
 static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const TriangleShape& original, unsigned maxSize, RTCDevice embreeDevice);
 static std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice);
-static void verifyInstanceDepth(const SceneNode* pSceneNode, int depth = 0);
 static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
 
 BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
@@ -336,7 +335,7 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
     return subSceneRoots;
 }
 
-static RTCScene buildRecurse(const SceneNode* pSceneNode, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
+RTCScene BatchingAccelerationStructureBuilder::buildRecurse(const SceneNode* pSceneNode, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
 {
     RTCScene embreeScene = rtcNewScene(embreeDevice);
     for (const auto& pSceneObject : pSceneNode->objects) {
@@ -395,7 +394,7 @@ static RTCScene buildRecurse(const SceneNode* pSceneNode, RTCDevice embreeDevice
     return batching_impl::BatchingPoint { embreeSubScene, pSubSceneRoot };
 }*/
 
-static void verifyInstanceDepth(const SceneNode* pSceneNode, int depth)
+void BatchingAccelerationStructureBuilder::verifyInstanceDepth(const SceneNode* pSceneNode, int depth)
 {
     for (const auto& [pChildNode, optTransform] : pSceneNode->children) {
         verifyInstanceDepth(pChildNode.get(), depth + 1);

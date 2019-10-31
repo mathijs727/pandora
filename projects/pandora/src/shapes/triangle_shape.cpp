@@ -210,6 +210,52 @@ Bounds TriangleShape::getPrimitiveBounds(unsigned primitiveID) const
     return bounds;
 }
 
+TriangleShape TriangleShape::subMesh(gsl::span<const unsigned> primitives) const
+{
+    std::vector<bool> usedVertices;
+    std::fill_n(std::back_inserter(usedVertices), m_positions.size(), false);
+    for (const unsigned primitiveID : primitives) {
+        const auto& triangle = m_indices[primitiveID];
+        usedVertices[triangle[0]] = true;
+        usedVertices[triangle[1]] = true;
+        usedVertices[triangle[2]] = true;
+    }
+
+    std::unordered_map<int, int> vertexIndexMapping;
+    int numUsedVertices = 0;
+    for (int i = 0; i < static_cast<int>(usedVertices.size()); i++) {
+        if (usedVertices[i]) {
+            vertexIndexMapping[i] = numUsedVertices++;
+        }
+    }
+
+    std::vector<glm::uvec3> indices;
+    for (unsigned triangleIndex : primitives) {
+        glm::uvec3 originalTriangle = m_indices[triangleIndex];
+        glm::uvec3 triangle = {
+            vertexIndexMapping[originalTriangle[0]],
+            vertexIndexMapping[originalTriangle[1]],
+            vertexIndexMapping[originalTriangle[2]]
+        };
+        indices.push_back(triangle);
+    }
+
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec2> texCoords;
+    for (size_t vertexIndex = 0; vertexIndex < m_positions.size(); vertexIndex++) {
+        if (usedVertices[vertexIndex]) {
+            positions.push_back(m_positions[vertexIndex]);
+            if (!m_normals.empty())
+                normals.push_back(m_normals[vertexIndex]);
+            if (!m_texCoords.empty())
+                texCoords.push_back(m_texCoords[vertexIndex]);
+        }
+    }
+
+    return TriangleShape(std::move(indices), std::move(positions), std::move(normals), std::move(texCoords));
+}
+
 TriangleShape TriangleShape::createAssimpMesh(const aiScene* scene, const unsigned meshIndex, const glm::mat4& matrix, bool ignoreVertexNormals)
 {
     const aiMesh* mesh = scene->mMeshes[meshIndex];

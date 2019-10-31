@@ -24,14 +24,17 @@ public:
     void intersect(const Ray& ray, const HitRayState& state) const;
     void intersectAny(const Ray& ray, const AnyHitRayState& state) const;
 
+    std::optional<SurfaceInteraction> intersectDebug(Ray& ray) const;
+
 private:
     void intersectKernel(gsl::span<const std::tuple<Ray, HitRayState>> data, std::pmr::memory_resource* pMemoryResource);
     void intersectAnyKernel(gsl::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource);
 
 private:
     friend class BatchingAccelerationStructureBuilder;
+    class BatchingPoint;
     BatchingAccelerationStructure(
-        RTCDevice embreeDevice, RTCScene embreeScene,
+        RTCDevice embreeDevice, PauseableBVH4<BatchingPoint, HitRayState, AnyHitRayState>&& topLevelBVH,
         tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
         tasking::TaskGraph* pTaskGraph);
@@ -43,8 +46,8 @@ private:
         ~BatchingPoint();
 
         Bounds getBounds() const;
-        std::optional<bool> intersect(Ray&, SurfaceInteraction&, const HitRayState&);
-        std::optional<bool> intersectAny(Ray&, const AnyHitRayState&);
+        std::optional<bool> intersect(Ray&, SurfaceInteraction&, const HitRayState&, const PauseableBVHInsertHandle&) const;
+        std::optional<bool> intersectAny(Ray&, const AnyHitRayState&, const PauseableBVHInsertHandle&) const;
 
     private:
         RTCScene m_embreeSubScene;
@@ -78,6 +81,8 @@ public:
 
 private:
     void splitLargeSceneObjectsRecurse(SceneNode* pNode, stream::LRUCache* pCache, unsigned maxSize);
+    static void verifyInstanceDepth(const SceneNode* pSceneNode, int depth = 0);
+    static RTCScene buildRecurse(const SceneNode* pSceneNode, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache);
 
 private:
     Scene* m_pScene;
@@ -91,36 +96,46 @@ private:
 template <typename HitRayState, typename AnyHitRayState>
 BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
     RTCScene embreeSubScene, const std::shared_ptr<SceneNode>& pSubSceneRoot)
-    : embreeSubScene(embreeSubScene)
-    , pSubSceneRoot(pSubSceneRoot)
+    : m_embreeSubScene(embreeSubScene)
+    , m_pSubSceneRoot(pSubSceneRoot)
 {
 }
 
 template <typename HitRayState, typename AnyHitRayState>
 BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(BatchingPoint&& other)
-    : embreeSubScene(other.embreeSubScene)
-    , pSubSceneRoot(std::move(other.pSubSceneRoot))
+    : m_embreeSubScene(other.m_embreeSubScene)
+    , m_pSubSceneRoot(std::move(other.m_pSubSceneRoot))
 {
-    other.embreeSubScene = nullptr;
+    other.m_embreeSubScene = nullptr;
 }
 
 template <typename HitRayState, typename AnyHitRayState>
 BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::~BatchingPoint()
 {
-    if (embreeSubScene)
-        rtcReleaseScene(embreeSubScene);
+    if (m_embreeSubScene)
+        rtcReleaseScene(m_embreeSubScene);
 }
 template <typename HitRayState, typename AnyHitRayState>
 Bounds BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::getBounds() const
 {
     RTCBounds embreeBounds;
-    rtcGetSceneBounds(m_rootEmbreeScene, &embreeBounds);
-    return Bounds(embreeBounds)
+    rtcGetSceneBounds(m_embreeSubScene, &embreeBounds);
+    return Bounds(embreeBounds);
+}
+
+template <typename HitRayState, typename AnyHitRayState>
+inline std::optional<SurfaceInteraction> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectDebug(Ray& ray) const
+{
+    SurfaceInteraction si;
+    if (m_topLevelBVH.intersect(ray, si, HitRayState {}))
+        return si;
+    else
+        return {};
 }
 
 template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersect(
-    Ray& ray, SurfaceInteraction& si, const HitRayState& userState)
+    Ray& ray, SurfaceInteraction& si, const HitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
     // TODO: batching
     RTCIntersectContext context {};
@@ -171,25 +186,28 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
             pSceneObject = reinterpret_cast<const SceneObject*>(
                 rtcGetGeometryUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
         }
-
+		
+		RayHit hit;
         hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
         hit.geometricNormal = glm::normalize(glm::dot(-ray.direction, hit.geometricNormal) > 0.0f ? hit.geometricNormal : -hit.geometricNormal);
         hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
         hit.primitiveID = embreeRayHit.hit.primID;
 
         const auto* pShape = pSceneObject->pShape.get();
-        auto si = pShape->fillSurfaceInteraction(ray, hit);
+        si = pShape->fillSurfaceInteraction(ray, hit);
         si.pSceneObject = pSceneObject;
         si.localToWorld = transform;
-        m_pTaskGraph->enqueue(m_onHitTask, std::tuple { ray, si, state });
+        //m_pTaskGraph->enqueue(m_onHitTask, std::tuple { ray, si, state });
+        return true;
     } else {
-        m_pTaskGraph->enqueue(m_onMissTask, std::tuple { ray, state });
+        // m_pTaskGraph->enqueue(m_onMissTask, std::tuple { ray, state });
+        return false;
     }
 }
 
 template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectAny(
-    Ray& ray, const AnyHitRayState& userState)
+    Ray& ray, const AnyHitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
     // TODO: batching
     RTCIntersectContext context {};
@@ -212,7 +230,9 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
 
     rtcOccluded1(m_embreeSubScene, &context, &embreeRay);
 
-    ray.tfar = embeeRay.tfar;
+    ray.tfar = embreeRay.tfar;
+    static constexpr float minInf = -std::numeric_limits<float>::infinity();
+    return embreeRay.tfar != minInf;
 }
 
 template <typename HitRayState, typename AnyHitRayState>
@@ -220,17 +240,31 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask)
 {
-    return BatchingAccelerationStructure(m_embreeDevice, m_embreeScene, hitTask, missTask, anyHitTask, anyMissTask, m_pTaskGraph);
+    using BatchingPointT = BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint;
+    std::vector<BatchingPointT> batchingPoints;
+    std::transform(std::begin(m_subScenes), std::end(m_subScenes), std::back_inserter(batchingPoints),
+        [&](const std::shared_ptr<SceneNode>& pSubSceneRoot) {
+            verifyInstanceDepth(pSubSceneRoot.get());
+
+            std::unordered_map<const SceneNode*, RTCScene> sceneCache;
+            RTCScene embreeSubScene = buildRecurse(pSubSceneRoot.get(), m_embreeDevice, sceneCache);
+
+            return BatchingPointT { embreeSubScene, pSubSceneRoot };
+        });
+
+    // Moves batching points into internal structure
+    PauseableBVH4<BatchingPointT, HitRayState, AnyHitRayState> topLevelBVH { batchingPoints };
+    return BatchingAccelerationStructure(m_embreeDevice, std::move(topLevelBVH), hitTask, missTask, anyHitTask, anyMissTask, m_pTaskGraph);
 }
 
 template <typename HitRayState, typename AnyHitRayState>
 inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingAccelerationStructure(
-    RTCDevice embreeDevice, RTCScene embreeScene,
+    RTCDevice embreeDevice, PauseableBVH4<BatchingPoint, HitRayState, AnyHitRayState>&& topLevelBVH,
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
     tasking::TaskGraph* pTaskGraph)
     : m_embreeDevice(embreeDevice)
-    , m_embreeScene(embreeScene)
+    , m_topLevelBVH(std::move(topLevelBVH))
     , m_pTaskGraph(pTaskGraph)
     , m_intersectTask(
           pTaskGraph->addTask<std::tuple<Ray, HitRayState>>(
@@ -248,7 +282,6 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingAccel
 template <typename HitRayState, typename AnyHitRayState>
 inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::~BatchingAccelerationStructure()
 {
-    rtcReleaseScene(m_embreeScene);
     rtcReleaseDevice(m_embreeDevice);
 }
 
@@ -268,7 +301,7 @@ template <typename HitRayState, typename AnyHitRayState>
 inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectKernel(
     gsl::span<const std::tuple<Ray, HitRayState>> data, std::pmr::memory_resource* pMemoryResource)
 {
-    RTCIntersectContext context {};
+    /*RTCIntersectContext context {};
     for (auto [ray, state] : data) {
         RTCRayHit embreeRayHit;
         embreeRayHit.ray.org_x = ray.origin.x;
@@ -331,14 +364,14 @@ inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersec
         } else {
             m_pTaskGraph->enqueue(m_onMissTask, std::tuple { ray, state });
         }
-    }
+    }*/
 }
 
 template <typename HitRayState, typename AnyHitRayState>
 inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectAnyKernel(
     gsl::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource)
 {
-    RTCIntersectContext context {};
+    /*RTCIntersectContext context {};
     for (auto [ray, state] : data) {
         RTCRay embreeRay;
         embreeRay.org_x = ray.origin.x;
@@ -364,6 +397,6 @@ inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersec
         } else {
             m_pTaskGraph->enqueue(m_onAnyMissTask, std::tuple { ray, state });
         }
-    }
+    }*/
 }
 }
