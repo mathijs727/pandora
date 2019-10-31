@@ -188,7 +188,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
             for (const auto& xxx : sceneJson["shapes"])
                 size++;
             shapes.resize(size);
-		}
+        }
 
         tbb::task_group tg;
         size_t i = 0;
@@ -202,16 +202,19 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 ALWAYS_ASSERT(std::filesystem::exists(geometryFile));
                 auto mappedFile = mio::mmap_source(geometryFile.string(), startByte, sizeBytes);
 
+				// NOTE: create a shared_ptr of mio::mmap_source and pass it to the lambdas instead of moving mio::mmap_source directly into
+				//       the lambda as a work-around for a bug in TBB (C++ feature detection breaks when using clang-cl.exe which makes it
+				//       think that move operators are not supported yet).
                 if (jsonGeometry.find("transform") != jsonGeometry.end()) {
                     glm::mat4 transform = getTransform(jsonGeometry["transform"]);
-                    tg.run([i, &shapes, mappedFile = std::move(mappedFile), transform]() {
+                    tg.run([i, &shapes, pMappedFile = std::make_shared<mio::mmap_source>(std::move(mappedFile)), transform]() {
                         shapes[i] = std::make_shared<TriangleShape>(
-                            TriangleShape::loadSerialized(serialization::GetTriangleMesh(mappedFile.data()), transform));
+                            TriangleShape::loadSerialized(serialization::GetTriangleMesh(pMappedFile->data()), transform));
                     });
                 } else {
-                    tg.run([i, &shapes, mappedFile = std::move(mappedFile)]() {
+                    tg.run([i, &shapes, pMappedFile = std::make_shared<mio::mmap_source>(std::move(mappedFile))]() {
                         shapes[i] = std::make_shared<TriangleShape>(
-                            TriangleShape::loadSerialized(serialization::GetTriangleMesh(mappedFile.data()), glm::mat4(1.0f)));
+                            TriangleShape::loadSerialized(serialization::GetTriangleMesh(pMappedFile->data()), glm::mat4(1.0f)));
                     });
                 }
             } else {

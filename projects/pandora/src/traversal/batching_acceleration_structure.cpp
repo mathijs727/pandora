@@ -130,7 +130,7 @@ static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const
             primitiveIDs[i] = prims[i].primID;
         }
 
-        userData.subShapes.emplace_back(std::make_shared<TriangleShape>(userData.shape.subMesh(primitiveIDs)));
+        userData.subShapes.push_back(std::make_shared<TriangleShape>(userData.shape.subMesh(primitiveIDs)));
         return nullptr;
     };
 

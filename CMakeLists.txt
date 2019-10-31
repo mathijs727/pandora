@@ -13,6 +13,7 @@ option(LINK_STDCXX_FILESYSTEM "Add libstdc++ filesystem to the linker flags" OFF
 option(LINK_CXX_FILESYSTEM "Add libc++ filesystem to the linker flags" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/enable_simd.cmake")
 if (PANDORA_ISPC_SUPPORT)
 	include("${CMAKE_CURRENT_LIST_DIR}/cmake/ispc.cmake")
 endif()

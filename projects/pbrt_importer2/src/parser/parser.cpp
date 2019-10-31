@@ -37,7 +37,9 @@ pandora::RenderConfig Parser::parse(std::filesystem::path file, stream::CacheBui
     std::vector<pandora::PerspectiveCamera> cameras;
     std::transform(std::begin(intermediateScene.cameras), std::end(intermediateScene.cameras), std::back_inserter(cameras),
         [=](auto cameraData) {
-            const auto& [worldToCamera, cameraParams] = cameraData;
+            // Use mutable reference instead of immutable reference to work around a Clang on Windows bug:
+            // https://stackoverflow.com/questions/53721714/why-does-structured-binding-not-work-as-expected-on-struct
+            auto& [worldToCamera, cameraParams] = cameraData;
 
             // PBRT defines field of view along shortest axis
             float fov = cameraParams.get<float>("fov", 45.0f);
@@ -585,7 +587,9 @@ Params Parser::parseParams()
         if (token.type != TokenType::STRING)
             return params;
 
-        auto&& [paramType, paramName] = splitStringFirstWhitespace(next().text);
+        const auto&& [paramType, paramNameTmp] = splitStringFirstWhitespace(next().text);
+        const std::string_view paramName = paramNameTmp; // Lambdas are not allowed to reference local binding
+
         auto addParam = [&](auto v) {
             params.add(paramName, v);
         };

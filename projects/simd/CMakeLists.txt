@@ -4,6 +4,10 @@ target_include_directories(simd INTERFACE "${CMAKE_CURRENT_LIST_DIR}/include")
 target_compile_features(simd INTERFACE cxx_std_17)
 #target_link_libraries(simd INTERFACE GSL)
 
+enable_avx2(simd)
+enable_popcnt(simd)
+enable_bmi2(simd)
+
 option(SIMD_BUILD_TESTS OFF)
 
 if(SIMD_BUILD_TESTS)

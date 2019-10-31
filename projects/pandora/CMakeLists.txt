@@ -1,16 +1,21 @@
 add_library(libPandora "")
 target_compile_features(libPandora PRIVATE cxx_std_17)
 
-if (MSVC)
+if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_compile_definitions(libPandora PUBLIC "_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
 	target_compile_definitions(libPandora PUBLIC "NOMINMAX")
 
 	# Surpess warnings from OpenImageIO & libmorton and enable AVX2
 	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/arch:AVX2 /wd5040 /wd4244 /wd4275 /wd4309")
-else()
-	#target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Wno-unused-parameter -Wno-unused-variable -Wno-unused-private-field)
-	target_compile_options(libPandora PUBLIC -mavx2 -mpopcnt -mbmi2)
 endif()
+enable_avx2(libPandora)
+enable_popcnt(libPandora)
+enable_bmi2(libPandora)
+
+if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+	target_compile_definitions(libPandora PRIVATE "-D__TBB_CPP11_RVALUE_REF_PRESENT=1")
+endif()
+
 target_compile_definitions(libPandora PRIVATE "ENABLE_STATIC_LIB")# Embree static lib
 
 if (PANDORA_ISPC_SUPPORT)

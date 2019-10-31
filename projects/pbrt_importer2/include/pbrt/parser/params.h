@@ -65,7 +65,7 @@ public:
         }
     }
     template <typename T>
-    inline T get(std::string_view key, const T& default) const
+    inline T get(std::string_view key, const T& defaultValue) const
     {
         if constexpr (holdsPossibleArray<T>()) {
             if (auto iter = m_values.find(key); iter != std::end(m_values)) {
@@ -76,14 +76,14 @@ public:
                 else
                     return std::get<std::vector<T>>(v)[0];
             } else {
-                return default;
+                return defaultValue;
             }
         } else {
             // PBRT has this weird format were it does not differentiate between scalars and arrays with length 1
             if (auto iter = m_values.find(key); iter != std::end(m_values)) {
                 return std::get<T>(iter->second);
             } else {
-                return default;
+                return defaultValue;
             }
         }
     }
