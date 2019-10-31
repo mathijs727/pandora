@@ -90,7 +90,7 @@ int main(int argc, char** argv)
     //stream::DummyCache::Builder dummyCacheBuilder;
 
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
-    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, nullptr, false) : loadFromFile(sceneFilePath);
+    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false) : loadFromFile(sceneFilePath);
     const glm::ivec2 resolution = renderConfig.resolution;
 
     stream::LRUCache geometryCache = cacheBuilder.build(1024 * 1024 * 1024);
@@ -119,7 +119,7 @@ int main(int argc, char** argv)
 
     spdlog::info("Building acceleration structure");
     //EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
-    BatchingAccelerationStructureBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 10000 };
+    BatchingAccelerationStructureBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 100000 };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
     bool pressedEscape = false;

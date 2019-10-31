@@ -63,7 +63,7 @@ template <typename T>
 inline CachedPtr<T> LRUCache::makeResident(T* pEvictable)
 {
     // NOTE: thread-safe only if get() is called from one thread at a time (ref count may be modified by any thread concurrently).
-    const uint32_t itemIndex = m_pointerToItemIndex[pEvictable];
+    const uint32_t itemIndex = m_pointerToItemIndex.find(pEvictable)->second;
     RefCountedItem& refCountedItem = m_items[itemIndex];
     Evictable* pItem = refCountedItem.pItem;
     if (pItem->isResident()) {

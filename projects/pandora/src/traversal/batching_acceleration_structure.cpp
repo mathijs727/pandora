@@ -22,6 +22,7 @@ BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     stream::LRUCache* pCache,
     tasking::TaskGraph* pTaskGraph,
     unsigned primitivesPerBatchingPoint)
+    : m_pTaskGraph(pTaskGraph)
 {
     m_embreeDevice = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(m_embreeDevice, embreeErrorFunc, nullptr);
@@ -31,7 +32,7 @@ BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     // Split large shapes into smaller sub shpaes so we can guarantee that the batching poinst never exceed the given size.
     // This should also help with reducing the spatial extent of the batching points by (hopefully) splitting spatially large shapes.
     spdlog::info("Splitting large scene objects");
-    splitLargeSceneObjectsRecurse(pScene->pRoot.get(), pCache, primitivesPerBatchingPoint / 8);
+    splitLargeSceneObjectsRecurse(pScene->pRoot.get(), pCache, primitivesPerBatchingPoint / 2);
 
     spdlog::info("Splitting scene into sub scenes");
     m_subScenes = createSubScenes(*pScene, primitivesPerBatchingPoint, m_embreeDevice);
@@ -145,17 +146,22 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
 {
     // Split a large shape into smaller shapes with maxSize/2 to maxSize primitives.
     // The Embree BVH builder API used to efficiently partition the shapes primitives into groups.
-    using Path = eastl::fixed_vector<unsigned, 4>;
+    //using Path = eastl::fixed_vector<unsigned, 4>;
+    using Path = std::vector<unsigned>;
     std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
     std::vector<Path> primitivePaths;
 
     std::function<void(const SceneNode*, Path)> addEmbreePrimitives = [&](const SceneNode* pSceneNode, Path pathToNode) {
-        for (auto&& [sceneObjectID, sceneObject] : enumerate(pSceneNode->objects)) {
+        for (const auto& [sceneObjectID, pSceneObject] : enumerate(pSceneNode->objects)) {
             auto path = pathToNode;
+            path.push_back(sceneObjectID);
             unsigned primPathID = static_cast<unsigned>(primitivePaths.size());
             primitivePaths.push_back(path);
 
-            Bounds bounds = sceneObject->pShape->getBounds();
+            if (!pSceneObject->pShape)
+                continue;
+
+            Bounds bounds = pSceneObject->pShape->getBounds();
 
             RTCBuildPrimitive primitive;
             primitive.lower_x = bounds.min.x;
@@ -168,7 +174,16 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
             primitive.primID = primPathID;
             embreeBuildPrimitives.push_back(primitive);
         }
+
+        for (const auto& [childID, childLink] : enumerate(pSceneNode->children)) {
+            auto path = pathToNode;
+            path.push_back(childID);
+
+            const auto& [pChild, optTransform] = childLink;
+            addEmbreePrimitives(pChild.get(), path);
+        }
     };
+    addEmbreePrimitives(scene.pRoot.get(), Path {});
     ALWAYS_ASSERT(primitivePaths.size() < std::numeric_limits<unsigned>::max());
 
     // Build a BVH over all scene objects (including instanced ones)
@@ -177,14 +192,17 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
     struct BVHNode {
         virtual ~BVHNode() {};
 
-        eastl::fixed_vector<Bounds, 2, false> childBounds;
+        //eastl::fixed_vector<Bounds, 2, false> childBounds;
+        std::vector<Bounds> childBounds;
         size_t numPrimitives { 0 };
     };
     struct LeafNode : public BVHNode {
-        eastl::fixed_vector<Path, 2, false> sceneObjectPaths;
+        //eastl::fixed_vector<Path, 2, false> sceneObjectPaths;
+        std::vector<Path> sceneObjectPaths;
     };
     struct InnerNode : public BVHNode {
-        eastl::fixed_vector<BVHNode*, 2, false> children;
+        //eastl::fixed_vector<BVHNode*, 2, false> children;
+        std::vector<BVHNode*> children;
     };
 
     RTCBuildArguments arguments = rtcDefaultBuildArguments();
@@ -201,19 +219,19 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
     arguments.userPtr = &primitivePaths;
     arguments.createNode = [](RTCThreadLocalAllocator alloc, unsigned numChildren, void*) -> void* {
         void* pMem = rtcThreadLocalAlloc(alloc, sizeof(InnerNode), std::alignment_of_v<InnerNode>);
-        return new (pMem) InnerNode();
+        return static_cast<BVHNode*>(new (pMem) InnerNode());
     };
     arguments.setNodeChildren = [](void* pMem, void** ppChildren, unsigned childCount, void*) {
         auto* pNode = static_cast<InnerNode*>(pMem);
         for (unsigned i = 0; i < childCount; i++) {
-            pNode->children.push_back(static_cast<InnerNode*>(ppChildren[i]));
+            pNode->children.push_back(static_cast<BVHNode*>(ppChildren[i]));
         }
     };
     arguments.setNodeBounds = [](void* pMem, const RTCBounds** ppBounds, unsigned childCount, void*) {
         auto* pNode = static_cast<InnerNode*>(pMem);
         for (unsigned i = 0; i < childCount; i++) {
             const auto* pBounds = ppBounds[i];
-            pNode->childBounds[i] = Bounds(*pBounds);
+            pNode->childBounds.push_back(Bounds(*pBounds));
         }
     };
     arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
@@ -227,7 +245,7 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
             const auto& prim = prims[i];
             pNode->sceneObjectPaths.emplace_back(std::move(primitivePaths[prim.primID]));
         }
-        return pNode;
+        return static_cast<BVHNode*>(pNode);
     };
     auto* bvhRoot = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
 
@@ -279,7 +297,7 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
         if (pNode->numPrimitives > primitivesPerSubScene) {
             if (const auto* pInnerNode = dynamic_cast<const InnerNode*>(pNode)) {
                 for (const auto* pChild : pInnerNode->children)
-                    computeSubSceneRoots(pNode);
+                    computeSubSceneRoots(pChild);
             } else {
                 subSceneObjects.push_back(flattenSubTree(pNode));
             }

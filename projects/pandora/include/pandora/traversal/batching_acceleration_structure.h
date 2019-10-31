@@ -99,6 +99,7 @@ BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::Batch
     : m_embreeSubScene(embreeSubScene)
     , m_pSubSceneRoot(pSubSceneRoot)
 {
+    assert(m_pSubSceneRoot);
 }
 
 template <typename HitRayState, typename AnyHitRayState>
@@ -186,8 +187,8 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
             pSceneObject = reinterpret_cast<const SceneObject*>(
                 rtcGetGeometryUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
         }
-		
-		RayHit hit;
+
+        RayHit hit;
         hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
         hit.geometricNormal = glm::normalize(glm::dot(-ray.direction, hit.geometricNormal) > 0.0f ? hit.geometricNormal : -hit.geometricNormal);
         hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
