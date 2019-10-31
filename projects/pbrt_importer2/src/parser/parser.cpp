@@ -13,8 +13,8 @@
 std::pair<std::string_view, std::string_view> splitStringFirstWhitespace(std::string_view string);
 
 Parser::Parser(std::filesystem::path basePath, bool loadTextures)
-    : m_basePath(basePath)
-    , m_loadTextures(loadTextures)
+    : m_loadTextures(loadTextures)
+    , m_basePath(basePath)
 {
 }
 
@@ -42,7 +42,7 @@ pandora::RenderConfig Parser::parse(std::filesystem::path file, stream::CacheBui
             auto& [worldToCamera, cameraParams] = cameraData;
 
             // PBRT defines field of view along shortest axis
-            float fov = cameraParams.get<float>("fov", 45.0f);
+            float fov = cameraParams.template get<float>("fov", 45.0f);
             if (fResolution.x > fResolution.y)
                 fov = glm::degrees(std::atan(std::tan(glm::radians(fov / 2.0f)) * aspectRatio) * 2.0f);
 

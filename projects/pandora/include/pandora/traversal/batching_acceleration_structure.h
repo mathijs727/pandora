@@ -42,7 +42,7 @@ private:
     class BatchingPoint {
     public:
         BatchingPoint(RTCScene embreeSubScene, const std::shared_ptr<SceneNode>& pSubSceneRoot);
-        BatchingPoint(BatchingPoint&&);
+        BatchingPoint(BatchingPoint&&) noexcept;
         ~BatchingPoint();
 
         Bounds getBounds() const;
@@ -85,7 +85,7 @@ private:
     static RTCScene buildRecurse(const SceneNode* pSceneNode, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache);
 
 private:
-    Scene* m_pScene;
+    //Scene* m_pScene;
     RTCDevice m_embreeDevice;
 
     std::vector<std::shared_ptr<SceneNode>> m_subScenes;
@@ -103,7 +103,7 @@ BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::Batch
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(BatchingPoint&& other)
+BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(BatchingPoint&& other) noexcept
     : m_embreeSubScene(other.m_embreeSubScene)
     , m_pSubSceneRoot(std::move(other.m_pSubSceneRoot))
 {
@@ -255,7 +255,7 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
 
     // Moves batching points into internal structure
     PauseableBVH4<BatchingPointT, HitRayState, AnyHitRayState> topLevelBVH { batchingPoints };
-    return BatchingAccelerationStructure(m_embreeDevice, std::move(topLevelBVH), hitTask, missTask, anyHitTask, anyMissTask, m_pTaskGraph);
+    return BatchingAccelerationStructure<HitRayState, AnyHitRayState>(m_embreeDevice, std::move(topLevelBVH), hitTask, missTask, anyHitTask, anyMissTask, m_pTaskGraph);
 }
 
 template <typename HitRayState, typename AnyHitRayState>

@@ -7,10 +7,6 @@
 // Inspiration taken from pbrt-parser by Ingo Wald:
 // https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Lexer.cpp
 
-static inline bool isSpecial(const char c) noexcept
-{
-    return (c == '[' || c == ']' || c == ',');
-}
 static inline bool isWhiteSpace(const char c) noexcept
 {
     return (c == ' ' || c == '\t' || c == '\r' || c == '\n');

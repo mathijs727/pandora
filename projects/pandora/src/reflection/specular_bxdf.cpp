@@ -68,10 +68,10 @@ BxDF::Sample SpecularTransmission::sampleF(const glm::vec3& wo, const glm::vec2&
 
 FresnelSpecular::FresnelSpecular(const Spectrum& r, const Spectrum& t, float etaA, float etaB)
     : BxDF(BxDFType(BSDF_REFLECTION | BSDF_TRANSMISSION | BSDF_SPECULAR))
-    , m_r(r)
-    , m_t(t)
-    , m_etaA(etaA)
-    , m_etaB(etaB)
+    //, m_r(r)
+    //, m_t(t)
+    //, m_etaA(etaA)
+    //, m_etaB(etaB)
     , m_fresnel(etaA, etaB)
 {
 }

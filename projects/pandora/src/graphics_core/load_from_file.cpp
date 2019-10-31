@@ -185,7 +185,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
         {
             size_t size = 0;
-            for (const auto& xxx : sceneJson["shapes"])
+            for (const auto& _ : sceneJson["shapes"])
                 size++;
             shapes.resize(size);
         }
@@ -315,6 +315,6 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
     }
 
     spdlog::info("Finished parsing scene");
-    return std::move(config);
+    return config;
 }
 }

@@ -71,7 +71,7 @@ private:
         eastl::fixed_vector<ConstructionNode*, 4> children;
     };
     struct ConstructionLeafNode : public ConstructionNode {
-        uint32_t leafID;
+        uint32_t leafID { 0 };
     };
 
     struct alignas(16) BVHNode {

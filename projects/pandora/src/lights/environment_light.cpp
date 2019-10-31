@@ -62,7 +62,7 @@ LightSample EnvironmentLight::sampleLi(const Interaction& ref, PcgRng& rng) cons
 float EnvironmentLight::pdfLi(const Interaction& ref, const glm::vec3& wiWorld) const
 {
 	glm::vec3 wi = worldToLight(wiWorld);
-	float theta = sphericalTheta(wi), phi = sphericalTheta(wi);
+    float theta = sphericalTheta(wi);//, phi = sphericalTheta(wi);
 	float sinTheta = std::sin(theta);
 	if (sinTheta == 0)
 		return 0.0f;

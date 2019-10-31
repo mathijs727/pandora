@@ -27,7 +27,7 @@ constexpr std::array<float, 32> computePowers(int center)
 
 static float fallback(std::string_view string)
 {
-    float value;
+    float value { 0.0f };
     std::from_chars(string.data(), string.data() + string.length(), value);
     return value;
 }

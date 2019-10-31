@@ -8,13 +8,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 	# Surpess warnings from OpenImageIO & libmorton and enable AVX2
 	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/arch:AVX2 /wd5040 /wd4244 /wd4275 /wd4309")
 endif()
-enable_avx2(libPandora)
-enable_popcnt(libPandora)
-enable_bmi2(libPandora)
-
-if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-	target_compile_definitions(libPandora PRIVATE "-D__TBB_CPP11_RVALUE_REF_PRESENT=1")
-endif()
+enable_native_isa(libPandora)
 
 target_compile_definitions(libPandora PRIVATE "ENABLE_STATIC_LIB")# Embree static lib
 

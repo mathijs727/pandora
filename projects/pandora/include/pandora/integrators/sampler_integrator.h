@@ -20,9 +20,9 @@ public:
     SamplerIntegrator(tasking::TaskGraph* pTaskGraph, int maxDepth, int spp, LightStrategy strategy = LightStrategy::UniformSampleAll);
 
     struct BounceRayState {
-        glm::ivec2 pixel;
-        glm::vec3 weight;
-        int pathDepth;
+        glm::ivec2 pixel { 0 };
+        glm::vec3 weight { 0 };
+        int pathDepth { 0 };
         PcgRng rng;
     };
     struct ShadowRayState {

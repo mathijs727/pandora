@@ -238,7 +238,7 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
         void* pMem = rtcThreadLocalAlloc(alloc, sizeof(InnerNode), std::alignment_of_v<InnerNode>);
         auto* pNode = new (pMem) LeafNode();
 
-        const auto& primitivePaths = *reinterpret_cast<std::vector<Path>*>(userPtr);
+        auto& primitivePaths = *reinterpret_cast<std::vector<Path>*>(userPtr);
 
         pNode->numPrimitives = static_cast<unsigned>(numPrims);
         for (size_t i = 0; i < numPrims; i++) {

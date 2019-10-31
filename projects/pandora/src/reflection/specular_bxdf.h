@@ -37,8 +37,8 @@ public:
     Sample sampleF(const glm::vec3& wo, const glm::vec2& sample, BxDFType sampledType) const final;
 
 private:
-    const Spectrum m_r, m_t;
-    const float m_etaA, m_etaB;
+    //const Spectrum m_r, m_t;
+    //const float m_etaA, m_etaB;
     const FresnelDielectric m_fresnel;
 };
 

@@ -13,8 +13,8 @@ public:
     Interaction() = default;
     inline Interaction(const glm::vec3& position, const glm::vec3& normal, const glm::vec3& wo)
         : position(position)
-        , normal(normal)
         , wo(wo)
+        , normal(normal)
     {
     }
 
@@ -30,16 +30,16 @@ public:
 struct SurfaceInteraction : public Interaction {
 public:
     std::optional<glm::mat4> localToWorld;
-    const SceneObject* pSceneObject;
+    const SceneObject* pSceneObject { nullptr };
     BSDF* pBSDF { nullptr };
 
-    glm::vec2 uv;
+    glm::vec2 uv { 0 };
     //glm::vec3 dpdu, dpdv;
     //glm::vec3 dndu, dndv;
 
     struct Shading {
-        glm::vec3 normal;
-        glm::vec2 st;
+        glm::vec3 normal { 0 };
+        glm::vec2 st { 0 };
         //glm::vec3 dpdu, dpdv;
         //glm::vec3 dndu, dndv;
     } shading;

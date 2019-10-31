@@ -1,4 +1,3 @@
-#pragma once
 #include "pandora/graphics_core/transform.h"
 #include "pandora/shapes/triangle.h"
 #include "pandora/svo/voxel_grid.h"

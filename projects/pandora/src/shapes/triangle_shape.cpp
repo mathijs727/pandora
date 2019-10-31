@@ -83,6 +83,7 @@ TriangleShape::TriangleShape(
     , m_positions(std::move(positions))
     , m_normals(std::move(normals))
     , m_texCoords(std::move(texCoords))
+    , m_serializedStateHandle()
 {
     Bounds bounds;
     for (const glm::vec3& p : m_positions)
@@ -94,7 +95,7 @@ TriangleShape::TriangleShape(
     m_normals.shrink_to_fit();
     m_texCoords.shrink_to_fit();
 
-    ALWAYS_ASSERT(indices.size() < std::numeric_limits<unsigned>::max());
+    ALWAYS_ASSERT(m_indices.size() < std::numeric_limits<unsigned>::max());
 }
 
 TriangleShape::TriangleShape(
@@ -151,7 +152,6 @@ void TriangleShape::doMakeResident(stream::Deserializer& deserializer)
         });
     m_indices.shrink_to_fit();
 
-    m_positions;
     m_positions.resize(pSerializedTriangleMesh->positions()->size());
     std::transform(
         pSerializedTriangleMesh->positions()->begin(),
@@ -333,7 +333,7 @@ std::optional<TriangleShape> TriangleShape::loadFromFileSingleShape(std::filesys
 
         auto ret = loadFromFileSingleShape(scene, objTransform, ignoreVertexNormals);
         importer.FreeScene();
-        return std::move(ret);
+        return ret;
     }
 }
 
