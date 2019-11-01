@@ -330,7 +330,11 @@ inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersec
     for (const auto& [ray, state] : data) {
         Ray mutRay = ray;
         SurfaceInteraction si;
-        if (m_topLevelBVH.intersect(mutRay, si, state))
+
+		auto optHit = m_topLevelBVH.intersect(mutRay, si, state);
+        assert(optHit);
+
+        if (*optHit)
             m_pTaskGraph->enqueue(m_onHitTask, std::tuple { mutRay, si, state });
         else
             m_pTaskGraph->enqueue(m_onMissTask, std::tuple { mutRay, state });
@@ -344,7 +348,9 @@ inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersec
     for (const auto& [ray, state] : data) {
         Ray mutRay = ray;
 
-        if (m_topLevelBVH.intersectAny(mutRay, state))
+		auto optHit = m_topLevelBVH.intersectAny(mutRay, state);
+        assert(optHit);
+        if (*optHit)
             m_pTaskGraph->enqueue(m_onAnyHitTask, std::tuple { mutRay, state });
         else
             m_pTaskGraph->enqueue(m_onAnyMissTask, std::tuple { mutRay, state });
