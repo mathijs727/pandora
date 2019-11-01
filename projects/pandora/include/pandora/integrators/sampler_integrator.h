@@ -1,7 +1,8 @@
 #pragma once
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/samplers/rng/pcg.h"
-#include "pandora/traversal/embree_acceleration_structure.h"
+#include "pandora/traversal/acceleration_structure.h"
+#include "stream/task_graph.h"
 #include <atomic>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
@@ -37,7 +38,7 @@ public:
     using AnyHitTaskHandle = tasking::TaskHandle<std::tuple<Ray, AnyRayState>>;
     using AnyMissTaskHandle = tasking::TaskHandle<std::tuple<Ray, AnyRayState>>;
 
-    using Accel = EmbreeAccelerationStructure<RayState, AnyRayState>;
+    using Accel = AccelerationStructure<RayState, AnyRayState>;
     void render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed = 891379);
 
 protected:

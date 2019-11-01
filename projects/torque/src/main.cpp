@@ -10,13 +10,14 @@
 #include "pandora/materials/matte_material.h"
 #include "pandora/shapes/triangle.h"
 #include "pandora/textures/constant_texture.h"
+#include "pandora/traversal/embree_acceleration_structure.h"
 #include "stream/task_graph.h"
 
 #include <boost/program_options.hpp>
+#include <iostream>
 #include <string>
 #include <tbb/tbb.h>
 #include <xmmintrin.h>
-#include <iostream>
 #ifdef _WIN32
 #include <spdlog/sinks/msvc_sink.h>
 #else
@@ -142,14 +143,14 @@ int main(int argc, char** argv)
 #endif
     }
 
-	spdlog::info("Writing output to {}.jpg/exr", vm["out"].as<std::string>());
+    spdlog::info("Writing output to {}.jpg/exr", vm["out"].as<std::string>());
     writeOutputToFile(sensor, spp, vm["out"].as<std::string>() + ".jpg", true);
     writeOutputToFile(sensor, spp, vm["out"].as<std::string>() + ".exr", false);
 
-	spdlog::info("Writing statistics");
+    spdlog::info("Writing statistics");
     g_stats.asyncTriggerSnapshot();
 
-	spdlog::info("Done");
+    spdlog::info("Done");
     return 0;
 }
 

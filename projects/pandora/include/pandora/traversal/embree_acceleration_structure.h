@@ -2,6 +2,7 @@
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/graphics_core/scene.h"
 #include "pandora/graphics_core/shape.h"
+#include "pandora/traversal/acceleration_structure.h"
 #include "stream/task_graph.h"
 #include <embree3/rtcore.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -16,7 +17,7 @@ namespace pandora {
 class EmbreeAccelerationStructureBuilder;
 
 template <typename HitRayState, typename AnyHitRayState>
-class EmbreeAccelerationStructure {
+class EmbreeAccelerationStructure : public AccelerationStructure<HitRayState, AnyHitRayState> {
 public:
     ~EmbreeAccelerationStructure();
 
@@ -93,8 +94,8 @@ inline std::optional<SurfaceInteraction> EmbreeAccelerationStructure<HitRayState
     embreeRayHit.ray.id = 0;
     embreeRayHit.ray.flags = 0;
     embreeRayHit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
-	// Embree sets to 0 when invalid?
-	/*for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
+    // Embree sets to 0 when invalid?
+    /*for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
         embreeRayHit.hit.instID[i] = RTC_INVALID_GEOMETRY_ID;
     }*/
     rtcIntersect1(m_embreeScene, &context, &embreeRayHit);

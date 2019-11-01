@@ -1,9 +1,10 @@
 #pragma once
 #include "pandora/graphics_core/bounds.h"
 #include "pandora/graphics_core/pandora.h"
-#include "pandora/samplers/rng/pcg.h"
 #include "pandora/graphics_core/scene.h"
 #include "pandora/graphics_core/shape.h"
+#include "pandora/samplers/rng/pcg.h"
+#include "pandora/traversal/acceleration_structure.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "stream/cache/lru_cache.h"
 #include "stream/task_graph.h"
@@ -25,7 +26,7 @@ struct SubScene {
 };
 
 template <typename HitRayState, typename AnyHitRayState>
-class BatchingAccelerationStructure {
+class BatchingAccelerationStructure : public AccelerationStructure<HitRayState, AnyHitRayState> {
 public:
     ~BatchingAccelerationStructure();
 
@@ -218,10 +219,8 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
         si.pSceneObject = pSceneObject;
         si.localToWorld = transform;
         si.shading.batchingPointColor = m_color;
-        //m_pTaskGraph->enqueue(m_onHitTask, std::tuple { ray, si, state });
         return true;
     } else {
-        // m_pTaskGraph->enqueue(m_onMissTask, std::tuple { ray, state });
         return false;
     }
 }
@@ -328,102 +327,27 @@ template <typename HitRayState, typename AnyHitRayState>
 inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectKernel(
     gsl::span<const std::tuple<Ray, HitRayState>> data, std::pmr::memory_resource* pMemoryResource)
 {
-    /*RTCIntersectContext context {};
-    for (auto [ray, state] : data) {
-        RTCRayHit embreeRayHit;
-        embreeRayHit.ray.org_x = ray.origin.x;
-        embreeRayHit.ray.org_y = ray.origin.y;
-        embreeRayHit.ray.org_z = ray.origin.z;
-        embreeRayHit.ray.dir_x = ray.direction.x;
-        embreeRayHit.ray.dir_y = ray.direction.y;
-        embreeRayHit.ray.dir_z = ray.direction.z;
-
-        embreeRayHit.ray.tnear = ray.tnear;
-        embreeRayHit.ray.tfar = ray.tfar;
-
-        embreeRayHit.ray.time = 0.0f;
-        embreeRayHit.ray.mask = 0xFFFFFFFF;
-        embreeRayHit.ray.id = 0;
-        embreeRayHit.ray.flags = 0;
-        embreeRayHit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
-        rtcIntersect1(m_embreeScene, &context, &embreeRayHit);
-
-        if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
-            std::optional<glm::mat4> transform;
-            const SceneObject* pSceneObject { nullptr };
-
-            if (embreeRayHit.hit.instID[0] == 0) {
-                pSceneObject = reinterpret_cast<const SceneObject*>(
-                    rtcGetGeometryUserData(rtcGetGeometry(m_embreeScene, embreeRayHit.hit.geomID)));
-            } else {
-                glm::mat4 accumulatedTransform { 1.0f };
-                RTCScene scene = m_embreeScene;
-                for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
-                    unsigned geomID = embreeRayHit.hit.instID[i];
-                    if (geomID == RTC_INVALID_GEOMETRY_ID)
-                        break;
-
-                    RTCGeometry geometry = rtcGetGeometry(scene, geomID);
-
-                    glm::mat4 localTransform;
-                    rtcGetGeometryTransform(geometry, 0.0f, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR, glm::value_ptr(localTransform));
-                    accumulatedTransform *= localTransform;
-
-                    scene = reinterpret_cast<RTCScene>(rtcGetGeometryUserData(geometry));
-                }
-
-                transform = accumulatedTransform;
-                pSceneObject = reinterpret_cast<const SceneObject*>(
-                    rtcGetGeometryUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
-            }
-
-            RayHit hit;
-            hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
-            hit.geometricNormal = glm::normalize(glm::dot(-ray.direction, hit.geometricNormal) > 0.0f ? hit.geometricNormal : -hit.geometricNormal);
-            hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
-            hit.primitiveID = embreeRayHit.hit.primID;
-
-            const auto* pShape = pSceneObject->pShape.get();
-            auto si = pShape->fillSurfaceInteraction(ray, hit);
-            si.pSceneObject = pSceneObject;
-            si.localToWorld = transform;
-            m_pTaskGraph->enqueue(m_onHitTask, std::tuple { ray, si, state });
-        } else {
-            m_pTaskGraph->enqueue(m_onMissTask, std::tuple { ray, state });
-        }
-    }*/
+    for (const auto& [ray, state] : data) {
+        Ray mutRay = ray;
+        SurfaceInteraction si;
+        if (m_topLevelBVH.intersect(mutRay, si, state))
+            m_pTaskGraph->enqueue(m_onHitTask, std::tuple { mutRay, si, state });
+        else
+            m_pTaskGraph->enqueue(m_onMissTask, std::tuple { mutRay, state });
+    }
 }
 
 template <typename HitRayState, typename AnyHitRayState>
 inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectAnyKernel(
     gsl::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource)
 {
-    /*RTCIntersectContext context {};
-    for (auto [ray, state] : data) {
-        RTCRay embreeRay;
-        embreeRay.org_x = ray.origin.x;
-        embreeRay.org_y = ray.origin.y;
-        embreeRay.org_z = ray.origin.z;
-        embreeRay.dir_x = ray.direction.x;
-        embreeRay.dir_y = ray.direction.y;
-        embreeRay.dir_z = ray.direction.z;
+    for (const auto& [ray, state] : data) {
+        Ray mutRay = ray;
 
-        embreeRay.tnear = ray.tnear;
-        embreeRay.tfar = ray.tfar;
-
-        embreeRay.time = 0.0f;
-        embreeRay.mask = 0xFFFFFFFF;
-        embreeRay.id = 0;
-        embreeRay.flags = 0;
-
-        rtcOccluded1(m_embreeScene, &context, &embreeRay);
-
-        constexpr float negativeInfinity = -std::numeric_limits<float>::infinity();
-        if (embreeRay.tfar == negativeInfinity) {
-            m_pTaskGraph->enqueue(m_onAnyHitTask, std::tuple { ray, state });
-        } else {
-            m_pTaskGraph->enqueue(m_onAnyMissTask, std::tuple { ray, state });
-        }
-    }*/
+        if (m_topLevelBVH.intersectAny(mutRay, state))
+            m_pTaskGraph->enqueue(m_onAnyHitTask, std::tuple { mutRay, state });
+        else
+            m_pTaskGraph->enqueue(m_onAnyMissTask, std::tuple { mutRay, state });
+    }
 }
 }
