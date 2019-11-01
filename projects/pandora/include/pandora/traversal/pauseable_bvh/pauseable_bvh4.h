@@ -242,9 +242,9 @@ inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::
     simdRay.originX = simd::vec4_f32(ray.origin.x);
     simdRay.originY = simd::vec4_f32(ray.origin.y);
     simdRay.originZ = simd::vec4_f32(ray.origin.z);
-    simdRay.invDirectionX = simd::vec4_f32(ray.direction.x == 0.0f ? 0.0f : 1.0f / ray.direction.x);
-    simdRay.invDirectionY = simd::vec4_f32(ray.direction.y == 0.0f ? 0.0f : 1.0f / ray.direction.y);
-    simdRay.invDirectionZ = simd::vec4_f32(ray.direction.z == 0.0f ? 0.0f : 1.0f / ray.direction.z);
+    simdRay.invDirectionX = simd::vec4_f32(ray.direction.x == 0.0f ? std::numeric_limits<float>::infinity() : 1.0f / ray.direction.x);
+    simdRay.invDirectionY = simd::vec4_f32(ray.direction.y == 0.0f ? std::numeric_limits<float>::infinity() : 1.0f / ray.direction.y);
+    simdRay.invDirectionZ = simd::vec4_f32(ray.direction.z == 0.0f ? std::numeric_limits<float>::infinity() : 1.0f / ray.direction.z);
     simdRay.tnear = simd::vec4_f32(ray.tnear);
     simdRay.tfar = simd::vec4_f32(ray.tfar);
 

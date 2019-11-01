@@ -141,7 +141,7 @@ int main(int argc, char** argv)
             sensor.clear(glm::vec3(0.0f));
         }
 
-#if 1
+#if 0
         integrator.render(camera, sensor, *renderConfig.pScene, accel, samples);
 #else
         samples = 0;

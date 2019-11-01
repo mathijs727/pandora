@@ -59,7 +59,9 @@ void NormalDebugIntegrator::render(const PerspectiveCamera& camera, Sensor& sens
 
 void NormalDebugIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, const RayState& state)
 {
-    m_pSensor->addPixelContribution(state.pixel, glm::abs(glm::normalize(si.normal)));
+	// glm::abs(glm::normalize(si.normal))
+    const float cos = glm::dot(si.normal, -ray.direction);
+    m_pSensor->addPixelContribution(state.pixel, cos * si.shading.batchingPointColor);
     spawnNewPaths(1);
 }
 
