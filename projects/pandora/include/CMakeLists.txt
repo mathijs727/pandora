@@ -80,6 +80,6 @@ PUBLIC
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/error_handling.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/math.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/memory_arena.h"
-    "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/memory_arena_ts.h"
+    #"${CMAKE_CURRENT_LIST_DIR}/pandora/utility/memory_arena_ts.h"
     "${CMAKE_CURRENT_LIST_DIR}/pandora/utility/thread_pool.h"
 )

@@ -11,20 +11,12 @@ namespace simd {
 
 inline int32_t popcount32(uint32_t mask)
 {
-#ifdef __clang__
-    return __popcnt(mask);
-#else
     return _mm_popcnt_u32(mask);
-#endif
 }
 
 inline int64_t popcount64(uint64_t mask)
 {
-#ifdef __clang__
-    return __popcnt64(mask);
-#else
     return _mm_popcnt_u64(mask);
-#endif 
 }
 
 #ifdef _MSC_VER

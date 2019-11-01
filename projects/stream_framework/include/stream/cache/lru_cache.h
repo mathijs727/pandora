@@ -11,6 +11,7 @@
 #include <gsl/span>
 #include <unordered_map>
 #include <vector>
+#include <list>
 
 namespace stream {
 

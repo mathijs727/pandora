@@ -1,6 +1,8 @@
 #pragma once
 #include "pandora/graphics_core/bounds.h"
 #include "pandora/graphics_core/pandora.h"
+#include "pandora/graphics_core/scene.h"
+#include "pandora/graphics_core/shape.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "stream/cache/lru_cache.h"
 #include "stream/task_graph.h"
@@ -241,7 +243,7 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask)
 {
-    using BatchingPointT = BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint;
+    using BatchingPointT = typename BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint;
     std::vector<BatchingPointT> batchingPoints;
     std::transform(std::begin(m_subScenes), std::end(m_subScenes), std::back_inserter(batchingPoints),
         [&](const std::shared_ptr<SceneNode>& pSubSceneRoot) {

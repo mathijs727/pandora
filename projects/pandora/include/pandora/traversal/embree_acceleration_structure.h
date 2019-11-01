@@ -1,5 +1,7 @@
 #pragma once
 #include "pandora/graphics_core/pandora.h"
+#include "pandora/graphics_core/scene.h"
+#include "pandora/graphics_core/shape.h"
 #include "stream/task_graph.h"
 #include <embree3/rtcore.h>
 #include <glm/gtc/type_ptr.hpp>

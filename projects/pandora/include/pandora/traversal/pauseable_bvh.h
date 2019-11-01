@@ -1,8 +1,6 @@
 #pragma once
 #include "pandora/graphics_core/pandora.h"
-#include "pandora/utility/memory_arena_ts.h"
 //#include <boost/tti/has_member_function.hpp>
-#include <gsl/span>
 #include <optional>
 
 namespace pandora {

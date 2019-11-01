@@ -1,10 +1,11 @@
 #include "pbrt/util/crack_atof_avx2.h"
 #include <array>
 #include <cassert>
-#include <charconv>
 #include <emmintrin.h>
 #include <immintrin.h>
 #include <nmmintrin.h>
+#include <cstdlib> // strof
+#include <charconv>
 
 constexpr std::array<float, 32> computePowers(int center)
 {
@@ -27,9 +28,14 @@ constexpr std::array<float, 32> computePowers(int center)
 
 static float fallback(std::string_view string)
 {
+    // GNU standard library still has not implemented charconv
+#if !defined(_WIN32)
+    return static_cast<float>(std::atof(string.data()));
+#else
     float value;
     std::from_chars(string.data(), string.data() + string.length(), value);
     return value;
+#endif
 }
 
 float crack_atof_avx2(std::string_view string)

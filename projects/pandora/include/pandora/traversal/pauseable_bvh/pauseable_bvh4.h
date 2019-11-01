@@ -54,9 +54,6 @@ private:
     uint32_t generateFinalBVH(ConstructionInnerNode* node, gsl::span<LeafObj> leafs);
     void generateFinalBVHRecurse(ConstructionInnerNode* node, uint32_t parentHandle, uint32_t depth, uint32_t outHandle, gsl::span<LeafObj> leafs);
 
-    std::vector<LeafObj*> collectLeafs() const;
-    void collectLeafsRecurse(const BVHNode& node, std::vector<LeafObj*>& outLeafObjects) const;
-
     static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
     static void innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr);
     static void innerNodeSetBounds(void* nodePtr, const RTCBounds** bounds, unsigned numChildren, void* userPtr);
@@ -100,9 +97,6 @@ private:
     };
     static_assert(sizeof(BVHNode) <= 128);
 
-    //ContiguousAllocatorTS<typename PauseableBVH4::BVHNode> m_innerNodeAllocator;
-    //ContiguousAllocatorTS<LeafObj> m_leafAllocator;
-    //gsl::span<LeafObj> m_tmpConstructionLeafs;
     std::vector<BVHNode> m_bvhNodes;
     std::vector<LeafObj> m_leafs;
 
@@ -112,10 +106,6 @@ private:
 template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
 inline PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::PauseableBVH4(gsl::span<LeafObj> leafs)
 {
-    // Store in the class so that the (static) construction functions can access the objects
-    //  and move them into the BVH leafs
-    //m_tmpConstructionLeafs = leafs;
-
     // Create a representatin of the leafs that Embree will understand
     std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
     embreeBuildPrimitives.reserve(leafs.size());
@@ -189,14 +179,10 @@ inline PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::PauseableBVH4(gsl::s
     } else {
         ALWAYS_ASSERT(false, "Leaf node cannot be the root of PauseableBVH4");
     }
-    //setNodeDepth(m_innerNodeAllocator.get(nodeHandle), 0);
 
     // Releases Embree memory (including the temporary BVH)
     rtcReleaseBVH(bvh);
     rtcReleaseDevice(device);
-
-    // Do this after we call m_leafAllocator.compact() which will move the leafs to a new block of memory
-    //m_leafs = collectLeafs();
 
     testBVH();
 }
@@ -488,29 +474,6 @@ inline void PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::generateFinalBV
 
         // m_bvhNodes.push_back() might have reallocated causing BVHNode& outNode to be invalid.
         m_bvhNodes[outHandle].firstChildHandle = firstInnerNodeHandle;
-    }
-}
-
-template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
-inline std::vector<LeafObj*> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::collectLeafs() const
-{
-    // Leafs get moved from their original location and then once more when the leaf allocator is compacted.
-    // So we can only collect the final leaf objects after the BVH is created.
-    std::vector<LeafObj*> result;
-    collectLeafsRecurse(m_innerNodeAllocator.get(m_rootHandle), result);
-    return result;
-}
-
-template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
-inline void PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::collectLeafsRecurse(const BVHNode& node, std::vector<LeafObj*>& outLeafObjects) const
-{
-    unsigned numChildrenReference = 0;
-    for (unsigned childIdx = 0; childIdx < 4; childIdx++) {
-        if (node.isLeaf(childIdx)) {
-            outLeafObjects.push_back(&m_leafAllocator.get(node.getLeafChildHandle(childIdx)));
-        } else if (node.isInnerNode(childIdx)) {
-            collectLeafsRecurse(m_innerNodeAllocator.get(node.getInnerChildHandle(childIdx)), outLeafObjects);
-        }
     }
 }
 
