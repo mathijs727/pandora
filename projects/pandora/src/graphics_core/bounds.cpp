@@ -29,6 +29,21 @@ Bounds::Bounds(const serialization::Bounds& serialized)
 {
 }
 
+Bounds& Bounds::operator*=(const glm::mat4& matrix)
+{
+    const glm::vec3 v0 = matrix * glm::vec4(min.x, min.y, min.z, 1.0f);
+    const glm::vec3 v1 = matrix * glm::vec4(min.x, min.y, max.z, 1.0f);
+    const glm::vec3 v2 = matrix * glm::vec4(min.x, max.y, min.z, 1.0f);
+    const glm::vec3 v3 = matrix * glm::vec4(min.x, max.y, max.z, 1.0f);
+    const glm::vec3 v4 = matrix * glm::vec4(max.x, min.y, min.z, 1.0f);
+    const glm::vec3 v5 = matrix * glm::vec4(max.x, min.y, max.z, 1.0f);
+    const glm::vec3 v6 = matrix * glm::vec4(max.x, max.y, min.z, 1.0f);
+    const glm::vec3 v7 = matrix * glm::vec4(max.x, max.y, max.z, 1.0f);
+    this->min = glm::min(v0, glm::min(v1, glm::min(v2, glm::min(v3, glm::min(v4, glm::min(v5, glm::min(v6, v7)))))));
+    this->max = glm::max(v0, glm::max(v1, glm::max(v2, glm::max(v3, glm::max(v4, glm::max(v5, glm::max(v6, v7)))))));
+    return *this;
+}
+
 bool Bounds::operator==(const Bounds& other) const
 {
     return min == other.min && max == other.max;

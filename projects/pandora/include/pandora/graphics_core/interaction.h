@@ -42,6 +42,8 @@ public:
         glm::vec2 st { 0 };
         //glm::vec3 dpdu, dpdv;
         //glm::vec3 dndu, dndv;
+
+		glm::vec3 batchingPointColor;
     } shading;
 
 public:

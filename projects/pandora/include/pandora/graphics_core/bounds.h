@@ -14,6 +14,7 @@ public:
     Bounds(const RTCBounds& embreeBounds);
     Bounds(const serialization::Bounds& serialized);
 
+	Bounds& operator*=(const glm::mat4& matrix);
     bool operator==(const Bounds& other) const;
 
     void reset();

@@ -14,7 +14,8 @@
 namespace pandora {
 
 static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const TriangleShape& original, unsigned maxSize, RTCDevice embreeDevice);
-static std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice);
+static std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice);
+
 static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
 
 BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
@@ -32,7 +33,7 @@ BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     // Split large shapes into smaller sub shpaes so we can guarantee that the batching poinst never exceed the given size.
     // This should also help with reducing the spatial extent of the batching points by (hopefully) splitting spatially large shapes.
     spdlog::info("Splitting large scene objects");
-    splitLargeSceneObjectsRecurse(pScene->pRoot.get(), pCache, primitivesPerBatchingPoint / 2);
+    splitLargeSceneObjectsRecurse(pScene->pRoot.get(), pCache, primitivesPerBatchingPoint / 8);
 
     spdlog::info("Splitting scene into sub scenes");
     m_subScenes = createSubScenes(*pScene, primitivesPerBatchingPoint, m_embreeDevice);
@@ -44,6 +45,8 @@ void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(SceneNo
     for (const auto& pSceneObject : pSceneNode->objects) {
         // TODO
         Shape* pShape = pSceneObject->pShape.get();
+        if (!pShape)
+            continue;
 
         if (pShape->numPrimitives() > maxSize) {
             auto pShapeOwner = pCache->makeResident(pShape);
@@ -68,10 +71,10 @@ void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(SceneNo
     }
     pSceneNode->objects = std::move(outObjects);
 
-    for (auto childLink : pSceneNode->children) {
+    /*for (auto childLink : pSceneNode->children) {
         auto&& [pChildNode, optTransform] = childLink;
         splitLargeSceneObjectsRecurse(pChildNode.get(), pCache, maxSize);
-    }
+    }*/
 }
 
 static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const TriangleShape& shape, unsigned maxSize, RTCDevice embreeDevice)
@@ -142,49 +145,80 @@ static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const
     return subShapes;
 }
 
-std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice)
+static Bounds subTreeBounds(const SceneNode* pSceneNode)
+{
+    Bounds bounds;
+    for (const auto& pSceneObject : pSceneNode->objects) {
+        bounds.extend(pSceneObject->pShape->getBounds());
+    }
+
+    for (const auto& childAndTransform : pSceneNode->children) {
+        const auto& [pChild, transformOpt] = childAndTransform;
+        Bounds childBounds = subTreeBounds(pSceneNode);
+        if (transformOpt)
+            childBounds *= transformOpt.value();
+        bounds.extend(childBounds);
+    }
+    return bounds;
+}
+
+static size_t subTreePrimitiveCount(const SceneNode* pSceneNode)
+{
+    size_t primCount = 0;
+    for (const auto& pSceneObject : pSceneNode->objects) {
+        primCount += static_cast<size_t>(pSceneObject->pShape->numPrimitives());
+    }
+
+    for (const auto& childAndTransform : pSceneNode->children) {
+        const auto& [pChild, _] = childAndTransform;
+        primCount += subTreePrimitiveCount(pChild.get());
+    }
+    return primCount;
+}
+
+std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice)
 {
     // Split a large shape into smaller shapes with maxSize/2 to maxSize primitives.
     // The Embree BVH builder API used to efficiently partition the shapes primitives into groups.
     //using Path = eastl::fixed_vector<unsigned, 4>;
     using Path = std::vector<unsigned>;
     std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
-    std::vector<Path> primitivePaths;
 
-    std::function<void(const SceneNode*, Path)> addEmbreePrimitives = [&](const SceneNode* pSceneNode, Path pathToNode) {
-        for (const auto& [sceneObjectID, pSceneObject] : enumerate(pSceneNode->objects)) {
-            auto path = pathToNode;
-            path.push_back(sceneObjectID);
-            unsigned primPathID = static_cast<unsigned>(primitivePaths.size());
-            primitivePaths.push_back(path);
+    for (const auto& [sceneObjectID, pSceneObject] : enumerate(scene.pRoot->objects)) {
+        if (!pSceneObject->pShape)
+            continue;
 
-            if (!pSceneObject->pShape)
-                continue;
+        const Bounds bounds = pSceneObject->pShape->getBounds();
 
-            Bounds bounds = pSceneObject->pShape->getBounds();
+        RTCBuildPrimitive primitive;
+        primitive.lower_x = bounds.min.x;
+        primitive.lower_y = bounds.min.y;
+        primitive.lower_z = bounds.min.z;
+        primitive.upper_x = bounds.max.x;
+        primitive.upper_y = bounds.max.y;
+        primitive.upper_z = bounds.max.z;
+        primitive.geomID = 0;
+        primitive.primID = sceneObjectID;
+        embreeBuildPrimitives.push_back(primitive);
+    }
 
-            RTCBuildPrimitive primitive;
-            primitive.lower_x = bounds.min.x;
-            primitive.lower_y = bounds.min.y;
-            primitive.lower_z = bounds.min.z;
-            primitive.upper_x = bounds.max.x;
-            primitive.upper_y = bounds.max.y;
-            primitive.upper_z = bounds.max.z;
-            primitive.geomID = 0;
-            primitive.primID = primPathID;
-            embreeBuildPrimitives.push_back(primitive);
-        }
+    for (const auto& [subTreeID, childAndTransform] : enumerate(scene.pRoot->children)) {
+        const auto& [pChild, transformOpt] = childAndTransform;
+        Bounds bounds = subTreeBounds(pChild.get());
+        if (transformOpt)
+            bounds *= transformOpt.value();
 
-        for (const auto& [childID, childLink] : enumerate(pSceneNode->children)) {
-            auto path = pathToNode;
-            path.push_back(childID);
-
-            const auto& [pChild, optTransform] = childLink;
-            addEmbreePrimitives(pChild.get(), path);
-        }
-    };
-    addEmbreePrimitives(scene.pRoot.get(), Path {});
-    ALWAYS_ASSERT(primitivePaths.size() < std::numeric_limits<unsigned>::max());
+        RTCBuildPrimitive primitive;
+        primitive.lower_x = bounds.min.x;
+        primitive.lower_y = bounds.min.y;
+        primitive.lower_z = bounds.min.z;
+        primitive.upper_x = bounds.max.x;
+        primitive.upper_y = bounds.max.y;
+        primitive.upper_z = bounds.max.z;
+        primitive.geomID = 1;
+        primitive.primID = subTreeID;
+        embreeBuildPrimitives.push_back(primitive);
+    }
 
     // Build a BVH over all scene objects (including instanced ones)
     RTCBVH bvh = rtcNewBVH(embreeDevice);
@@ -198,7 +232,8 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
     };
     struct LeafNode : public BVHNode {
         //eastl::fixed_vector<Path, 2, false> sceneObjectPaths;
-        std::vector<Path> sceneObjectPaths;
+        std::vector<std::pair<SceneNode*, std::optional<glm::mat4>>> sceneNodes;
+        std::vector<SceneObject*> sceneObjects;
     };
     struct InnerNode : public BVHNode {
         //eastl::fixed_vector<BVHNode*, 2, false> children;
@@ -216,7 +251,7 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
     arguments.primitives = embreeBuildPrimitives.data();
     arguments.primitiveCount = embreeBuildPrimitives.size();
     arguments.primitiveArrayCapacity = embreeBuildPrimitives.size();
-    arguments.userPtr = &primitivePaths;
+    arguments.userPtr = scene.pRoot.get();
     arguments.createNode = [](RTCThreadLocalAllocator alloc, unsigned numChildren, void*) -> void* {
         void* pMem = rtcThreadLocalAlloc(alloc, sizeof(InnerNode), std::alignment_of_v<InnerNode>);
         return static_cast<BVHNode*>(new (pMem) InnerNode());
@@ -238,16 +273,24 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
         void* pMem = rtcThreadLocalAlloc(alloc, sizeof(InnerNode), std::alignment_of_v<InnerNode>);
         auto* pNode = new (pMem) LeafNode();
 
-        auto& primitivePaths = *reinterpret_cast<std::vector<Path>*>(userPtr);
+        const auto* pRoot = static_cast<const SceneNode*>(userPtr);
 
         pNode->numPrimitives = static_cast<unsigned>(numPrims);
+
         for (size_t i = 0; i < numPrims; i++) {
             const auto& prim = prims[i];
-            pNode->sceneObjectPaths.emplace_back(std::move(primitivePaths[prim.primID]));
+            if (prim.geomID == 0) {
+                // Scene object
+                pNode->sceneObjects.push_back(pRoot->objects[prim.primID].get());
+            } else {
+                // Scene node
+                const auto& [pChild, optTransform] = pRoot->children[prim.primID];
+                pNode->sceneNodes.push_back(std::pair { pChild.get(), optTransform });
+            }
         }
         return static_cast<BVHNode*>(pNode);
     };
-    auto* bvhRoot = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
+    auto* pBvhRoot = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
 
     std::function<size_t(BVHNode*)> computePrimCount = [&](BVHNode* pNode) -> size_t {
         if (auto* pInnerNode = dynamic_cast<InnerNode*>(pNode)) {
@@ -258,13 +301,11 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
         } else if (auto* pLeafNode = dynamic_cast<LeafNode*>(pNode)) {
             pLeafNode->numPrimitives = 0;
 
-            for (const Path& path : pLeafNode->sceneObjectPaths) {
-                const SceneNode* pSceneNode = scene.pRoot.get();
-                for (size_t i = 0; i < path.size() - 1; i++)
-                    pSceneNode = std::get<std::shared_ptr<SceneNode>>(pSceneNode->children[path[i]]).get();
-                const auto& pSceneObject = pSceneNode->objects[path.back()];
-
+            for (const SceneObject* pSceneObject : pLeafNode->sceneObjects) {
                 pLeafNode->numPrimitives += pSceneObject->pShape->numPrimitives();
+            }
+            for (const auto& [pSceneNode, _] : pLeafNode->sceneNodes) {
+                pLeafNode->numPrimitives += subTreePrimitiveCount(pSceneNode);
             }
 
             return pLeafNode->numPrimitives;
@@ -272,110 +313,68 @@ std::vector<std::shared_ptr<SceneNode>> createSubScenes(const Scene& scene, unsi
             throw std::runtime_error("Unknown BVH node type");
         }
     };
-    computePrimCount(bvhRoot);
+    computePrimCount(pBvhRoot);
 
-    std::function<std::vector<Path>(const BVHNode*)> flattenSubTree = [&](const BVHNode* pNode) {
+    std::function<SubScene(const BVHNode*)> flattenSubTree = [&](const BVHNode* pNode) {
         if (const auto* pInnerNode = dynamic_cast<const InnerNode*>(pNode)) {
-            std::vector<Path> sceneObjects;
+            SubScene outScene;
             for (const auto* pChild : pInnerNode->children) {
-                auto childSceneObjects = flattenSubTree(pChild);
-                sceneObjects.reserve(sceneObjects.size() + childSceneObjects.size());
-                std::copy(std::begin(childSceneObjects), std::end(childSceneObjects), std::back_inserter(sceneObjects));
+                auto childOutScene = flattenSubTree(pChild);
+
+                outScene.sceneNodes.reserve(outScene.sceneNodes.size() + childOutScene.sceneNodes.size());
+                std::copy(std::begin(childOutScene.sceneNodes), std::end(childOutScene.sceneNodes), std::back_inserter(outScene.sceneNodes));
+
+                outScene.sceneObjects.reserve(outScene.sceneObjects.size() + childOutScene.sceneObjects.size());
+                std::copy(std::begin(childOutScene.sceneObjects), std::end(childOutScene.sceneObjects), std::back_inserter(outScene.sceneObjects));
             }
-            return sceneObjects;
+            return outScene;
         } else if (const auto* pLeafNode = dynamic_cast<const LeafNode*>(pNode)) {
-            std::vector<Path> sceneObjectPaths;
-            std::copy(std::begin(pLeafNode->sceneObjectPaths), std::end(pLeafNode->sceneObjectPaths), std::back_inserter(sceneObjectPaths));
-            return sceneObjectPaths;
+            SubScene outScene;
+            outScene.sceneNodes = std::move(pLeafNode->sceneNodes);
+            outScene.sceneObjects = std::move(pLeafNode->sceneObjects);
+            return outScene;
         } else {
             throw std::runtime_error("Unknown BVH node type");
         }
     };
 
-    std::vector<std::vector<Path>> subSceneObjects;
-    std::function<void(const BVHNode*)> computeSubSceneRoots = [&](const BVHNode* pNode) {
+    std::vector<SubScene> subScenes;
+    std::function<void(const BVHNode*)> computeSubScenes= [&](const BVHNode* pNode) {
         if (pNode->numPrimitives > primitivesPerSubScene) {
             if (const auto* pInnerNode = dynamic_cast<const InnerNode*>(pNode)) {
                 for (const auto* pChild : pInnerNode->children)
-                    computeSubSceneRoots(pChild);
+                    computeSubScenes(pChild);
             } else {
-                subSceneObjects.push_back(flattenSubTree(pNode));
+                subScenes.push_back(flattenSubTree(pNode));
             }
         } else {
-            subSceneObjects.push_back(flattenSubTree(pNode));
+            subScenes.push_back(flattenSubTree(pNode));
         }
     };
-    computeSubSceneRoots(bvhRoot);
-
-    std::vector<std::shared_ptr<SceneNode>> subSceneRoots;
-    std::transform(
-        std::begin(subSceneObjects),
-        std::end(subSceneObjects),
-        std::back_inserter(subSceneRoots),
-        [&](const std::vector<Path>& paths) -> std::shared_ptr<SceneNode> {
-            std::unordered_map<const SceneNode*, std::shared_ptr<SceneNode>> sceneNodeLUT;
-            auto getShadowNode = [&](const SceneNode* pOriginalNode) -> std::shared_ptr<SceneNode> {
-                if (auto iter = sceneNodeLUT.find(pOriginalNode); iter != std::end(sceneNodeLUT)) {
-                    return iter->second;
-                } else {
-                    auto pShadowNode = std::make_shared<SceneNode>();
-                    sceneNodeLUT[pOriginalNode] = pShadowNode;
-                    return pShadowNode;
-                }
-            };
-
-            std::function<std::shared_ptr<SceneNode>(SceneNode*, gsl::span<const unsigned>)> recreatePath = [&](SceneNode* pOriginalSceneNode, gsl::span<const unsigned> path) {
-                auto pShadowSceneNode = getShadowNode(pOriginalSceneNode);
-
-                if (path.size() == 1) {
-                    // Reached leaf
-                    const auto pSceneObject = pOriginalSceneNode->objects[path[0]];
-                    pShadowSceneNode->objects.push_back(pSceneObject);
-                } else {
-                    // Traverse further
-                    const auto& [pOriginalChild, optTransform] = pOriginalSceneNode->children[path[0]];
-                    pShadowSceneNode->children.push_back({ recreatePath(pOriginalChild.get(), path.subspan(1)), optTransform });
-                }
-
-                return pShadowSceneNode;
-            };
-
-            std::shared_ptr<SceneNode> pRoot { nullptr };
-            for (const auto& path : paths) {
-                auto pathSpan = gsl::make_span(path.data(), path.size());
-                pRoot = recreatePath(scene.pRoot.get(), pathSpan);
-            }
-            return pRoot;
-        });
+    computeSubScenes(pBvhRoot);
 
     rtcReleaseBVH(bvh);
 
-    return subSceneRoots;
+    return subScenes;
 }
 
-RTCScene BatchingAccelerationStructureBuilder::buildRecurse(const SceneNode* pSceneNode, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
+RTCScene BatchingAccelerationStructureBuilder::buildEmbreeBVH(const SubScene& subScene, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
 {
     RTCScene embreeScene = rtcNewScene(embreeDevice);
-    for (const auto& pSceneObject : pSceneNode->objects) {
+    for (const auto& pSceneObject : subScene.sceneObjects) {
         const Shape* pShape = pSceneObject->pShape.get();
         RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(embreeDevice);
-        rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
+        rtcSetGeometryUserData(embreeGeometry, pSceneObject);
         rtcCommitGeometry(embreeGeometry);
 
         unsigned geometryID = rtcAttachGeometry(embreeScene, embreeGeometry);
         (void)geometryID;
     }
 
-    for (const auto&& [geomID, childLink] : enumerate(pSceneNode->children)) {
-        auto&& [pChildNode, optTransform] = childLink;
+    for (const auto&& [geomID, childAndTransform] : enumerate(subScene.sceneNodes)) {
+        auto&& [pChildNode, optTransform] = childAndTransform;
 
-        RTCScene childScene;
-        if (auto iter = sceneCache.find(pChildNode.get()); iter != std::end(sceneCache)) {
-            childScene = iter->second;
-        } else {
-            childScene = buildRecurse(pChildNode.get(), embreeDevice, sceneCache);
-            sceneCache[pChildNode.get()] = childScene;
-        }
+        RTCScene childScene = buildSubTreeEmbreeBVH(pChildNode, embreeDevice, sceneCache);
 
         RTCGeometry embreeInstanceGeometry = rtcNewGeometry(embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
         rtcSetGeometryInstancedScene(embreeInstanceGeometry, childScene);
@@ -402,15 +401,54 @@ RTCScene BatchingAccelerationStructureBuilder::buildRecurse(const SceneNode* pSc
     return embreeScene;
 }
 
-/*batching_impl::BatchingPoint createBatchingPoint(const std::shared_ptr<SceneNode> pSubSceneRoot, RTCDevice embreeDevice)
+RTCScene BatchingAccelerationStructureBuilder::buildSubTreeEmbreeBVH(const SceneNode* pSceneNode, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
 {
-    verifyInstanceDepth(pSubSceneRoot.get());
+    if (auto iter = sceneCache.find(pSceneNode); iter != std::end(sceneCache)) {
+        return iter->second;
+    }
 
-    std::unordered_map<const SceneNode*, RTCScene> sceneCache;
-    RTCScene embreeSubScene = buildRecurse(pSubSceneRoot.get(), embreeDevice, sceneCache);
+    RTCScene embreeScene = rtcNewScene(embreeDevice);
+    for (const auto& pSceneObject : pSceneNode->objects) {
+        const Shape* pShape = pSceneObject->pShape.get();
+        RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(embreeDevice);
+        rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
+        rtcCommitGeometry(embreeGeometry);
 
-    return batching_impl::BatchingPoint { embreeSubScene, pSubSceneRoot };
-}*/
+        unsigned geometryID = rtcAttachGeometry(embreeScene, embreeGeometry);
+        (void)geometryID;
+    }
+
+    for (const auto&& [geomID, childLink] : enumerate(pSceneNode->children)) {
+        auto&& [pChildNode, optTransform] = childLink;
+
+        RTCScene childScene = buildSubTreeEmbreeBVH(pChildNode.get(), embreeDevice, sceneCache);
+
+        RTCGeometry embreeInstanceGeometry = rtcNewGeometry(embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
+        rtcSetGeometryInstancedScene(embreeInstanceGeometry, childScene);
+        rtcSetGeometryUserData(embreeInstanceGeometry, childScene);
+        if (optTransform) {
+            rtcSetGeometryTransform(
+                embreeInstanceGeometry, 0,
+                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
+                glm::value_ptr(*optTransform));
+        } else {
+            glm::mat4 identityMatrix = glm::identity<glm::mat4>();
+            rtcSetGeometryTransform(
+                embreeInstanceGeometry, 0,
+                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
+                glm::value_ptr(identityMatrix));
+        }
+        rtcCommitGeometry(embreeInstanceGeometry);
+        // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
+        // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of RTC_INVALID_GEOMETRY_ID).
+        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geomID + 1);
+    }
+
+    rtcCommitScene(embreeScene);
+
+    sceneCache[pSceneNode] = embreeScene;
+    return embreeScene;
+}
 
 void BatchingAccelerationStructureBuilder::verifyInstanceDepth(const SceneNode* pSceneNode, int depth)
 {

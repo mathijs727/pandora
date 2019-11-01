@@ -65,4 +65,9 @@ glm::vec2 PcgRng::uniformFloat2()
     return glm::vec2 { uniformFloat(), uniformFloat() };
 }
 
+glm::vec3 PcgRng::uniformFloat3()
+{
+    return glm::vec3 { uniformFloat(), uniformFloat(), uniformFloat() };
+}
+
 }
