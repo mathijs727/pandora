@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/component_wise.hpp>
+#include <cstring> // memcpy
 
 namespace pandora {
 

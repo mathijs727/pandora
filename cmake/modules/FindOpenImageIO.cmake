@@ -155,6 +155,7 @@ find_package_handle_standard_args(OpenImageIO
 
 if (OIIO_VERSION AND NOT TARGET OIIO::OpenImageIO)
 	add_library(OIIO::OpenImageIO INTERFACE IMPORTED)
-	target_include_directories(OIIO::OpenImageIO INTERFACE "${OIIO_INCLUDE_DIR}")
+    target_include_directories(OIIO::OpenImageIO INTERFACE "${OIIO_INCLUDE_DIR}")
+    message("OIIO_OpenImageIO_LIBRARY: ${OIIO_OpenImageIO_LIBRARY}")
 	target_link_libraries(OIIO::OpenImageIO INTERFACE "${OIIO_OpenImageIO_LIBRARY}")
 endif()

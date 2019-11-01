@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include <spdlog/spdlog.h>
 
 // Inspiration taken from pbrt-parser by Ingo Wald:
 // https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Parser.h

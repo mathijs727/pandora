@@ -4,6 +4,7 @@
 #include <pandora/textures/constant_texture.h>
 #include <pandora/textures/image_texture.h>
 #include <unordered_map>
+#include <spdlog/spdlog.h>
 
 namespace std {
 

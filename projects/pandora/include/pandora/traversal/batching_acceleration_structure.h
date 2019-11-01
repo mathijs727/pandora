@@ -2,6 +2,8 @@
 #include "pandora/graphics_core/bounds.h"
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/samplers/rng/pcg.h"
+#include "pandora/graphics_core/scene.h"
+#include "pandora/graphics_core/shape.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "stream/cache/lru_cache.h"
 #include "stream/task_graph.h"
@@ -264,7 +266,7 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
 
     std::unordered_map<const SceneNode*, RTCScene> embreeSceneCache;
 
-    using BatchingPointT = BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint;
+    using BatchingPointT = typename BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint;
     std::vector<BatchingPointT> batchingPoints;
     std::transform(std::begin(m_subScenes), std::end(m_subScenes), std::back_inserter(batchingPoints),
         [&](SubScene& subScene) {

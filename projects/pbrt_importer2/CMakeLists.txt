@@ -16,7 +16,7 @@ target_link_libraries(libPbrt_importer2 PUBLIC
 	spdlog::spdlog
 	fmt::fmt
 	mio::mio
-	TBB::tbb TBB::tbbmalloc TBB::tbbmalloc_proxy)
+	TBB::tbb)# TBB::tbbmalloc TBB::tbbmalloc_proxy)
 
 include("${CMAKE_CURRENT_LIST_DIR}/apps/CMakeLists.txt")
 if (PANDORA_BUILD_TESTS)

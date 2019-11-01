@@ -57,10 +57,10 @@ private:
     };
     static_assert(sizeof(FileAllocation) <= sizeof(Allocation));
 
-    const std::filesystem::path m_tempFolder;
+    std::filesystem::path m_tempFolder;
     std::deque<mio::mmap_sink> m_openFiles;
 
-    const size_t m_batchSize;
+    size_t m_batchSize;
     size_t m_currentOffset { 0 };
     uint32_t m_currentFileID { 0 };
     mio::mmap_sink m_currentFile;
