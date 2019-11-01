@@ -116,7 +116,6 @@ BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::Batch
     , m_embreeSubScene(embreeSubScene)
     , m_color(randomVec3())
 {
-    assert(m_pSubSceneRoot);
 }
 
 template <typename HitRayState, typename AnyHitRayState>

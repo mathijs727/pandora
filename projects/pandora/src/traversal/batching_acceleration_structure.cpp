@@ -259,7 +259,8 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     arguments.setNodeChildren = [](void* pMem, void** ppChildren, unsigned childCount, void*) {
         auto* pNode = static_cast<InnerNode*>(pMem);
         for (unsigned i = 0; i < childCount; i++) {
-            pNode->children.push_back(static_cast<BVHNode*>(ppChildren[i]));
+            auto* pChild = static_cast<BVHNode*>(ppChildren[i]);
+            pNode->children.push_back(pChild);
         }
     };
     arguments.setNodeBounds = [](void* pMem, const RTCBounds** ppBounds, unsigned childCount, void*) {
@@ -270,7 +271,7 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
         }
     };
     arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
-        void* pMem = rtcThreadLocalAlloc(alloc, sizeof(InnerNode), std::alignment_of_v<InnerNode>);
+        void* pMem = rtcThreadLocalAlloc(alloc, sizeof(LeafNode), std::alignment_of_v<LeafNode>);
         auto* pNode = new (pMem) LeafNode();
 
         const auto* pRoot = static_cast<const SceneNode*>(userPtr);
