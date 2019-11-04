@@ -58,7 +58,7 @@ private:
     public:
         BatchingPoint(SubScene&& subScene, RTCScene embreeSubScene, tasking::TaskGraph* pTaskGraph);
         //BatchingPoint(BatchingPoint&&) noexcept = default;
-        ~BatchingPoint();
+        //~BatchingPoint();
 
         std::optional<bool> intersect(Ray&, SurfaceInteraction&, const HitRayState&, const PauseableBVHInsertHandle&) const;
         std::optional<bool> intersectAny(Ray&, const AnyHitRayState&, const PauseableBVHInsertHandle&) const;
@@ -89,8 +89,8 @@ private:
     TopLevelBVH m_topLevelBVH;
 
     tasking::TaskGraph* m_pTaskGraph;
-    tasking::TaskHandle<std::tuple<Ray, HitRayState>> m_intersectTopLevelTask;
-    tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> m_intersectAnyTopLevelTask;
+    //tasking::TaskHandle<std::tuple<Ray, HitRayState>> m_intersectTopLevelTask;
+    //tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> m_intersectAnyTopLevelTask;
 
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> m_onHitTask;
     tasking::TaskHandle<std::tuple<Ray, HitRayState>> m_onMissTask;
@@ -149,12 +149,12 @@ BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::Batch
     other.m_embreeSubScene = nullptr;
 }*/
 
-template <typename HitRayState, typename AnyHitRayState>
+/*template <typename HitRayState, typename AnyHitRayState>
 BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::~BatchingPoint()
 {
     if (m_embreeSubScene)
         rtcReleaseScene(m_embreeSubScene);
-}
+}*/
 
 template <typename HitRayState, typename AnyHitRayState>
 void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::setParent(
@@ -163,8 +163,8 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
     m_pParent = pParent;
     m_intersectTask = m_pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>>(
         [=](gsl::span<const std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, std::pmr::memory_resource* pMemoryResource) {
-            std::pmr::vector<Ray> newRays { pMemoryResource };
-            std::pmr::vector<SurfaceInteraction> newSurfaceInteractions { pMemoryResource };
+            std::vector<Ray> newRays;
+            std::vector<SurfaceInteraction> newSurfaceInteractions;
             newRays.resize(data.size());
             newSurfaceInteractions.resize(data.size());
 
@@ -194,7 +194,7 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
         });
     m_intersectAnyTask = m_pTaskGraph->addTask<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>>(
         [=](gsl::span<const std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> data, std::pmr::memory_resource* pMemoryResource) {
-            std::pmr::vector<uint32_t> hits { 0, pMemoryResource };
+            std::vector<uint32_t> hits;
             hits.resize(data.size());
 
             int i = 0;
@@ -397,12 +397,6 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingAccel
     : m_embreeDevice(embreeDevice)
     , m_topLevelBVH(std::move(topLevelBVH))
     , m_pTaskGraph(pTaskGraph)
-    /*, m_intersectTask(
-          pTaskGraph->addTask<std::tuple<Ray, HitRayState>>(
-              [this](auto data, auto* pMemRes) { intersectKernel(data, pMemRes); }))
-    , m_intersectAnyTask(
-          pTaskGraph->addTask<std::tuple<Ray, AnyHitRayState>>(
-              [this](auto data, auto* pMemRes) { intersectAnyKernel(data, pMemRes); }))*/
     , m_onHitTask(hitTask)
     , m_onMissTask(missTask)
     , m_onAnyHitTask(anyHitTask)
@@ -421,13 +415,16 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::~BatchingAcce
 template <typename HitRayState, typename AnyHitRayState>
 inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersect(const Ray& ray, const HitRayState& state) const
 {
-    m_pTaskGraph->enqueue(m_intersectTopLevelTask, std::tuple { ray, state });
+    auto mutRay = ray;
+    SurfaceInteraction si;
+    m_topLevelBVH.intersect(mutRay, si, state);
 }
 
 template <typename HitRayState, typename AnyHitRayState>
 inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectAny(const Ray& ray, const AnyHitRayState& state) const
 {
-    m_pTaskGraph->enqueue(m_intersectAnyTopLevelTask, std::tuple { ray, state });
+    auto mutRay = ray;
+    m_topLevelBVH.intersectAny(mutRay, state);
 }
 
 template <typename HitRayState, typename AnyHitRayState>

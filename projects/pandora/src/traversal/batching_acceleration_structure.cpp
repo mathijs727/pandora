@@ -32,8 +32,8 @@ BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     //
     // Split large shapes into smaller sub shpaes so we can guarantee that the batching poinst never exceed the given size.
     // This should also help with reducing the spatial extent of the batching points by (hopefully) splitting spatially large shapes.
-    spdlog::info("Splitting large scene objects");
-    splitLargeSceneObjectsRecurse(pScene->pRoot.get(), pCache, primitivesPerBatchingPoint / 8);
+    //spdlog::info("Splitting large scene objects");
+    //splitLargeSceneObjectsRecurse(pScene->pRoot.get(), pCache, primitivesPerBatchingPoint / 8);
 
     spdlog::info("Splitting scene into sub scenes");
     m_subScenes = createSubScenes(*pScene, primitivesPerBatchingPoint, m_embreeDevice);
