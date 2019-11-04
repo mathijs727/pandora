@@ -36,10 +36,6 @@ public:
     std::optional<SurfaceInteraction> intersectDebug(Ray& ray) const;
 
 private:
-    void intersectKernel(gsl::span<const std::tuple<Ray, HitRayState>> data, std::pmr::memory_resource* pMemoryResource);
-    void intersectAnyKernel(gsl::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource);
-
-private:
     friend class BatchingAccelerationStructureBuilder;
     class BatchingPoint;
     BatchingAccelerationStructure(
@@ -173,6 +169,7 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
                 auto& newRay = newRays[i];
                 auto& newSi = newSurfaceInteractions[i++];
                 newRay = ray;
+                newSi = si;
                 intersectInternal(newRay, newSi);
             }
 
@@ -183,8 +180,11 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 
                 auto optHit = pParent->m_topLevelBVH.intersect(newRay, newSi, state, insertHandle);
                 if (optHit) { // Ray exited BVH
-                    if (si.pSceneObject) {
+                    assert(!optHit.value());
+
+                    if (newSi.pSceneObject) {
                         // Ray hit something
+                        assert(newSi.pSceneObject);
                         m_pTaskGraph->enqueue(pParent->m_onHitTask, std::tuple { newRay, newSi, state });
                     } else {
                         m_pTaskGraph->enqueue(pParent->m_onMissTask, std::tuple { newRay, state });
@@ -216,9 +216,9 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
                         assert(!optHit.value());
                         m_pTaskGraph->enqueue(pParent->m_onAnyMissTask, std::tuple { ray, state });
                     } else {
-						// Nodes should always be paused, only way to return is when ray exists BVH
+                        // Nodes should always be paused, only way to return is when ray exists BVH
                         throw std::runtime_error("Invalid code path");
-					}
+                    }
                 }
             }
         });
@@ -417,47 +417,22 @@ inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersec
 {
     auto mutRay = ray;
     SurfaceInteraction si;
-    m_topLevelBVH.intersect(mutRay, si, state);
+    auto optHit = m_topLevelBVH.intersect(mutRay, si, state);
+    if (optHit) {
+        assert(!optHit.value());
+        m_pTaskGraph->enqueue(m_onMissTask, std::tuple { mutRay, state });
+    }
 }
 
 template <typename HitRayState, typename AnyHitRayState>
 inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectAny(const Ray& ray, const AnyHitRayState& state) const
 {
     auto mutRay = ray;
-    m_topLevelBVH.intersectAny(mutRay, state);
-}
-
-template <typename HitRayState, typename AnyHitRayState>
-inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectKernel(
-    gsl::span<const std::tuple<Ray, HitRayState>> data, std::pmr::memory_resource* pMemoryResource)
-{
-    for (const auto& [ray, state] : data) {
-        Ray mutRay = ray;
-        SurfaceInteraction si;
-
-        auto optHit = m_topLevelBVH.intersect(mutRay, si, state);
-        assert(optHit);
-
-        if (*optHit)
-            m_pTaskGraph->enqueue(m_onHitTask, std::tuple { mutRay, si, state });
-        else
-            m_pTaskGraph->enqueue(m_onMissTask, std::tuple { mutRay, state });
+    auto optHit = m_topLevelBVH.intersectAny(mutRay, state);
+    if (optHit) {
+        assert(!optHit.value());
+        m_pTaskGraph->enqueue(m_onAnyMissTask, std::tuple { mutRay, state });
     }
 }
 
-template <typename HitRayState, typename AnyHitRayState>
-inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectAnyKernel(
-    gsl::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource)
-{
-    for (const auto& [ray, state] : data) {
-        Ray mutRay = ray;
-
-        auto optHit = m_topLevelBVH.intersectAny(mutRay, state);
-        assert(optHit);
-        if (*optHit)
-            m_pTaskGraph->enqueue(m_onAnyHitTask, std::tuple { mutRay, state });
-        else
-            m_pTaskGraph->enqueue(m_onAnyMissTask, std::tuple { mutRay, state });
-    }
-}
 }
