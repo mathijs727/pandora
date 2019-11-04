@@ -53,8 +53,6 @@ private:
     class BatchingPoint {
     public:
         BatchingPoint(SubScene&& subScene, RTCScene embreeSubScene, tasking::TaskGraph* pTaskGraph);
-        //BatchingPoint(BatchingPoint&&) noexcept = default;
-        //~BatchingPoint();
 
         std::optional<bool> intersect(Ray&, SurfaceInteraction&, const HitRayState&, const PauseableBVHInsertHandle&) const;
         std::optional<bool> intersectAny(Ray&, const AnyHitRayState&, const PauseableBVHInsertHandle&) const;
@@ -81,12 +79,9 @@ private:
 
 private:
     RTCDevice m_embreeDevice;
-    //RTCScene m_rootEmbreeScene;
     TopLevelBVH m_topLevelBVH;
 
     tasking::TaskGraph* m_pTaskGraph;
-    //tasking::TaskHandle<std::tuple<Ray, HitRayState>> m_intersectTopLevelTask;
-    //tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> m_intersectAnyTopLevelTask;
 
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> m_onHitTask;
     tasking::TaskHandle<std::tuple<Ray, HitRayState>> m_onMissTask;
@@ -133,85 +128,49 @@ BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::Batch
 {
 }
 
-/*template <typename HitRayState, typename AnyHitRayState>
-BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(BatchingPoint&& other) noexcept
-    : m_subScene(std::move(other.m_subScene))
-    , m_embreeSubScene(other.m_embreeSubScene)
-    , m_color(other.m_color)
-    , m_pParent(other.m_pParent)
-    , m_intersectTask(std::move(other.m_intersectTask))
-    , m_intersectAnyTask(std::move(other.m_intersectAnyTask))
-{
-    other.m_embreeSubScene = nullptr;
-}*/
-
-/*template <typename HitRayState, typename AnyHitRayState>
-BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::~BatchingPoint()
-{
-    if (m_embreeSubScene)
-        rtcReleaseScene(m_embreeSubScene);
-}*/
-
 template <typename HitRayState, typename AnyHitRayState>
 void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::setParent(
     BatchingAccelerationStructure<HitRayState, AnyHitRayState>* pParent)
 {
     m_pParent = pParent;
     m_intersectTask = m_pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>>(
-        [=](gsl::span<const std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, std::pmr::memory_resource* pMemoryResource) {
-            std::vector<Ray> newRays;
-            std::vector<SurfaceInteraction> newSurfaceInteractions;
-            newRays.resize(data.size());
-            newSurfaceInteractions.resize(data.size());
-
-            int i = 0;
-            for (const auto& [ray, si, state, insertHandle] : data) {
-                auto& newRay = newRays[i];
-                auto& newSi = newSurfaceInteractions[i++];
-                newRay = ray;
-                newSi = si;
-                intersectInternal(newRay, newSi);
+        [=](gsl::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, std::pmr::memory_resource* pMemoryResource) {
+            for (auto& [ray, si, state, insertHandle] : data) {
+                intersectInternal(ray, si);
             }
 
-            i = 0;
-            for (const auto& [_, si, state, insertHandle] : data) {
-                auto& newRay = newRays[i];
-                auto& newSi = newSurfaceInteractions[i++];
-
-                auto optHit = pParent->m_topLevelBVH.intersect(newRay, newSi, state, insertHandle);
+            for (auto& [ray, si, state, insertHandle] : data) {
+                auto optHit = pParent->m_topLevelBVH.intersect(ray, si, state, insertHandle);
                 if (optHit) { // Ray exited BVH
                     assert(!optHit.value());
 
-                    if (newSi.pSceneObject) {
+                    if (si.pSceneObject) {
                         // Ray hit something
-                        assert(newSi.pSceneObject);
-                        m_pTaskGraph->enqueue(pParent->m_onHitTask, std::tuple { newRay, newSi, state });
+                        assert(si.pSceneObject);
+                        m_pTaskGraph->enqueue(pParent->m_onHitTask, std::tuple { ray, si, state });
                     } else {
-                        m_pTaskGraph->enqueue(pParent->m_onMissTask, std::tuple { newRay, state });
+                        m_pTaskGraph->enqueue(pParent->m_onMissTask, std::tuple { ray, state });
                     }
                 }
             }
         });
     m_intersectAnyTask = m_pTaskGraph->addTask<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>>(
-        [=](gsl::span<const std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> data, std::pmr::memory_resource* pMemoryResource) {
+        [=](gsl::span<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> data, std::pmr::memory_resource* pMemoryResource) {
             std::vector<uint32_t> hits;
             hits.resize(data.size());
 
             int i = 0;
-            for (const auto& [ray, state, insertHandle] : data) {
-                auto mutRay = ray;
-                hits[i++] = intersectAnyInternal(mutRay);
+            for (auto& [ray, state, insertHandle] : data) {
+                hits[i++] = intersectAnyInternal(ray);
             }
 
-            i = 0;
-            for (const auto& [ray, state, insertHandle] : data) {
+            for (auto& [ray, state, insertHandle] : data) {
                 bool hit = hits[i++];
 
                 if (hit) {
                     m_pTaskGraph->enqueue(pParent->m_onAnyHitTask, std::tuple { ray, state });
                 } else {
-                    auto mutRay = ray;
-                    auto optHit = pParent->m_topLevelBVH.intersectAny(mutRay, state, insertHandle);
+                    auto optHit = pParent->m_topLevelBVH.intersectAny(ray, state, insertHandle);
                     if (optHit) { // Ray exited BVH
                         assert(!optHit.value());
                         m_pTaskGraph->enqueue(pParent->m_onAnyMissTask, std::tuple { ray, state });

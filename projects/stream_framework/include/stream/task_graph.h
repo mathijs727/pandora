@@ -3,8 +3,10 @@
 #include <functional>
 #include <gsl/span>
 #include <memory_resource>
+#define __TBB_ALLOW_MUTABLE_FUNCTORS 1
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
+#undef __TBB_ALLOW_MUTABLE_FUNCTORS
 #include <type_traits>
 
 namespace tasking {
@@ -57,7 +59,7 @@ private:
         void execute(TaskGraph* pTaskGraph) override;
 
     private:
-        using TypeErasedKernel = std::function<void(gsl::span<const T>, const void*, std::pmr::memory_resource*)>;
+        using TypeErasedKernel = std::function<void(gsl::span<T>, const void*, std::pmr::memory_resource*)>;
         using TypeErasedStaticDataLoader = std::function<void*(std::pmr::memory_resource*)>;
         using TypeErasedStaticDataDestructor = std::function<void(std::pmr::memory_resource*, void*)>;
 
@@ -118,7 +120,7 @@ template <typename F>
 inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(F&& kernel)
 {
     return TaskGraph::Task<T>(
-        [=](gsl::span<const T> dynamicData, const void*, std::pmr::memory_resource* pMemory) {
+        [=](gsl::span<T> dynamicData, const void*, std::pmr::memory_resource* pMemory) {
             kernel(dynamicData, pMemory);
         },
         [](std::pmr::memory_resource*) { return nullptr; },
@@ -186,9 +188,9 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 
     tbb::task_group tg;
     eastl::fixed_vector<T, 32, false> workBatch;
-    const auto executeKernel = [&]() {
-		// Run sequentially in debug mode
-        tg.run([=]() {
+    auto executeKernel = [&]() {
+        // Run sequentially in debug mode
+        tg.run([=]() mutable {
             m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
         });
     };
