@@ -191,16 +191,43 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
                 }
             }
         });
-    m_intersectAnyTask = m_pTaskGraph->addTask<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>>(
-        [=](gsl::span<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> data, std::pmr::memory_resource* pMemoryResource) {
-            std::vector<uint32_t> hits;
-            hits.resize(data.size());
+    m_intersectAnyTask = m_pTaskGraph->addTask<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>, StaticData>(
+        [=]() -> StaticData {
+            StaticData staticData;
 
-            int i = 0;
-            for (auto& [ray, state, insertHandle] : data) {
-                //hits[i++] = intersectAnyInternal(ray);
+            // Load all top level shapes
+            for (const auto& pSceneObject : m_subScene.sceneObjects) {
+                auto shapeOwner = m_pGeometryCache->makeResident(pSceneObject->pShape.get());
+                staticData.shapeOwners.emplace_back(std::move(shapeOwner));
             }
 
+            // Load instanced shapes
+            std::function<void(const SceneNode*)> makeResidentRecurse = [&](const SceneNode* pSceneNode) {
+                for (const auto& pSceneObject : pSceneNode->objects) {
+                    auto shapeOwner = m_pGeometryCache->makeResident(pSceneObject->pShape.get());
+                    staticData.shapeOwners.emplace_back(std::move(shapeOwner));
+                }
+                for (const auto& [pChild, _] : pSceneNode->children) {
+                    makeResidentRecurse(pChild.get());
+                }
+            };
+
+            staticData.scene = pEmbreeCache->fromSubScene(&m_subScene);
+
+            return staticData;
+        },
+        [=](gsl::span<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
+            std::vector<uint32_t> hits;
+            hits.resize(data.size());
+            std::fill(std::begin(hits), std::end(hits), false);
+
+            int i = 0;
+            RTCScene embreeScene = pStaticData->scene->scene;
+            for (auto& [ray, state, insertHandle] : data) {
+				hits[i++] = intersectAnyInternal(embreeScene, ray);
+            }
+
+            i = 0;
             for (auto& [ray, state, insertHandle] : data) {
                 bool hit = hits[i++];
 
@@ -208,12 +235,12 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
                     m_pTaskGraph->enqueue(pParent->m_onAnyHitTask, std::tuple { ray, state });
                 } else {
                     auto optHit = pParent->m_topLevelBVH.intersectAny(ray, state, insertHandle);
-                    if (optHit) { // Ray exited BVH
+                    if (optHit) {
                         assert(!optHit.value());
-                        m_pTaskGraph->enqueue(pParent->m_onAnyMissTask, std::tuple { ray, state });
-                    } else {
-                        // Nodes should always be paused, only way to return is when ray exists BVH
-                        throw std::runtime_error("Invalid code path");
+                        if (optHit.value())
+                            m_pTaskGraph->enqueue(pParent->m_onAnyHitTask, std::tuple { ray, state });
+                        else
+                            m_pTaskGraph->enqueue(pParent->m_onAnyMissTask, std::tuple { ray, state });
                     }
                 }
             }
@@ -351,8 +378,9 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
     rtcOccluded1(scene, &context, &embreeRay);
 
     ray.tfar = embreeRay.tfar;
+
     static constexpr float minInf = -std::numeric_limits<float>::infinity();
-    return embreeRay.tfar != minInf;
+    return embreeRay.tfar == minInf;
 }
 
 template <typename HitRayState, typename AnyHitRayState>
@@ -368,11 +396,6 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
     std::vector<BatchingPointT> batchingPoints;
     std::transform(std::begin(m_subScenes), std::end(m_subScenes), std::back_inserter(batchingPoints),
         [&](SubScene& subScene) {
-            //verifyInstanceDepth(pSubSceneRoot.get());
-
-            //std::unordered_map<const SceneNode*, RTCScene> sceneCache;
-            //RTCScene embreeSubScene = buildEmbreeBVH(subScene, m_pGeometryCache, m_embreeDevice, embreeSceneCache);
-
             return BatchingPointT { std::move(subScene), m_pGeometryCache, m_pTaskGraph };
         });
 
@@ -397,7 +420,7 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingAccel
     , m_onMissTask(missTask)
     , m_onAnyHitTask(anyHitTask)
     , m_onAnyMissTask(anyMissTask)
-    , m_embreeSceneCache(20 * 1000 * 1000)
+    , m_embreeSceneCache(100 * 1000 * 1000)
 {
     for (auto& leaf : m_topLevelBVH.leafs())
         leaf.setParent(this, &m_embreeSceneCache);
@@ -417,7 +440,10 @@ inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersec
     auto optHit = m_topLevelBVH.intersect(mutRay, si, state);
     if (optHit) {
         assert(!optHit.value());
-        m_pTaskGraph->enqueue(m_onMissTask, std::tuple { mutRay, state });
+        if (optHit.value())
+            m_pTaskGraph->enqueue(m_onHitTask, std::tuple { mutRay, si, state });
+        else
+            m_pTaskGraph->enqueue(m_onMissTask, std::tuple { mutRay, state });
     }
 }
 
@@ -428,7 +454,10 @@ inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersec
     auto optHit = m_topLevelBVH.intersectAny(mutRay, state);
     if (optHit) {
         assert(!optHit.value());
-        m_pTaskGraph->enqueue(m_onAnyMissTask, std::tuple { mutRay, state });
+        if (optHit.value())
+            m_pTaskGraph->enqueue(m_onAnyHitTask, std::tuple { mutRay, state });
+        else
+            m_pTaskGraph->enqueue(m_onAnyMissTask, std::tuple { mutRay, state });
     }
 }
 
