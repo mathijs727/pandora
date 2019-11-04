@@ -92,7 +92,7 @@ int main(int argc, char** argv)
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
     RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false) : loadFromFile(sceneFilePath);
     const glm::ivec2 resolution = renderConfig.resolution;
-    tasking::LRUCache geometryCache = cacheBuilder.build(5 * 1024 * 1024);
+    tasking::LRUCache geometryCache = cacheBuilder.build(500 * 1024 * 1024);
 
     /*std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
         for (const auto& pSceneObject : pSceneNode->objects) {
@@ -119,12 +119,12 @@ int main(int argc, char** argv)
     spdlog::info("Preprocessing scene");
     using AccelBuilder = BatchingAccelerationStructureBuilder;
     constexpr unsigned primitivesPerBatchingPoint = 100000;
-    /*if (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
+    if (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
         cacheBuilder = tasking::LRUCache::Builder { std::make_unique<tasking::InMemorySerializer>() };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
         auto newCache = cacheBuilder.build(geometryCache.maxSize());
         geometryCache = std::move(newCache);
-    }*/
+    }
 
     spdlog::info("Building acceleration structure");
     AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint };

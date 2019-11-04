@@ -171,23 +171,6 @@ static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const
     return subShapes;
 }
 
-static Bounds subTreeBounds(const SceneNode* pSceneNode)
-{
-    Bounds bounds;
-    for (const auto& pSceneObject : pSceneNode->objects) {
-        bounds.extend(pSceneObject->pShape->getBounds());
-    }
-
-    for (const auto& childAndTransform : pSceneNode->children) {
-        const auto& [pChild, transformOpt] = childAndTransform;
-        Bounds childBounds = subTreeBounds(pSceneNode);
-        if (transformOpt)
-            childBounds *= transformOpt.value();
-        bounds.extend(childBounds);
-    }
-    return bounds;
-}
-
 static size_t subTreePrimitiveCount(const SceneNode* pSceneNode)
 {
     size_t primCount = 0;
@@ -230,7 +213,7 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
 
     for (const auto& [subTreeID, childAndTransform] : enumerate(scene.pRoot->children)) {
         const auto& [pChild, transformOpt] = childAndTransform;
-        Bounds bounds = subTreeBounds(pChild.get());
+        Bounds bounds = pChild->computeBounds();
         if (transformOpt)
             bounds *= transformOpt.value();
 
@@ -385,7 +368,7 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     return subScenes;
 }
 
-RTCScene BatchingAccelerationStructureBuilder::buildEmbreeBVH(const SubScene& subScene, tasking::LRUCache* pGeometryCache, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
+/*RTCScene BatchingAccelerationStructure::buildEmbreeBVH(const SubScene& subScene, tasking::LRUCache* pGeometryCache, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
 {
     RTCScene embreeScene = rtcNewScene(embreeDevice);
     for (const auto& pSceneObject : subScene.sceneObjects) {
@@ -479,7 +462,7 @@ RTCScene BatchingAccelerationStructureBuilder::buildSubTreeEmbreeBVH(const Scene
 
     sceneCache[pSceneNode] = embreeScene;
     return embreeScene;
-}
+}*/
 
 void BatchingAccelerationStructureBuilder::verifyInstanceDepth(const SceneNode* pSceneNode, int depth)
 {

@@ -2,6 +2,23 @@
 
 namespace pandora {
 
+Bounds SceneNode::computeBounds() const
+{
+    Bounds bounds;
+    for (const auto& pSceneObject : objects) {
+        bounds.extend(pSceneObject->pShape->getBounds());
+    }
+
+    for (const auto& childAndTransform : children) {
+        const auto& [pChild, transformOpt] = childAndTransform;
+        Bounds childBounds = pChild->computeBounds();
+        if (transformOpt)
+            childBounds *= transformOpt.value();
+        bounds.extend(childBounds);
+    }
+    return bounds;
+}
+
 Scene::Scene(std::shared_ptr<SceneNode>&& root, std::vector<std::unique_ptr<Light>>&& lights, std::vector<InfiniteLight*>&& infiniteLights)
     : pRoot(root)
     , lights(std::move(lights))

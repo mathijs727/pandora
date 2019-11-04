@@ -1,12 +1,13 @@
 #pragma once
+#include "pandora/graphics_core/bounds.h"
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/lights/area_light.h"
 #include "pandora/shapes/forward_declares.h"
 #include <glm/mat4x4.hpp>
 #include <memory>
 #include <optional>
-#include <vector>
 #include <tuple>
+#include <vector>
 
 namespace pandora {
 
@@ -23,6 +24,9 @@ struct SceneNode {
     std::vector<std::shared_ptr<SceneObject>> objects;
 
     SceneNode* pParent;
+
+public:
+    Bounds computeBounds() const;
 };
 
 struct Scene {
@@ -54,7 +58,7 @@ public:
     void attachNodeToRoot(std::shared_ptr<SceneNode> pChild);
     void attachNodeToRoot(std::shared_ptr<SceneNode> pChild, const glm::mat4& transform);
 
-	void makeRootNode(std::shared_ptr<SceneNode> pNewRoot);
+    void makeRootNode(std::shared_ptr<SceneNode> pNewRoot);
 
     void addInfiniteLight(std::unique_ptr<InfiniteLight>&& pInfiniteLight);
 
