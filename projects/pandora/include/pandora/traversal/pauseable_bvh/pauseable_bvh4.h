@@ -34,7 +34,7 @@ public:
     std::optional<bool> intersectAny(Ray& ray, const AnyHitRayState& userState) const override final;
     std::optional<bool> intersectAny(Ray& ray, const AnyHitRayState& userState, PauseableBVHInsertHandle handle) const override final;
 
-    gsl::span<LeafObj*> leafs() { return m_leafs; }
+    gsl::span<LeafObj> leafs() { return m_leafs; }
 
 private:
     template <bool AnyHit, typename UserState>

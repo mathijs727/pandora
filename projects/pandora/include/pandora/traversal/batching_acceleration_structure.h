@@ -56,8 +56,8 @@ private:
 
     class BatchingPoint {
     public:
-        BatchingPoint(SubScene&& subScene, RTCScene embreeSubScene, TaskGraph* pTaskGraph);
-        BatchingPoint(BatchingPoint&&) noexcept;
+        BatchingPoint(SubScene&& subScene, RTCScene embreeSubScene, tasking::TaskGraph* pTaskGraph);
+        //BatchingPoint(BatchingPoint&&) noexcept = default;
         ~BatchingPoint();
 
         std::optional<bool> intersect(Ray&, SurfaceInteraction&, const HitRayState&, const PauseableBVHInsertHandle&) const;
@@ -67,27 +67,26 @@ private:
         bool intersectInternal(Ray&, SurfaceInteraction&) const;
         bool intersectAnyInternal(Ray&) const;
 
-    public:
-        BatchingAccelerationStructure* pParent;
+    protected:
+        friend class BatchingAccelerationStructure<HitRayState, AnyHitRayState>;
+        void setParent(BatchingAccelerationStructure<HitRayState, AnyHitRayState>* pParent);
 
     private:
         SubScene m_subScene;
         RTCScene m_embreeSubScene;
         glm::vec3 m_color;
 
+        BatchingAccelerationStructure* m_pParent;
+        tasking::TaskGraph* m_pTaskGraph;
+
         tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> m_intersectTask;
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> m_intersectAnyTask;
-
-        OnHitTask m_onHitTask;
-        OnMissTask m_onMissTask;
-        OnAnyHitTask m_onAnyHitTask;
-        OnAnyMissTask m_onAnyMissTask;
     };
 
 private:
     RTCDevice m_embreeDevice;
     //RTCScene m_rootEmbreeScene;
-    std::shared_ptr<TopLevelBVH> m_topLevelBVH;
+    TopLevelBVH m_topLevelBVH;
 
     tasking::TaskGraph* m_pTaskGraph;
     tasking::TaskHandle<std::tuple<Ray, HitRayState>> m_intersectTopLevelTask;
@@ -116,9 +115,7 @@ private:
     static RTCScene buildSubTreeEmbreeBVH(const SceneNode* pSceneNode, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache);
 
 private:
-    //Scene* m_pScene;
     RTCDevice m_embreeDevice;
-
     std::vector<SubScene> m_subScenes;
 
     tasking::TaskGraph* m_pTaskGraph;
@@ -132,51 +129,25 @@ inline glm::vec3 randomVec3()
 
 template <typename HitRayState, typename AnyHitRayState>
 BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
-    SubScene&& subScene, RTCScene embreeSubScene, TaskGraph* pTaskGraph, )
+    SubScene&& subScene, RTCScene embreeSubScene, tasking::TaskGraph* pTaskGraph)
     : m_subScene(std::move(subScene))
     , m_embreeSubScene(embreeSubScene)
     , m_color(randomVec3())
-    , m_intersectTask(pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>>(
-          [=](gsl::span<const std::tuple<Ray, SurfaceInteraction, HitRayState>> data, std::pmr::memory_resource* pMemoryResource) {
-              std::pmr::vector<Ray> mutRays;
-              mutRays.resize(data.size());
-
-              int i = 0;
-              for (const auto& [ray, si, state, insertHandle] : data) {
-                  auto& mutRay = mutRays[i++];
-                  intersectInternal(mutRay, si);
-              }
-
-              i = 0;
-              for (const auto& [_, si, state, insertHandle] : data) {
-                  auto mutSi = si;
-                  auto& mutRay = mutRays[i++];
-
-                  auto optHit = pTopLevelBVH->intersect(mutRay, mutSi, state, insertHandle);
-                  if (optHit) { // Ray exited BVH
-                      if (si.pSceneObject) {
-                          // Ray hit something
-                          pTaskGraph->enqueue(pParent->m_onHitTask, std::tuple { mutRay, mutSi, state });
-                      } else {
-                          pTaskGraph->enqueue(pParent->m_onMissTask, std::tuple { mutRay, mutSi, state });
-                      }
-                  }
-              }
-          }))
+    , m_pTaskGraph(pTaskGraph)
 {
 }
 
-template <typename HitRayState, typename AnyHitRayState>
+/*template <typename HitRayState, typename AnyHitRayState>
 BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(BatchingPoint&& other) noexcept
     : m_subScene(std::move(other.m_subScene))
     , m_embreeSubScene(other.m_embreeSubScene)
     , m_color(other.m_color)
-    , pParent(other.pParent)
+    , m_pParent(other.m_pParent)
     , m_intersectTask(std::move(other.m_intersectTask))
     , m_intersectAnyTask(std::move(other.m_intersectAnyTask))
 {
     other.m_embreeSubScene = nullptr;
-}
+}*/
 
 template <typename HitRayState, typename AnyHitRayState>
 BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::~BatchingPoint()
@@ -184,6 +155,75 @@ BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::~Batc
     if (m_embreeSubScene)
         rtcReleaseScene(m_embreeSubScene);
 }
+
+template <typename HitRayState, typename AnyHitRayState>
+void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::setParent(
+    BatchingAccelerationStructure<HitRayState, AnyHitRayState>* pParent)
+{
+    m_pParent = pParent;
+    m_intersectTask = m_pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>>(
+        [=](gsl::span<const std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, std::pmr::memory_resource* pMemoryResource) {
+            std::pmr::vector<Ray> newRays { pMemoryResource };
+            std::pmr::vector<SurfaceInteraction> newSurfaceInteractions { pMemoryResource };
+            newRays.resize(data.size());
+            newSurfaceInteractions.resize(data.size());
+
+            int i = 0;
+            for (const auto& [ray, si, state, insertHandle] : data) {
+                auto& newRay = newRays[i];
+                auto& newSi = newSurfaceInteractions[i++];
+                newRay = ray;
+                intersectInternal(newRay, newSi);
+            }
+
+            i = 0;
+            for (const auto& [_, si, state, insertHandle] : data) {
+                auto& newRay = newRays[i];
+                auto& newSi = newSurfaceInteractions[i++];
+
+                auto optHit = pParent->m_topLevelBVH.intersect(newRay, newSi, state, insertHandle);
+                if (optHit) { // Ray exited BVH
+                    if (si.pSceneObject) {
+                        // Ray hit something
+                        m_pTaskGraph->enqueue(pParent->m_onHitTask, std::tuple { newRay, newSi, state });
+                    } else {
+                        m_pTaskGraph->enqueue(pParent->m_onMissTask, std::tuple { newRay, state });
+                    }
+                }
+            }
+        });
+    m_intersectAnyTask = m_pTaskGraph->addTask<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>>(
+        [=](gsl::span<const std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> data, std::pmr::memory_resource* pMemoryResource) {
+            std::pmr::vector<uint32_t> hits { 0, pMemoryResource };
+            hits.resize(data.size());
+
+            int i = 0;
+            for (const auto& [ray, state, insertHandle] : data) {
+                auto mutRay = ray;
+                hits[i++] = intersectAnyInternal(mutRay);
+            }
+
+            i = 0;
+            for (const auto& [ray, state, insertHandle] : data) {
+                bool hit = hits[i++];
+
+                if (hit) {
+                    m_pTaskGraph->enqueue(pParent->m_onAnyHitTask, std::tuple { ray, state });
+                } else {
+                    auto mutRay = ray;
+                    auto optHit = pParent->m_topLevelBVH.intersectAny(mutRay, state, insertHandle);
+                    if (optHit) { // Ray exited BVH
+                        assert(!optHit.value());
+                        m_pTaskGraph->enqueue(pParent->m_onAnyMissTask, std::tuple { ray, state });
+                    } else {
+						// Nodes should always be paused, only way to return is when ray exists BVH
+                        throw std::runtime_error("Invalid code path");
+					}
+                }
+            }
+        });
+}
+
 template <typename HitRayState, typename AnyHitRayState>
 Bounds BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::getBounds() const
 {
@@ -205,12 +245,17 @@ inline std::optional<SurfaceInteraction> BatchingAccelerationStructure<HitRaySta
 template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersect(
     Ray& ray, SurfaceInteraction& si, const HitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
+{
+    m_pTaskGraph->enqueue(m_intersectTask, std::tuple { ray, si, userState, bvhInsertHandle });
+    return {};
 }
 
 template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectAny(
     Ray& ray, const AnyHitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
+    m_pTaskGraph->enqueue(m_intersectAnyTask, std::tuple { ray, userState, bvhInsertHandle });
+    return {};
 }
 
 template <typename HitRayState, typename AnyHitRayState>
@@ -352,17 +397,19 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingAccel
     : m_embreeDevice(embreeDevice)
     , m_topLevelBVH(std::move(topLevelBVH))
     , m_pTaskGraph(pTaskGraph)
-    , m_intersectTask(
+    /*, m_intersectTask(
           pTaskGraph->addTask<std::tuple<Ray, HitRayState>>(
               [this](auto data, auto* pMemRes) { intersectKernel(data, pMemRes); }))
     , m_intersectAnyTask(
           pTaskGraph->addTask<std::tuple<Ray, AnyHitRayState>>(
-              [this](auto data, auto* pMemRes) { intersectAnyKernel(data, pMemRes); }))
+              [this](auto data, auto* pMemRes) { intersectAnyKernel(data, pMemRes); }))*/
     , m_onHitTask(hitTask)
     , m_onMissTask(missTask)
     , m_onAnyHitTask(anyHitTask)
     , m_onAnyMissTask(anyMissTask)
 {
+    for (auto& leaf : m_topLevelBVH.leafs())
+        leaf.setParent(this);
 }
 
 template <typename HitRayState, typename AnyHitRayState>
