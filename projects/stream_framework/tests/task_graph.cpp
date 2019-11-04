@@ -87,14 +87,14 @@ TEST(TaskGraph, StaticData)
 
     tasking::TaskGraph g;
     auto task = g.addTask<int, StaticData>(
-        [&](gsl::span<const int> numbers, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
-            for (const int number : numbers)
-                output[number] = number + pStaticData->adder;
-        },
         []() {
             StaticData staticData;
             staticData.adder = 2;
             return staticData;
+        },
+        [&](gsl::span<const int> numbers, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
+            for (const int number : numbers)
+                output[number] = number + pStaticData->adder;
         });
 
     for (int i = 0; i < range; i++)
@@ -171,12 +171,12 @@ TEST(TaskGraph, CachedStaticData)
 
     tasking::TaskGraph g;
     auto task = g.addTask<int, StaticDataCollection>(
+        [&]() -> StaticDataCollection {
+            return StaticDataCollection { cache.makeResident(&cacheItems[std::rand() % numCacheItems]) };
+        },
         [&](gsl::span<const int> numbers, const StaticDataCollection* pStaticDataCollection, std::pmr::memory_resource* pMemoryResource) {
             for (const int number : numbers)
                 output[number] = number + pStaticDataCollection->pStaticData->v;
-        },
-        [&]() -> StaticDataCollection {
-            return StaticDataCollection { cache.makeResident(&cacheItems[std::rand() % numCacheItems]) };
         });
 
     for (int i = 0; i < range; i++)

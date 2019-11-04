@@ -19,62 +19,88 @@ static std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primit
 static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
 
 BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
-    Scene* pScene,
+    const Scene* pScene,
     tasking::LRUCache* pCache,
     tasking::TaskGraph* pTaskGraph,
     unsigned primitivesPerBatchingPoint)
-    : m_pTaskGraph(pTaskGraph)
+    : m_pGeometryCache(pCache)
+    , m_pTaskGraph(pTaskGraph)
 {
     m_embreeDevice = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(m_embreeDevice, embreeErrorFunc, nullptr);
-
-    // NOTE: modifies pScene in place
-    //
-    // Split large shapes into smaller sub shpaes so we can guarantee that the batching poinst never exceed the given size.
-    // This should also help with reducing the spatial extent of the batching points by (hopefully) splitting spatially large shapes.
-    spdlog::info("Splitting large scene objects");
-    splitLargeSceneObjectsRecurse(pScene->pRoot.get(), pCache, primitivesPerBatchingPoint / 8);
 
     spdlog::info("Splitting scene into sub scenes");
     m_subScenes = createSubScenes(*pScene, primitivesPerBatchingPoint, m_embreeDevice);
 }
 
-void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(SceneNode* pSceneNode, tasking::LRUCache* pCache, unsigned maxSize)
+void BatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint)
 {
-    std::vector<std::shared_ptr<SceneObject>> outObjects;
+    // NOTE: modifies pScene in place
+    //
+    // Split large shapes into smaller sub shpaes so we can guarantee that the batching poinst never exceed the given size.
+    // This should also help with reducing the spatial extent of the batching points by (hopefully) splitting spatially large shapes.
+    spdlog::info("Splitting large scene objects");
+    RTCDevice embreeDevice = rtcNewDevice(nullptr);
+    splitLargeSceneObjectsRecurse(scene.pRoot.get(), oldCache, newCacheBuilder, embreeDevice, primitivesPerBatchingPoint / 8);
+    rtcReleaseDevice(embreeDevice);
+}
+
+static void copyShapeToNewCacheRecurse(SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder)
+{
     for (const auto& pSceneObject : pSceneNode->objects) {
-        // TODO
         Shape* pShape = pSceneObject->pShape.get();
         if (!pShape)
             continue;
 
+        auto pShapeOwner = oldCache.makeResident(pShape);
+        newCacheBuilder.registerCacheable(pShape);
+    }
+
+	for (const auto& [pChild, _] : pSceneNode->children) {
+        copyShapeToNewCacheRecurse(pChild.get(), oldCache, newCacheBuilder);
+	}
+}
+
+void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(
+    SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize)
+{
+    std::vector<std::shared_ptr<SceneObject>> outObjects;
+    for (const auto& pSceneObject : pSceneNode->objects) { // Only split non-instanced objects
+        Shape* pShape = pSceneObject->pShape.get();
+
+        if (!pShape)
+            continue;
+
+        auto pShapeOwner = oldCache.makeResident(pShape);
         if (pShape->numPrimitives() > maxSize) {
-            auto pShapeOwner = pCache->makeResident(pShape);
 
             if (pSceneObject->pAreaLight) {
                 spdlog::error("Shape attached to scene object with area light cannot be split");
+                newCacheBuilder.registerCacheable(pShape, true);
                 outObjects.push_back(pSceneObject);
             } else if (TriangleShape* pTriangleShape = dynamic_cast<TriangleShape*>(pShape)) {
-                auto subShapes = splitLargeTriangleShape(*pTriangleShape, maxSize, m_embreeDevice);
+                auto subShapes = splitLargeTriangleShape(*pTriangleShape, maxSize, embreeDevice);
                 for (auto&& subShape : subShapes) {
                     auto pSubSceneObject = std::make_shared<SceneObject>(*pSceneObject);
                     pSubSceneObject->pShape = std::move(subShape);
+                    newCacheBuilder.registerCacheable(pSubSceneObject->pShape.get(), true);
                     outObjects.push_back(pSubSceneObject);
                 }
             } else {
                 spdlog::error("Shape encountered with too many primitives but no way to split it");
+                newCacheBuilder.registerCacheable(pShape, true);
                 outObjects.push_back(pSceneObject);
             }
         } else {
+            newCacheBuilder.registerCacheable(pShape, true);
             outObjects.push_back(pSceneObject);
         }
     }
-    pSceneNode->objects = std::move(outObjects);
 
-    /*for (auto childLink : pSceneNode->children) {
-        auto&& [pChildNode, optTransform] = childLink;
-        splitLargeSceneObjectsRecurse(pChildNode.get(), pCache, maxSize);
-    }*/
+	for (const auto& [pChild, _] : pSceneNode->children)
+        copyShapeToNewCacheRecurse(pChild.get(), oldCache, newCacheBuilder);
+
+    pSceneNode->objects = std::move(outObjects);
 }
 
 static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const TriangleShape& shape, unsigned maxSize, RTCDevice embreeDevice)
@@ -103,7 +129,7 @@ static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const
 
     struct UserData {
         const TriangleShape& shape;
-        tbb::concurrent_vector<std::shared_ptr<TriangleShape>> subShapes { 0 };
+        tbb::concurrent_vector<std::shared_ptr<TriangleShape>> subShapes {};
     };
     UserData userData { shape };
 
@@ -340,7 +366,7 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     };
 
     std::vector<SubScene> subScenes;
-    std::function<void(const BVHNode*)> computeSubScenes= [&](const BVHNode* pNode) {
+    std::function<void(const BVHNode*)> computeSubScenes = [&](const BVHNode* pNode) {
         if (pNode->numPrimitives > primitivesPerSubScene) {
             if (const auto* pInnerNode = dynamic_cast<const InnerNode*>(pNode)) {
                 for (const auto* pChild : pInnerNode->children)
@@ -359,11 +385,13 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     return subScenes;
 }
 
-RTCScene BatchingAccelerationStructureBuilder::buildEmbreeBVH(const SubScene& subScene, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
+RTCScene BatchingAccelerationStructureBuilder::buildEmbreeBVH(const SubScene& subScene, tasking::LRUCache* pGeometryCache, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
 {
     RTCScene embreeScene = rtcNewScene(embreeDevice);
     for (const auto& pSceneObject : subScene.sceneObjects) {
-        const Shape* pShape = pSceneObject->pShape.get();
+        Shape* pShape = pSceneObject->pShape.get();
+        auto pShapeOwner = pGeometryCache->makeResident(pShape);
+
         RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(embreeDevice);
         rtcSetGeometryUserData(embreeGeometry, pSceneObject);
         rtcCommitGeometry(embreeGeometry);
@@ -375,7 +403,7 @@ RTCScene BatchingAccelerationStructureBuilder::buildEmbreeBVH(const SubScene& su
     for (const auto&& [geomID, childAndTransform] : enumerate(subScene.sceneNodes)) {
         auto&& [pChildNode, optTransform] = childAndTransform;
 
-        RTCScene childScene = buildSubTreeEmbreeBVH(pChildNode, embreeDevice, sceneCache);
+        RTCScene childScene = buildSubTreeEmbreeBVH(pChildNode, pGeometryCache, embreeDevice, sceneCache);
 
         RTCGeometry embreeInstanceGeometry = rtcNewGeometry(embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
         rtcSetGeometryInstancedScene(embreeInstanceGeometry, childScene);
@@ -402,7 +430,7 @@ RTCScene BatchingAccelerationStructureBuilder::buildEmbreeBVH(const SubScene& su
     return embreeScene;
 }
 
-RTCScene BatchingAccelerationStructureBuilder::buildSubTreeEmbreeBVH(const SceneNode* pSceneNode, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
+RTCScene BatchingAccelerationStructureBuilder::buildSubTreeEmbreeBVH(const SceneNode* pSceneNode, tasking::LRUCache* pGeometryCache, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
 {
     if (auto iter = sceneCache.find(pSceneNode); iter != std::end(sceneCache)) {
         return iter->second;
@@ -410,7 +438,9 @@ RTCScene BatchingAccelerationStructureBuilder::buildSubTreeEmbreeBVH(const Scene
 
     RTCScene embreeScene = rtcNewScene(embreeDevice);
     for (const auto& pSceneObject : pSceneNode->objects) {
-        const Shape* pShape = pSceneObject->pShape.get();
+        Shape* pShape = pSceneObject->pShape.get();
+        auto pShapeOwner = pGeometryCache->makeResident(pShape);
+
         RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(embreeDevice);
         rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
         rtcCommitGeometry(embreeGeometry);
@@ -422,7 +452,7 @@ RTCScene BatchingAccelerationStructureBuilder::buildSubTreeEmbreeBVH(const Scene
     for (const auto&& [geomID, childLink] : enumerate(pSceneNode->children)) {
         auto&& [pChildNode, optTransform] = childLink;
 
-        RTCScene childScene = buildSubTreeEmbreeBVH(pChildNode.get(), embreeDevice, sceneCache);
+        RTCScene childScene = buildSubTreeEmbreeBVH(pChildNode.get(), pGeometryCache, embreeDevice, sceneCache);
 
         RTCGeometry embreeInstanceGeometry = rtcNewGeometry(embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
         rtcSetGeometryInstancedScene(embreeInstanceGeometry, childScene);

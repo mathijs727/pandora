@@ -52,18 +52,23 @@ private:
 
     class BatchingPoint {
     public:
-        BatchingPoint(SubScene&& subScene, RTCScene embreeSubScene, tasking::TaskGraph* pTaskGraph);
+        BatchingPoint(SubScene&& subScene, RTCScene embreeSubScene, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph);
 
         std::optional<bool> intersect(Ray&, SurfaceInteraction&, const HitRayState&, const PauseableBVHInsertHandle&) const;
         std::optional<bool> intersectAny(Ray&, const AnyHitRayState&, const PauseableBVHInsertHandle&) const;
 
         Bounds getBounds() const;
+
+    private:
         bool intersectInternal(Ray&, SurfaceInteraction&) const;
         bool intersectAnyInternal(Ray&) const;
 
-    protected:
         friend class BatchingAccelerationStructure<HitRayState, AnyHitRayState>;
         void setParent(BatchingAccelerationStructure<HitRayState, AnyHitRayState>* pParent);
+
+        struct StaticData {
+            std::vector<tasking::CachedPtr<Shape>> shapeOwners;
+        };
 
     private:
         SubScene m_subScene;
@@ -71,6 +76,7 @@ private:
         glm::vec3 m_color;
 
         BatchingAccelerationStructure* m_pParent;
+        tasking::LRUCache* m_pGeometryCache;
         tasking::TaskGraph* m_pTaskGraph;
 
         tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> m_intersectTask;
@@ -92,7 +98,9 @@ private:
 class BatchingAccelerationStructureBuilder {
 public:
     BatchingAccelerationStructureBuilder(
-        Scene* pScene, tasking::LRUCache* pCache, tasking::TaskGraph* pTaskGraph, unsigned primitivesPerBatchingPoint);
+        const Scene* pScene, tasking::LRUCache* pCache, tasking::TaskGraph* pTaskGraph, unsigned primitivesPerBatchingPoint);
+
+    static void preprocessScene(Scene& scene, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint);
 
     template <typename HitRayState, typename AnyHitRayState>
     BatchingAccelerationStructure<HitRayState, AnyHitRayState> build(
@@ -100,15 +108,16 @@ public:
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask);
 
 private:
-    void splitLargeSceneObjectsRecurse(SceneNode* pNode, tasking::LRUCache* pCache, unsigned maxSize);
+    static void splitLargeSceneObjectsRecurse(SceneNode* pNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize);
     static void verifyInstanceDepth(const SceneNode* pSceneNode, int depth = 0);
-    static RTCScene buildEmbreeBVH(const SubScene& subScene, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache);
-    static RTCScene buildSubTreeEmbreeBVH(const SceneNode* pSceneNode, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache);
+    static RTCScene buildEmbreeBVH(const SubScene& subScene, tasking::LRUCache* pCache, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache);
+    static RTCScene buildSubTreeEmbreeBVH(const SceneNode* pSceneNode, tasking::LRUCache* pCache, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache);
 
 private:
     RTCDevice m_embreeDevice;
     std::vector<SubScene> m_subScenes;
 
+    tasking::LRUCache* m_pGeometryCache;
     tasking::TaskGraph* m_pTaskGraph;
 };
 
@@ -120,10 +129,11 @@ inline glm::vec3 randomVec3()
 
 template <typename HitRayState, typename AnyHitRayState>
 BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
-    SubScene&& subScene, RTCScene embreeSubScene, tasking::TaskGraph* pTaskGraph)
+    SubScene&& subScene, RTCScene embreeSubScene, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph)
     : m_subScene(std::move(subScene))
     , m_embreeSubScene(embreeSubScene)
     , m_color(randomVec3())
+    , m_pGeometryCache(pGeometryCache)
     , m_pTaskGraph(pTaskGraph)
 {
 }
@@ -133,8 +143,27 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
     BatchingAccelerationStructure<HitRayState, AnyHitRayState>* pParent)
 {
     m_pParent = pParent;
-    m_intersectTask = m_pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>>(
-        [=](gsl::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, std::pmr::memory_resource* pMemoryResource) {
+    m_intersectTask = m_pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>, StaticData>(
+        [&]() -> StaticData {
+            StaticData staticData;
+            for (const auto& pSceneObject : m_subScene.sceneObjects) {
+                auto shapeOwner = m_pGeometryCache->makeResident(pSceneObject->pShape.get());
+                staticData.shapeOwners.emplace_back(std::move(shapeOwner));
+            }
+
+            // Instanced shapes
+            std::function<void(const SceneNode*)> makeResidentRecurse = [&](const SceneNode* pSceneNode) {
+                for (const auto& pSceneObject : pSceneNode->objects) {
+                    auto shapeOwner = m_pGeometryCache->makeResident(pSceneObject->pShape.get());
+                    staticData.shapeOwners.emplace_back(std::move(shapeOwner));
+                }
+                for (const auto& [pChild, _] : pSceneNode->children) {
+                    makeResidentRecurse(pChild.get());
+                }
+            };
+            return staticData;
+        },
+        [=](gsl::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
             for (auto& [ray, si, state, insertHandle] : data) {
                 intersectInternal(ray, si);
             }
@@ -335,9 +364,9 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
             //verifyInstanceDepth(pSubSceneRoot.get());
 
             std::unordered_map<const SceneNode*, RTCScene> sceneCache;
-            RTCScene embreeSubScene = buildEmbreeBVH(subScene, m_embreeDevice, embreeSceneCache);
+            RTCScene embreeSubScene = buildEmbreeBVH(subScene, m_pGeometryCache, m_embreeDevice, embreeSceneCache);
 
-            return BatchingPointT { std::move(subScene), embreeSubScene, m_pTaskGraph };
+            return BatchingPointT { std::move(subScene), embreeSubScene, m_pGeometryCache, m_pTaskGraph };
         });
 
     spdlog::info("Constructing top level BVH");

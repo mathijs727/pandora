@@ -62,6 +62,11 @@ bool LRUCache::checkResidencyIsValid() const
     return true;
 }
 
+size_t LRUCache::maxSize() const
+{
+    return m_maxMemory;
+}
+
 void LRUCache::evict(size_t desiredMemoryUsage)
 {
     spdlog::info("Evicting items from LRUCache");
@@ -102,9 +107,9 @@ void LRUCache::Builder::registerCacheable(Evictable* pItem, bool evict)
 {
     m_items.push_back(pItem);
 
-	pItem->serialize(*m_pSerializer);
+    pItem->serialize(*m_pSerializer);
 
-	if (pItem->isResident())
+    if (pItem->isResident())
         pItem->evict();
 }
 

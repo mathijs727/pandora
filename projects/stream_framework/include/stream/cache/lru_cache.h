@@ -9,20 +9,26 @@
 #include <cstddef>
 #include <filesystem>
 #include <gsl/span>
+#include <list>
 #include <unordered_map>
 #include <vector>
-#include <list>
 
 namespace tasking {
 
 class LRUCache {
 public:
     class Builder;
+
+	LRUCache(LRUCache&&) = default;
+    LRUCache& operator=(LRUCache&&) = default;
+
     template <typename T>
     CachedPtr<T> makeResident(T* pEvictable);
 
     size_t memoryUsage() const noexcept;
     bool checkResidencyIsValid() const;
+
+	size_t maxSize() const;
 
 private:
     LRUCache(std::unique_ptr<tasking::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory);
@@ -32,7 +38,7 @@ private:
 private:
     std::unique_ptr<tasking::Deserializer> m_pDeserializer;
 
-    const size_t m_maxMemory;
+    size_t m_maxMemory;
     size_t m_usedMemory { 0 };
 
     using ItemsList = std::list<uint32_t>;
@@ -51,7 +57,7 @@ class LRUCache::Builder : public CacheBuilder {
 public:
     Builder(std::unique_ptr<tasking::Serializer>&& pSerializer);
 
-    void registerCacheable(Evictable* pItem, bool evict = false);
+    void registerCacheable(Evictable* pItem, bool evict = false) override;
 
     LRUCache build(size_t maxMemory);
 

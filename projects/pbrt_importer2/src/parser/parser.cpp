@@ -277,7 +277,7 @@ void Parser::parseShape(PBRTIntermediateScene& scene)
     } else if (shapeType == "trianglemesh") {
         parseTriangleShape(scene, std::move(params));
     } else {
-        // spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
+        spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
     }
 }
 

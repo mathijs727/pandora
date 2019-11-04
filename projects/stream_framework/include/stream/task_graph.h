@@ -24,8 +24,8 @@ public:
 
     // Kernel signature:           void(gsl::span<const T>, std::pmr::memory_resource*>
     // StaticDataLoader signature: StaticData*();
-    template <typename T, typename StaticData, typename Kernel, typename StaticDataLoader>
-    TaskHandle<T> addTask(Kernel&& kernel, StaticDataLoader&& staticDataLoader);
+    template <typename T, typename StaticData, typename StaticDataLoader, typename Kernel>
+    TaskHandle<T> addTask(StaticDataLoader&& staticDataLoader, Kernel&& kernel);
 
     template <typename T>
     void enqueue(TaskHandle<T> task, const T& item);
@@ -86,8 +86,8 @@ inline TaskHandle<T> TaskGraph::addTask(Kernel&& kernel)
     return TaskHandle<T> { taskIdx };
 }
 
-template <typename T, typename StaticData, typename Kernel, typename StaticDataLoader>
-inline TaskHandle<T> TaskGraph::addTask(Kernel&& kernel, StaticDataLoader&& staticDataLoader)
+template <typename T, typename StaticData, typename StaticDataLoader, typename Kernel>
+inline TaskHandle<T> TaskGraph::addTask(StaticDataLoader&& staticDataLoader, Kernel&& kernel)
 {
     static_assert(std::is_move_constructible<StaticData>());
     uint32_t taskIdx = static_cast<uint32_t>(m_tasks.size());
@@ -132,7 +132,7 @@ template <typename StaticData, typename F1, typename F2>
 inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(F1&& kernel, F2&& staticDataLoader)
 {
     return TaskGraph::Task<T>(
-        [=](gsl::span<const T> dynamicData, const void* pStaticData, std::pmr::memory_resource* pMemory) {
+        [=](gsl::span<T> dynamicData, const void* pStaticData, std::pmr::memory_resource* pMemory) {
             kernel(dynamicData, reinterpret_cast<const StaticData*>(pStaticData), pMemory);
         },
         [=](std::pmr::memory_resource* pMemoryResource) -> void* {
