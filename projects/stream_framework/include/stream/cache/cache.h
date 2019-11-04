@@ -2,7 +2,7 @@
 #include "stream/cache/evictable.h"
 #include "stream/serialize/serializer.h"
 
-namespace stream {
+namespace tasking {
 
 class CacheBuilder {
 public:

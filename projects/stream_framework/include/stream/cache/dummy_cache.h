@@ -4,7 +4,7 @@
 #include "stream/cache/evictable.h"
 #include <atomic>
 
-namespace stream {
+namespace tasking {
 
 class DummyCache {
 public:

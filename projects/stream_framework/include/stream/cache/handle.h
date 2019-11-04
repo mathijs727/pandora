@@ -2,7 +2,7 @@
 #include "stream/templates.h"
 #include <cstdint>
 
-namespace stream {
+namespace tasking {
 
 namespace detail {
     template <typename T>

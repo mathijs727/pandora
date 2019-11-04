@@ -20,7 +20,7 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
 
 BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     Scene* pScene,
-    stream::LRUCache* pCache,
+    tasking::LRUCache* pCache,
     tasking::TaskGraph* pTaskGraph,
     unsigned primitivesPerBatchingPoint)
     : m_pTaskGraph(pTaskGraph)
@@ -39,7 +39,7 @@ BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     m_subScenes = createSubScenes(*pScene, primitivesPerBatchingPoint, m_embreeDevice);
 }
 
-void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(SceneNode* pSceneNode, stream::LRUCache* pCache, unsigned maxSize)
+void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(SceneNode* pSceneNode, tasking::LRUCache* pCache, unsigned maxSize)
 {
     std::vector<std::shared_ptr<SceneObject>> outObjects;
     for (const auto& pSceneObject : pSceneNode->objects) {

@@ -6,9 +6,9 @@
 #include <thread>
 #include <vector>
 
-struct DummyData : public stream::Evictable {
+struct DummyData : public tasking::Evictable {
     int value;
-    stream::Allocation alloc;
+    tasking::Allocation alloc;
 
     DummyData(int v)
         : Evictable(true)
@@ -20,7 +20,7 @@ struct DummyData : public stream::Evictable {
         return sizeof(DummyData);
     }
 
-    void serialize(stream::Serializer& serializer)
+    void serialize(tasking::Serializer& serializer)
     {
         auto [allocation, pInt] = serializer.allocateAndMap(sizeof(int));
         std::memcpy(pInt, &value, sizeof(int));
@@ -34,7 +34,7 @@ struct DummyData : public stream::Evictable {
         value = -1;
     }
 
-    void doMakeResident(stream::Deserializer& deserializer) override
+    void doMakeResident(tasking::Deserializer& deserializer) override
     {
         const int* pInt = reinterpret_cast<const int*>(deserializer.map(alloc));
         value = *pInt;
@@ -48,7 +48,7 @@ TEST(LRUCache, MakesResident)
     for (int i = 0; i < 50; i++)
         data.push_back(DummyData(i));
 
-    stream::LRUCache::Builder builder { std::make_unique<stream::InMemorySerializer>() };
+    tasking::LRUCache::Builder builder { std::make_unique<tasking::InMemorySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         builder.registerCacheable(&data[i], false);
     }
@@ -70,7 +70,7 @@ TEST(LRUCache, RegisterAndEvict)
     for (int i = 0; i < 50; i++)
         data.push_back(DummyData(i));
 
-    stream::LRUCache::Builder builder { std::make_unique<stream::InMemorySerializer>() };
+    tasking::LRUCache::Builder builder { std::make_unique<tasking::InMemorySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         builder.registerCacheable(&data[i], true);
     }
@@ -90,7 +90,7 @@ TEST(LRUCache, RegisterAndEvict)
         data.push_back(DummyData(i, i % 2 == 0));
     }
 
-    stream::LRUCache::Builder builder { std::make_unique<stream::DummySerializer>() };
+    tasking::LRUCache::Builder builder { std::make_unique<tasking::DummySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         builder.registerCacheable(&data[i]);
     }
@@ -111,7 +111,7 @@ TEST(LRUCache, MemoryUsage)
     for (int i = 0; i < 50; i++)
         data.push_back(DummyData(i));
 
-    stream::LRUCache::Builder builder { std::make_unique<stream::InMemorySerializer>() };
+    tasking::LRUCache::Builder builder { std::make_unique<tasking::InMemorySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         builder.registerCacheable(&data[i]);
     }
@@ -137,7 +137,7 @@ TEST(LRUCache, EvictionHoldItems)
     for (int i = 0; i < 50; i++)
         data.push_back(DummyData(i));
 
-    stream::LRUCache::Builder builder { std::make_unique<stream::InMemorySerializer>() };
+    tasking::LRUCache::Builder builder { std::make_unique<tasking::InMemorySerializer>() };
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         builder.registerCacheable(&data[i]);
     }
@@ -145,7 +145,7 @@ TEST(LRUCache, EvictionHoldItems)
     const size_t maxMemory = data.size() * 250;
     auto cache = builder.build(maxMemory);
 
-    std::vector<stream::CachedPtr<DummyData>> owningPtrs;
+    std::vector<tasking::CachedPtr<DummyData>> owningPtrs;
     for (int i = 0; i < static_cast<int>(data.size()); i++) {
         auto pItem = cache.makeResident(&data[i]);
         ASSERT_TRUE(pItem->isResident());

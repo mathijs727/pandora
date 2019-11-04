@@ -43,7 +43,7 @@ struct PBRTIntermediateScene {
     pandora::SceneBuilder sceneBuilder;
 
     std::mutex geometryCacheMutex;
-    stream::CacheBuilder* pGeometryCacheBuilder;
+    tasking::CacheBuilder* pGeometryCacheBuilder;
 
     std::vector<PBRTCamera> cameras;
     glm::ivec2 resolution;
@@ -102,7 +102,7 @@ class Parser {
 public:
     Parser(std::filesystem::path basePath, bool loadTextures = true);
 
-    pandora::RenderConfig parse(std::filesystem::path file, stream::CacheBuilder* pGeometryCacheBuilder = nullptr);
+    pandora::RenderConfig parse(std::filesystem::path file, tasking::CacheBuilder* pGeometryCacheBuilder = nullptr);
 
 private:
     // Parse everything in WorldBegin/WorldEnd

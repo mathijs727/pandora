@@ -13,7 +13,7 @@
 #include <vector>
 #include <list>
 
-namespace stream {
+namespace tasking {
 
 class LRUCache {
 public:
@@ -25,12 +25,12 @@ public:
     bool checkResidencyIsValid() const;
 
 private:
-    LRUCache(std::unique_ptr<stream::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory);
+    LRUCache(std::unique_ptr<tasking::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory);
 
     void evict(size_t desiredMemoryUsage);
 
 private:
-    std::unique_ptr<stream::Deserializer> m_pDeserializer;
+    std::unique_ptr<tasking::Deserializer> m_pDeserializer;
 
     const size_t m_maxMemory;
     size_t m_usedMemory { 0 };
@@ -49,14 +49,14 @@ private:
 
 class LRUCache::Builder : public CacheBuilder {
 public:
-    Builder(std::unique_ptr<stream::Serializer>&& pSerializer);
+    Builder(std::unique_ptr<tasking::Serializer>&& pSerializer);
 
     void registerCacheable(Evictable* pItem, bool evict = false);
 
     LRUCache build(size_t maxMemory);
 
 private:
-    std::unique_ptr<stream::Serializer> m_pSerializer;
+    std::unique_ptr<tasking::Serializer> m_pSerializer;
     std::vector<Evictable*> m_items;
 };
 

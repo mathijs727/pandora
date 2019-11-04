@@ -2,7 +2,7 @@
 #include <fstream>
 #include <spdlog/spdlog.h>
 
-namespace stream {
+namespace tasking {
 SplitFileSerializer::SplitFileSerializer(std::string_view folderName, size_t batchSize)
     : m_tempFolder(std::filesystem::temp_directory_path() / folderName)
     , m_batchSize(batchSize)

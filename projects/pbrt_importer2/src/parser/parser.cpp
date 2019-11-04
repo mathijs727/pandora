@@ -18,7 +18,7 @@ Parser::Parser(std::filesystem::path basePath, bool loadTextures)
 {
 }
 
-pandora::RenderConfig Parser::parse(std::filesystem::path file, stream::CacheBuilder* pGeometryCacheBuilder)
+pandora::RenderConfig Parser::parse(std::filesystem::path file, tasking::CacheBuilder* pGeometryCacheBuilder)
 {
     // Set a default material
     m_graphicsState.pMaterial = std::make_shared<pandora::MatteMaterial>(

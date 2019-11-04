@@ -10,7 +10,7 @@
 
 namespace pandora {
 
-class Shape : public stream::Evictable {
+class Shape : public tasking::Evictable {
 public:
     Shape(bool resident);
     virtual ~Shape() = default;

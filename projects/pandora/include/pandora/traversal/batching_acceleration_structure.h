@@ -97,7 +97,7 @@ private:
 class BatchingAccelerationStructureBuilder {
 public:
     BatchingAccelerationStructureBuilder(
-        Scene* pScene, stream::LRUCache* pCache, tasking::TaskGraph* pTaskGraph, unsigned primitivesPerBatchingPoint);
+        Scene* pScene, tasking::LRUCache* pCache, tasking::TaskGraph* pTaskGraph, unsigned primitivesPerBatchingPoint);
 
     template <typename HitRayState, typename AnyHitRayState>
     BatchingAccelerationStructure<HitRayState, AnyHitRayState> build(
@@ -105,7 +105,7 @@ public:
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask);
 
 private:
-    void splitLargeSceneObjectsRecurse(SceneNode* pNode, stream::LRUCache* pCache, unsigned maxSize);
+    void splitLargeSceneObjectsRecurse(SceneNode* pNode, tasking::LRUCache* pCache, unsigned maxSize);
     static void verifyInstanceDepth(const SceneNode* pSceneNode, int depth = 0);
     static RTCScene buildEmbreeBVH(const SubScene& subScene, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache);
     static RTCScene buildSubTreeEmbreeBVH(const SceneNode* pSceneNode, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache);

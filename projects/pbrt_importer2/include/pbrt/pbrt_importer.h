@@ -5,6 +5,6 @@
 
 namespace pbrt {
 
-pandora::RenderConfig loadFromPBRTFile(std::filesystem::path filePath, stream::CacheBuilder* pCacheBuilder = nullptr, bool loadTextures = false);
+pandora::RenderConfig loadFromPBRTFile(std::filesystem::path filePath, tasking::CacheBuilder* pCacheBuilder = nullptr, bool loadTextures = false);
 
 }

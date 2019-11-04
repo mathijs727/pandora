@@ -112,7 +112,7 @@ TEST(TaskGraph, CachedStaticData)
     constexpr int numCacheItems = 50;
     constexpr int cacheSizeInItems = 8;
 
-    struct StaticData : public stream::Evictable {
+    struct StaticData : public tasking::Evictable {
         int v;
         std::vector<int> data;
 
@@ -128,7 +128,7 @@ TEST(TaskGraph, CachedStaticData)
             return sizeof(StaticData) + data.capacity() * sizeof(int);
         }
 
-        void serialize(stream::Serializer& serializer)
+        void serialize(tasking::Serializer& serializer)
         {
         }
 
@@ -138,7 +138,7 @@ TEST(TaskGraph, CachedStaticData)
             data.shrink_to_fit();
         }
 
-        void doMakeResident(stream::Deserializer&) override
+        void doMakeResident(tasking::Deserializer&) override
         {
             _doMakeResident();
         }
@@ -156,7 +156,7 @@ TEST(TaskGraph, CachedStaticData)
         cacheItems.push_back(StaticData(123, false));
     }
 
-    stream::LRUCache::Builder cacheBuilder { std::make_unique<stream::DummySerializer>() };
+    tasking::LRUCache::Builder cacheBuilder { std::make_unique<tasking::DummySerializer>() };
     for (auto& cacheItem : cacheItems)
         cacheBuilder.registerCacheable(&cacheItem);
 
@@ -166,7 +166,7 @@ TEST(TaskGraph, CachedStaticData)
     output.resize(range, 0);
 
     struct StaticDataCollection {
-        stream::CachedPtr<StaticData> pStaticData;
+        tasking::CachedPtr<StaticData> pStaticData;
     };
 
     tasking::TaskGraph g;

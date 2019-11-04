@@ -1,19 +1,19 @@
 #pragma once
 #include "stream/serialize/serializer.h"
 
-namespace stream {
+namespace tasking {
 
-class DummyDeserializer : public stream::Deserializer {
+class DummyDeserializer : public tasking::Deserializer {
 public:
-    const void* map(const stream::Allocation&) final { return nullptr; };
-    void unmap(const stream::Allocation&) final {};
+    const void* map(const tasking::Allocation&) final { return nullptr; };
+    void unmap(const tasking::Allocation&) final {};
 };
-class DummySerializer : public stream::Serializer {
+class DummySerializer : public tasking::Serializer {
 public:
-    std::pair<stream::Allocation, void*> allocateAndMap(size_t) final { return { stream::Allocation {}, nullptr }; };
+    std::pair<tasking::Allocation, void*> allocateAndMap(size_t) final { return { tasking::Allocation {}, nullptr }; };
     void unmapPreviousAllocations() final {};
 
-    std::unique_ptr<stream::Deserializer> createDeserializer() final
+    std::unique_ptr<tasking::Deserializer> createDeserializer() final
     {
         return std::make_unique<DummyDeserializer>();
     }

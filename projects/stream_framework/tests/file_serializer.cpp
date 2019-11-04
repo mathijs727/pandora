@@ -5,11 +5,11 @@
 
 TEST(SplitFileSerializer, WriteAndUnmap)
 {
-    std::vector<stream::Allocation> allocations;
+    std::vector<tasking::Allocation> allocations;
 
-	std::unique_ptr<stream::Deserializer> pDeserializer;
+	std::unique_ptr<tasking::Deserializer> pDeserializer;
     {
-        stream::SplitFileSerializer serializer { "TEST_WriteAndUnmap", 8 };
+        tasking::SplitFileSerializer serializer { "TEST_WriteAndUnmap", 8 };
         for (int i = 0; i < 8; i++) {
             auto [allocation, pMemory] = serializer.allocateAndMap(sizeof(int));
             const int* pInt = new (pMemory) int(i);
@@ -30,11 +30,11 @@ TEST(SplitFileSerializer, WriteAndUnmap)
 
 TEST(SplitFileSerializer, WriteNoUnmap)
 {
-    std::vector<stream::Allocation> allocations;
+    std::vector<tasking::Allocation> allocations;
 
-	std::unique_ptr<stream::Deserializer> pDeserializer;
+	std::unique_ptr<tasking::Deserializer> pDeserializer;
     {
-        stream::SplitFileSerializer serializer { "TEST_WriteNoUnmap", 8 };
+        tasking::SplitFileSerializer serializer { "TEST_WriteNoUnmap", 8 };
         for (int i = 0; i < 8; i++) {
             auto [allocation, pMemory] = serializer.allocateAndMap(sizeof(int));
             const int* pInt = new (pMemory) int(i);

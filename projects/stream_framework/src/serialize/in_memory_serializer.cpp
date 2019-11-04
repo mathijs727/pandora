@@ -2,7 +2,7 @@
 #include <fstream>
 #include <spdlog/spdlog.h>
 
-namespace stream {
+namespace tasking {
 
 const void* InMemoryDeserializer::map(const Allocation& allocation)
 {

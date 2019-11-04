@@ -137,7 +137,7 @@ void TriangleShape::doEvict()
     m_texCoords.shrink_to_fit();
 }
 
-void TriangleShape::doMakeResident(stream::Deserializer& deserializer)
+void TriangleShape::doMakeResident(tasking::Deserializer& deserializer)
 {
     const void* pData = deserializer.map(m_serializedStateHandle);
     const auto* pSerializedTriangleMesh = serialization::GetTriangleMesh(pData);
@@ -451,7 +451,7 @@ std::vector<TriangleShape> TriangleShape::loadFromFile(std::filesystem::path fil
     return result;
 }
 
-void TriangleShape::serialize(stream::Serializer& serializer)
+void TriangleShape::serialize(tasking::Serializer& serializer)
 {
     flatbuffers::FlatBufferBuilder builder;
     auto triangles = builder.CreateVectorOfStructs(

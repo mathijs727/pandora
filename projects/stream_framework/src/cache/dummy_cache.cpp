@@ -1,6 +1,6 @@
 #include "stream/cache/dummy_cache.h"
 
-namespace stream {
+namespace tasking {
 
 void DummyCache::Builder::registerCacheable(Evictable* pItem, bool evict)
 {

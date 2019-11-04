@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace stream {
+namespace tasking {
 
 template <typename T>
 class LRUCache {

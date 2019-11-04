@@ -9,7 +9,7 @@
 #include <tuple>
 #include <unordered_map>
 
-namespace stream {
+namespace tasking {
 
 class SplitFileDeserializer : public Deserializer {
 public:

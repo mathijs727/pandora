@@ -51,7 +51,7 @@ public:
     static std::optional<TriangleShape> loadFromFileSingleShape(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
     static std::vector<TriangleShape> loadFromFile(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
 
-    void serialize(stream::Serializer& serializer) final;
+    void serialize(tasking::Serializer& serializer) final;
 
     static TriangleShape loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh, const glm::mat4& transformMatrix);
     //static std::vector<TriangleShape> loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh);
@@ -59,7 +59,7 @@ public:
 private:
     // Evictable
     void doEvict() final;
-    void doMakeResident(stream::Deserializer& deserializer) final;
+    void doMakeResident(tasking::Deserializer& deserializer) final;
 
     // Shape
     bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const;
@@ -82,7 +82,7 @@ private:
     std::vector<glm::vec3> m_normals;
     std::vector<glm::vec2> m_texCoords;
 
-	stream::Allocation m_serializedStateHandle;
+	tasking::Allocation m_serializedStateHandle;
 };
 
 }

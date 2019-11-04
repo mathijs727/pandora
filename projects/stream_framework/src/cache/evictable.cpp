@@ -1,6 +1,6 @@
 #include "stream/cache/evictable.h"
 
-namespace stream {
+namespace tasking {
 
 Evictable::Evictable(bool resident)
     : m_isResident(resident)

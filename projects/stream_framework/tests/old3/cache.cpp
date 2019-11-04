@@ -36,7 +36,7 @@ struct DummyData {
 
 TEST(LRUCache, UnlimitedMemory)
 {
-    stream::LRUCache<DummyData>::Builder builder;
+    tasking::LRUCache<DummyData>::Builder builder;
     auto handle1 = builder.registerCacheable(DummyData { 3, 4.0f });
     auto handle2 = builder.registerCacheable(DummyData { 9, 7.0f });
     auto handle3 = builder.registerCacheable(DummyData { 4, 1.0f });
@@ -65,9 +65,9 @@ TEST(LRUCache, Eviction)
     constexpr size_t memoryLimit = 128;
 
     std::vector<DummyData> items;
-    std::vector<stream::CacheHandle<DummyData>> handles;
+    std::vector<tasking::CacheHandle<DummyData>> handles;
 
-    stream::LRUCache<DummyData>::Builder builder;
+    tasking::LRUCache<DummyData>::Builder builder;
     for (int i = 0; i < range; i++) {
         DummyData item { i, static_cast<float>(i * 2) };
         auto handle = builder.registerCacheable(item);
@@ -95,9 +95,9 @@ TEST(LRUCache, EvictionHoldItems)
     constexpr size_t memoryLimit = 128;
 
     std::vector<DummyData> items;
-    std::vector<stream::CacheHandle<DummyData>> handles;
+    std::vector<tasking::CacheHandle<DummyData>> handles;
 
-    stream::LRUCache<DummyData>::Builder builder;
+    tasking::LRUCache<DummyData>::Builder builder;
     for (int i = 0; i < range; i++) {
         DummyData item { i, static_cast<float>(i * 2) };
         auto handle = builder.registerCacheable(item);

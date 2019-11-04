@@ -3,9 +3,9 @@
 #include <cassert>
 #include <spdlog/spdlog.h>
 
-namespace stream {
+namespace tasking {
 
-LRUCache::LRUCache(std::unique_ptr<stream::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory)
+LRUCache::LRUCache(std::unique_ptr<tasking::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory)
     : m_pDeserializer(std::move(pDeserializer))
     , m_maxMemory(maxMemory)
     , m_items(items.size())

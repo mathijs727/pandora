@@ -86,14 +86,14 @@ int main(int argc, char** argv)
     g_stats.config.spp = vm["spp"].as<int>();
 
     spdlog::info("Loading scene");
-    stream::LRUCache::Builder cacheBuilder { std::make_unique<stream::InMemorySerializer>() };
-    //stream::DummyCache::Builder dummyCacheBuilder;
+    tasking::LRUCache::Builder cacheBuilder { std::make_unique<tasking::InMemorySerializer>() };
+    //tasking::DummyCache::Builder dummyCacheBuilder;
 
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
     RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false) : loadFromFile(sceneFilePath);
     const glm::ivec2 resolution = renderConfig.resolution;
 
-    stream::LRUCache geometryCache = cacheBuilder.build(1024 * 1024 * 1024);
+    tasking::LRUCache geometryCache = cacheBuilder.build(1024 * 1024 * 1024);
 
     std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
         for (const auto& pSceneObject : pSceneNode->objects) {

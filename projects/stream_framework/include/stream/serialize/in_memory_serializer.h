@@ -3,12 +3,12 @@
 #include <cstddef>
 #include <vector>
 
-namespace stream {
+namespace tasking {
 
-class InMemoryDeserializer : public stream::Deserializer {
+class InMemoryDeserializer : public tasking::Deserializer {
 public:
-    const void* map(const stream::Allocation&) final;
-    void unmap(const stream::Allocation&) final;
+    const void* map(const tasking::Allocation&) final;
+    void unmap(const tasking::Allocation&) final;
 
 private:
     friend class InMemorySerializer;
@@ -16,12 +16,12 @@ private:
     std::vector<std::byte> m_memory;
 };
 
-class InMemorySerializer : public stream::Serializer {
+class InMemorySerializer : public tasking::Serializer {
 public:
-    std::pair<stream::Allocation, void*> allocateAndMap(size_t size) final;
+    std::pair<tasking::Allocation, void*> allocateAndMap(size_t size) final;
     void unmapPreviousAllocations() final;
 
-    std::unique_ptr<stream::Deserializer> createDeserializer() final;
+    std::unique_ptr<tasking::Deserializer> createDeserializer() final;
 
 private:
     friend class InMemoryDeserializer;

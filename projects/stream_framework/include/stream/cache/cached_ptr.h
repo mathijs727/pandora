@@ -1,7 +1,7 @@
 #pragma once
 #include <atomic>
 
-namespace stream {
+namespace tasking {
 
 class EvictLRUCache;
 

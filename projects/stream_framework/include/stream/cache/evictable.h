@@ -1,7 +1,7 @@
 #pragma once
 #include <stream/serialize/serializer.h>
 
-namespace stream {
+namespace tasking {
 
 class Evictable {
 public:

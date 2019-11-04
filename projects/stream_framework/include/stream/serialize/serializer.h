@@ -2,7 +2,7 @@
 #include <tuple>
 #include <memory>
 
-namespace stream {
+namespace tasking {
 
 struct Allocation {
     char __memory[16];
