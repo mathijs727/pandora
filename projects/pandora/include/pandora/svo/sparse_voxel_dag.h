@@ -36,7 +36,6 @@ public:
     size_t sizeBytes() const;
 
 private:
-private:
     using NodeOffset = uint32_t; // Either uint32_t or uint16_t
     //using AbsoluteNodeOffset = size_t;
 

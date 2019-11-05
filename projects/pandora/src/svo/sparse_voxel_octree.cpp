@@ -8,7 +8,7 @@
 #include <cmath>
 #include <cstring>
 #include <immintrin.h>
-#include <morton.h>
+#include <libmorton/morton.h>
 
 namespace pandora {
 

@@ -11,8 +11,8 @@
 #include <cstring>
 #include <glm/gtx/bit.hpp>
 #include <immintrin.h>
+#include <libmorton/morton.h>
 #include <limits>
-#include <morton.h>
 #include <simd/simd4.h>
 
 namespace pandora {
@@ -341,9 +341,9 @@ static inline float horizontalMax3(const simd::vec4_f32& v)
 std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
 {
     // Based on the reference implementation of Efficient Sparse Voxel Octrees:
-// https://github.com/poelzi/efficient-sparse-voxel-octrees/blob/master/src/octree/cuda/Raycast.inl
+    // https://github.com/poelzi/efficient-sparse-voxel-octrees/blob/master/src/octree/cuda/Raycast.inl
 
-// Get rid of small ray direction components to avoid division by zero
+    // Get rid of small ray direction components to avoid division by zero
     constexpr float epsilon = 1.1920928955078125e-07f; // std::exp2f(-CAST_STACK_DEPTH);
     if (std::abs(ray.direction.x) < epsilon)
         ray.direction.x = std::copysign(epsilon, ray.direction.x);

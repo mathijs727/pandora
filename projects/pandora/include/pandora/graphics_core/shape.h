@@ -2,6 +2,7 @@
 #include "pandora/graphics_core/bounds.h"
 #include "pandora/graphics_core/interaction.h"
 #include "pandora/graphics_core/pandora.h"
+#include "pandora/graphics_core/transform.h"
 #include "pandora/samplers/rng/pcg.h"
 #include <embree3/rtcore.h>
 #include <glm/vec2.hpp>
@@ -30,7 +31,7 @@ public:
 
     virtual SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const = 0;
 
-    virtual void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const = 0;
+    virtual void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform = Transform {}) const = 0;
 };
 
 }

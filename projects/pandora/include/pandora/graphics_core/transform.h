@@ -5,11 +5,13 @@
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/graphics_core/ray.h"
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 namespace pandora {
 
 class Transform {
 public:
+    Transform() = default;
     Transform(const glm::mat4& matrix);
     Transform(const serialization::Transform* serializedTransform);
 
@@ -29,8 +31,8 @@ public:
     SurfaceInteraction transform(const SurfaceInteraction& si) const;
 
 private:
-    glm::mat4 m_matrix;
-    glm::mat4 m_inverseMatrix;
+    glm::mat4 m_matrix { glm::identity<glm::mat4>() };
+    glm::mat4 m_inverseMatrix { glm::identity<glm::mat4>() };
 };
 
 }

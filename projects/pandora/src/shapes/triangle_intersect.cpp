@@ -1,6 +1,7 @@
 #include "pandora/graphics_core/transform.h"
 #include "pandora/shapes/triangle.h"
 #include "pandora/svo/voxel_grid.h"
+#include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
 #include <glm/glm.hpp>
 
@@ -111,6 +112,8 @@ float TriangleShape::pdfPrimitive(unsigned primitiveID, const Interaction& ref, 
 
 void TriangleShape::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const
 {
+    ALWAYS_ASSERT(isResident());
+
     // Map world space to [0, 1]
     float scale = maxComponent(gridBounds.extent());
     glm::vec3 offset = gridBounds.min;

@@ -46,7 +46,7 @@ public:
 
     SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& hit) const final;
 
-    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const final;
+    void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform = Transform {}) const final;
 
     static std::optional<TriangleShape> loadFromFileSingleShape(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);
     static std::vector<TriangleShape> loadFromFile(std::filesystem::path filePath, glm::mat4 transform = glm::mat4(1.0f), bool ignoreVertexNormals = false);

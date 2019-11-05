@@ -1,6 +1,7 @@
 #include "pandora/traversal/batching_acceleration_structure.h"
 #include "pandora/graphics_core/scene.h"
 #include "pandora/shapes/triangle.h"
+#include "pandora/svo/voxel_grid.h"
 #include "pandora/utility/enumerate.h"
 #include "pandora/utility/error_handling.h"
 #include <deque>
@@ -56,9 +57,44 @@ static void copyShapeToNewCacheRecurse(SceneNode* pSceneNode, tasking::LRUCache&
         newCacheBuilder.registerCacheable(pShape);
     }
 
-	for (const auto& [pChild, _] : pSceneNode->children) {
+    for (const auto& [pChild, _] : pSceneNode->children) {
         copyShapeToNewCacheRecurse(pChild.get(), oldCache, newCacheBuilder);
-	}
+    }
+}
+
+SparseVoxelDAG BatchingAccelerationStructureBuilder::createSVDAG(const SubScene& subScene, int resolution)
+{
+    const Bounds bounds = subScene.computeBounds();
+
+    VoxelGrid grid { resolution };
+    for (const auto& sceneObject : subScene.sceneObjects) {
+        Shape* pShape = sceneObject->pShape.get();
+        auto shapeOwner = m_pGeometryCache->makeResident(pShape);
+        pShape->voxelize(grid, bounds);
+    }
+
+    std::function<void(const SceneNode*, glm::mat4)> voxelizeRecurse = [&](const SceneNode* pSceneNode, glm::mat4 transform) {
+        for (const auto& sceneObject : pSceneNode->objects) {
+            Shape* pShape = sceneObject->pShape.get();
+            auto shapeOwner = m_pGeometryCache->makeResident(pShape);
+            pShape->voxelize(grid, bounds, transform);
+        }
+
+        for (const auto& [pChild, optTransform] : pSceneNode->children) {
+            glm::mat4 childTransform = transform;
+            if (optTransform)
+                childTransform *= optTransform.value();
+
+            voxelizeRecurse(pChild.get(), childTransform);
+        }
+    };
+
+    for (const auto& [pChild, optTransform] : subScene.sceneNodes) {
+        const glm::mat4 transform = optTransform ? optTransform.value() : glm::identity<glm::mat4>();
+        voxelizeRecurse(pChild, transform);
+    }
+
+    return SparseVoxelDAG { grid };
 }
 
 void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(
@@ -97,7 +133,7 @@ void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(
         }
     }
 
-	for (const auto& [pChild, _] : pSceneNode->children)
+    for (const auto& [pChild, _] : pSceneNode->children)
         copyShapeToNewCacheRecurse(pChild.get(), oldCache, newCacheBuilder);
 
     pSceneNode->objects = std::move(outObjects);
@@ -498,5 +534,4 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
         break;
     }
 }
-
 }
