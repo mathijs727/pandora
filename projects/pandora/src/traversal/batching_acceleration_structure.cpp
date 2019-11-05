@@ -4,6 +4,7 @@
 #include "pandora/svo/voxel_grid.h"
 #include "pandora/utility/enumerate.h"
 #include "pandora/utility/error_handling.h"
+#include "pandora/utility/math.h"
 #include <deque>
 #include <embree3/rtcore.h>
 #include <memory>
@@ -62,7 +63,7 @@ static void copyShapeToNewCacheRecurse(SceneNode* pSceneNode, tasking::LRUCache&
     }
 }
 
-SparseVoxelDAG BatchingAccelerationStructureBuilder::createSVDAG(const SubScene& subScene, int resolution)
+std::pair<SparseVoxelDAG, SVDAGRayOffset> BatchingAccelerationStructureBuilder::createSVDAG(const SubScene& subScene, int resolution)
 {
     const Bounds bounds = subScene.computeBounds();
 
@@ -94,7 +95,15 @@ SparseVoxelDAG BatchingAccelerationStructureBuilder::createSVDAG(const SubScene&
         voxelizeRecurse(pChild, transform);
     }
 
-    return SparseVoxelDAG { grid };
+    // SVO is at (1, 1, 1) to (2, 2, 2)
+    const float maxDim = maxComponent(bounds.extent());
+
+    SVDAGRayOffset rayOffset {
+        bounds.min,
+        glm::vec3(maxDim),
+        glm::vec3(1.0f / maxDim)
+    };
+    return { SparseVoxelDAG { grid }, rayOffset };
 }
 
 void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(
