@@ -19,6 +19,7 @@ struct StreamStats : public metrics::Stats {
     struct FlushInfo {
         std::chrono::high_resolution_clock::time_point startTime;
 
+		std::string taskName;
         size_t itemsFlushed { 0 };
         metrics::Stopwatch<std::chrono::nanoseconds> staticDataLoadTime;
         metrics::Stopwatch<std::chrono::nanoseconds> processingTime;

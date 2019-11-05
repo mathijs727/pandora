@@ -39,6 +39,7 @@ nlohmann::json StreamStats::toJSON(const FlushInfo& flushInfo)
     nlohmann::json ret;
     ret["start_time"] = flushInfo.startTime.time_since_epoch().count();
     ret["general_stats"] = toJSON(flushInfo.genStats);
+    ret["task_name"] = flushInfo.taskName;
     ret["items_flushed"] = flushInfo.itemsFlushed;
     ret["static_data_load_time"] = flushInfo.staticDataLoadTime;
     ret["processing_time"] = flushInfo.processingTime;

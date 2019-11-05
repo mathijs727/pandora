@@ -148,6 +148,7 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 {
     //m_pParent = pParent;
     m_intersectTask = m_pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>, StaticData>(
+        "BatchingAccelerationStructure::leafIntersect",
         [=]() -> StaticData {
             //g_stats.memory.batches = m_pTaskGraph->approxMemoryUsage();
 
@@ -200,6 +201,7 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             }
         });
     m_intersectAnyTask = m_pTaskGraph->addTask<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>, StaticData>(
+        "BatchingAccelerationStructure::leafIntersectAny",
         [=]() -> StaticData {
             StaticData staticData;
 

@@ -16,6 +16,7 @@ PathIntegrator::PathIntegrator(
     : SamplerIntegrator(pTaskGraph, maxDepth, spp, strategy)
     , m_hitTask(
           pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, RayState>>(
+              "PathIntegrator::hit",
               [this](gsl::span<const std::tuple<Ray, SurfaceInteraction, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
                   for (auto [ray, si, state] : hits) {
 
@@ -27,6 +28,7 @@ PathIntegrator::PathIntegrator(
               }))
     , m_missTask(
           pTaskGraph->addTask<std::tuple<Ray, RayState>>(
+              "PathIntegrator::miss",
               [this](gsl::span<const std::tuple<Ray, RayState>> misses, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, state] : misses) {
                       this->rayMiss(ray, state);
@@ -34,6 +36,7 @@ PathIntegrator::PathIntegrator(
               }))
     , m_anyHitTask(
           pTaskGraph->addTask<std::tuple<Ray, AnyRayState>>(
+              "PathIntegrator::anyHit",
               [this](gsl::span<const std::tuple<Ray, AnyRayState>> hits, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, state] : hits) {
                       this->rayAnyHit(ray, state);
@@ -41,6 +44,7 @@ PathIntegrator::PathIntegrator(
               }))
     , m_anyMissTask(
           pTaskGraph->addTask<std::tuple<Ray, AnyRayState>>(
+              "PathIntegrator::miss",
               [this](gsl::span<const std::tuple<Ray, AnyRayState>> misses, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, state] : misses) {
                       this->rayAnyMiss(ray, state);

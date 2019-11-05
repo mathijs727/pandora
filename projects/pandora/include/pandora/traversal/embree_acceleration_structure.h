@@ -164,9 +164,11 @@ inline EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::EmbreeAccelerat
     , m_pTaskGraph(pTaskGraph)
     , m_intersectTask(
           pTaskGraph->addTask<std::tuple<Ray, HitRayState>>(
+              "EmbreeAccelerationStructure::intersect",
               [this](auto data, auto* pMemRes) { intersectKernel(data, pMemRes); }))
     , m_intersectAnyTask(
           pTaskGraph->addTask<std::tuple<Ray, AnyHitRayState>>(
+              "EmbreeAccelerationStructure::intersectAny",
               [this](auto data, auto* pMemRes) { intersectAnyKernel(data, pMemRes); }))
     , m_onHitTask(hitTask)
     , m_onMissTask(missTask)

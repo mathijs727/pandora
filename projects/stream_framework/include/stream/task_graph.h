@@ -8,6 +8,8 @@
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
 #undef __TBB_ALLOW_MUTABLE_FUNCTORS
+#include <string>
+#include <string_view>
 #include <type_traits>
 
 namespace tasking {
@@ -21,12 +23,12 @@ class TaskGraph {
 public:
     // Kernel signature: void(gsl::span<const T>, std::pmr::memory_resource*>
     template <typename T, typename Kernel>
-    TaskHandle<T> addTask(Kernel&& kernel);
+    TaskHandle<T> addTask(std::string_view name, Kernel&& kernel);
 
     // Kernel signature:           void(gsl::span<const T>, std::pmr::memory_resource*>
     // StaticDataLoader signature: StaticData*();
     template <typename T, typename StaticData, typename StaticDataLoader, typename Kernel>
-    TaskHandle<T> addTask(StaticDataLoader&& staticDataLoader, Kernel&& kernel);
+    TaskHandle<T> addTask(std::string_view name, StaticDataLoader&& staticDataLoader, Kernel&& kernel);
 
     template <typename T>
     void enqueue(TaskHandle<T> task, const T& item);
@@ -51,9 +53,9 @@ private:
     class alignas(64) Task : public TaskBase {
     public:
         template <typename StaticData, typename F1, typename F2>
-        static Task<T> initialize(F1&&, F2&&);
+        static Task<T> initialize(std::string_view name, F1&&, F2&&);
         template <typename Kernel>
-        static Task<T> initialize(Kernel&&);
+        static Task<T> initialize(std::string_view name, Kernel&&);
 
         ~Task() override = default;
 
@@ -69,9 +71,11 @@ private:
         using TypeErasedStaticDataLoader = std::function<void*(std::pmr::memory_resource*)>;
         using TypeErasedStaticDataDestructor = std::function<void(std::pmr::memory_resource*, void*)>;
 
-        Task(TypeErasedKernel&& kernel, TypeErasedStaticDataLoader&& staticData, TypeErasedStaticDataDestructor&& TypeErasedStaticDataDestructor);
+        Task(std::string_view name, TypeErasedKernel&& kernel, TypeErasedStaticDataLoader&& staticData, TypeErasedStaticDataDestructor&& TypeErasedStaticDataDestructor);
 
     private:
+        const std::string m_name;
+
         const TypeErasedKernel m_kernel;
         const TypeErasedStaticDataLoader m_staticDataLoader;
         const TypeErasedStaticDataDestructor m_staticDataDestructor;
@@ -82,24 +86,24 @@ private:
 };
 
 template <typename T, typename Kernel>
-inline TaskHandle<T> TaskGraph::addTask(Kernel&& kernel)
+inline TaskHandle<T> TaskGraph::addTask(std::string_view name, Kernel&& kernel)
 {
     uint32_t taskIdx = static_cast<uint32_t>(m_tasks.size());
 
-    std::unique_ptr<TaskBase> pTask = std::make_unique<Task<T>>(Task<T>::initialize(std::move(kernel)));
+    std::unique_ptr<TaskBase> pTask = std::make_unique<Task<T>>(Task<T>::initialize(name, std::move(kernel)));
     m_tasks.push_back(std::move(pTask));
 
     return TaskHandle<T> { taskIdx };
 }
 
 template <typename T, typename StaticData, typename StaticDataLoader, typename Kernel>
-inline TaskHandle<T> TaskGraph::addTask(StaticDataLoader&& staticDataLoader, Kernel&& kernel)
+inline TaskHandle<T> TaskGraph::addTask(std::string_view name, StaticDataLoader&& staticDataLoader, Kernel&& kernel)
 {
     static_assert(std::is_move_constructible<StaticData>());
     uint32_t taskIdx = static_cast<uint32_t>(m_tasks.size());
 
     std::unique_ptr<TaskBase> pTask = std::make_unique<Task<T>>(
-        Task<T>::template initialize<StaticData>(std::move(kernel), std::move(staticDataLoader)));
+        Task<T>::template initialize<StaticData>(name, std::move(kernel), std::move(staticDataLoader)));
     m_tasks.push_back(std::move(pTask));
 
     return TaskHandle<T> { taskIdx };
@@ -123,9 +127,10 @@ inline void TaskGraph::enqueue(TaskHandle<T> taskHandle, gsl::span<const T> item
 
 template <typename T>
 template <typename F>
-inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(F&& kernel)
+inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(std::string_view name, F&& kernel)
 {
     return TaskGraph::Task<T>(
+        name,
         [=](gsl::span<T> dynamicData, const void*, std::pmr::memory_resource* pMemory) {
             kernel(dynamicData, pMemory);
         },
@@ -135,9 +140,10 @@ inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(F&& kernel)
 
 template <typename T>
 template <typename StaticData, typename F1, typename F2>
-inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(F1&& kernel, F2&& staticDataLoader)
+inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(std::string_view name, F1&& kernel, F2&& staticDataLoader)
 {
     return TaskGraph::Task<T>(
+        name,
         [=](gsl::span<T> dynamicData, const void* pStaticData, std::pmr::memory_resource* pMemory) {
             kernel(dynamicData, reinterpret_cast<const StaticData*>(pStaticData), pMemory);
         },
@@ -156,10 +162,12 @@ inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(F1&& kernel, F2&& stati
 
 template <typename T>
 inline TaskGraph::Task<T>::Task(
+    std::string_view name,
     TaskGraph::Task<T>::TypeErasedKernel&& kernel,
     TaskGraph::Task<T>::TypeErasedStaticDataLoader&& staticDataLoader,
     TaskGraph::Task<T>::TypeErasedStaticDataDestructor&& staticDataDestructor)
-    : m_kernel(std::move(kernel))
+    : m_name(name)
+    , m_kernel(std::move(kernel))
     , m_staticDataLoader(std::move(staticDataLoader))
     , m_staticDataDestructor(std::move(staticDataDestructor))
 {
@@ -194,6 +202,7 @@ template <typename T>
 inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 {
     StreamStats::FlushInfo flushStats;
+    flushStats.taskName = m_name;
     flushStats.genStats = StreamStats::GeneralStats { pTaskGraph->approxQueuedItems(), pTaskGraph->approxMemoryUsage() };
     flushStats.startTime = std::chrono::high_resolution_clock::now();
 
@@ -239,6 +248,6 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
     // Call destructor on static data and free memory
     m_staticDataDestructor(pMemory, pStaticData);
 
-	StreamStats::getSingleton().infoAtFlushes.emplace_back(std::move(flushStats));
+    StreamStats::getSingleton().infoAtFlushes.emplace_back(std::move(flushStats));
 }
 }
