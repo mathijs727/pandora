@@ -44,7 +44,7 @@ NormalDebugIntegrator::NormalDebugIntegrator(
 {
 }
 
-void NormalDebugIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed)
+void NormalDebugIntegrator::render(int concurrentPaths, const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed)
 {
     (void)seed;
 
@@ -57,7 +57,7 @@ void NormalDebugIntegrator::render(const PerspectiveCamera& camera, Sensor& sens
     m_pAccelerationStructure = &accel;
 
     // Spawn initial rays
-    spawnNewPaths(500 * 1000);
+    spawnNewPaths(concurrentPaths);
     m_pTaskGraph->run();
 }
 

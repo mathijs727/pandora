@@ -1,4 +1,5 @@
 #include "pandora/traversal/embree_cache.h"
+#include "pandora/core/stats.h"
 #include "pandora/graphics_core/scene.h"
 #include "pandora/utility/enumerate.h"
 #include <glm/gtc/type_ptr.hpp>
@@ -54,6 +55,11 @@ CachedEmbreeScene::CachedEmbreeScene(RTCScene scene, std::vector<std::shared_ptr
     : scene(scene)
     , parents(std::move(parents))
 {
+}
+
+CachedEmbreeScene::~CachedEmbreeScene()
+{
+    rtcReleaseScene(scene);
 }
 
 LRUEmbreeSceneCache::LRUEmbreeSceneCache(size_t maxSize)

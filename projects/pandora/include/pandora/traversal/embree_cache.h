@@ -25,6 +25,7 @@ struct CachedEmbreeScene {
 public:
     CachedEmbreeScene(RTCScene scene, std::vector<std::shared_ptr<CachedEmbreeScene>>&& parents);
     CachedEmbreeScene(CachedEmbreeScene&&) = default;
+    ~CachedEmbreeScene();
 
     RTCScene scene;
 

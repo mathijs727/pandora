@@ -17,7 +17,11 @@ struct RenderStats : public metrics::Stats {
     struct {
         std::string sceneFile;
         std::string integrator;
-        int spp = 0;
+        int spp;
+
+        size_t geomCacheSize;
+        size_t bvhCacheSize;
+        unsigned primGroupSize;
     } config;
 
     struct {
@@ -26,7 +30,7 @@ struct RenderStats : public metrics::Stats {
     } scene;
 
     struct {
-        metrics::Stopwatch<std::chrono::milliseconds> totalRenderTime;
+        metrics::Stopwatch<std::chrono::milliseconds> totalTraversalTime;
         metrics::Stopwatch<std::chrono::nanoseconds> svdagTraversalTime;
     } timings;
 

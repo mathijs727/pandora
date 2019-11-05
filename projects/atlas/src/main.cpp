@@ -150,7 +150,7 @@ int main(int argc, char** argv)
         }
 
 #if 1
-        integrator.render(camera, sensor, *renderConfig.pScene, accel, samples);
+        integrator.render(500 * 1000, camera, sensor, *renderConfig.pScene, accel, samples);
 #else
         samples = 0;
         sensor.clear(glm::vec3(0));

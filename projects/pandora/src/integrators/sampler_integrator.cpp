@@ -17,7 +17,7 @@ SamplerIntegrator::SamplerIntegrator(tasking::TaskGraph* pTaskGraph, int maxDept
 {
 }
 
-void SamplerIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed)
+void SamplerIntegrator::render(int concurrentPaths, const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed)
 {
     auto resolution = sensor.getResolution();
 
@@ -34,7 +34,7 @@ void SamplerIntegrator::render(const PerspectiveCamera& camera, Sensor& sensor, 
     m_pCurrentRenderData = std::move(pRenderData);
 
     // Spawn initial rays
-    spawnNewPaths(1000);
+    spawnNewPaths(concurrentPaths);
     m_pTaskGraph->run();
 }
 

@@ -126,6 +126,8 @@ TriangleShape::TriangleShape(
 
 void TriangleShape::doEvict()
 {
+    g_stats.memory.geometryEvicted += sizeBytes();
+
     m_indices.clear();
     m_positions.clear();
     m_normals.clear();
@@ -187,6 +189,8 @@ void TriangleShape::doMakeResident(tasking::Deserializer& deserializer)
     }
 
     deserializer.unmap(m_serializedStateHandle);
+
+    g_stats.memory.geometryLoaded += sizeBytes();
 }
 
 unsigned TriangleShape::numPrimitives() const

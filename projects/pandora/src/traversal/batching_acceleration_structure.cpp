@@ -24,8 +24,10 @@ BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     const Scene* pScene,
     tasking::LRUCache* pCache,
     tasking::TaskGraph* pTaskGraph,
-    unsigned primitivesPerBatchingPoint)
-    : m_pGeometryCache(pCache)
+    unsigned primitivesPerBatchingPoint,
+    size_t botLevelBVHCacheSize)
+    : m_botLevelBVHCacheSize(botLevelBVHCacheSize)
+    , m_pGeometryCache(pCache)
     , m_pTaskGraph(pTaskGraph)
 {
     m_embreeDevice = rtcNewDevice(nullptr);
@@ -407,102 +409,6 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
 
     return subScenes;
 }
-
-/*RTCScene BatchingAccelerationStructure::buildEmbreeBVH(const SubScene& subScene, tasking::LRUCache* pGeometryCache, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
-{
-    RTCScene embreeScene = rtcNewScene(embreeDevice);
-    for (const auto& pSceneObject : subScene.sceneObjects) {
-        Shape* pShape = pSceneObject->pShape.get();
-        auto pShapeOwner = pGeometryCache->makeResident(pShape);
-
-        RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(embreeDevice);
-        rtcSetGeometryUserData(embreeGeometry, pSceneObject);
-        rtcCommitGeometry(embreeGeometry);
-
-        unsigned geometryID = rtcAttachGeometry(embreeScene, embreeGeometry);
-        (void)geometryID;
-    }
-
-    for (const auto&& [geomID, childAndTransform] : enumerate(subScene.sceneNodes)) {
-        auto&& [pChildNode, optTransform] = childAndTransform;
-
-        RTCScene childScene = buildSubTreeEmbreeBVH(pChildNode, pGeometryCache, embreeDevice, sceneCache);
-
-        RTCGeometry embreeInstanceGeometry = rtcNewGeometry(embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
-        rtcSetGeometryInstancedScene(embreeInstanceGeometry, childScene);
-        rtcSetGeometryUserData(embreeInstanceGeometry, childScene);
-        if (optTransform) {
-            rtcSetGeometryTransform(
-                embreeInstanceGeometry, 0,
-                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
-                glm::value_ptr(*optTransform));
-        } else {
-            glm::mat4 identityMatrix = glm::identity<glm::mat4>();
-            rtcSetGeometryTransform(
-                embreeInstanceGeometry, 0,
-                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
-                glm::value_ptr(identityMatrix));
-        }
-        rtcCommitGeometry(embreeInstanceGeometry);
-        // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
-        // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of RTC_INVALID_GEOMETRY_ID).
-        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geomID + 1);
-    }
-
-    rtcCommitScene(embreeScene);
-    return embreeScene;
-}
-
-RTCScene BatchingAccelerationStructureBuilder::buildSubTreeEmbreeBVH(const SceneNode* pSceneNode, tasking::LRUCache* pGeometryCache, RTCDevice embreeDevice, std::unordered_map<const SceneNode*, RTCScene>& sceneCache)
-{
-    if (auto iter = sceneCache.find(pSceneNode); iter != std::end(sceneCache)) {
-        return iter->second;
-    }
-
-    RTCScene embreeScene = rtcNewScene(embreeDevice);
-    for (const auto& pSceneObject : pSceneNode->objects) {
-        Shape* pShape = pSceneObject->pShape.get();
-        auto pShapeOwner = pGeometryCache->makeResident(pShape);
-
-        RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(embreeDevice);
-        rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
-        rtcCommitGeometry(embreeGeometry);
-
-        unsigned geometryID = rtcAttachGeometry(embreeScene, embreeGeometry);
-        (void)geometryID;
-    }
-
-    for (const auto&& [geomID, childLink] : enumerate(pSceneNode->children)) {
-        auto&& [pChildNode, optTransform] = childLink;
-
-        RTCScene childScene = buildSubTreeEmbreeBVH(pChildNode.get(), pGeometryCache, embreeDevice, sceneCache);
-
-        RTCGeometry embreeInstanceGeometry = rtcNewGeometry(embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
-        rtcSetGeometryInstancedScene(embreeInstanceGeometry, childScene);
-        rtcSetGeometryUserData(embreeInstanceGeometry, childScene);
-        if (optTransform) {
-            rtcSetGeometryTransform(
-                embreeInstanceGeometry, 0,
-                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
-                glm::value_ptr(*optTransform));
-        } else {
-            glm::mat4 identityMatrix = glm::identity<glm::mat4>();
-            rtcSetGeometryTransform(
-                embreeInstanceGeometry, 0,
-                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
-                glm::value_ptr(identityMatrix));
-        }
-        rtcCommitGeometry(embreeInstanceGeometry);
-        // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
-        // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of RTC_INVALID_GEOMETRY_ID).
-        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geomID + 1);
-    }
-
-    rtcCommitScene(embreeScene);
-
-    sceneCache[pSceneNode] = embreeScene;
-    return embreeScene;
-}*/
 
 void BatchingAccelerationStructureBuilder::verifyInstanceDepth(const SceneNode* pSceneNode, int depth)
 {

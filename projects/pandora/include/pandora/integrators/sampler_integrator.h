@@ -39,7 +39,7 @@ public:
     using AnyMissTaskHandle = tasking::TaskHandle<std::tuple<Ray, AnyRayState>>;
 
     using Accel = AccelerationStructure<RayState, AnyRayState>;
-    void render(const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed = 891379);
+    void render(int concurrentPaths, const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed = 891379);
 
 protected:
     void spawnNewPaths(int numPaths);
