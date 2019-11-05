@@ -13,6 +13,7 @@ public:
     Counter(std::string_view unit);
     ~Counter() = default;
 
+    Counter<T>& operator=(T v);
     Counter<T>& operator++(int);
     Counter<T>& operator+=(T v);
     Counter<T>& operator-=(T v);

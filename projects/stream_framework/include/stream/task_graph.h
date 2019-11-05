@@ -32,6 +32,8 @@ public:
     template <typename T>
     void enqueue(TaskHandle<T> task, gsl::span<const T> items);
 
+	size_t approxMemoryUsage() const;
+
     void run();
 
 private:
@@ -40,6 +42,7 @@ private:
         virtual ~TaskBase() = default;
 
         virtual size_t approxQueueSize() const = 0;
+        virtual size_t approxQueueSizeBytes() const = 0;
         virtual void execute(TaskGraph* pTaskGraph) = 0;
     };
     template <typename T>
@@ -56,6 +59,7 @@ private:
         void enqueue(gsl::span<const T> items);
 
         size_t approxQueueSize() const override;
+        size_t approxQueueSizeBytes() const override;
         void execute(TaskGraph* pTaskGraph) override;
 
     private:
@@ -176,6 +180,12 @@ template <typename T>
 inline size_t TaskGraph::Task<T>::approxQueueSize() const
 {
     return m_workQueue.unsafe_size();
+}
+
+template <typename T>
+inline size_t TaskGraph::Task<T>::approxQueueSizeBytes() const
+{
+    return m_workQueue.unsafe_size() * sizeof(T);
 }
 
 template <typename T>

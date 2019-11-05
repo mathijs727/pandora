@@ -9,6 +9,13 @@ Counter<T>::Counter(std::string_view unit)
 }
 
 template <typename T>
+Counter<T>& Counter<T>::operator=(T v)
+{
+    m_value.store(v);
+    return *this;
+}
+
+template <typename T>
 Counter<T>& Counter<T>::operator++(int)
 {
     m_value.fetch_add(1);

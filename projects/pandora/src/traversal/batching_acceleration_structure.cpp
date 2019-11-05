@@ -63,22 +63,22 @@ static void copyShapeToNewCacheRecurse(SceneNode* pSceneNode, tasking::LRUCache&
     }
 }
 
-std::pair<SparseVoxelDAG, SVDAGRayOffset> BatchingAccelerationStructureBuilder::createSVDAG(const SubScene& subScene, int resolution)
+SparseVoxelDAG BatchingAccelerationStructureBuilder::createSVDAG(const SubScene& subScene, int resolution)
 {
     const Bounds bounds = subScene.computeBounds();
 
-    VoxelGrid grid { resolution };
+    VoxelGrid grid { bounds, resolution };
     for (const auto& sceneObject : subScene.sceneObjects) {
         Shape* pShape = sceneObject->pShape.get();
         auto shapeOwner = m_pGeometryCache->makeResident(pShape);
-        pShape->voxelize(grid, bounds);
+        pShape->voxelize(grid);
     }
 
     std::function<void(const SceneNode*, glm::mat4)> voxelizeRecurse = [&](const SceneNode* pSceneNode, glm::mat4 transform) {
         for (const auto& sceneObject : pSceneNode->objects) {
             Shape* pShape = sceneObject->pShape.get();
             auto shapeOwner = m_pGeometryCache->makeResident(pShape);
-            pShape->voxelize(grid, bounds, transform);
+            pShape->voxelize(grid, transform);
         }
 
         for (const auto& [pChild, optTransform] : pSceneNode->children) {
@@ -98,12 +98,7 @@ std::pair<SparseVoxelDAG, SVDAGRayOffset> BatchingAccelerationStructureBuilder::
     // SVO is at (1, 1, 1) to (2, 2, 2)
     const float maxDim = maxComponent(bounds.extent());
 
-    SVDAGRayOffset rayOffset {
-        bounds.min,
-        glm::vec3(maxDim),
-        glm::vec3(1.0f / maxDim)
-    };
-    return { SparseVoxelDAG { grid }, rayOffset };
+    return SparseVoxelDAG { grid };
 }
 
 void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(

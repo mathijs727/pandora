@@ -24,4 +24,12 @@ void TaskGraph::run()
     }
 }
 
+size_t TaskGraph::approxMemoryUsage() const {
+    size_t memUsage = 0;
+    for (const auto& task : m_tasks) {
+        memUsage += task->approxQueueSizeBytes();
+    }
+    return memUsage;
+}
+
 }

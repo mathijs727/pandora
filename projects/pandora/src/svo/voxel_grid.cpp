@@ -7,8 +7,9 @@
 
 namespace pandora {
 
-VoxelGrid::VoxelGrid(int resolution)
-    : m_resolution(resolution)
+VoxelGrid::VoxelGrid(const Bounds& bounds, int resolution)
+    : m_bounds(bounds)
+    , m_resolution(resolution)
     , m_extent(resolution, resolution, resolution)
     , m_values(createValues(m_extent))
 {
@@ -154,6 +155,11 @@ std::pair<uint32_t*, uint32_t> VoxelGrid::index(int x, int y, int z) const
     int block = bitPosition >> 5; // = bitPosition / 32
     uint32_t bitInBlock = static_cast<uint32_t>(bitPosition & ((1 << 5) - 1)); // = bitPosition % 32
     return { m_values.get() + block, bitInBlock };
+}
+
+Bounds VoxelGrid::bounds() const
+{
+    return m_bounds;
 }
 
 /*std::vector<bool> VoxelGrid::createValues(const glm::uvec3& extent)

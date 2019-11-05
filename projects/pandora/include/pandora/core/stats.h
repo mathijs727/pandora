@@ -1,12 +1,12 @@
 #pragma once
+#include <chrono>
+#include <list>
 #include <metrics/counter.h>
 #include <metrics/gauge.h>
 #include <metrics/histogram.h>
 #include <metrics/offline_exporter.h>
 #include <metrics/stats.h>
 #include <metrics/stopwatch.h>
-#include <chrono>
-#include <list>
 
 namespace pandora {
 
@@ -66,6 +66,8 @@ struct RenderStats : public metrics::Stats {
         metrics::Counter<size_t> numIntersectionTests { "rays" };
         metrics::Counter<size_t> numRaysCulled { "rays" };
     } svdag;
+
+	~RenderStats();
 
 protected:
     nlohmann::json getMetricsSnapshot() const override final;

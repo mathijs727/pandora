@@ -116,7 +116,7 @@ int main(int argc, char** argv)
     //DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
     //PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
-    spdlog::info("Preprocessing scene");
+    /*spdlog::info("Preprocessing scene");
     using AccelBuilder = BatchingAccelerationStructureBuilder;
     constexpr unsigned primitivesPerBatchingPoint = 100000;
     if (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
@@ -186,7 +186,7 @@ int main(int argc, char** argv)
         float mult = 1.0f / samples;
         frameBuffer.update(sensor, mult);
         myWindow.swapBuffers();
-    }
+    }*/
 
     return 0;
 }

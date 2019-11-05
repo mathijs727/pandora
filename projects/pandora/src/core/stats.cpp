@@ -30,16 +30,16 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
     ret["memory"]["geometry_loaded"] = memory.geometryLoaded;
     ret["memory"]["geometry_evicted"] = memory.geometryEvicted;
 
-    ret["memory"]["bot_level_loaded"] = memory.botLevelLoaded;
-    ret["memory"]["bot_level_evicted"] = memory.botLevelEvicted;
-    ret["memory"]["ooc_total_disk_read"] = memory.oocTotalDiskRead;
+    //ret["memory"]["bot_level_loaded"] = memory.botLevelLoaded;
+    //ret["memory"]["bot_level_evicted"] = memory.botLevelEvicted;
+    //ret["memory"]["ooc_total_disk_read"] = memory.oocTotalDiskRead;
 
     ret["memory"]["top_bvh"] = memory.topBVH;
     ret["memory"]["top_bvh_leafs"] = memory.topBVHLeafs;
     ret["memory"]["svdags_before_compression"] = memory.svdagsBeforeCompression;
     ret["memory"]["svdags_after_compression"] = memory.svdagsAfterCompression;
 
-    ret["ooc"]["num_top_leaf_nodes"] = numTopLevelLeafNodes;
+    ret["batching"]["num_top_leaf_nodes"] = numTopLevelLeafNodes;
     //ret["ooc"]["prims_per_leaf"] = OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF;
     //ret["ooc"]["occlusion_culling"] = OUT_OF_CORE_OCCLUSION_CULLING;
     //ret["ooc"]["file_caching_disabled"] = OUT_OF_CORE_DISABLE_FILE_CACHING;
@@ -58,8 +58,13 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
 
     ret["svdag"]["num_intersection_tests"] = svdag.numIntersectionTests;
     ret["svdag"]["num_rays_culled"] = svdag.numRaysCulled;
-
     return ret;
+}
+
+RenderStats::~RenderStats()
+{
+	// Cannot do this in the base destructor because of destruction order
+    asyncTriggerSnapshot();
 }
 
 }

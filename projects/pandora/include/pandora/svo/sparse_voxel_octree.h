@@ -19,6 +19,7 @@ public:
 	SparseVoxelOctree(const VoxelGrid& grid);
 	~SparseVoxelOctree() = default;
 
+	// WARNING: both methods take a ray scaled to the octree coordinate system ([1,1,1] to [2,2,2])
 #ifdef PANDORA_ISPC_SUPPORT
 	void intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const;
 #endif

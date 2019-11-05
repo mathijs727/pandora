@@ -20,6 +20,9 @@ namespace pandora {
 // http://graphics.cs.kuleuven.be/publications/BLD13OCCSVO/BLD13OCCSVO_paper.pdf
 SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
     : m_resolution(grid.resolution())
+    , m_boundsMin(grid.bounds().min)
+    , m_boundsExtent(maxComponent(grid.bounds().extent()))
+    , m_invBoundsExtent(1.0f / m_boundsExtent)
 {
     //m_rootNode = constructSVO(grid);
     m_rootNodeOffset = constructSVOBreadthFirst(grid);
@@ -340,6 +343,8 @@ static inline float horizontalMax3(const simd::vec4_f32& v)
 
 std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
 {
+    ray.origin = glm::vec3(1.0f) + (m_invBoundsExtent * (ray.origin - m_boundsMin));
+
     // Based on the reference implementation of Efficient Sparse Voxel Octrees:
     // https://github.com/poelzi/efficient-sparse-voxel-octrees/blob/master/src/octree/cuda/Raycast.inl
 
@@ -545,7 +550,12 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
         // Output result
         alignas(16) float ret[4];
         tMinVec.storeAligned(ret);
-        return ret[0];
+        
+		// TODO: scale tmax back to world space without all this mess
+		const float tmax = ret[0];
+        const glm::vec3 intersectionSVDAGSpace = (ray.origin + tmax * ray.direction);
+        const glm::vec3 intersection = m_boundsMin + m_boundsExtent * (intersectionSVDAGSpace - glm::vec3(1.0f));
+        return glm::distance(ray.origin, intersection);
     }
 }
 std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::generateSurfaceMesh() const

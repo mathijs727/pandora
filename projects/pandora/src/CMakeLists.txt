@@ -43,7 +43,7 @@ target_sources(libPandora
 
         #"${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_dag.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_octree.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_octree.cpp" # WARNING: intersectScalar should be updated to automatically transform the incoming ray
         "${CMAKE_CURRENT_LIST_DIR}/svo/voxel_grid.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/materials/matte_material.cpp"

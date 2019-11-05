@@ -1,4 +1,7 @@
 #include "pandora/graphics_core/scene.h"
+#include "pandora/core/stats.h"
+#include "pandora/utility/error_handling.h"
+#include <unordered_set>
 
 namespace pandora {
 
@@ -24,6 +27,43 @@ Scene::Scene(std::shared_ptr<SceneNode>&& root, std::vector<std::unique_ptr<Ligh
     , lights(std::move(lights))
     , infiniteLights(std::move(infiniteLights))
 {
+    //ALWAYS_ASSERT(g_stats.scene.uniquePrimitives == 0);
+    //ALWAYS_ASSERT(g_stats.scene.totalPrimitives == 0);
+    g_stats.scene.uniquePrimitives = countUniquePrimitives();
+    g_stats.scene.totalPrimitives = countInstancedPrimitives();
+}
+
+size_t Scene::countUniquePrimitives() const
+{
+    std::unordered_set<const Shape*> visitedShapes;
+
+    std::function<size_t(const SceneNode*)> countRecurse = [&](const SceneNode* pSceneNode) {
+        size_t count = 0;
+        for (const auto& pSceneObject : pSceneNode->objects) {
+            const auto* pShape = pSceneObject->pShape.get();
+            if (visitedShapes.find(pShape) == std::end(visitedShapes)) {
+                visitedShapes.insert(pShape);
+                count += pShape->numPrimitives();
+            }
+        }
+        for (const auto& [pChild, _] : pSceneNode->children)
+            count += countRecurse(pChild.get());
+        return count;
+    };
+    return countRecurse(pRoot.get());
+}
+
+size_t Scene::countInstancedPrimitives() const
+{
+    std::function<size_t(const SceneNode*)> countRecurse = [&](const SceneNode* pSceneNode) {
+        size_t count = 0;
+        for (const auto& pSceneObject : pSceneNode->objects)
+            count += pSceneObject->pShape->numPrimitives();
+        for (const auto& [pChild, _] : pSceneNode->children)
+            count += countRecurse(pChild.get());
+        return count;
+    };
+    return countRecurse(pRoot.get());
 }
 
 SceneBuilder::SceneBuilder()

@@ -31,7 +31,7 @@ public:
 
     virtual SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const = 0;
 
-    virtual void voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform = Transform {}) const = 0;
+    virtual void voxelize(VoxelGrid& grid, const Transform& transform = Transform {}) const = 0;
 };
 
 }

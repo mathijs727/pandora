@@ -67,12 +67,13 @@ private:
 
 private:
     unsigned m_resolution;
+    glm::vec3 m_boundsMin;
+    glm::vec3 m_boundsExtent;
+    glm::vec3 m_invBoundsExtent;
 
     //std::vector<std::pair<size_t, size_t>> m_treeLevels;
     NodeOffset m_rootNodeOffset;
-
     std::vector<NodeOffset> m_nodeAllocator;
-
     const NodeOffset* m_data;
 };
 

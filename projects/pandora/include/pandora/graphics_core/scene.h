@@ -34,6 +34,10 @@ struct Scene {
     std::vector<std::unique_ptr<Light>> lights;
     std::vector<InfiniteLight*> infiniteLights;
 
+public:
+    size_t countUniquePrimitives() const;
+    size_t countInstancedPrimitives() const;
+
 private:
     friend class SceneBuilder;
     Scene(std::shared_ptr<SceneNode>&& root, std::vector<std::unique_ptr<Light>>&& lights, std::vector<InfiniteLight*>&& infiniteLights);

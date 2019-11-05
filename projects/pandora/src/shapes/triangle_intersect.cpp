@@ -110,13 +110,13 @@ float TriangleShape::pdfPrimitive(unsigned primitiveID, const Interaction& ref, 
     return distSquared / (cosNormal * primArea);
 }
 
-void TriangleShape::voxelize(VoxelGrid& grid, const Bounds& gridBounds, const Transform& transform) const
+void TriangleShape::voxelize(VoxelGrid& grid, const Transform& transform) const
 {
     ALWAYS_ASSERT(isResident());
 
     // Map world space to [0, 1]
-    float scale = maxComponent(gridBounds.extent());
-    glm::vec3 offset = gridBounds.min;
+    float scale = maxComponent(grid.bounds().extent());
+    glm::vec3 offset = grid.bounds().min;
     glm::ivec3 gridResolution = glm::ivec3(grid.resolution());
 
     // World space extent of a voxel
