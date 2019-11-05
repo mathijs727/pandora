@@ -195,18 +195,19 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 {
     StreamStats::FlushInfo flushStats;
     flushStats.genStats = StreamStats::GeneralStats { pTaskGraph->approxQueuedItems(), pTaskGraph->approxMemoryUsage() };
+    flushStats.startTime = std::chrono::high_resolution_clock::now();
 
     std::pmr::memory_resource* pMemory = std::pmr::new_delete_resource();
 
     void* pStaticData;
     {
         // Allocate and construct static data
-        flushStats.staticDataLoadTime.getScopedStopwatch();
+        auto stopWatch = flushStats.staticDataLoadTime.getScopedStopwatch();
         pStaticData = m_staticDataLoader(pMemory);
     }
 
     {
-        flushStats.processingTime.getScopedStopwatch();
+        auto stopWatch = flushStats.processingTime.getScopedStopwatch();
 
         tbb::task_group tg;
         eastl::fixed_vector<T, 32, false> workBatch;
@@ -223,6 +224,7 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 
             if (workBatch.full()) {
                 executeKernel();
+                flushStats.itemsFlushed += workBatch.kMaxSize;
                 workBatch.clear();
             }
         }
