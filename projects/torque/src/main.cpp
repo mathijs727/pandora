@@ -10,8 +10,12 @@
 #include "pandora/materials/matte_material.h"
 #include "pandora/shapes/triangle.h"
 #include "pandora/textures/constant_texture.h"
-#include "pandora/traversal/embree_acceleration_structure.h"
 #include "stream/task_graph.h"
+#include <pandora/traversal/batching_acceleration_structure.h>
+#include <pandora/traversal/embree_acceleration_structure.h>
+#include <pbrt/pbrt_importer.h>
+#include <stream/cache/lru_cache.h>
+#include <stream/serialize/in_memory_serializer.h>
 
 #include <boost/program_options.hpp>
 #include <iostream>
@@ -86,7 +90,12 @@ int main(int argc, char** argv)
     g_stats.config.spp = vm["spp"].as<int>();
 
     spdlog::info("Loading scene");
-    RenderConfig renderConfig = loadFromFile(vm["file"].as<std::string>());
+    tasking::LRUCache::Builder cacheBuilder { std::make_unique<tasking::InMemorySerializer>() };
+
+    const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
+    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false) : loadFromFile(sceneFilePath);
+    const glm::ivec2 resolution = renderConfig.resolution;
+    tasking::LRUCache geometryCache = cacheBuilder.build(500 * 1024 * 1024);
 
     /*try {
         auto integratorType = vm["integrator"].as<std::string>();
@@ -117,8 +126,19 @@ int main(int argc, char** argv)
     //DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
     //PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
 
+    spdlog::info("Preprocessing scene");
+    using AccelBuilder = BatchingAccelerationStructureBuilder;
+    constexpr unsigned primitivesPerBatchingPoint = 100000;
+    if (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
+        cacheBuilder = tasking::LRUCache::Builder { std::make_unique<tasking::InMemorySerializer>() };
+        AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
+        auto newCache = cacheBuilder.build(geometryCache.maxSize());
+        geometryCache = std::move(newCache);
+    }
+
     spdlog::info("Building acceleration structure");
-    EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
+    //EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
+    AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
     Sensor sensor { renderConfig.resolution };
 
