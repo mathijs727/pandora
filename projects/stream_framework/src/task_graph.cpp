@@ -15,7 +15,7 @@ void TaskGraph::run()
             });
         assert(bestTaskIter != std::end(m_tasks));
 
-		// TODO: cannot assume this when we allow multiple tasks to execute in parallel (need better stop condition)!
+        // TODO: cannot assume this when we allow multiple tasks to execute in parallel (need better stop condition)!
         auto& pTask = *bestTaskIter;
         if (pTask->approxQueueSize() == 0)
             break;
@@ -24,12 +24,22 @@ void TaskGraph::run()
     }
 }
 
-size_t TaskGraph::approxMemoryUsage() const {
+size_t TaskGraph::approxMemoryUsage() const
+{
     size_t memUsage = 0;
     for (const auto& task : m_tasks) {
         memUsage += task->approxQueueSizeBytes();
     }
     return memUsage;
+}
+
+size_t TaskGraph::approxQueuedItems() const
+{
+    size_t queuedItems = 0;
+    for (const auto& task : m_tasks) {
+        queuedItems += task->approxQueueSize();
+    }
+    return queuedItems;
 }
 
 }

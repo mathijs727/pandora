@@ -1,4 +1,5 @@
 #pragma once
+#include "stream/stats.h"
 #include <EASTL/fixed_vector.h>
 #include <functional>
 #include <gsl/span>
@@ -32,7 +33,8 @@ public:
     template <typename T>
     void enqueue(TaskHandle<T> task, gsl::span<const T> items);
 
-	size_t approxMemoryUsage() const;
+    size_t approxMemoryUsage() const;
+    size_t approxQueuedItems() const;
 
     void run();
 
@@ -191,36 +193,50 @@ inline size_t TaskGraph::Task<T>::approxQueueSizeBytes() const
 template <typename T>
 inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 {
+    StreamStats::FlushInfo flushStats;
+    flushStats.genStats = StreamStats::GeneralStats { pTaskGraph->approxQueuedItems(), pTaskGraph->approxMemoryUsage() };
+
     std::pmr::memory_resource* pMemory = std::pmr::new_delete_resource();
 
-    // Allocate and construct static data
-    void* pStaticData = m_staticDataLoader(pMemory);
+    void* pStaticData;
+    {
+        // Allocate and construct static data
+        flushStats.staticDataLoadTime.getScopedStopwatch();
+        pStaticData = m_staticDataLoader(pMemory);
+    }
 
-    tbb::task_group tg;
-    eastl::fixed_vector<T, 32, false> workBatch;
-    auto executeKernel = [&]() {
-        // Run sequentially in debug mode
-        tg.run([=]() mutable {
-            m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
-        });
-    };
+    {
+        flushStats.processingTime.getScopedStopwatch();
 
-    T workItem;
-    while (m_workQueue.try_pop(workItem)) {
-        workBatch.push_back(workItem);
+        tbb::task_group tg;
+        eastl::fixed_vector<T, 32, false> workBatch;
+        auto executeKernel = [&]() {
+            // Run sequentially in debug mode
+            tg.run([=]() mutable {
+                m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
+            });
+        };
 
-        if (workBatch.full()) {
-            executeKernel();
-            workBatch.clear();
+        T workItem;
+        while (m_workQueue.try_pop(workItem)) {
+            workBatch.push_back(workItem);
+
+            if (workBatch.full()) {
+                executeKernel();
+                workBatch.clear();
+            }
         }
-    }
-    if (!workBatch.empty()) {
-        executeKernel();
-    }
+        if (!workBatch.empty()) {
+            executeKernel();
+            flushStats.itemsFlushed += workBatch.size();
+        }
 
-    tg.wait();
+        tg.wait();
+    }
 
     // Call destructor on static data and free memory
     m_staticDataDestructor(pMemory, pStaticData);
+
+	StreamStats::getSingleton().infoAtFlushes.emplace_back(std::move(flushStats));
 }
 }
