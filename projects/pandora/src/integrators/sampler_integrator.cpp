@@ -6,11 +6,13 @@
 #include "pandora/graphics_core/sensor.h"
 #include "pandora/samplers/rng/pcg.h"
 #include "pandora/utility/math.h"
+#include <functional>
 
 namespace pandora {
 
-SamplerIntegrator::SamplerIntegrator(tasking::TaskGraph* pTaskGraph, int maxDepth, int spp, LightStrategy strategy)
+SamplerIntegrator::SamplerIntegrator(tasking::TaskGraph* pTaskGraph, tasking::LRUCache* pGeomCache, int maxDepth, int spp, LightStrategy strategy)
     : m_pTaskGraph(pTaskGraph)
+    , m_pGeomCache(pGeomCache)
     , m_maxDepth(maxDepth)
     , m_maxSpp(spp)
     , m_strategy(strategy)
@@ -33,9 +35,26 @@ void SamplerIntegrator::render(int concurrentPaths, const PerspectiveCamera& cam
     pRenderData->pAccelerationStructure = &accel;
     m_pCurrentRenderData = std::move(pRenderData);
 
+	// Make sure that all geometry that is associated with an area light is always in memory (for efficient light sampling)
+    m_lightShapeOwners.clear();
+    std::function<void(const SceneNode*)> collectLightShapes = [&](const SceneNode* pSceneNode) {
+        for (const auto& pSceneObject : pSceneNode->objects) {
+            if (pSceneObject->pAreaLight) {
+                m_lightShapeOwners.emplace_back(m_pGeomCache->makeResident(pSceneObject->pShape.get()));
+            }
+        }
+
+        for (const auto& [pChild, _] : pSceneNode->children) {
+            collectLightShapes(pChild.get());
+        }
+    };
+    collectLightShapes(scene.pRoot.get());
+
     // Spawn initial rays
     spawnNewPaths(concurrentPaths);
     m_pTaskGraph->run();
+
+	m_lightShapeOwners.clear();
 }
 
 void SamplerIntegrator::uniformSampleAllLights(

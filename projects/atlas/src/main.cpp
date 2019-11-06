@@ -113,8 +113,8 @@ int main(int argc, char** argv)
     tasking::TaskGraph taskGraph;
     const int spp = vm["spp"].as<int>();
     NormalDebugIntegrator integrator { &taskGraph };
-    //DirectLightingIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
-    //PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+    //DirectLightingIntegrator integrator { &taskGraph, &geometryCache, 8, spp, LightStrategy::UniformSampleOne };
+    //PathIntegrator integrator { &taskGraph, &geometryCache, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Preprocessing scene");
     using AccelBuilder = BatchingAccelerationStructureBuilder;

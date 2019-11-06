@@ -114,8 +114,8 @@ int main(int argc, char** argv)
     g_stats.config.primGroupSize = primitivesPerBatchingPoint;
 
     spdlog::info("Loading scene");
-	// WARNING: This cache is not used during rendering when using the batched acceleration structure.
-	//          A new cache is instantiated when splitting the scene into smaller objects. Scroll down...
+    // WARNING: This cache is not used during rendering when using the batched acceleration structure.
+    //          A new cache is instantiated when splitting the scene into smaller objects. Scroll down...
     //auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
     auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
         "pandora_pre_geom", 512llu * 1024 * 1024, mio_cache_control::cache_mode::sequential);
@@ -144,8 +144,8 @@ int main(int argc, char** argv)
         geometryCache = std::move(newCache);
     }
 
-	// Reset stats so that geometry loaded / evicted only contains the data from during the render, not the loading and preprocess.
-	g_stats.memory.geometryEvicted = 0;
+    // Reset stats so that geometry loaded / evicted only contains the data from during the render, not the loading and preprocess.
+    g_stats.memory.geometryEvicted = 0;
     g_stats.memory.geometryLoaded = 0;
 
     spdlog::info("Building acceleration structure");
@@ -163,10 +163,10 @@ int main(int argc, char** argv)
         };
 
         if (integratorType == "direct") {
-            DirectLightingIntegrator integrator(&taskGraph, 8, spp, LightStrategy::UniformSampleOne);
+            DirectLightingIntegrator integrator(&taskGraph, &geometryCache, 8, spp, LightStrategy::UniformSampleOne);
             render(integrator);
         } else if (integratorType == "path") {
-            PathIntegrator integrator { &taskGraph, 8, spp, LightStrategy::UniformSampleOne };
+            PathIntegrator integrator { &taskGraph, &geometryCache, 8, spp, LightStrategy::UniformSampleOne };
             render(integrator);
 
         } else if (integratorType == "normal") {

@@ -5,7 +5,7 @@ namespace pandora {
 
 class DirectLightingIntegrator : public SamplerIntegrator {
 public:
-    DirectLightingIntegrator(tasking::TaskGraph* pTaskGraph, int maxDepth, int spp, LightStrategy strategy = LightStrategy::UniformSampleAll);
+    DirectLightingIntegrator(tasking::TaskGraph* pTaskGraph, tasking::LRUCache* pGeomCache, int maxDepth, int spp, LightStrategy strategy = LightStrategy::UniformSampleAll);
 
     HitTaskHandle hitTaskHandle() const;
     MissTaskHandle missTaskHandle() const;
