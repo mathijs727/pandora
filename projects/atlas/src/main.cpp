@@ -61,7 +61,12 @@ int main(int argc, char** argv)
     // clang-format on
 
     po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
+    try {
+        po::store(po::parse_command_line(argc, argv, desc), vm);
+    } catch (boost::wrapexcept<boost::program_options::unknown_option> e) {
+        std::cout << "Received unknown option " << e.get_option_name() << std::endl;
+        exit(1);
+    }
 
     if (vm.count("help")) {
         std::cout << desc << std::endl;
