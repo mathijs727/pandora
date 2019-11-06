@@ -17,6 +17,7 @@
 #include <pandora/traversal/embree_acceleration_structure.h>
 #include <pbrt/pbrt_importer.h>
 #include <stream/cache/lru_cache.h>
+#include <stream/serialize/file_serializer.h>
 #include <stream/serialize/in_memory_serializer.h>
 
 #include <boost/program_options.hpp>
@@ -113,7 +114,12 @@ int main(int argc, char** argv)
     g_stats.config.primGroupSize = primitivesPerBatchingPoint;
 
     spdlog::info("Loading scene");
-    tasking::LRUCache::Builder cacheBuilder { std::make_unique<tasking::InMemorySerializer>() };
+	// WARNING: This cache is not used during rendering when using the batched acceleration structure.
+	//          A new cache is instantiated when splitting the scene into smaller objects. Scroll down...
+    //auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
+    auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
+        "pandora_pre_geom", 512llu * 1024 * 1024, mio_cache_control::cache_mode::sequential);
+    tasking::LRUCache::Builder cacheBuilder { std::move(pSerializer) };
 
     RenderConfig renderConfig;
     {
@@ -129,11 +135,18 @@ int main(int argc, char** argv)
     using AccelBuilder = BatchingAccelerationStructureBuilder;
     spdlog::info("Preprocessing scene");
     if (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
-        cacheBuilder = tasking::LRUCache::Builder { std::make_unique<tasking::InMemorySerializer>() };
+        auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
+            "pandora_render_geom", 512llu * 1024 * 1024, mio_cache_control::cache_mode::sequential);
+
+        cacheBuilder = tasking::LRUCache::Builder { std::move(pSerializer) };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
         auto newCache = cacheBuilder.build(geometryCache.maxSize());
         geometryCache = std::move(newCache);
     }
+
+	// Reset stats so that geometry loaded / evicted only contains the data from during the render, not the loading and preprocess.
+	g_stats.memory.geometryEvicted = 0;
+    g_stats.memory.geometryLoaded = 0;
 
     spdlog::info("Building acceleration structure");
     //EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };

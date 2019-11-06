@@ -97,6 +97,7 @@ TriangleShape::TriangleShape(
     m_texCoords.shrink_to_fit();
 
     ALWAYS_ASSERT(m_indices.size() < std::numeric_limits<unsigned>::max());
+    g_stats.memory.geometryLoaded += sizeBytes();
 }
 
 TriangleShape::TriangleShape(
@@ -123,6 +124,7 @@ TriangleShape::TriangleShape(
     m_texCoords.shrink_to_fit();
 
     ALWAYS_ASSERT(indices.size() < std::numeric_limits<unsigned>::max());
+    g_stats.memory.geometryLoaded += sizeBytes();
 }
 
 void TriangleShape::doEvict()
