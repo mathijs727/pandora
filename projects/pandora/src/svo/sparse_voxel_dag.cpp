@@ -13,6 +13,7 @@
 #include <immintrin.h>
 #include <libmorton/morton.h>
 #include <limits>
+#include <optick/optick.h>
 #include <simd/simd4.h>
 
 namespace pandora {
@@ -24,6 +25,8 @@ SparseVoxelDAG::SparseVoxelDAG(const VoxelGrid& grid)
     , m_boundsExtent(maxComponent(grid.bounds().extent()))
     , m_invBoundsExtent(1.0f / m_boundsExtent)
 {
+    OPTICK_EVENT();
+
     //m_rootNode = constructSVO(grid);
     m_rootNodeOffset = constructSVOBreadthFirst(grid);
     m_nodeAllocator.shrink_to_fit();
@@ -129,6 +132,8 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
 
 void SparseVoxelDAG::compressDAGs(gsl::span<SparseVoxelDAG*> svos)
 {
+    OPTICK_EVENT();
+
     using Descriptor = SparseVoxelDAG::Descriptor;
     using NodeOffset = SparseVoxelDAG::NodeOffset;
 
@@ -550,9 +555,9 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
         // Output result
         alignas(16) float ret[4];
         tMinVec.storeAligned(ret);
-        
-		// TODO: scale tmax back to world space without all this mess
-		const float tmax = ret[0];
+
+        // TODO: scale tmax back to world space without all this mess
+        const float tmax = ret[0];
         const glm::vec3 intersectionSVDAGSpace = (ray.origin + tmax * ray.direction);
         const glm::vec3 intersection = m_boundsMin + m_boundsExtent * (intersectionSVDAGSpace - glm::vec3(1.0f));
         return glm::distance(ray.origin, intersection);

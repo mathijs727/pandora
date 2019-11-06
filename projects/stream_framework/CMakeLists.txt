@@ -15,6 +15,7 @@ target_include_directories(stream
 target_compile_features(stream PUBLIC cxx_std_17)
 target_link_libraries(stream PUBLIC
 	metrics
+	OptickCore # Profiling
 	eastl
 	fmt::fmt
 	spdlog::spdlog

@@ -40,6 +40,7 @@ find_package(OpenImageIO REQUIRED)
 find_package(Embree3 REQUIRED)
 find_package(vectorclass REQUIRED)
 #find_package(hpx REQUIRED)
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/optick/")
 
 # WARNING: temporary hack because using the assimp::assimp target exported by assimp will try to link against a DLL (and fail)
 add_library(assimp_target INTERFACE IMPORTED)

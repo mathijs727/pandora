@@ -1,22 +1,28 @@
 #include "stream/task_graph.h"
 #include <algorithm>
 #include <cassert>
+#include <optick/optick.h>
+#include <optick/optick_tbb.h>
 
 namespace tasking {
 
 void TaskGraph::run()
 {
     while (true) {
-        auto bestTaskIter = std::max_element(
-            std::begin(m_tasks),
-            std::end(m_tasks),
-            [](const auto& lhs, const auto& rhs) {
-                return lhs->approxQueueSize() < rhs->approxQueueSize();
-            });
-        assert(bestTaskIter != std::end(m_tasks));
+        TaskBase* pTask { nullptr };
+        {
+            OPTICK_EVENT("Task Selection");
+            auto bestTaskIter = std::max_element(
+                std::begin(m_tasks),
+                std::end(m_tasks),
+                [](const auto& lhs, const auto& rhs) {
+                    return lhs->approxQueueSize() < rhs->approxQueueSize();
+                });
+            assert(bestTaskIter != std::end(m_tasks));
 
-        // TODO: cannot assume this when we allow multiple tasks to execute in parallel (need better stop condition)!
-        const auto& pTask = *bestTaskIter;
+            // TODO: cannot assume this when we allow multiple tasks to execute in parallel (need better stop condition)!
+            pTask = bestTaskIter->get();
+        }
         if (pTask->approxQueueSize() == 0)
             break;
 

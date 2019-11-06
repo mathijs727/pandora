@@ -12,6 +12,7 @@
 #include <cassert>
 #include <fstream>
 #include <glm/gtc/matrix_transform.hpp>
+#include <optick/optick.h>
 #include <spdlog/spdlog.h>
 #include <stack>
 #include <string>
@@ -126,6 +127,8 @@ TriangleShape::TriangleShape(
 
 void TriangleShape::doEvict()
 {
+    OPTICK_EVENT();
+
     g_stats.memory.geometryEvicted += sizeBytes();
 
     m_indices.clear();
@@ -141,6 +144,8 @@ void TriangleShape::doEvict()
 
 void TriangleShape::doMakeResident(tasking::Deserializer& deserializer)
 {
+    OPTICK_EVENT();
+
     const void* pData = deserializer.map(m_serializedStateHandle);
     const auto* pSerializedTriangleMesh = serialization::GetTriangleMesh(pData);
 

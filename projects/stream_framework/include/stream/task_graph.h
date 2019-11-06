@@ -8,6 +8,9 @@
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
 #undef __TBB_ALLOW_MUTABLE_FUNCTORS
+#include <fmt/format.h>
+#include <optick/optick.h>
+#include <optick/optick_tbb.h>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -210,19 +213,27 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 
     void* pStaticData;
     {
-        // Allocate and construct static data
+        const std::string taskName = fmt::format("{}::staticDataLoad", m_name);
+        OPTICK_EVENT_DYNAMIC(taskName.c_str());
         auto stopWatch = flushStats.staticDataLoadTime.getScopedStopwatch();
+
+        // Allocate and construct static data
         pStaticData = m_staticDataLoader(pMemory);
     }
 
     {
+        const std::string taskName = fmt::format("{}::execute", m_name);
+        OPTICK_EVENT_DYNAMIC(taskName.c_str());
         auto stopWatch = flushStats.processingTime.getScopedStopwatch();
 
         tbb::task_group tg;
-        eastl::fixed_vector<T, 32, false> workBatch;
+        eastl::fixed_vector<T, 1024, false> workBatch;
         auto executeKernel = [&]() {
             // Run sequentially in debug mode
-            tg.run([=]() mutable {
+            tg.run([this, pStaticData,workBatch = std::move(workBatch),&taskName]() mutable {
+                tryRegisterThreadWithOptick();
+                OPTICK_EVENT_DYNAMIC(taskName.c_str());
+
                 m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
             });
         };
@@ -245,8 +256,12 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
         tg.wait();
     }
 
-    // Call destructor on static data and free memory
-    m_staticDataDestructor(pMemory, pStaticData);
+    {
+        const std::string taskName = fmt::format("{}::staticDataDestruct", m_name);
+        OPTICK_EVENT_DYNAMIC(taskName.c_str());
+        // Call destructor on static data and free memory
+        m_staticDataDestructor(pMemory, pStaticData);
+    }
 
     StreamStats::getSingleton().infoAtFlushes.emplace_back(std::move(flushStats));
 }

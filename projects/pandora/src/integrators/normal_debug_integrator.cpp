@@ -3,6 +3,7 @@
 #include "pandora/graphics_core/interaction.h"
 #include "pandora/graphics_core/perspective_camera.h"
 #include "pandora/graphics_core/ray.h"
+#include <optick/optick.h>
 
 namespace pandora {
 
@@ -63,7 +64,7 @@ void NormalDebugIntegrator::render(int concurrentPaths, const PerspectiveCamera&
 
 void NormalDebugIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, const RayState& state)
 {
-	// glm::abs(glm::normalize(si.normal))
+    // glm::abs(glm::normalize(si.normal))
     const float cos = glm::dot(si.normal, -ray.direction);
     m_pSensor->addPixelContribution(state.pixel, cos * si.shading.batchingPointColor);
     spawnNewPaths(1);
@@ -91,7 +92,7 @@ void NormalDebugIntegrator::spawnNewPaths(int numPaths)
         int x = pixelIndex % m_resolution.x;
         int y = pixelIndex / m_resolution.x;
 
-		const glm::vec2 cameraSample = glm::vec2(x, y) / m_fResolution;
+        const glm::vec2 cameraSample = glm::vec2(x, y) / m_fResolution;
         const Ray cameraRay = m_pCamera->generateRay(cameraSample);
         m_pAccelerationStructure->intersect(cameraRay, RayState { glm::ivec2 { x, y } });
     }

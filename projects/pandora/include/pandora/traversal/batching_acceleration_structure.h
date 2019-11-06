@@ -14,6 +14,7 @@
 #include <embree3/rtcore.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <gsl/span>
+#include <optick/optick.h>
 #include <optional>
 #include <tuple>
 #include <unordered_map>
@@ -415,9 +416,8 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask)
 {
+    OPTICK_EVENT();
     spdlog::info("Creating batching points");
-
-    std::unordered_map<const SceneNode*, RTCScene> embreeSceneCache;
 
     std::vector<SparseVoxelDAG> svdags;
     std::transform(std::begin(m_subScenes), std::end(m_subScenes), std::back_inserter(svdags),

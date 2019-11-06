@@ -11,6 +11,8 @@
 #include "pandora/shapes/triangle.h"
 #include "pandora/textures/constant_texture.h"
 #include "stream/task_graph.h"
+#include <optick/optick.h>
+#include <optick/optick_tbb.h>
 #include <pandora/traversal/batching_acceleration_structure.h>
 #include <pandora/traversal/embree_acceleration_structure.h>
 #include <pbrt/pbrt_importer.h>
@@ -45,6 +47,8 @@ int main(int argc, char** argv)
     auto colorLogger = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("color_logger");
     spdlog::set_default_logger(colorLogger);
 #endif
+    OPTICK_APP("Torque");
+    setThisMainThreadOptick();
 
     spdlog::info("Parsing input");
 
@@ -111,15 +115,19 @@ int main(int argc, char** argv)
     spdlog::info("Loading scene");
     tasking::LRUCache::Builder cacheBuilder { std::make_unique<tasking::InMemorySerializer>() };
 
-    const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
-    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false) : loadFromFile(sceneFilePath);
+    RenderConfig renderConfig;
+    {
+        OPTICK_EVENT("loadFromFile");
+        const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
+        renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false) : loadFromFile(sceneFilePath);
+    }
     const glm::ivec2 resolution = renderConfig.resolution;
     tasking::LRUCache geometryCache = cacheBuilder.build(geomCacheSize);
 
     tasking::TaskGraph taskGraph;
 
-    spdlog::info("Preprocessing scene");
     using AccelBuilder = BatchingAccelerationStructureBuilder;
+    spdlog::info("Preprocessing scene");
     if (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
         cacheBuilder = tasking::LRUCache::Builder { std::make_unique<tasking::InMemorySerializer>() };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);

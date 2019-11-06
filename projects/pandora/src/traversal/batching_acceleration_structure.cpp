@@ -8,6 +8,7 @@
 #include <deque>
 #include <embree3/rtcore.h>
 #include <memory>
+#include <optick/optick.h>
 #include <spdlog/spdlog.h>
 #include <tbb/concurrent_vector.h>
 #include <unordered_map>
@@ -51,6 +52,8 @@ void BatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, tasking
 
 static void copyShapeToNewCacheRecurse(SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder)
 {
+    OPTICK_EVENT();
+
     for (const auto& pSceneObject : pSceneNode->objects) {
         Shape* pShape = pSceneObject->pShape.get();
         if (!pShape)
@@ -67,6 +70,8 @@ static void copyShapeToNewCacheRecurse(SceneNode* pSceneNode, tasking::LRUCache&
 
 SparseVoxelDAG BatchingAccelerationStructureBuilder::createSVDAG(const SubScene& subScene, int resolution)
 {
+    OPTICK_EVENT();
+
     const Bounds bounds = subScene.computeBounds();
 
     VoxelGrid grid { bounds, resolution };
@@ -106,6 +111,8 @@ SparseVoxelDAG BatchingAccelerationStructureBuilder::createSVDAG(const SubScene&
 void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(
     SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize)
 {
+    OPTICK_EVENT();
+
     std::vector<std::shared_ptr<SceneObject>> outObjects;
     for (const auto& pSceneObject : pSceneNode->objects) { // Only split non-instanced objects
         Shape* pShape = pSceneObject->pShape.get();
@@ -147,6 +154,8 @@ void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(
 
 static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const TriangleShape& shape, unsigned maxSize, RTCDevice embreeDevice)
 {
+    OPTICK_EVENT();
+
     // Split a large shape into smaller shapes with maxSize/2 to maxSize primitives.
     // The Embree BVH builder API used to efficiently partition the shapes primitives into groups.
     std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
@@ -229,6 +238,8 @@ static size_t subTreePrimitiveCount(const SceneNode* pSceneNode)
 
 std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice)
 {
+    OPTICK_EVENT();
+
     // Split a large shape into smaller shapes with maxSize/2 to maxSize primitives.
     // The Embree BVH builder API used to efficiently partition the shapes primitives into groups.
     //using Path = eastl::fixed_vector<unsigned, 4>;

@@ -4,6 +4,7 @@
 #include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
 #include <glm/glm.hpp>
+#include <optick/optick.h>
 
 namespace pandora {
 
@@ -112,6 +113,7 @@ float TriangleShape::pdfPrimitive(unsigned primitiveID, const Interaction& ref, 
 
 void TriangleShape::voxelize(VoxelGrid& grid, const Transform& transform) const
 {
+    OPTICK_EVENT();
     ALWAYS_ASSERT(isResident());
 
     // Map world space to [0, 1]
