@@ -3,7 +3,7 @@ add_executable(pbrt_importer2_lexer_bench
 target_link_libraries(pbrt_importer2_lexer_bench PRIVATE
 	libPbrt_importer2
 	Boost::program_options
-	mio::mio mio::mio_base)
+	mio::mio)
 
 add_executable(pbrt_importer2_parser_bench
 	"${CMAKE_CURRENT_LIST_DIR}/parser_bench.cpp")

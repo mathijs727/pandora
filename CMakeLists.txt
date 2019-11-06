@@ -40,13 +40,18 @@ find_package(OpenImageIO REQUIRED)
 find_package(Embree3 REQUIRED)
 find_package(vectorclass REQUIRED)
 #find_package(hpx REQUIRED)
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/optick/")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/optick/" EXCLUDE_FROM_ALL)
 
 # WARNING: temporary hack because using the assimp::assimp target exported by assimp will try to link against a DLL (and fail)
 add_library(assimp_target INTERFACE IMPORTED)
 target_include_directories(assimp_target INTERFACE ${ASSIMP_INCLUDE_DIRS})
 target_link_directories(assimp_target INTERFACE ${ASSIMP_LIBRARY_DIRS})
 target_link_libraries(assimp_target INTERFACE ${ASSIMP_LIBRARIES})
+
+# Modified version of mio (https://github.com/mandreyel/mio) with a flag added to control the file system cache.
+#add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/mio_cache_control/" EXCLUDE_FROM_ALL) # Modified version that can bypass OS file cache (for benchmarking)
+add_library(mio_cache_control INTERFACE)
+target_include_directories(mio_cache_control INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/mio_cache_control/include/")
 
 #if (PANDORA_BUILD_VOXEL_EXPORTER)
 #	add_library(tinyply "${CMAKE_CURRENT_LIST_DIR}/third_party/tinyply/source/tinyply.cpp")
@@ -77,6 +82,7 @@ if (PANDORA_BUILD_ATLAS)
     find_package(OpenGL REQUIRED)
 endif()
 
+add_subdirectory("projects/diskbench/")
 add_subdirectory("projects/stream_framework/")
 #add_subdirectory("projects/hpx_experiments/")
 include("projects/simd/CMakeLists.txt")
@@ -89,7 +95,6 @@ endif()
 include("projects/torque/CMakeLists.txt")
 
 
-#add_subdirectory("projects/diskbench/")
 #if (BUILD_VOXEL_EXPORT)
 #    include("projects/voxel/CMakeLists.txt")
 #endif()

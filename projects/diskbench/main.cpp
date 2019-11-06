@@ -1,19 +1,20 @@
-#include <filesystem>
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <mio/mmap.hpp>
+#include <mio_cache_control/mmap.hpp>
+#include <execution>
 
 #ifdef __linux__
-#include <unistd.h>
-#include <fcntl.h>
+#include <cstring>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include <cstring>
+#include <unistd.h>
 
 #ifndef BLKPBSZGET
-#define BLKSSZGET  _IO(0x12,104)/* get block device sector size */
+#define BLKSSZGET _IO(0x12, 104) /* get block device sector size */
 #endif
 #endif
 
@@ -41,7 +42,7 @@ void readLinuxIO(std::filesystem::path path, std::vector<char>& ret, int flags)
         throw std::runtime_error("Failed to open file");
     }
 
-    int alignment = 512;// Block size
+    int alignment = 512; // Block size
     size_t r = fileSize % alignment;
     size_t bufferSize = r ? fileSize - r + alignment : fileSize;
 
@@ -62,8 +63,9 @@ template <typename F>
 void testReadFunc(F&& f)
 {
     using clock = std::chrono::high_resolution_clock;
-    std::filesystem::path file = "/dev/shm/mathijsmolenaa/sanmiguel.zip";
+    const std::filesystem::path file = "C:/Users/mathijs/Development/pbrt-v3-scenes/island/pbrt/isMountainA/xgBreadFruit/xgBreadFruit_archiveBreadFruitBaked_geometry.pbrt";
 
+    float sumMegaBytesPerSec = 0;
     for (int i = 0; i < 10; i++) {
         // https://stackoverflow.com/questions/12721773/how-to-align-a-value-to-a-given-alignment
         size_t fileSize = std::filesystem::file_size(file);
@@ -77,27 +79,38 @@ void testReadFunc(F&& f)
 
         auto bytesRead = buffer.size();
         auto megaBytesPerSecond = bytesRead / diffus;
-        std::cout << "Read speed: " << megaBytesPerSecond << "MB/s" << std::endl;
+        sumMegaBytesPerSec += megaBytesPerSecond;
+        //std::cout << "Read speed: " << megaBytesPerSecond << "MB/s" << std::endl;
 
         size_t size = 0;
         for (char c : buffer)
             size += c;
-        std::cout << "Sum: " << size << std::endl;
+        //std::cout << "Sum: " << size << std::endl;
     }
+
+    const float avgMegaBytesPerSec = sumMegaBytesPerSec / 10;
+    std::cout << "Average read speed: " << avgMegaBytesPerSec << "MB/s" << std::endl;
 }
 
 int main()
 {
-    std::cout << "Mapped I/O" << std::endl;
+    std::cout << "Mapped I/O (random access)" << std::endl;
     testReadFunc([](auto path, auto& ret) {
-        auto ro_mmap = mio::mmap_source(path.string(), 0, mio::map_entire_file);
+        auto ro_mmap = mio::mmap_source(path.string(), 0, mio::map_entire_file, mio::cache_mode::random_access);
         std::copy(std::begin(ro_mmap), std::end(ro_mmap), std::begin(ret));
+    });
+
+	std::cout << "\nMapped I/O (sequential access)" << std::endl;
+    testReadFunc([](auto path, auto& ret) {
+        auto ro_mmap = mio::mmap_source(path.string(), 0, mio::map_entire_file, mio::cache_mode::sequential);
+        std::copy(std::execution::par_unseq, std::begin(ro_mmap), std::end(ro_mmap), std::begin(ret));
     });
 
     std::cout << "\nMapped I/O (no buffering)" << std::endl;
     testReadFunc([](auto path, auto& ret) {
-        auto ro_mmap = mio::mmap_source(path.string(), 0, mio::map_entire_file, mio::no_buffering);
-        std::copy(std::begin(ro_mmap), std::end(ro_mmap), std::begin(ret));
+        auto ro_mmap = mio::mmap_source(path.string(), 0, mio::map_entire_file, mio::cache_mode::no_buffering);
+        //std::copy(std::execution::par_unseq, std::begin(ro_mmap), std::end(ro_mmap), std::begin(ret));
+        std::memcpy(ret.data(), ro_mmap.data(), ro_mmap.size());
     });
 
     std::cout << "\nFile stream I/O" << std::endl;
