@@ -19,7 +19,7 @@ target_link_libraries(stream PUBLIC
 	eastl
 	fmt::fmt
 	spdlog::spdlog
-	mio::mio
+	mio_cache_control
 	TBB::tbb TBB::tbbmalloc Threads::Threads)
 
 add_subdirectory("example")

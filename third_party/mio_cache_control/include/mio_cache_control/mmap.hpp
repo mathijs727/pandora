@@ -18,8 +18,8 @@
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef MIO_MMAP_HEADER
-#define MIO_MMAP_HEADER
+#ifndef MIO_CACHE_CONTROL_MMAP_HEADER
+#define MIO_CACHE_CONTROL_MMAP_HEADER
 
 #include "page.hpp"
 
@@ -37,7 +37,7 @@
 # define INVALID_HANDLE_VALUE -1
 #endif // ifdef _WIN32
 
-namespace mio {
+namespace mio_cache_control {
 
 // This value may be provided as the `length` parameter to the constructor or
 // `map`, in which case a memory mapping of the entire file is created.
@@ -108,6 +108,21 @@ public:
     basic_mmap() = default;
 
 #ifdef __cpp_exceptions
+    /**
+     * The same as invoking the `map` function, except any error that may occur
+     * while establishing the mapping is wrapped in a `std::system_error` and is
+     * thrown.
+     */
+    template <typename String>
+    basic_mmap(const String& path, const cache_mode cacheMode = cache_mode::random_access)
+    {
+        std::error_code error;
+        map(path, 0, map_entire_file, cacheMode, error);
+        if (error) {
+            throw std::system_error(error);
+        }
+    }
+
     /**
      * The same as invoking the `map` function, except any error that may occur
      * while establishing the mapping is wrapped in a `std::system_error` and is
@@ -489,4 +504,4 @@ mmap_sink make_mmap_sink(const MappingToken& token, const cache_mode cacheMode, 
 
 #include "detail/mmap.ipp"
 
-#endif // MIO_MMAP_HEADER
+#endif // MIO_CACHE_CONTROL_MMAP_HEADER

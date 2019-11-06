@@ -3,8 +3,9 @@
 #include <spdlog/spdlog.h>
 
 namespace tasking {
-SplitFileSerializer::SplitFileSerializer(std::string_view folderName, size_t batchSize)
+SplitFileSerializer::SplitFileSerializer(std::string_view folderName, size_t batchSize, mio_cache_control::cache_mode fileCacheMode)
     : m_tempFolder(std::filesystem::temp_directory_path() / folderName)
+    , m_fileCacheMode(fileCacheMode)
     , m_batchSize(batchSize)
 {
     if (std::filesystem::exists(m_tempFolder)) {
@@ -43,12 +44,13 @@ void SplitFileSerializer::unmapPreviousAllocations()
 
 std::unique_ptr<Deserializer> SplitFileSerializer::createDeserializer()
 {
-	// Cannot use make_unique with private constructors
-    return std::unique_ptr<SplitFileDeserializer>(new SplitFileDeserializer(m_tempFolder));
+    // Cannot use make_unique with private constructors
+    return std::unique_ptr<SplitFileDeserializer>(new SplitFileDeserializer(m_tempFolder, m_fileCacheMode));
 }
 
-SplitFileDeserializer::SplitFileDeserializer(std::filesystem::path tempFolder)
+SplitFileDeserializer::SplitFileDeserializer(std::filesystem::path tempFolder, mio_cache_control::cache_mode fileCacheMode)
     : m_tempFolder(tempFolder)
+    , m_fileCacheMode(fileCacheMode)
 {
 }
 
@@ -70,7 +72,7 @@ const void* SplitFileDeserializer::map(const Allocation& allocation)
     } else {
         const auto fileName = std::to_string(fileAllocation.fileID) + ".bin";
         const auto filePath = m_tempFolder / fileName;
-        auto mappedFile = mio::mmap_source(filePath.string());
+        auto mappedFile = mio_cache_control::mmap_source(filePath.string(), m_fileCacheMode);
         const void* pResult = mappedFile.data() + fileAllocation.offsetInFile;
 
         m_openFiles.emplace(std::pair { fileAllocation.fileID, MappedFile { std::move(mappedFile), 0 } });
@@ -109,7 +111,7 @@ void SplitFileSerializer::openNewFile()
     const auto filePath = m_tempFolder / fileName;
 
     createFileOfSize(filePath, m_batchSize);
-    m_currentFile = mio::mmap_sink(filePath.string());
+    m_currentFile = mio_cache_control::mmap_sink(filePath.string(), mio_cache_control::cache_mode::random_access);
     m_currentOffset = 0;
 }
 }

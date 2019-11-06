@@ -3,7 +3,6 @@
 #include <fstream>
 #include <iostream>
 #include <mio_cache_control/mmap.hpp>
-#include <execution>
 
 #ifdef __linux__
 #include <cstring>
@@ -96,21 +95,20 @@ int main()
 {
     std::cout << "Mapped I/O (random access)" << std::endl;
     testReadFunc([](auto path, auto& ret) {
-        auto ro_mmap = mio::mmap_source(path.string(), 0, mio::map_entire_file, mio::cache_mode::random_access);
+        auto ro_mmap = mio_cache_control::mmap_source(path.string(), mio_cache_control::cache_mode::random_access);
         std::copy(std::begin(ro_mmap), std::end(ro_mmap), std::begin(ret));
     });
 
-	std::cout << "\nMapped I/O (sequential access)" << std::endl;
+    std::cout << "\nMapped I/O (sequential access)" << std::endl;
     testReadFunc([](auto path, auto& ret) {
-        auto ro_mmap = mio::mmap_source(path.string(), 0, mio::map_entire_file, mio::cache_mode::sequential);
-        std::copy(std::execution::par_unseq, std::begin(ro_mmap), std::end(ro_mmap), std::begin(ret));
+        auto ro_mmap = mio_cache_control::mmap_source(path.string(), mio_cache_control::cache_mode::sequential);
+        std::copy(std::begin(ro_mmap), std::end(ro_mmap), std::begin(ret));
     });
 
     std::cout << "\nMapped I/O (no buffering)" << std::endl;
     testReadFunc([](auto path, auto& ret) {
-        auto ro_mmap = mio::mmap_source(path.string(), 0, mio::map_entire_file, mio::cache_mode::no_buffering);
-        //std::copy(std::execution::par_unseq, std::begin(ro_mmap), std::end(ro_mmap), std::begin(ret));
-        std::memcpy(ret.data(), ro_mmap.data(), ro_mmap.size());
+        auto ro_mmap = mio_cache_control::mmap_source(path.string(), mio_cache_control::cache_mode::no_buffering);
+        std::copy(std::begin(ro_mmap), std::end(ro_mmap), std::begin(ret));
     });
 
     std::cout << "\nFile stream I/O" << std::endl;

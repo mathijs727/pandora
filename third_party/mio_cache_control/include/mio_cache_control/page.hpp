@@ -18,8 +18,8 @@
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef MIO_PAGE_HEADER
-#define MIO_PAGE_HEADER
+#ifndef MIO_CACHE_CONTROL_PAGE_HEADER
+#define MIO_CACHE_CONTROL_PAGE_HEADER
 
 #ifdef _WIN32
 #include <windows.h>
@@ -28,7 +28,7 @@
 #endif
 #include <type_traits>
 
-namespace mio {
+namespace mio_cache_control {
 
 /**
  * This is used by `basic_mmap` to determine whether to create a read-only or
@@ -46,32 +46,32 @@ enum class cache_mode : unsigned {
     write_through = 0x8
 };
 
-cache_mode operator|(cache_mode lhs, cache_mode rhs)
+inline cache_mode operator|(cache_mode lhs, cache_mode rhs)
 {
     return static_cast<cache_mode>(static_cast<std::underlying_type_t<cache_mode>>(lhs) | static_cast<std::underlying_type_t<cache_mode>>(rhs));
 }
-cache_mode operator&(cache_mode lhs, cache_mode rhs)
+inline cache_mode operator&(cache_mode lhs, cache_mode rhs)
 {
     return static_cast<cache_mode>(static_cast<std::underlying_type_t<cache_mode>>(lhs) & static_cast<std::underlying_type_t<cache_mode>>(rhs));
 }
-cache_mode operator~(cache_mode rhs)
+inline cache_mode operator~(cache_mode rhs)
 {
     return static_cast<cache_mode>(
         ~static_cast<std::underlying_type_t<cache_mode>>(rhs));
 }
-cache_mode operator|=(cache_mode& lhs, cache_mode rhs)
+inline cache_mode operator|=(cache_mode& lhs, cache_mode rhs)
 {
     lhs = static_cast<cache_mode>(
         static_cast<std::underlying_type_t<cache_mode>>(lhs) | static_cast<std::underlying_type_t<cache_mode>>(rhs));
     return lhs;
 }
-cache_mode operator&=(cache_mode& lhs, cache_mode rhs)
+inline cache_mode operator&=(cache_mode& lhs, cache_mode rhs)
 {
     lhs = static_cast<cache_mode>(
         static_cast<std::underlying_type_t<cache_mode>>(lhs) & static_cast<std::underlying_type_t<cache_mode>>(rhs));
     return lhs;
 }
-cache_mode operator^=(cache_mode& lhs, cache_mode rhs)
+inline cache_mode operator^=(cache_mode& lhs, cache_mode rhs)
 {
     lhs = static_cast<cache_mode>(
         static_cast<std::underlying_type_t<cache_mode>>(lhs) ^ static_cast<std::underlying_type_t<cache_mode>>(rhs));
@@ -113,4 +113,4 @@ inline size_t make_offset_page_aligned(size_t offset) noexcept
 
 } // namespace mio
 
-#endif // MIO_PAGE_HEADER
+#endif // MIO_CACHE_CONTROL_PAGE_HEADER

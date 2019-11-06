@@ -18,12 +18,12 @@
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef MIO_STRING_UTIL_HEADER
-#define MIO_STRING_UTIL_HEADER
+#ifndef MIO_CACHE_CONTROL_STRING_UTIL_HEADER
+#define MIO_CACHE_CONTROL_STRING_UTIL_HEADER
 
 #include <type_traits>
 
-namespace mio {
+namespace mio_cache_control {
 namespace detail {
 
 template<
@@ -167,4 +167,4 @@ template<
 } // namespace detail
 } // namespace mio
 
-#endif // MIO_STRING_UTIL_HEADER
+#endif // MIO_CACHE_CONTROL_STRING_UTIL_HEADER

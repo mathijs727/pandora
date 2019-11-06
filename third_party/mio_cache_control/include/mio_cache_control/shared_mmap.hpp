@@ -18,15 +18,15 @@
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef MIO_SHARED_MMAP_HEADER
-#define MIO_SHARED_MMAP_HEADER
+#ifndef MIO_CACHE_CONTROL_SHARED_MMAP_HEADER
+#define MIO_CACHE_CONTROL_SHARED_MMAP_HEADER
 
 #include "mio/mmap.hpp"
 
 #include <system_error> // std::error_code
 #include <memory> // std::shared_ptr
 
-namespace mio {
+namespace mio_cache_control {
 
 /**
  * Exposes (nearly) the same interface as `basic_mmap`, but endowes it with
@@ -403,4 +403,4 @@ using shared_ummap_sink = basic_shared_mmap_sink<unsigned char>;
 
 } // namespace mio
 
-#endif // MIO_SHARED_MMAP_HEADER
+#endif // MIO_CACHE_CONTROL_SHARED_MMAP_HEADER

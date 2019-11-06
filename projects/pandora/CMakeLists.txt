@@ -47,6 +47,7 @@ target_link_libraries(libPandora PUBLIC
 	#TBB::tbb # Multithreading
 	#Threads::Threads
 	eastl # Stack based STL containers <3 
+	mio_cache_control
 	mio::mio) # Memory-mapped file IO for serialization
 
 target_link_libraries(libPandora PRIVATE Boost::boost)

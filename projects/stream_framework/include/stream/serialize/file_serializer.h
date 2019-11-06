@@ -3,7 +3,7 @@
 #include "stream/serialize/serializer.h"
 #include <deque>
 #include <filesystem>
-#include <mio/mmap.hpp>
+#include <mio_cache_control/mmap.hpp>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -22,13 +22,14 @@ public:
 
 private:
     friend class SplitFileSerializer;
-    SplitFileDeserializer(std::filesystem::path tempFolder);
+    SplitFileDeserializer(std::filesystem::path tempFolder, mio_cache_control::cache_mode fileCacheMode);
 
 private:
     std::filesystem::path m_tempFolder;
+    mio_cache_control::cache_mode m_fileCacheMode;
 
     struct MappedFile {
-        mio::mmap_source file;
+        mio_cache_control::mmap_source file;
         uint32_t useCount;
     };
     std::unordered_map<uint32_t, MappedFile> m_openFiles;
@@ -36,7 +37,10 @@ private:
 
 class SplitFileSerializer : public Serializer {
 public:
-    SplitFileSerializer(std::string_view folderName, size_t batchSize);
+    SplitFileSerializer(
+        std::string_view folderName,
+        size_t batchSize,
+        mio_cache_control::cache_mode fileCacheMode = mio_cache_control::cache_mode::random_access);
     SplitFileSerializer(SplitFileSerializer&&) = default;
     SplitFileSerializer& operator=(SplitFileSerializer&&) = default;
     ~SplitFileSerializer();
@@ -58,12 +62,13 @@ private:
     static_assert(sizeof(FileAllocation) <= sizeof(Allocation));
 
     std::filesystem::path m_tempFolder;
-    std::deque<mio::mmap_sink> m_openFiles;
+    mio_cache_control::cache_mode m_fileCacheMode;
+    std::deque<mio_cache_control::mmap_sink> m_openFiles;
 
     size_t m_batchSize;
     size_t m_currentOffset { 0 };
     uint32_t m_currentFileID { 0 };
-    mio::mmap_sink m_currentFile;
+    mio_cache_control::mmap_sink m_currentFile;
 };
 
 }
