@@ -1,9 +1,8 @@
 #pragma once
-#include "glm/glm.hpp"
-#include "glm/gtc/quaternion.hpp"
 #include "pandora/graphics_core/ray.h"
-#include "pandora/graphics_core/sensor.h"
 #include "pandora/graphics_core/sampler.h"
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <gsl/span>
 
 namespace pandora {
@@ -15,7 +14,7 @@ public:
     glm::mat4 getTransform() const;
     void setTransform(const glm::mat4& m);
 
-	Ray generateRay(const glm::vec2& sample) const;
+    Ray generateRay(const glm::vec2& sample) const;
 
 private:
     glm::vec2 m_virtualScreenSize;

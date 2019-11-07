@@ -1,3 +1,6 @@
+// clang-format off
+#include "pandora/graphics_core/sensor.h"
+// clang-format on
 #include "pandora/integrators/path_integrator.h"
 #include "graphics_core/sampling.h"
 #include "pandora/core/stats.h"
@@ -64,12 +67,12 @@ void PathIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, Bounce
         if (!isBlack(emitted))
             pSensor->addPixelContribution(state.pixel, state.weight * emitted);
     } else {
-		// Next Event Estimation (NEE) samples light sources so random bounce should ignore light source hits (without Multiple Importance Sampling).
-		if (si.pSceneObject->pAreaLight || state.pathDepth > m_maxDepth) {
-			spawnNewPaths(1);
-			return;
-		}
-	}
+        // Next Event Estimation (NEE) samples light sources so random bounce should ignore light source hits (without Multiple Importance Sampling).
+        if (si.pSceneObject->pAreaLight || state.pathDepth > m_maxDepth) {
+            spawnNewPaths(1);
+            return;
+        }
+    }
 
     // Sample direct light using Next Event Estimation (NEE)
     if (m_strategy == LightStrategy::UniformSampleAll)

@@ -2,7 +2,6 @@
 #include "pandora/config.h"
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/graphics_core/scene.h"
-#include "pandora/graphics_core/sensor.h"
 //#include "pandora/eviction/fifo_cache.h"
 #include "pandora/samplers/uniform_sampler.h"
 #include "pandora/traversal/embree_acceleration_structure.h"

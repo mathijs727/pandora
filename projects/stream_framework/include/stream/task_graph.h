@@ -84,7 +84,7 @@ private:
         const TypeErasedKernel m_kernel;
         const TypeErasedStaticDataLoader m_staticDataLoader;
         const TypeErasedStaticDataDestructor m_staticDataDestructor;
-        TBBQueue<T> m_workQueue;
+        MoodyCamelQueue<T> m_workQueue;
     };
 
     std::vector<std::unique_ptr<TaskBase>> m_tasks;

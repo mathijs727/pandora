@@ -1,3 +1,6 @@
+// clang-format off
+#include "pandora/graphics_core/sensor.h"
+// clang-format on
 #include "output.h"
 #include "pandora/config.h"
 #include "pandora/core/stats.h"
@@ -41,6 +44,9 @@ RenderConfig createDemoScene();
 
 int main(int argc, char** argv)
 {
+    cnl::fixed_point<uint64_t, -24> v { 5.0f };
+
+
 #ifdef _WIN32
     auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
     spdlog::set_default_logger(vsLogger);
@@ -137,9 +143,10 @@ int main(int argc, char** argv)
 
     tasking::TaskGraph taskGraph;
 
+    //using AccelBuilder = BatchingAccelerationStructureBuilder;
     using AccelBuilder = BatchingAccelerationStructureBuilder;
     spdlog::info("Preprocessing scene");
-    if (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
+    if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
         auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
             "pandora_render_geom", 512llu * 1024 * 1024, mio_cache_control::cache_mode::sequential);
 
@@ -154,7 +161,7 @@ int main(int argc, char** argv)
     g_stats.memory.geometryLoaded = 0;
 
     spdlog::info("Building acceleration structure");
-    //EmbreeAccelerationStructureBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
+    //AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint, bvhCacheSize };
     Sensor sensor { renderConfig.resolution };
 

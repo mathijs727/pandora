@@ -1,5 +1,7 @@
-#include "output.h"
+// clang-format on
 #include "pandora/graphics_core/sensor.h"
+// clang-format off
+#include "output.h"
 #include <OpenImageIO/imageio.h>
 #include <glm/glm.hpp>
 #include <iostream>
@@ -32,8 +34,8 @@ void writeOutputToFile(pandora::Sensor& sensor, int spp, std::filesystem::path f
         return;
     }
 
-    glm::ivec2 resolution = sensor.getResolution();
-    auto inPixels = sensor.getFramebufferRaw();
+    const glm::ivec2 resolution = sensor.getResolution();
+    auto inPixels = sensor.copyFrameBufferVec3();
     auto outPixels = std::vector<glm::vec3>(resolution.x * resolution.y);
     float invSPP = 1.0f / static_cast<float>(spp);
     if (applyPostProcessing) {

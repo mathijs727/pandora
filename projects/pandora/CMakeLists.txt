@@ -42,13 +42,14 @@ target_link_libraries(libPandora PUBLIC
 	assimp_target
     #assimp::assimp # Buggy (tries to link against a dll file...)
     OIIO::OpenImageIO # Loading textures
+	Cnl::Cnl # Fixed point math library
 	glm # Vector math
     embree3::embree3 # BVH builder and reference BVH traversal
-	#TBB::tbb # Multithreading
-	#Threads::Threads
+	TBB::tbb # Multithreading
+	Threads::Threads
 	eastl # Stack based STL containers <3 
-	mio_cache_control
-	mio::mio) # Memory-mapped file IO for serialization
+	mio::mio # Memory-mapped file IO for serialization
+	mio_cache_control) # Modified version of mio that allows for control of the file system cache
 
 target_link_libraries(libPandora PRIVATE Boost::boost)
 

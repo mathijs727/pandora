@@ -19,7 +19,6 @@
 #include <pandora/graphics_core/pandora.h>
 #include <pandora/graphics_core/perspective_camera.h>
 #include <pandora/graphics_core/scene.h>
-#include <pandora/graphics_core/sensor.h>
 #include <pandora/textures/image_texture.h>
 #include <stack>
 #include <stream/cache/lru_cache.h>

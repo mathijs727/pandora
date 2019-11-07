@@ -1,3 +1,6 @@
+// clang-format off
+#include "pandora/graphics_core/sensor.h"
+// clang-format on
 #include "pandora/integrators/normal_debug_integrator.h"
 #include "pandora/core/stats.h"
 #include "pandora/graphics_core/interaction.h"
