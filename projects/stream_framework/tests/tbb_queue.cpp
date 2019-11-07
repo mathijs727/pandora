@@ -1,4 +1,4 @@
-#include "stream/queue.h"
+#include "stream/queue/tbb_queue.h"
 #include <atomic>
 #include <gtest/gtest.h>
 #include <tbb/blocked_range.h>
@@ -11,9 +11,9 @@ struct Data {
     int __padding[8];
 };
 
-TEST(Queue, SingleThreaded)
+TEST(TBBQueue, SingleThreaded)
 {
-    tasking::Queue<Data> queue {};
+    tasking::TBBQueue<Data> queue {};
 
     constexpr int numItems = 10000;
     for (int i = 0; i < numItems; i++)
@@ -32,14 +32,14 @@ TEST(Queue, SingleThreaded)
         ASSERT_TRUE(visited[i]);
 }
 
-TEST(Queue, MultiProducerSingleConsumer)
+TEST(TBBQueue, MultiProducerSingleConsumer)
 {
     constexpr int numItems = 20000;
     std::vector<bool> visited;
     visited.resize(numItems);
     std::fill(std::begin(visited), std::end(visited), false);
 
-    tasking::Queue<Data> queue {};
+    tasking::TBBQueue<Data> queue {};
 
     constexpr int blockSize = 5000;
     tbb::task_group tg;

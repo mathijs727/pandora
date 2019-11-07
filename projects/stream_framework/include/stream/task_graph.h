@@ -1,11 +1,12 @@
 #pragma once
+#include "stream/queue/tbb_queue.h"
+#include "stream/queue/moodycamel_queue.h"
 #include "stream/stats.h"
 #include <EASTL/fixed_vector.h>
 #include <functional>
 #include <gsl/span>
 #include <memory_resource>
 #define __TBB_ALLOW_MUTABLE_FUNCTORS 1
-#include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
 #undef __TBB_ALLOW_MUTABLE_FUNCTORS
 #include <fmt/format.h>
@@ -60,6 +61,7 @@ private:
         template <typename Kernel>
         static Task<T> initialize(std::string_view name, Kernel&&);
 
+		Task(Task<T>&&) = default;
         ~Task() override = default;
 
         void enqueue(const T& item);
@@ -82,7 +84,7 @@ private:
         const TypeErasedKernel m_kernel;
         const TypeErasedStaticDataLoader m_staticDataLoader;
         const TypeErasedStaticDataDestructor m_staticDataDestructor;
-        tbb::concurrent_queue<T> m_workQueue;
+        TBBQueue<T> m_workQueue;
     };
 
     std::vector<std::unique_ptr<TaskBase>> m_tasks;
@@ -230,7 +232,7 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
         eastl::fixed_vector<T, 1024, false> workBatch;
         auto executeKernel = [&]() {
             // Run sequentially in debug mode
-            tg.run([this, pStaticData,workBatch = std::move(workBatch),&taskName]() mutable {
+            tg.run([this, pStaticData, workBatch = std::move(workBatch), &taskName]() mutable {
                 tryRegisterThreadWithOptick();
                 OPTICK_EVENT_DYNAMIC(taskName.c_str());
 

@@ -163,6 +163,8 @@ int main(int argc, char** argv)
         auto integratorType = vm["integrator"].as<std::string>();
 
         auto render = [&](auto& integrator) {
+            auto stopWatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
+
             auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
             integrator.render(concurrency, *renderConfig.camera, sensor, *renderConfig.pScene, accel);
         };

@@ -30,6 +30,7 @@ struct RenderStats : public metrics::Stats {
     } scene;
 
     struct {
+        metrics::Stopwatch<std::chrono::nanoseconds> totalRenderTime;
         metrics::Stopwatch<std::chrono::milliseconds> totalTraversalTime;
         metrics::Stopwatch<std::chrono::nanoseconds> svdagTraversalTime;
     } timings;
