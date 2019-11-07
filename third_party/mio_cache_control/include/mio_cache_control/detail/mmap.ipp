@@ -21,9 +21,9 @@
 #ifndef MIO_CACHE_CONTROL_BASIC_MMAP_IMPL
 #define MIO_CACHE_CONTROL_BASIC_MMAP_IMPL
 
-#include "mmap.hpp"
-#include "page.hpp"
-#include "detail/string_util.hpp"
+#include "../mmap.hpp"
+#include "../page.hpp"
+#include "string_util.hpp"
 
 #include <algorithm>
 
