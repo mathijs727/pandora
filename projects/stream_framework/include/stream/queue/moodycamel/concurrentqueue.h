@@ -65,6 +65,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
+#include <memory>
 #include <thread> // partly for __WINPTHREADS_VERSION if on MinGW-w64 w/ POSIX threading
 #include <type_traits>
 #include <utility>
@@ -797,6 +798,18 @@ public:
         , nextExplicitConsumerId(0)
         , globalExplicitConsumerOffset(0)
     {
+        freeList = sharedFreeList.lock();
+        if (!freeList) {
+            freeList = std::make_shared<FreeList<Block>>();
+            sharedFreeList = freeList;
+        }
+
+        // WARNING: overwrite capacity => 0 to prevent crashes when FreeList contains preallocated blocks from a Queue
+		//          that has already been destructed (and has freed the blocks). This is only an issue because the queue
+		//          was changed to share a single FreeList between all instances of the same type of queue (to reduce
+		//          memory usage).
+		capacity = 0;
+
         implicitProducerHashResizeInProgress.clear(std::memory_order_relaxed);
         populate_initial_implicit_producer_hash();
         populate_initial_block_list(capacity / BLOCK_SIZE + ((capacity & (BLOCK_SIZE - 1)) == 0 ? 0 : 1));
@@ -821,6 +834,18 @@ public:
         , nextExplicitConsumerId(0)
         , globalExplicitConsumerOffset(0)
     {
+        freeList = sharedFreeList.lock();
+        if (!freeList) {
+            freeList = std::make_shared<FreeList<Block>>();
+            sharedFreeList = freeList;
+        }
+
+        // WARNING: overwrite capacity => 0 to prevent crashes when FreeList contains preallocated blocks from a Queue
+        //          that has already been destructed (and has freed the blocks). This is only an issue because the queue
+        //          was changed to share a single FreeList between all instances of the same type of queue (to reduce
+        //          memory usage).
+        capacity = 0;
+
         implicitProducerHashResizeInProgress.clear(std::memory_order_relaxed);
         populate_initial_implicit_producer_hash();
         size_t blocks = (((minCapacity + BLOCK_SIZE - 1) / BLOCK_SIZE) - 1) * (maxExplicitProducers + 1) + 2 * (maxExplicitProducers + maxImplicitProducers);
@@ -862,16 +887,6 @@ public:
                 }
                 hash = prev;
             }
-        }
-
-        // Destroy global free list
-        auto block = freeList.head_unsafe();
-        while (block != nullptr) {
-            auto next = block->freeListNext.load(std::memory_order_relaxed);
-            if (block->dynamicallyAllocated) {
-                destroy(block);
-            }
-            block = next;
         }
 
         // Destroy initial free list
@@ -1432,6 +1447,18 @@ private:
         {
             other.freeListHead.store(nullptr, std::memory_order_relaxed);
         }
+        ~FreeList()
+        {
+            // Destroy global free list
+            auto block = head_unsafe();
+            while (block != nullptr) {
+                auto next = block->freeListNext.load(std::memory_order_relaxed);
+                if (block->dynamicallyAllocated) {
+                    destroy(block);
+                }
+                block = next;
+            }
+        }
         void swap(FreeList& other) { details::swap_relaxed(freeListHead, other.freeListHead); }
 
         FreeList(FreeList const&) MOODYCAMEL_DELETE_FUNCTION;
@@ -1537,6 +1564,7 @@ private:
     enum InnerQueueContext { implicit_context = 0,
         explicit_context = 1 };
 
+public:
     struct Block {
         Block()
             : next(nullptr)
@@ -1677,6 +1705,8 @@ private:
         void* owner;
 #endif
     };
+
+private:
     static_assert(std::alignment_of<Block>::value >= std::alignment_of<details::max_align_t>::value, "Internal error: Blocks must be at least as aligned as the type they are wrapping");
 
 #ifdef MCDBGQ_TRACKMEM
@@ -3030,7 +3060,7 @@ private:
 #ifdef MCDBGQ_TRACKMEM
         block->owner = nullptr;
 #endif
-        freeList.add(block);
+        freeList->add(block);
     }
 
     inline void add_blocks_to_free_list(Block* block)
@@ -3044,7 +3074,7 @@ private:
 
     inline Block* try_get_block_from_free_list()
     {
-        return freeList.try_get();
+        return freeList->try_get();
     }
 
     // Gets a free block from one of the memory pools, or allocates a new one (if applicable)
@@ -3593,7 +3623,11 @@ private:
     size_t initialBlockPoolSize;
 
 #ifndef MCDBGQ_USEDEBUGFREELIST
-    FreeList<Block> freeList;
+public:
+    std::shared_ptr<FreeList<Block>> freeList;
+    static std::weak_ptr<FreeList<Block>> sharedFreeList;
+
+private:
 #else
     debug::DebugFreeList<Block> freeList;
 #endif
@@ -3616,6 +3650,9 @@ private:
     std::atomic<ImplicitProducer*> implicitProducers;
 #endif
 };
+
+template <typename T, typename Traits>
+std::weak_ptr<typename ConcurrentQueue<T, Traits>::template FreeList<typename ConcurrentQueue<T, Traits>::Block>> ConcurrentQueue<T, Traits>::sharedFreeList {};
 
 template <typename T, typename Traits>
 ProducerToken::ProducerToken(ConcurrentQueue<T, Traits>& queue)
@@ -3676,7 +3713,6 @@ inline void swap(typename ConcurrentQueue<T, Traits>::ImplicitProducerKVP& a, ty
 {
     a.swap(b);
 }
-
 }
 
 #if defined(__GNUC__)
