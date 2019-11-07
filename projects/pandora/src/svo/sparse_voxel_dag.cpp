@@ -552,7 +552,7 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
     if (scale >= CAST_STACK_DEPTH) {
         return {};
     } else {
-        // Output result
+        /*// Output result
         alignas(16) float ret[4];
         tMinVec.storeAligned(ret);
 
@@ -560,7 +560,8 @@ std::optional<float> SparseVoxelDAG::intersectScalar(Ray ray) const
         const float tmax = ret[0];
         const glm::vec3 intersectionSVDAGSpace = (ray.origin + tmax * ray.direction);
         const glm::vec3 intersection = m_boundsMin + m_boundsExtent * (intersectionSVDAGSpace - glm::vec3(1.0f));
-        return glm::distance(ray.origin, intersection);
+        return glm::distance(ray.origin, intersection);*/
+        return 0;
     }
 }
 std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::generateSurfaceMesh() const
