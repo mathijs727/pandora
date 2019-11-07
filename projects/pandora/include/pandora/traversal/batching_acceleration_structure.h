@@ -178,17 +178,19 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             return staticData;
         },
         [=](gsl::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
-            auto stopWatch = g_stats.timings.totalTraversalTime.getScopedStopwatch();
-
             int raysCulled = 0;
-            RTCScene embreeScene = pStaticData->scene->scene;
-            for (auto& [ray, si, state, insertHandle] : data) {
-                if (!m_svdag.intersectScalar(ray)) {
-                    raysCulled++;
-                    continue;
-                }
+            {
+                auto stopWatch = g_stats.timings.totalTraversalTime.getScopedStopwatch();
 
-                intersectInternal(embreeScene, ray, si);
+                RTCScene embreeScene = pStaticData->scene->scene;
+                for (auto& [ray, si, state, insertHandle] : data) {
+                    if (!m_svdag.intersectScalar(ray)) {
+                        raysCulled++;
+                        continue;
+                    }
+
+                    intersectInternal(embreeScene, ray, si);
+                }
             }
             g_stats.svdag.numIntersectionTests += data.size();
             g_stats.svdag.numRaysCulled += raysCulled;
@@ -235,21 +237,23 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             return staticData;
         },
         [=](gsl::span<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
-            auto stopWatch = g_stats.timings.totalTraversalTime.getScopedStopwatch();
-
             std::vector<uint32_t> hits;
             hits.resize(data.size());
             std::fill(std::begin(hits), std::end(hits), false);
 
-            int raysCulled = 0;
             int i = 0;
-            RTCScene embreeScene = pStaticData->scene->scene;
-            for (auto& [ray, state, insertHandle] : data) {
-                if (!m_svdag.intersectScalar(ray)) {
-                    hits[i++] = false;
-                    raysCulled++;
-                } else {
-                    hits[i++] = intersectAnyInternal(embreeScene, ray);
+            int raysCulled = 0;
+            {
+                auto stopWatch = g_stats.timings.totalTraversalTime.getScopedStopwatch();
+
+                RTCScene embreeScene = pStaticData->scene->scene;
+                for (auto& [ray, state, insertHandle] : data) {
+                    if (!m_svdag.intersectScalar(ray)) {
+                        hits[i++] = false;
+                        raysCulled++;
+                    } else {
+                        hits[i++] = intersectAnyInternal(embreeScene, ray);
+                    }
                 }
             }
             g_stats.svdag.numIntersectionTests += data.size();
@@ -446,8 +450,9 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
 
     // Moves batching points into internal structure
     PauseableBVH4<BatchingPointT, HitRayState, AnyHitRayState> topLevelBVH { batchingPoints };
+    g_stats.scene.numBatchingPoints = batchingPoints.size();
     g_stats.memory.topBVH = topLevelBVH.sizeBytes();
-    g_stats.memory.topBVHLeafs = batchingPoints.size();
+    g_stats.memory.topBVHLeafs = batchingPoints.size() * sizeof(BatchingPointT);
     return BatchingAccelerationStructure<HitRayState, AnyHitRayState>(
         m_embreeDevice, std::move(topLevelBVH), hitTask, missTask, anyHitTask, anyMissTask, m_pGeometryCache, m_pTaskGraph, m_botLevelBVHCacheSize);
 }

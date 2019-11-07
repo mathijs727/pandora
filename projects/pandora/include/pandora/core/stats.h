@@ -27,6 +27,8 @@ struct RenderStats : public metrics::Stats {
     struct {
         metrics::Counter<size_t> uniquePrimitives { "primitives" }; // Only count instances once
         metrics::Counter<size_t> totalPrimitives { "primitives" }; // Count each individual instance
+
+		metrics::Counter<size_t> numBatchingPoints { "batching points" };
     } scene;
 
     struct {

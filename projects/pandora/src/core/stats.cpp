@@ -19,6 +19,7 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
     ret["config"]["ooc"]["geom_cache_size"] = config.geomCacheSize;
     ret["config"]["ooc"]["bvh_cache_size"] = config.bvhCacheSize;
     ret["config"]["ooc"]["prims_per_batching_point"] = config.primGroupSize;
+    ret["config"]["ooc"]["num_batching_points"] = scene.numBatchingPoints;
 
     //ret["config"]["ooc"]["memory_limit_bytes"] = OUT_OF_CORE_MEMORY_LIMIT;
     //ret["config"]["ooc"]["prims_per_leaf"] = OUT_OF_CORE_BATCHING_PRIMS_PER_LEAF;
