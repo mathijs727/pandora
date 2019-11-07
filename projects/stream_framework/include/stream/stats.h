@@ -5,6 +5,7 @@
 #include <metrics/stats.h>
 #include <metrics/stopwatch.h>
 #include <spdlog/spdlog.h>
+#include <mutex>
 
 namespace tasking {
 
@@ -19,13 +20,14 @@ struct StreamStats : public metrics::Stats {
     struct FlushInfo {
         std::chrono::high_resolution_clock::time_point startTime;
 
-		std::string taskName;
+        std::string taskName;
         size_t itemsFlushed { 0 };
         metrics::Stopwatch<std::chrono::nanoseconds> staticDataLoadTime;
         metrics::Stopwatch<std::chrono::nanoseconds> processingTime;
 
         GeneralStats genStats;
     };
+    std::mutex infoAtFlushesMutex;
     std::vector<FlushInfo> infoAtFlushes;
 
 public:

@@ -1,6 +1,6 @@
 #pragma once
-#include "stream/queue/tbb_queue.h"
 #include "stream/queue/moodycamel_queue.h"
+#include "stream/queue/tbb_queue.h"
 #include "stream/stats.h"
 #include <EASTL/fixed_vector.h>
 #include <functional>
@@ -45,6 +45,9 @@ public:
     void run();
 
 private:
+    bool allQueuesEmpty() const;
+
+private:
     class TaskBase {
     public:
         virtual ~TaskBase() = default;
@@ -61,7 +64,7 @@ private:
         template <typename Kernel>
         static Task<T> initialize(std::string_view name, Kernel&&);
 
-		Task(Task<T>&&) = default;
+        Task(Task<T>&&) = default;
         ~Task() override = default;
 
         void enqueue(const T& item);
@@ -88,6 +91,7 @@ private:
     };
 
     std::vector<std::unique_ptr<TaskBase>> m_tasks;
+    std::mutex m_staticDataMutex; // Run only one at a time because the cache implementation is not thread safe
 };
 
 template <typename T, typename Kernel>
@@ -215,6 +219,8 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 
     void* pStaticData;
     {
+        std::lock_guard l { pTaskGraph->m_staticDataMutex };
+
         const std::string taskName = fmt::format("{}::staticDataLoad", m_name);
         OPTICK_EVENT_DYNAMIC(taskName.c_str());
         auto stopWatch = flushStats.staticDataLoadTime.getScopedStopwatch();
@@ -228,43 +234,55 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
         OPTICK_EVENT_DYNAMIC(taskName.c_str());
         auto stopWatch = flushStats.processingTime.getScopedStopwatch();
 
+        std::atomic_size_t itemsFlushed { 0 };
+
         tbb::task_group tg;
-        eastl::fixed_vector<T, 1024, false> workBatch;
-        auto executeKernel = [&]() {
-            // Run sequentially in debug mode
-            tg.run([this, pStaticData, workBatch = std::move(workBatch), &taskName]() mutable {
-                tryRegisterThreadWithOptick();
-                OPTICK_EVENT_DYNAMIC(taskName.c_str());
+        for (unsigned i = 0; i < std::thread::hardware_concurrency(); i++) {
+            tg.run([this, pStaticData, &itemsFlushed]() {
+                constexpr size_t workBatchSize = 256;
 
-                m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
+                size_t itemsFlushedLocal = 0;
+                eastl::fixed_vector<T, 256, false> workBatch;
+                auto executeKernel = [&]() {
+                    m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
+                    itemsFlushedLocal += workBatch.size();
+                };
+
+                T workItem;
+                while (m_workQueue.try_pop(workItem)) {
+                    workBatch.push_back(workItem);
+
+                    if (workBatch.size() == workBatchSize) {
+                        executeKernel();
+                        workBatch.clear();
+                    }
+                }
+                if (!workBatch.empty()) {
+                    executeKernel();
+                }
+
+                itemsFlushed.fetch_add(itemsFlushedLocal, std::memory_order_relaxed);
             });
-        };
-
-        T workItem;
-        while (m_workQueue.try_pop(workItem)) {
-            workBatch.push_back(workItem);
-
-            if (workBatch.full()) {
-                executeKernel();
-                flushStats.itemsFlushed += workBatch.kMaxSize;
-                workBatch.clear();
-            }
         }
-        if (!workBatch.empty()) {
-            executeKernel();
-            flushStats.itemsFlushed += workBatch.size();
-        }
-
         tg.wait();
+
+        flushStats.itemsFlushed = itemsFlushed.load(std::memory_order_relaxed);
     }
 
     {
+        // WARNING: LRUCache allows for multithreaded release operation but keep this in mind for future cache implementations!
+        std::lock_guard l { pTaskGraph->m_staticDataMutex };
+
         const std::string taskName = fmt::format("{}::staticDataDestruct", m_name);
         OPTICK_EVENT_DYNAMIC(taskName.c_str());
         // Call destructor on static data and free memory
         m_staticDataDestructor(pMemory, pStaticData);
     }
 
-    StreamStats::getSingleton().infoAtFlushes.emplace_back(std::move(flushStats));
+    auto& stats = StreamStats::getSingleton();
+    {
+        std::lock_guard l { stats.infoAtFlushesMutex };
+        stats.infoAtFlushes.emplace_back(std::move(flushStats));
+    }
 }
 }

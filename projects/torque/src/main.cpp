@@ -146,7 +146,7 @@ int main(int argc, char** argv)
     //using AccelBuilder = BatchingAccelerationStructureBuilder;
     using AccelBuilder = BatchingAccelerationStructureBuilder;
     spdlog::info("Preprocessing scene");
-    if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
+    if constexpr (false && std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
         auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
             "pandora_render_geom", 512llu * 1024 * 1024, mio_cache_control::cache_mode::sequential);
 

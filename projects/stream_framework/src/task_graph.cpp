@@ -1,14 +1,17 @@
 #include "stream/task_graph.h"
 #include <algorithm>
 #include <cassert>
+#include <mutex>
 #include <optick/optick.h>
 #include <optick/optick_tbb.h>
+#include <tbb/task_arena.h>
 
 namespace tasking {
 
 void TaskGraph::run()
 {
-    while (true) {
+    tbb::task_group tg;
+    std::function<void()> schedule = [&]() {
         TaskBase* pTask { nullptr };
         {
             OPTICK_EVENT("Task Selection");
@@ -24,9 +27,17 @@ void TaskGraph::run()
             pTask = bestTaskIter->get();
         }
         if (pTask->approxQueueSize() == 0)
-            break;
+            return;
 
         pTask->execute(this);
+        tg.run(schedule);
+    };
+
+    while (!allQueuesEmpty()) {
+        tg.run(schedule);
+        //tg.run(schedule);
+        //tg.run(schedule);
+        tg.run_and_wait(schedule);
     }
 }
 
@@ -46,6 +57,15 @@ size_t TaskGraph::approxQueuedItems() const
         queuedItems += pTask->approxQueueSize();
     }
     return queuedItems;
+}
+
+bool TaskGraph::allQueuesEmpty() const
+{
+    for (const auto& pTask : m_tasks) {
+        if (pTask->approxQueueSize() > 0)
+            return false;
+    }
+    return true;
 }
 
 }
