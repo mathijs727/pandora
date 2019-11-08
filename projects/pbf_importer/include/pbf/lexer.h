@@ -51,6 +51,12 @@ inline std::string_view Lexer::readT()
 }
 
 template <>
+inline std::string Lexer::readT()
+{
+    return std::string(readT<std::string_view>());
+}
+
+template <>
 inline std::filesystem::path Lexer::readT()
 {
     const auto fileName = readT<std::string_view>();

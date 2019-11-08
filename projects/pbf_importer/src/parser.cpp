@@ -1,5 +1,8 @@
 #include "pbf/parser.h"
+#include <cmath>
 #include <spdlog/spdlog.h>
+
+static glm::vec3 colorTempToRGB(float colorTemp);
 
 // Binary file format lexer for PBF format by Ingo Wald.
 // Based on code by Ingo Wald:
@@ -96,10 +99,30 @@ void* Parser::parseEntity()
     switch (tag) {
     case Type::SCENE:
         return parseScene();
+    case Type::OBJECT:
+        return parseObject();
+    case Type::INSTANCE:
+        return parseInstance();
     case Type::CAMERA:
         return parseCamera();
     case Type::FILM:
         return parseFilm();
+    case Type::MATTE_MATERIAL:
+        return parseMatteMaterial();
+    case Type::IMAGE_TEXTURE:
+        return parseImageTexture();
+    case Type::CONSTANT_TEXTURE:
+        return parseConstantTexture();
+    case Type::TRIANGLE_MESH:
+        return parseTriangleMesh();
+    case Type::DIFFUSE_AREA_LIGHT_BB:
+        return parseDiffuseAreaLightBB();
+    case Type::DIFFUSE_AREA_LIGHT_RGB:
+        return parseDiffuseAreaLightRGB();
+    case INFINITE_LIGHT_SOURCE:
+        return parseInfiniteLightSource();
+    case DISTANT_LIGHT_SOURCE:
+        return parseDistantLightSource();
     default: {
         spdlog::warn("Skipping unsupported entity type with tag {}", tag);
         (void)m_pLexer->readArray<std::byte>(size);
@@ -108,11 +131,30 @@ void* Parser::parseEntity()
     }
 }
 
-PBFFilm* Parser::parseFilm()
+PBFScene* Parser::parseScene()
 {
-    PBFFilm* pOut = allocate<PBFFilm>();
-    pOut->resolution = m_pLexer->readT<glm::ivec2>();
-    pOut->filePath = m_pLexer->readT<std::filesystem::path>();
+    PBFScene* pOut = allocate<PBFScene>();
+    pOut->pFilm = read<PBFFilm*>();
+    pOut->cameras = readVector<PBFCamera*>();
+    pOut->pWorld = read<PBFWorld*>();
+    return pOut;
+}
+
+PBFObject* Parser::parseObject()
+{
+    PBFObject* pOut = allocate<PBFObject>();
+    pOut->name = read<std::string_view>();
+    pOut->shapes = readShortVector<PBFShape*>();
+    pOut->lightSources = readShortVector<PBFLightSource*>();
+    pOut->instances = readShortVector<PBFInstance*>();
+    return pOut;
+}
+
+PBFInstance* Parser::parseInstance()
+{
+    PBFInstance* pOut = allocate<PBFInstance>();
+    pOut->transform = read<glm::mat4x3>();
+    pOut->pObject = read<PBFObject*>();
     return pOut;
 }
 
@@ -127,13 +169,142 @@ PBFCamera* Parser::parseCamera()
     return pOut;
 }
 
-PBFScene* Parser::parseScene()
+PBFFilm* Parser::parseFilm()
 {
-    PBFScene* pOut = allocate<PBFScene>();
-    pOut->pFilm = getNextEntity<PBFFilm>();
-    pOut->cameras = getNextEntityVector<PBFCamera>();
-    pOut->pWorld = getNextEntity<PBFWorld>();
+    PBFFilm* pOut = allocate<PBFFilm>();
+    pOut->resolution = m_pLexer->readT<glm::ivec2>();
+    pOut->filePath = m_pLexer->readT<std::filesystem::path>();
     return pOut;
 }
 
+void Parser::parseMaterial(PBFMaterial* pOut)
+{
+    pOut->name = read<std::string_view>();
+}
+
+PBFMatteMaterial* Parser::parseMatteMaterial()
+{
+    PBFMatteMaterial* pOut = allocate<PBFMatteMaterial>();
+    parseMaterial(pOut);
+    pOut->mapKd = read<PBFTexture*>();
+    pOut->kd = read<glm::vec3>();
+    pOut->sigma = read<float>();
+    pOut->mapSigma = read<PBFTexture*>();
+    pOut->mapBump = read<PBFTexture*>();
+    return pOut;
+}
+
+void Parser::parseTexture(PBFTexture* pOut)
+{
+    void;
+}
+
+PBFImageTexture* Parser::parseImageTexture()
+{
+    PBFImageTexture* pOut = allocate<PBFImageTexture>();
+    parseTexture(pOut);
+    pOut->filePath = read<std::filesystem::path>();
+    return pOut;
+}
+
+PBFConstantTexture* Parser::parseConstantTexture()
+{
+    PBFConstantTexture* pOut = allocate<PBFConstantTexture>();
+    pOut->value = read<glm::vec3>();
+    return pOut;
+}
+
+void Parser::parseShape(PBFShape* pOut)
+{
+    pOut->pMaterial = read<PBFMaterial*>();
+    pOut->textures = readMap<std::string_view, PBFTexture*>();
+    pOut->pAreaLight = read<PBFDiffuseAreaLight*>();
+    pOut->reverseOrientation = read<int8_t>();
+}
+
+PBFTriangleMesh* Parser::parseTriangleMesh()
+{
+    PBFTriangleMesh* pOut = allocate<PBFTriangleMesh>();
+    parseShape(pOut);
+    pOut->vertex = readVector<glm::vec3>();
+    pOut->normal = readVector<glm::vec3>();
+    pOut->index = readVector<glm::ivec3>();
+    return pOut;
+}
+
+PBFDiffuseAreaLight* Parser::parseDiffuseAreaLightBB()
+{
+    const float temperature = read<float>();
+    const float scale = read<float>();
+    const glm::vec3 color = colorTempToRGB(temperature);
+
+    PBFDiffuseAreaLight* pOut = allocate<PBFDiffuseAreaLight>();
+    pOut->L = color * scale;
+    return pOut;
+}
+
+PBFDiffuseAreaLight* Parser::parseDiffuseAreaLightRGB()
+{
+    PBFDiffuseAreaLight* pOut = allocate<PBFDiffuseAreaLight>();
+    pOut->L = read<glm::vec3>();
+    return pOut;
+}
+
+PBFInfiniteLightSource* Parser::parseInfiniteLightSource()
+{
+    PBFInfiniteLightSource* pOut = allocate<PBFInfiniteLightSource>();
+    pOut->filePath = read<std::filesystem::path>();
+    pOut->transform = read<glm::mat4x3>();
+    pOut->L = read<glm::vec3>();
+    pOut->scale = read<glm::vec3>();
+    pOut->nSamples = read<int>();
+    return pOut;
+}
+
+PBFDistantLightSource* Parser::parseDistantLightSource()
+{
+    PBFDistantLightSource* pOut = allocate<PBFDistantLightSource>();
+    pOut->from = read<glm::vec3>();
+    pOut->to= read<glm::vec3>();
+    pOut->L = read<glm::vec3>();
+    pOut->scale = read<glm::vec3>();
+    return pOut;
+}
+
+}
+
+// Probably not the most accurate (PBRT is probably better) but this should get the job done.
+// http://www.tannerhelland.com/4435/convert-temperature-rgb-algorithm-code/
+glm::vec3 colorTempToRGB(float colorTemp)
+{
+    glm::vec3 rgb { 0 };
+    colorTemp /= 100.0f;
+
+    // Red
+    if (colorTemp <= 66) {
+        rgb.r = 255;
+    } else {
+        rgb.r = 329.698727446f * std::powf(colorTemp - 60.0f, -0.1332047592f);
+        rgb.r = std::clamp(rgb.r, 0.0f, 255.0f);
+    }
+
+    // Green
+    if (colorTemp <= 66) {
+        rgb.g = 99.4708025861f * std::logf(rgb.g) - 161.1195681661f;
+    } else {
+        rgb.g = 288.1221695283f * std::powf(colorTemp - 60, -0.0755148492f);
+    }
+    rgb.g = std::clamp(rgb.g, 0.0f, 255.0f);
+
+    // Blue
+    if (colorTemp >= 66) {
+        rgb.b = 255;
+    } else if (colorTemp <= 19) {
+        rgb.b = 0;
+    } else {
+        rgb.b = 138.5177312231f * std::logf(colorTemp - 10) - 305.0447927307f;
+        rgb.b = std::clamp(rgb.b, 0.0f, 255.0f);
+    }
+
+    return rgb / 255.0f;
 }

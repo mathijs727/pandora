@@ -4,10 +4,12 @@
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <memory>
+#include <memory_resource>
 #include <string>
 #include <tuple>
+#include <type_traits>
+#include <unordered_map>
 #include <vector>
-#include <memory_resource>
 
 namespace pbf {
 
@@ -21,29 +23,21 @@ struct PBFImageTexture : public PBFTexture {
 };
 
 struct PBFMaterial {
-    std::string name;
+    std::string_view name;
 };
 struct PBFMatteMaterial : public PBFMaterial {
     glm::vec3 kd { 0.5f };
-    std::shared_ptr<PBFTexture> mapKd;
+    PBFTexture* mapKd;
 
     float sigma { 0.0f };
-    std::shared_ptr<PBFTexture> mapSigma;
-    std::shared_ptr<PBFTexture> mapBump;
-};
-
-struct PBFAreaLight {
-    glm::vec3 L;
-};
-
-struct PBFShape {
-    PBFMaterial material;
-    bool reverseOrientation { false };
-    std::vector<std::tuple<std::string, std::shared_ptr<PBFTexture>>> textures;
-    std::unique_ptr<PBFAreaLight> areaLight;
+    PBFTexture* mapSigma;
+    PBFTexture* mapBump;
 };
 
 struct PBFLightSource {
+};
+struct PBFDiffuseAreaLight { // : public PBFLightSource
+    glm::vec3 L;
 };
 struct PBFInfiniteLightSource : public PBFLightSource {
     std::filesystem::path filePath;
@@ -59,18 +53,30 @@ struct PBFDistantLightSource : public PBFLightSource {
     glm::vec3 scale { 1.0f };
 };
 
+struct PBFShape {
+    PBFMaterial* pMaterial;
+    bool reverseOrientation { false };
+    std::pmr::unordered_map<std::string_view, PBFTexture*> textures;
+    PBFDiffuseAreaLight* pAreaLight { nullptr };
+};
+struct PBFTriangleMesh : public PBFShape {
+    std::pmr::vector<glm::ivec3> index;
+    std::pmr::vector<glm::vec3> vertex;
+    std::pmr::vector<glm::vec3> normal;
+    //std::pmr::vector<glm::vec2> texCoord;
+};
 
 struct PBFObject;
 struct PBFInstance {
-    std::shared_ptr<PBFObject> object;
+    PBFObject* pObject;
     glm::mat4x3 transform;
 };
 struct PBFObject {
-    std::vector<PBFShape> shapes;
-    std::vector<PBFLightSource> lightSources;
-    std::vector<PBFInstance> instances;
+    std::pmr::vector<PBFShape*> shapes;
+    std::pmr::vector<PBFLightSource*> lightSources;
+    std::pmr::vector<PBFInstance*> instances;
 
-    std::string name;
+    std::string_view name;
 };
 
 struct PBFWorld {
@@ -80,7 +86,7 @@ struct PBFWorld {
     std::string name;
 };
 
-struct PBFFilm{
+struct PBFFilm {
     glm::ivec2 resolution;
     std::filesystem::path filePath;
 };
@@ -117,46 +123,98 @@ public:
 private:
     void* parseEntity();
 
-    PBFFilm* parseFilm();
-    PBFCamera* parseCamera();
     PBFScene* parseScene();
+    PBFObject* parseObject();
+    PBFInstance* parseInstance();
+    PBFCamera* parseCamera();
+    PBFFilm* parseFilm();
 
-	// Read pointer / pointers to existing entities
-	template <typename T>
-    T* getNextEntity();
+    void parseMaterial(PBFMaterial* pOut);
+    PBFMatteMaterial* parseMatteMaterial();
+
+    void parseTexture(PBFTexture* pOut);
+    PBFImageTexture* parseImageTexture();
+    PBFConstantTexture* parseConstantTexture();
+
+    void parseShape(PBFShape* pOut);
+    PBFTriangleMesh* parseTriangleMesh();
+
+	void parseDiffuseAreaLight(PBFDiffuseAreaLight* pLight);
+    PBFDiffuseAreaLight* parseDiffuseAreaLightBB();
+    PBFDiffuseAreaLight* parseDiffuseAreaLightRGB();
+    PBFInfiniteLightSource* parseInfiniteLightSource();
+    PBFDistantLightSource* parseDistantLightSource();
+
+    // Read pointer / pointers to existing entities
     template <typename T>
-    std::pmr::vector<T*> getNextEntityVector();
+    T read();
+    template <typename T>
+    std::pmr::vector<T> readVector(); // Vector with uint64_t length
+    template <typename T>
+    std::pmr::vector<T> readShortVector(); // Vector with int32_t length
+    template <typename T1, typename T2>
+    std::pmr::unordered_map<T1, T2> readMap();
 
-	template <typename T>
+    template <typename T>
     T* allocate();
 
 private:
     Lexer* m_pLexer { nullptr };
     std::pmr::monotonic_buffer_resource m_memoryResource;
 
-	std::vector<void*> m_readEntities;
+    std::vector<void*> m_readEntities;
 };
 
 template <typename T>
-inline T* Parser::getNextEntity()
+inline T Parser::read()
 {
-    const int32_t id = m_pLexer->readT<int32_t>();
+    if constexpr (std::is_pointer_v<T>) {
+        // Entity pointer
+        const int32_t id = m_pLexer->readT<int32_t>();
 
-	if (id == -1)
-        return nullptr;
+        if (id == -1)
+            return nullptr;
 
-	return reinterpret_cast<T*>(m_readEntities[id]);
+        return reinterpret_cast<T>(m_readEntities[id]);
+    } else {
+        return m_pLexer->readT<T>();
+    }
 }
 
 template <typename T>
-inline std::pmr::vector<T*> Parser::getNextEntityVector()
+inline std::pmr::vector<T> Parser::readVector()
 {
     const uint64_t length = m_pLexer->readT<uint64_t>();
-    std::pmr::vector<T*> vt { length, &m_memoryResource };
+    std::pmr::vector<T> vt { length, &m_memoryResource };
     for (uint64_t i = 0; i < length; i++) {
-        vt[i] = getNextEntity<T>();
+        vt[i] = read<T>();
     }
     return vt;
+}
+
+template <typename T>
+inline std::pmr::vector<T> Parser::readShortVector()
+{
+    const int32_t length = m_pLexer->readT<int32_t>();
+    std::pmr::vector<T> vt { static_cast<size_t>(length), &m_memoryResource };
+    for (int32_t i = 0; i < length; i++) {
+        vt[i] = read<T>();
+    }
+    return vt;
+}
+
+template <typename T1, typename T2>
+inline std::pmr::unordered_map<T1, T2> Parser::readMap()
+{
+    const uint32_t size = m_pLexer->readT<uint32_t>();
+
+    std::pmr::unordered_map<T1, T2> mt { 2 * size, &m_memoryResource };
+    for (uint64_t i = 0; i < size; i++) {
+        T1 t1 = read<T1>();
+        T2 t2 = read<T2>();
+        mt[t1] = t2;
+    }
+    return mt;
 }
 
 template <typename T>
