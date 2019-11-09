@@ -19,10 +19,10 @@
 #include <pandora/traversal/batching_acceleration_structure.h>
 #include <pandora/traversal/embree_acceleration_structure.h>
 #include <pbrt/pbrt_importer.h>
+#include <pbf/pbf_importer.h>
 #include <stream/cache/lru_cache.h>
 #include <stream/serialize/file_serializer.h>
 #include <stream/serialize/in_memory_serializer.h>
-
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <string>
@@ -136,7 +136,16 @@ int main(int argc, char** argv)
     {
         OPTICK_EVENT("loadFromFile");
         const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
-        renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false) : loadFromFile(sceneFilePath);
+        if (sceneFilePath.extension() == ".pbrt")
+            renderConfig = pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false);
+        else if (sceneFilePath.extension() == ".pbf")
+            renderConfig = pbf::loadFromPBFFile(sceneFilePath, &cacheBuilder, false);
+        else if (sceneFilePath.extension() == ".json")
+            renderConfig = loadFromFile(sceneFilePath);
+        else {
+            spdlog::error("Unknown scene file extension {}", sceneFilePath.extension().string());
+            exit(1);
+        }
     }
     const glm::ivec2 resolution = renderConfig.resolution;
     tasking::LRUCache geometryCache = cacheBuilder.build(geomCacheSize);

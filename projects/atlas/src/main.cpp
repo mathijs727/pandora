@@ -104,7 +104,7 @@ int main(int argc, char** argv)
     else if (sceneFilePath.extension() == ".pbf")
         renderConfig = pbf::loadFromPBFFile(sceneFilePath, &cacheBuilder, false);
     else if (sceneFilePath.extension() == ".json")
-		renderConfig = loadFromFile(sceneFilePath);
+        renderConfig = loadFromFile(sceneFilePath);
     else {
         spdlog::error("Unknown scene file extension {}", sceneFilePath.extension().string());
         exit(1);
@@ -135,17 +135,19 @@ int main(int argc, char** argv)
     //PathIntegrator integrator { &taskGraph, &geometryCache, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Preprocessing scene");
-    using AccelBuilder = BatchingAccelerationStructureBuilder;
-    constexpr unsigned primitivesPerBatchingPoint = 100000;
-    if (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
+    //using AccelBuilder = BatchingAccelerationStructureBuilder;
+    using AccelBuilder = EmbreeAccelerationStructureBuilder;
+    /*constexpr unsigned primitivesPerBatchingPoint = 100000;
+    if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
         cacheBuilder = tasking::LRUCache::Builder { std::make_unique<tasking::InMemorySerializer>() };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
         auto newCache = cacheBuilder.build(geometryCache.maxSize());
         geometryCache = std::move(newCache);
-    }
+    }*/
 
     spdlog::info("Building acceleration structure");
-    AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint };
+    //AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint };
+    AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
     bool pressedEscape = false;
@@ -167,7 +169,7 @@ int main(int argc, char** argv)
             sensor.clear(glm::vec3(0.0f));
         }
 
-#if 1
+#if 0
         integrator.render(500 * 1000, camera, sensor, *renderConfig.pScene, accel, samples);
 #else
         samples = 0;

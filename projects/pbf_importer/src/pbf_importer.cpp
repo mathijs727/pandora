@@ -11,7 +11,7 @@
 
 namespace pbf {
 
-pandora::RenderConfig pbfToRenderConfig(PBFScene* pScene);
+pandora::RenderConfig pbfToRenderConfig(PBFScene* pScene, tasking::CacheBuilder* pCacheBuilder, bool loadTextures);
 
 pandora::RenderConfig pbf::loadFromPBFFile(
     std::filesystem::path filePath, tasking::CacheBuilder* pCacheBuilder, bool loadTextures)
@@ -20,10 +20,12 @@ pandora::RenderConfig pbf::loadFromPBFFile(
     Parser parser { &lexer };
     auto* pPBFScene = parser.parse();
 
-    return pbfToRenderConfig(pPBFScene);
+    return pbfToRenderConfig(pPBFScene, pCacheBuilder, loadTextures);
 }
 
 struct Converter {
+    Converter(tasking::CacheBuilder* pCacheBuilder, bool loadTextures);
+
     static pandora::PerspectiveCamera convertCamera(const PBFCamera* pBbfCamera, float aspectRatio);
     pandora::Scene convertWorld(const PBFObject* pWorld);
 
@@ -37,22 +39,31 @@ struct Converter {
     std::shared_ptr<pandora::Texture<T>> getTexOptional(const PBFTexture* pTexture, T constValue);
 
 private:
+    bool m_loadTextures;
+    tasking::CacheBuilder* m_pCacheBuilder;
+
     TextureCache m_texCache;
     std::unordered_map<const PBFMaterial*, std::shared_ptr<pandora::Material>> m_materialCache;
 };
 
-pandora::RenderConfig pbfToRenderConfig(PBFScene* pScene)
+pandora::RenderConfig pbfToRenderConfig(PBFScene* pScene, tasking::CacheBuilder* pCacheBuilder, bool loadTextures)
 {
     const glm::ivec2 resolution = pScene->pFilm->resolution;
     const float aspectRatio = static_cast<float>(resolution.x) / static_cast<float>(resolution.y);
 
-    Converter converter {};
+    Converter converter { pCacheBuilder, loadTextures };
 
     pandora::RenderConfig out {};
     out.camera = std::make_unique<pandora::PerspectiveCamera>(Converter::convertCamera(pScene->cameras[0], aspectRatio));
     out.resolution = resolution;
     out.pScene = std::make_unique<pandora::Scene>(converter.convertWorld(pScene->pWorld));
     return out;
+}
+
+Converter::Converter(tasking::CacheBuilder* pCacheBuilder, bool loadTextures)
+    : m_pCacheBuilder(pCacheBuilder)
+    , m_loadTextures(loadTextures)
+{
 }
 
 pandora::PerspectiveCamera Converter::convertCamera(const PBFCamera* pBbfCamera, float aspectRatio)
@@ -76,6 +87,8 @@ pandora::Scene Converter::convertWorld(const PBFObject* pWorld)
             continue;
 
         auto pShape = convertShape(pPBFShape);
+        m_pCacheBuilder->registerCacheable(pShape.get());
+
         auto pMaterial = convertMaterial(pPBFShape->pMaterial);
 
         // Load area light
@@ -165,6 +178,11 @@ std::shared_ptr<pandora::Texture<T>> Converter::getTexture(const PBFTexture* pTe
             return m_texCache.getConstantTexture<T>(pConstantTexture->value.x);
         else
             return m_texCache.getConstantTexture<T>(pConstantTexture->value);
+    } else if (!m_loadTextures) {
+        if constexpr (std::is_same_v<T, float>)
+            return m_texCache.getConstantTexture<T>(0.5f);
+        else
+            return m_texCache.getConstantTexture<T>(glm::vec3(0.5f));
     } else if (const auto* pImageTexture = dynamic_cast<const PBFImageTexture*>(pTexture)) {
         return m_texCache.getImageTexture<T>(pImageTexture->filePath);
     } else {
