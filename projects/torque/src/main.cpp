@@ -135,6 +135,7 @@ int main(int argc, char** argv)
     RenderConfig renderConfig;
     {
         OPTICK_EVENT("loadFromFile");
+        auto stopWatch = g_stats.timings.loadFromFileTime.getScopedStopwatch();
         const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
         if (sceneFilePath.extension() == ".pbrt")
             renderConfig = pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false);

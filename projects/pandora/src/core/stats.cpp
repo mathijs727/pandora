@@ -29,6 +29,7 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
     ret["scene"]["unique_primitives"] = scene.uniquePrimitives;
     ret["scene"]["total_primitives"] = scene.totalPrimitives;
 
+    ret["timings"]["load_from_file_time"] = timings.loadFromFileTime;
     ret["timings"]["total_render_time"] = timings.totalRenderTime;
     ret["timings"]["total_traversal_time"] = timings.totalTraversalTime;
     ret["timings"]["svdag_traversal_time"] = timings.svdagTraversalTime;
