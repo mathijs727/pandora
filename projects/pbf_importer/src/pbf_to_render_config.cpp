@@ -48,14 +48,15 @@ pandora::PerspectiveCamera Converter::convertCamera(const PBFCamera* pBbfCamera,
     if (aspectRatio > 1.0f)
         fovX = glm::degrees(std::atan(std::tan(glm::radians(fovX / 2.0f)) * aspectRatio) * 2.0f);
 
-    return pandora::PerspectiveCamera(aspectRatio, fovX, pBbfCamera->frame);
+    const glm::mat4 transform = glm::scale(glm::identity<glm::mat4>(), glm::vec3(1, -1, 1)) * pPbfCamera->frame;
+    return pandora::PerspectiveCamera(aspectRatio, fovX, transform);
 }
 
 pandora::Scene Converter::convertWorld(const PBFObject* pWorld)
 {
     pandora::SceneBuilder sceneBuilder;
 
-	// TODO: instancing
+    // TODO: instancing
 
     for (const auto* pPBFShape : pWorld->shapes) {
         if (!pPBFShape)
