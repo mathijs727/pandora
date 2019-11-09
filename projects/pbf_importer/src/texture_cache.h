@@ -22,6 +22,7 @@ struct hash<glm::vec3> {
 };
 }
 
+namespace pbf {
 class TextureCache {
 public:
     template <typename T>
@@ -64,3 +65,4 @@ private:
     std::tuple<ImageCache<float>, ImageCache<glm::vec3>> m_imageTextures;
     std::tuple<ConstantCache<float>, ConstantCache<glm::vec3>> m_constantTextures;
 };
+}

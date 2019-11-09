@@ -17,7 +17,7 @@
 #include "ui/fps_camera_controls.h"
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
-
+#include "pbf/pbf_importer.h"
 #include "pandora/graphics_core/load_from_file.h"
 #include "stream/cache/dummy_cache.h"
 #include "stream/cache/lru_cache.h"
@@ -98,7 +98,17 @@ int main(int argc, char** argv)
     //tasking::DummyCache::Builder dummyCacheBuilder;
 
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
-    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false) : loadFromFile(sceneFilePath);
+    RenderConfig renderConfig;
+    if (sceneFilePath.extension() == ".pbrt")
+        renderConfig = pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false);
+    else if (sceneFilePath.extension() == ".pbf")
+        renderConfig = pbf::loadFromPBFFile(sceneFilePath, &cacheBuilder, false);
+    else if (sceneFilePath.extension() == ".json")
+		renderConfig = loadFromFile(sceneFilePath);
+    else {
+        spdlog::error("Unknown scene file extension {}", sceneFilePath.extension().string());
+        exit(1);
+    }
     const glm::ivec2 resolution = renderConfig.resolution;
     tasking::LRUCache geometryCache = cacheBuilder.build(500 * 1024 * 1024);
 

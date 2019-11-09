@@ -80,15 +80,13 @@ Parser::Parser(Lexer* pLexer)
     }
 }
 
-pandora::RenderConfig Parser::parse()
+PBFScene* Parser::parse()
 {
-    PBFScene scene;
-
     while (!m_pLexer->endOfFile()) {
         m_readEntities.push_back(parseEntity());
     }
 
-    return pandora::RenderConfig {};
+	return m_pScene;
 }
 
 void* Parser::parseEntity()
@@ -97,8 +95,11 @@ void* Parser::parseEntity()
     const int32_t tag = m_pLexer->readT<uint32_t>();
 
     switch (tag) {
-    case Type::SCENE:
-        return parseScene();
+    case Type::SCENE: {
+        auto* pScene = parseScene();
+        m_pScene = pScene;
+        return pScene;
+    } break;
     case Type::OBJECT:
         return parseObject();
     case Type::INSTANCE:
@@ -136,7 +137,7 @@ PBFScene* Parser::parseScene()
     PBFScene* pOut = allocate<PBFScene>();
     pOut->pFilm = read<PBFFilm*>();
     pOut->cameras = readVector<PBFCamera*>();
-    pOut->pWorld = read<PBFWorld*>();
+    pOut->pWorld = read<PBFObject*>();
     return pOut;
 }
 
@@ -265,7 +266,7 @@ PBFDistantLightSource* Parser::parseDistantLightSource()
 {
     PBFDistantLightSource* pOut = allocate<PBFDistantLightSource>();
     pOut->from = read<glm::vec3>();
-    pOut->to= read<glm::vec3>();
+    pOut->to = read<glm::vec3>();
     pOut->L = read<glm::vec3>();
     pOut->scale = read<glm::vec3>();
     return pOut;
