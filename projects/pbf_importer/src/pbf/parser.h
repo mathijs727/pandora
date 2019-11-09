@@ -51,6 +51,8 @@ private:
     template <typename T>
     std::pmr::vector<T> readVector(); // Vector with uint64_t length
     template <typename T>
+    gsl::span<const T> readSpan(); // Vector with uint64_t length
+    template <typename T>
     std::pmr::vector<T> readShortVector(); // Vector with int32_t length
     template <typename T1, typename T2>
     std::pmr::unordered_map<T1, T2> readMap();
@@ -91,6 +93,13 @@ inline std::pmr::vector<T> Parser::readVector()
         vt[i] = read<T>();
     }
     return vt;
+}
+
+template <typename T>
+inline gsl::span<const T> Parser::readSpan()
+{
+    const uint64_t length = m_pLexer->readT<uint64_t>();
+    return m_pLexer->readArray<T>(length);
 }
 
 template <typename T>

@@ -110,9 +110,9 @@ pandora::Scene Converter::convertWorld(const PBFObject* pWorld)
 std::shared_ptr<pandora::Shape> Converter::convertShape(const PBFShape* pPBFShape)
 {
     if (const auto* pPBFTriangleShape = dynamic_cast<const PBFTriangleMesh*>(pPBFShape)) {
-        std::vector<glm::uvec3> indices { pPBFTriangleShape->index.size() };
-        std::vector<glm::vec3> positions { pPBFTriangleShape->vertex.size() };
-        std::vector<glm::vec3> normals { pPBFTriangleShape->normal.size() };
+        std::vector<glm::uvec3> indices { static_cast<size_t>(pPBFTriangleShape->index.size()) };
+        std::vector<glm::vec3> positions { static_cast<size_t>(pPBFTriangleShape->vertex.size()) };
+        std::vector<glm::vec3> normals { static_cast<size_t>(pPBFTriangleShape->normal.size()) };
         std::vector<glm::vec2> texCoords;
         std::copy(
             std::begin(pPBFTriangleShape->index),

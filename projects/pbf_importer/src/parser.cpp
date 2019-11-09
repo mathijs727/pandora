@@ -227,9 +227,9 @@ PBFTriangleMesh* Parser::parseTriangleMesh()
 {
     PBFTriangleMesh* pOut = allocate<PBFTriangleMesh>();
     parseShape(pOut);
-    pOut->vertex = readVector<glm::vec3>();
-    pOut->normal = readVector<glm::vec3>();
-    pOut->index = readVector<glm::ivec3>();
+    pOut->vertex = readSpan<glm::vec3>();
+    pOut->normal = readSpan<glm::vec3>();
+    pOut->index = readSpan<glm::ivec3>();
     return pOut;
 }
 
