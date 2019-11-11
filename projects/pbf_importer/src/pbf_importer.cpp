@@ -146,7 +146,11 @@ std::shared_ptr<pandora::Material> Converter::convertMaterial(const PBFMaterial*
 
             pPandoraMaterial = std::make_shared<pandora::MatteMaterial>(pKdTexture, pSigmaTexture);
         } else {
-            spdlog::error("Unknown shape type encountered");
+            spdlog::error("Unknown material type encountered");
+            auto pKdTexture = m_texCache.getConstantTexture(glm::vec3(1.0f));
+            auto pSigmaTexture = m_texCache.getConstantTexture(0.5f);
+
+            pPandoraMaterial = std::make_shared<pandora::MatteMaterial>(pKdTexture, pSigmaTexture);
         }
         m_materialCache[pMaterial] = pPandoraMaterial;
         return pPandoraMaterial;
