@@ -12,6 +12,7 @@
 #include "stream/cache/lru_cache.h"
 #include "stream/task_graph.h"
 #include <embree3/rtcore.h>
+#include <execution>
 #include <glm/gtc/type_ptr.hpp>
 #include <gsl/span>
 #include <optick/optick.h>
@@ -115,7 +116,8 @@ private:
     static void splitLargeSceneObjectsRecurse(SceneNode* pNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize);
     static void verifyInstanceDepth(const SceneNode* pSceneNode, int depth = 0);
 
-    SparseVoxelDAG createSVDAG(const SubScene& subScene, int resolution = 256);
+    [[nodiscard]] std::vector<tasking::CachedPtr<Shape>> makeSubSceneResident(const SubScene& subScene);
+    static SparseVoxelDAG createSVDAG(const SubScene& subScene, int resolution = 256);
 
 private:
     size_t m_botLevelBVHCacheSize;
@@ -423,27 +425,36 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
     OPTICK_EVENT();
     spdlog::info("Creating batching points");
 
-    std::vector<SparseVoxelDAG> svdags;
-    std::transform(std::begin(m_subScenes), std::end(m_subScenes), std::back_inserter(svdags),
-        [&](const auto& subScene) {
-            return createSVDAG(subScene);
+    std::vector<std::optional<SparseVoxelDAG>> svdags;
+    svdags.resize(m_subScenes.size());
+    tbb::task_group tg;
+    for (size_t i = 0; i < m_subScenes.size(); i++) {
+        // Make resident sequentially
+        const auto& subScene = m_subScenes[i];
+        auto shapesOwningPtrs = makeSubSceneResident(subScene);
+
+        // Voxelize and create SVO in parallel
+        tg.run([i, &subScene, shapesOwningPtrs=std::move(shapesOwningPtrs), &svdags]() {
+            svdags[i] = createSVDAG(subScene);
         });
+    }
+    tg.wait();
 
     for (const auto& svdag : svdags)
-        g_stats.memory.svdagsBeforeCompression += svdag.sizeBytes();
+        g_stats.memory.svdagsBeforeCompression += svdag->sizeBytes();
 
     std::vector<SparseVoxelDAG*> pSvdags;
     for (auto& svdag : svdags)
-        pSvdags.push_back(&svdag);
+        pSvdags.push_back(&svdag.value());
     SparseVoxelDAG::compressDAGs(pSvdags);
 
     for (const auto& svdag : svdags)
-        g_stats.memory.svdagsAfterCompression += svdag.sizeBytes();
+        g_stats.memory.svdagsAfterCompression += svdag->sizeBytes();
 
     using BatchingPointT = typename BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint;
     std::vector<BatchingPointT> batchingPoints;
     for (size_t i = 0; i < m_subScenes.size(); i++) {
-        batchingPoints.emplace_back(std::move(m_subScenes[i]), std::move(svdags[i]), m_pGeometryCache, m_pTaskGraph);
+        batchingPoints.emplace_back(std::move(m_subScenes[i]), std::move(*svdags[i]), m_pGeometryCache, m_pTaskGraph);
     }
 
     spdlog::info("Constructing top level BVH");

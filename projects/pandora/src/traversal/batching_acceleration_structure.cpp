@@ -68,6 +68,32 @@ static void copyShapeToNewCacheRecurse(SceneNode* pSceneNode, tasking::LRUCache&
     }
 }
 
+std::vector<tasking::CachedPtr<Shape>> BatchingAccelerationStructureBuilder::makeSubSceneResident(const SubScene& subScene)
+{
+    OPTICK_EVENT();
+
+    std::vector<tasking::CachedPtr<Shape>> owningPtrs;
+    for (const auto& pSceneObject : subScene.sceneObjects) {
+        owningPtrs.emplace_back(m_pGeometryCache->makeResident(pSceneObject->pShape.get()));
+    }
+
+    std::function<void(const SceneNode*)> makeResidentRecurse = [&](const SceneNode* pSceneNode) {
+        for (const auto& pSceneObject : pSceneNode->objects) {
+            owningPtrs.emplace_back(m_pGeometryCache->makeResident(pSceneObject->pShape.get()));
+
+        }
+
+        for (const auto& [pChild, _] : pSceneNode->children) {
+            makeResidentRecurse(pChild.get());
+        }
+    };
+    for (const auto& [pChild, _] : subScene.sceneNodes) {
+        makeResidentRecurse(pChild);
+    }
+
+	return owningPtrs;
+}
+
 SparseVoxelDAG BatchingAccelerationStructureBuilder::createSVDAG(const SubScene& subScene, int resolution)
 {
     OPTICK_EVENT();
@@ -77,14 +103,14 @@ SparseVoxelDAG BatchingAccelerationStructureBuilder::createSVDAG(const SubScene&
     VoxelGrid grid { bounds, resolution };
     for (const auto& sceneObject : subScene.sceneObjects) {
         Shape* pShape = sceneObject->pShape.get();
-        auto shapeOwner = m_pGeometryCache->makeResident(pShape);
+        //auto shapeOwner = m_pGeometryCache->makeResident(pShape);
         pShape->voxelize(grid);
     }
 
     std::function<void(const SceneNode*, glm::mat4)> voxelizeRecurse = [&](const SceneNode* pSceneNode, glm::mat4 transform) {
         for (const auto& sceneObject : pSceneNode->objects) {
             Shape* pShape = sceneObject->pShape.get();
-            auto shapeOwner = m_pGeometryCache->makeResident(pShape);
+            //auto shapeOwner = m_pGeometryCache->makeResident(pShape);
             pShape->voxelize(grid, transform);
         }
 

@@ -22,6 +22,7 @@ public:
     SparseVoxelDAG(const VoxelGrid& grid);
     SparseVoxelDAG(SparseVoxelDAG&&) = default;
     ~SparseVoxelDAG() = default;
+    SparseVoxelDAG& operator=(SparseVoxelDAG&&) = default;
 
     static void compressDAGs(gsl::span<SparseVoxelDAG*> svos);
 
