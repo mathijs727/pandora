@@ -110,9 +110,9 @@ int main(int argc, char** argv)
         exit(1);
     }
     const glm::ivec2 resolution = renderConfig.resolution;
-    tasking::LRUCache geometryCache = cacheBuilder.build(500 * 1024 * 1024);
+    tasking::LRUCache geometryCache = cacheBuilder.build(500llu * 1024 * 1024);
 
-    /*std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
+    std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
         for (const auto& pSceneObject : pSceneNode->objects) {
             geometryCache.makeResident(pSceneObject->pShape.get());
         }
@@ -121,7 +121,7 @@ int main(int argc, char** argv)
             makeShapeResident(pChild);
         }
     };
-    makeShapeResident(renderConfig.pScene->pRoot);*/
+    makeShapeResident(renderConfig.pScene->pRoot);
 
     Window myWindow(resolution.x, resolution.y, "Atlas - Pandora viewer");
     FramebufferGL frameBuffer(resolution.x, resolution.y);
@@ -146,7 +146,7 @@ int main(int argc, char** argv)
     }*/
 
     spdlog::info("Building acceleration structure");
-    //AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint };
+    //AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 100000 };
     AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
@@ -185,7 +185,8 @@ int main(int argc, char** argv)
                     if (siOpt) {
                         const float cos = glm::dot(siOpt->shading.normal, -cameraRay.direction);
                         //const float cos = glm::abs(glm::dot(siOpt->geometricNormal, -cameraRay.direction));
-                        sensor.addPixelContribution(glm::ivec2 { x, y }, cos * siOpt->shading.batchingPointColor);
+                        //sensor.addPixelContribution(glm::ivec2 { x, y }, cos * siOpt->shading.batchingPointColor);
+                        sensor.addPixelContribution(glm::ivec2 { x, y }, glm::vec3(cos));
                     }
                 }
             }
@@ -211,160 +212,3 @@ int main(int argc, char** argv)
     return 0;
 }
 
-/*void addCrytekSponza(Scene& scene);
-void addStanfordBunny(Scene& scene);
-void addStanfordDragon(Scene& scene, bool loadFromCache = false);
-void addCornellBox(Scene& scene);
-
-RenderConfig createStaticScene()
-{
-    RenderConfig config(0);
-    config.resolution = glm::ivec2(1280, 720);
-    config.camera = std::make_unique<PerspectiveCamera>(config.resolution, 65.0f);
-    //addCornellBox(config.scene);
-    addStanfordBunny(config.scene);
-    //addStanfordDragon(config.scene, false);
-    //addCrytekSponza(config.scene);
-
-    // Sponza
-    //glm::mat4 cameraTransform = glm::translate(glm::mat4(1.0f), glm::vec3(-0.718526125f, 0.0f, 0.263607413f));
-    //cameraTransform *= glm::mat4_cast(glm::quat(0.182672247f, -0.692262709f, 0.178126544f, 0.675036848f));
-
-    glm::mat4 cameraTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.25f, 0.8f, -1.5f)); // Bunny / Dragon
-    cameraTransform = glm::scale(cameraTransform, glm::vec3(1, -1, 1));
-    //glm::mat4 cameraTransform = glm::mat4(1.0f);
-
-    config.camera->setTransform(cameraTransform);
-
-    auto lightTexture = std::make_shared<ImageTexture<Spectrum>>("C:/Users/Mathijs/Documents/GitHub/OpenCL-Path-Tracer/assets/skydome/DF360_005_Ref.hdr");
-    config.scene.addInfiniteLight(std::make_shared<EnvironmentLight>(glm::mat4(1.0f), Spectrum(1.0f), 1, lightTexture));
-    return std::move(config);
-}
-
-void addCrytekSponza(Scene& scene)
-{
-    auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.9f, 0.9f, 0.9f));
-    auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
-    auto material = std::make_shared<MatteMaterial>(kd, roughness);
-
-    auto transform = glm::mat4(1.0f);
-    transform = glm::scale(transform, glm::vec3(0.005f));
-
-    static constexpr bool loadAsSingleMesh = true;
-    if constexpr (loadAsSingleMesh) {
-        auto meshOpt = TriangleMesh::loadFromFileSingleMesh(projectBasePath + "assets/3dmodels/sponza-crytek/sponza.obj", transform, false);
-        if (meshOpt) {
-            scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(*meshOpt)), material));
-        }
-    } else {
-        auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/sponza-crytek/sponza.obj", transform, false);
-        for (auto& mesh : meshes) {
-            if (mesh.getTriangles().size() < 4)
-                continue;
-
-            scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
-        }
-    }
-}
-
-void addStanfordBunny(Scene& scene)
-{
-    auto transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    transform = glm::scale(transform, glm::vec3(8));
-    //transform = glm::translate(transform, glm::vec3(0, -1, 0));
-
-    auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.1f, 0.2f, 0.4f));
-    auto ks = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
-    auto roughness = std::make_shared<ConstantTexture<float>>(0.006f);
-    auto t = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
-    auto r = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.3f, 0.3f, 0.5f));
-    //auto material = std::make_shared<MatteMaterial>(kd, roughness);
-    auto material = std::make_shared<TranslucentMaterial>(kd, ks, roughness, r, t, true);
-
-    auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/bun_zipper.ply", transform, false);
-    if constexpr (true) {
-        for (auto& mesh : meshes)
-            scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
-    } else {
-        assert(meshes.size() == 1);
-        const TriangleMesh& bunnyMesh = meshes[0];
-        unsigned numPrimitives = bunnyMesh.numTriangles();
-
-        unsigned primsPart1 = 25000;
-        std::vector<unsigned> primitives1(primsPart1);
-        std::vector<unsigned> primitives2(numPrimitives - primsPart1);
-        std::iota(std::begin(primitives1), std::end(primitives1), 0);
-        std::iota(std::begin(primitives2), std::end(primitives2), primsPart1);
-
-        std::vector<std::shared_ptr<TriangleMesh>> splitMeshes;
-        splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh.subMesh(primitives1))));
-        splitMeshes.emplace_back(std::make_shared<TriangleMesh>(std::move(bunnyMesh.subMesh(primitives2))));
-
-        for (const auto& mesh : splitMeshes)
-            scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(mesh, material));
-    }
-}
-
-void addStanfordDragon(Scene& scene, bool loadFromCache)
-{
-    /*auto transform = glm::mat4(1.0f);
-    transform = glm::translate(transform, glm::vec3(0, -0.5f, 0));
-    transform = glm::scale(transform, glm::vec3(10));
-    transform = glm::rotate(transform, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.1f, 0.1f, 0.5f));
-    auto roughness = std::make_shared<ConstantTexture<float>>(0.05f);
-    //auto material = std::make_shared<MatteMaterial>(kd, roughness);
-    auto material = MetalMaterial::createCopper(roughness, true);
-    if (loadFromCache) {
-        auto mesh = std::make_shared<TriangleMesh>(std::move(TriangleMesh::loadFromCacheFile("dragon.geom")));
-        scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(mesh, material));
-    } else {
-        auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/stanford/dragon_vrip.ply", transform, false);
-        meshes[0].saveToCacheFile("dragon.geom"); // Only a single mesh
-        for (auto& mesh : meshes) {
-            scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(std::make_shared<TriangleMesh>(std::move(mesh)), material));
-        }
-    }/
-}
-
-void addCornellBox(Scene& scene)
-{
-    //auto transform = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.01f, 0.01f, -0.01f)), glm::vec3(-2.0f, -2.0f, 0.0f));
-    auto transform = glm::translate(glm::scale(glm::mat4(1.0f), 0.01f * glm::vec3(1, 1, 1)), glm::vec3(-250.0f, -150.0f, 300.0f));
-    auto meshes = TriangleMesh::loadFromFile(projectBasePath + "assets/3dmodels/cornell_box.obj", transform); //
-    //auto colorTexture = std::make_shared<ConstantTexture>(glm::vec3(0.6f, 0.4f, 0.9f));
-    auto roughness = std::make_shared<ConstantTexture<float>>(0.0f); //
-
-    for (size_t i = 0; i < meshes.size(); i++) {
-        auto& mesh = meshes[i];
-        auto meshPtr = std::make_shared<TriangleMesh>(std::move(mesh));
-
-        if (i == 0) {
-            // Back box
-            auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
-            auto t = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.5f));
-            auto r = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.5f));
-            auto ks = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
-            auto translucentMaterialRoughness = std::make_shared<ConstantTexture<float>>(1.0f);
-            //auto material = std::make_shared<MatteMaterial>(kd, roughness);
-            auto material = std::make_shared<TranslucentMaterial>(kd, ks, translucentMaterialRoughness, r, t, true);
-            scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(meshPtr, material));
-        } else if (i == 1) {
-            // Front box
-            auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.7f, 0.2f));
-            auto ks = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.2f, 0.2f, 0.9f));
-            auto material = std::make_shared<PlasticMaterial>(kd, ks, roughness);
-            scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(meshPtr, material));
-        } else if (i == 5) {
-            // Ceiling
-            Spectrum light(1.0f);
-            auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(1.0f));
-            auto material = std::make_shared<MatteMaterial>(kd, roughness);
-            scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(meshPtr, material, light));
-        } else {
-            auto kd = std::make_shared<ConstantTexture<Spectrum>>(Spectrum(0.8f, 0.8f, 0.8f));
-            auto material = std::make_shared<MatteMaterial>(kd, roughness);
-            scene.addSceneObject(std::make_unique<InCoreGeometricSceneObject>(meshPtr, material));
-        }
-    }
-}*/
