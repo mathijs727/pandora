@@ -11,6 +11,7 @@ VoxelGrid::VoxelGrid(const Bounds& bounds, int resolution)
     : m_bounds(bounds)
     , m_resolution(resolution)
     , m_extent(resolution, resolution, resolution)
+    , m_stride(1, resolution, resolution * resolution)
     , m_values(createValues(m_extent))
 {
     int64_t resolutionLargeInt = resolution;
@@ -147,13 +148,13 @@ void VoxelGrid::set(int x, int y, int z, bool value)
 
 std::pair<uint32_t*, uint32_t> VoxelGrid::index(int x, int y, int z) const
 {
-    ALWAYS_ASSERT(x >= 0 && x < m_extent.x);
-    ALWAYS_ASSERT(y >= 0 && y < m_extent.y);
-    ALWAYS_ASSERT(z >= 0 && z < m_extent.z);
-    int bitPosition = z * m_extent.x * m_extent.y + y * m_extent.x + x;
+    assert(x >= 0 && x < m_extent.x);
+    assert(y >= 0 && y < m_extent.y);
+    assert(z >= 0 && z < m_extent.z);
+    const int bitPosition = z * m_stride.z + y * m_stride.y + x;
 
-    int block = bitPosition >> 5; // = bitPosition / 32
-    uint32_t bitInBlock = static_cast<uint32_t>(bitPosition & ((1 << 5) - 1)); // = bitPosition % 32
+    const int block = bitPosition >> 5; // = bitPosition / 32
+    const uint32_t bitInBlock = static_cast<uint32_t>(bitPosition & ((1 << 5) - 1)); // = bitPosition % 32
     return { m_values.get() + block, bitInBlock };
 }
 

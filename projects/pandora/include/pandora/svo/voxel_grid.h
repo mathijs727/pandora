@@ -47,6 +47,7 @@ private:
 
     int m_resolution;
     glm::ivec3 m_extent;
+    glm::ivec3 m_stride;
     //std::vector<bool> m_values;
     std::unique_ptr<uint32_t[]> m_values;
 };
