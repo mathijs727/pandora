@@ -110,7 +110,7 @@ int main(int argc, char** argv)
         exit(1);
     }
     const glm::ivec2 resolution = renderConfig.resolution;
-    tasking::LRUCache geometryCache = cacheBuilder.build(500llu * 1024 * 1024);
+    tasking::LRUCache geometryCache = cacheBuilder.build(500llu * 1024 * 1024 * 1024);
 
     std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
         for (const auto& pSceneObject : pSceneNode->objects) {
@@ -180,7 +180,7 @@ int main(int argc, char** argv)
         tbb::parallel_for(range, [&](tbb::blocked_range2d<int> subRange) {
             for (int y = subRange.cols().begin(); y < subRange.cols().end(); y++) {
                 for (int x = subRange.rows().begin(); x < subRange.rows().end(); x++) {
-                    Ray cameraRay = renderConfig.camera->generateRay(glm::vec2(x, y) / fResolution);
+                    Ray cameraRay = renderConfig.camera->generateRay(glm::vec2(x, renderConfig.resolution.y - y) / fResolution);
                     auto siOpt = accel.intersectDebug(cameraRay);
                     if (siOpt) {
                         const float cos = glm::dot(siOpt->shading.normal, -cameraRay.direction);
@@ -211,4 +211,3 @@ int main(int argc, char** argv)
 
     return 0;
 }
-
