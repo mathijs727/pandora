@@ -2,6 +2,7 @@
 #include "pbf/lexer.h"
 #include "pbf/parser.h"
 #include "texture_cache.h"
+#include <optional>
 #include <pandora/lights/area_light.h>
 #include <pandora/lights/distant_light.h>
 #include <pandora/lights/environment_light.h>
@@ -28,10 +29,15 @@ struct Converter {
 
     static pandora::PerspectiveCamera convertCamera(const PBFCamera* pBbfCamera, float aspectRatio);
     pandora::Scene convertWorld(const PBFObject* pWorld);
+    void convertObject(
+        const PBFObject* pObject,
+        const std::shared_ptr<pandora::SceneNode>& pSceneNode,
+        std::optional<glm::mat4> optTransform,
+        pandora::SceneBuilder& sceneBuilder);
 
     std::shared_ptr<pandora::Shape> convertShape(const PBFShape* pShape);
     std::shared_ptr<pandora::Material> convertMaterial(const PBFMaterial* pMaterial);
-    std::unique_ptr<pandora::InfiniteLight> convertInfiniteLIght(const PBFLightSource* pLight);
+    std::unique_ptr<pandora::InfiniteLight> convertInfiniteLight(const PBFLightSource* pLight);
 
     template <typename T>
     std::shared_ptr<pandora::Texture<T>> getTexture(const PBFTexture* pTexture);
@@ -44,6 +50,7 @@ private:
 
     TextureCache m_texCache;
     std::unordered_map<const PBFMaterial*, std::shared_ptr<pandora::Material>> m_materialCache;
+    std::unordered_map<const PBFObject*, std::shared_ptr<pandora::SceneNode>> m_instanceCache;
 };
 
 pandora::RenderConfig pbfToRenderConfig(PBFScene* pScene, tasking::CacheBuilder* pCacheBuilder, bool loadTextures)
@@ -79,10 +86,17 @@ pandora::PerspectiveCamera Converter::convertCamera(const PBFCamera* pBbfCamera,
 pandora::Scene Converter::convertWorld(const PBFObject* pWorld)
 {
     pandora::SceneBuilder sceneBuilder;
+    convertObject(pWorld, nullptr, {}, sceneBuilder);
+    return sceneBuilder.build();
+}
 
-    // TODO: instancing
-
-    for (const auto* pPBFShape : pWorld->shapes) {
+void Converter::convertObject(
+    const PBFObject* pObject,
+    const std::shared_ptr<pandora::SceneNode>& pSceneNode,
+    std::optional<glm::mat4> optTransform,
+    pandora::SceneBuilder& sceneBuilder)
+{
+    for (const auto* pPBFShape : pObject->shapes) {
         if (!pPBFShape)
             continue;
 
@@ -92,19 +106,57 @@ pandora::Scene Converter::convertWorld(const PBFObject* pWorld)
         auto pMaterial = convertMaterial(pPBFShape->pMaterial);
 
         // Load area light
+        std::shared_ptr<pandora::SceneObject> pSceneObject;
         if (pPBFShape->pAreaLight) {
             auto pAreaLight = std::make_unique<pandora::AreaLight>(pPBFShape->pAreaLight->L);
-            (void)sceneBuilder.addSceneObjectToRoot(pShape, pMaterial, std::move(pAreaLight));
+            pSceneObject = sceneBuilder.addSceneObject(pShape, pMaterial, std::move(pAreaLight));
         } else {
-            (void)sceneBuilder.addSceneObjectToRoot(pShape, pMaterial);
+            pSceneObject = sceneBuilder.addSceneObject(pShape, pMaterial);
+        }
+
+        if (pSceneNode) {
+            sceneBuilder.attachObject(pSceneNode, pSceneObject);
+        } else {
+            sceneBuilder.attachObjectToRoot(pSceneObject);
         }
     }
 
-    for (const auto* pPBFLight : pWorld->lightSources) {
-        auto pLight = convertInfiniteLIght(pPBFLight);
+    for (const auto* pPBFLight : pObject->lightSources) {
+        auto pLight = convertInfiniteLight(pPBFLight);
         sceneBuilder.addInfiniteLight(std::move(pLight));
     }
-    return sceneBuilder.build();
+
+    for (const auto* pPBFInstance : pObject->instances) {
+        auto* pPBFChild = pPBFInstance->pObject;
+        auto optChildTransform = optTransform;
+        if (pPBFInstance->transform != glm::identity<glm::mat4x3>()) {
+            if (!optChildTransform)
+                optChildTransform = pPBFInstance->transform;
+            else
+                optChildTransform = *optChildTransform * glm::mat4(pPBFInstance->transform);
+        }
+
+        std::shared_ptr<pandora::SceneNode> pChild;
+        if (auto iter = m_instanceCache.find(pPBFChild); iter != std::end(m_instanceCache)) {
+            pChild = iter->second;
+        } else {
+            pChild = sceneBuilder.addSceneNode();
+            convertObject(pPBFChild, pChild, optChildTransform, sceneBuilder);
+            m_instanceCache[pPBFChild] = pChild;
+        }
+
+        if (optChildTransform) {
+            if (pSceneNode)
+                sceneBuilder.attachNode(pSceneNode, pChild, *optChildTransform);
+            else
+                sceneBuilder.attachNodeToRoot(pChild, *optChildTransform);
+        } else {
+            if (pSceneNode)
+                sceneBuilder.attachNode(pSceneNode, pChild);
+            else
+                sceneBuilder.attachNodeToRoot(pChild);
+        }
+    }
 }
 
 std::shared_ptr<pandora::Shape> Converter::convertShape(const PBFShape* pPBFShape)
@@ -157,7 +209,7 @@ std::shared_ptr<pandora::Material> Converter::convertMaterial(const PBFMaterial*
     }
 }
 
-std::unique_ptr<pandora::InfiniteLight> Converter::convertInfiniteLIght(const PBFLightSource* pLight)
+std::unique_ptr<pandora::InfiniteLight> Converter::convertInfiniteLight(const PBFLightSource* pLight)
 {
     if (const auto* pInfiniteLightSource = dynamic_cast<const PBFInfiniteLightSource*>(pLight)) {
         auto pTexture = m_texCache.getImageTexture<glm::vec3>(pInfiniteLightSource->filePath);
@@ -203,5 +255,4 @@ std::shared_ptr<pandora::Texture<T>> Converter::getTexOptional(const PBFTexture*
     else
         return m_texCache.getConstantTexture<T>(constValue);
 }
-
 }
