@@ -180,7 +180,7 @@ int main(int argc, char** argv)
         tbb::parallel_for(range, [&](tbb::blocked_range2d<int> subRange) {
             for (int y = subRange.cols().begin(); y < subRange.cols().end(); y++) {
                 for (int x = subRange.rows().begin(); x < subRange.rows().end(); x++) {
-                    Ray cameraRay = renderConfig.camera->generateRay(glm::vec2(x, renderConfig.resolution.y - y) / fResolution);
+                    Ray cameraRay = renderConfig.camera->generateRay(glm::vec2(x, y) / fResolution);
                     auto siOpt = accel.intersectDebug(cameraRay);
                     if (siOpt) {
                         const float cos = glm::dot(siOpt->shading.normal, -cameraRay.direction);

@@ -41,9 +41,9 @@ FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
             double yawDelta = delta2D.x * lookSpeed;
 
             if (pitchDelta != 0.0 || yawDelta != 0.0) {
-                glm::vec3 right = m_orientation * glm::vec3(1, 0, 0);
-                m_orientation = glm::angleAxis((float)pitchDelta, right) * m_orientation;
-                m_orientation = glm::angleAxis((float)yawDelta, m_up) * m_orientation;
+                const glm::vec3 left = m_orientation * glm::vec3(-1, 0, 0);
+                m_orientation = glm::angleAxis((float)pitchDelta, left) * m_orientation;
+                m_orientation = glm::angleAxis((float)yawDelta, left) * m_orientation;
 
                 m_cameraChanged = true;
             }

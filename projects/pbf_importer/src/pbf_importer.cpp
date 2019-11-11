@@ -80,7 +80,8 @@ pandora::PerspectiveCamera Converter::convertCamera(const PBFCamera* pBbfCamera,
     if (aspectRatio > 1.0f)
         fovX = glm::degrees(std::atan(std::tan(glm::radians(fovX / 2.0f)) * aspectRatio) * 2.0f);
 
-    return pandora::PerspectiveCamera(aspectRatio, fovX, pBbfCamera->frame);
+    const glm::mat4 transform = glm::mat4(pBbfCamera->frame) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1, -1, 1));
+    return pandora::PerspectiveCamera(aspectRatio, fovX, transform);
 }
 
 pandora::Scene Converter::convertWorld(const PBFObject* pWorld)
@@ -199,10 +200,14 @@ std::shared_ptr<pandora::Material> Converter::convertMaterial(const PBFMaterial*
             pPandoraMaterial = std::make_shared<pandora::MatteMaterial>(pKdTexture, pSigmaTexture);
         } else {
             spdlog::error("Unknown material type encountered");
-            auto pKdTexture = m_texCache.getConstantTexture(glm::vec3(1.0f));
-            auto pSigmaTexture = m_texCache.getConstantTexture(0.5f);
+            static std::shared_ptr<pandora::Material> pDefaultMaterial { nullptr };
+            if (!pDefaultMaterial) {
+                auto pKdTexture = m_texCache.getConstantTexture(glm::vec3(0.5f));
+                auto pSigmaTexture = m_texCache.getConstantTexture(0.0f);
 
-            pPandoraMaterial = std::make_shared<pandora::MatteMaterial>(pKdTexture, pSigmaTexture);
+                pDefaultMaterial = std::make_shared<pandora::MatteMaterial>(pKdTexture, pSigmaTexture);
+            }
+            pPandoraMaterial = pDefaultMaterial;
         }
         m_materialCache[pMaterial] = pPandoraMaterial;
         return pPandoraMaterial;
