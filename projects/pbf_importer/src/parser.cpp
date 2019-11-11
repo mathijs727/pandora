@@ -291,7 +291,7 @@ glm::vec3 colorTempToRGB(float colorTemp)
 
     // Green
     if (colorTemp <= 66) {
-        rgb.g = 99.4708025861f * std::logf(rgb.g) - 161.1195681661f;
+        rgb.g = 99.4708025861f * std::logf(colorTemp) - 161.1195681661f;
     } else {
         rgb.g = 288.1221695283f * std::powf(colorTemp - 60, -0.0755148492f);
     }
