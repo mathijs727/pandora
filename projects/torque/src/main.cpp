@@ -129,7 +129,7 @@ int main(int argc, char** argv)
     //          A new cache is instantiated when splitting the scene into smaller objects. Scroll down...
     //auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
     auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
-        "pandora_pre_geom", 512llu * 1024 * 1024, mio_cache_control::cache_mode::sequential);
+        "pandora_pre_geom", geomCacheSizeMB * 1024 * 1024, mio_cache_control::cache_mode::sequential);
     tasking::LRUCache::Builder cacheBuilder { std::move(pSerializer) };
 
     RenderConfig renderConfig;
@@ -158,7 +158,7 @@ int main(int argc, char** argv)
     spdlog::info("Preprocessing scene");
     if constexpr (false && std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
         auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
-            "pandora_render_geom", 512llu * 1024 * 1024, mio_cache_control::cache_mode::sequential);
+            "pandora_render_geom", geomCacheSizeMB * 1024 * 1024, mio_cache_control::cache_mode::sequential);
 
         cacheBuilder = tasking::LRUCache::Builder { std::move(pSerializer) };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
