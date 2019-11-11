@@ -30,9 +30,9 @@ private:
 	// addPixelContribution is called.
     struct Pixel {
         // 40 integer and 24 fraction bits (s40:24)
-        cnl::fixed_point<uint64_t, -24> red { 0.0f };
-        cnl::fixed_point<uint64_t, -24> green { 0.0f };
-        cnl::fixed_point<uint64_t, -24> blue { 0.0f };
+        cnl::fixed_point<uint64_t, -24> red;// { 0.0f };
+        cnl::fixed_point<uint64_t, -24> green;// { 0.0f };
+        cnl::fixed_point<uint64_t, -24> blue;// { 0.0f };
 
 		Pixel() = default;
         Pixel(const glm::vec3& color);

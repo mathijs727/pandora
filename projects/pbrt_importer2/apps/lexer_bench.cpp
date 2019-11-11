@@ -169,7 +169,7 @@ void printLexer(std::string_view fileContents)
 boost::program_options::variables_map parseInput(int argc, const char** argv)
 {
     namespace po = boost::program_options;
-    po::options_description desc("Pandora options");
+    po::options_description desc("PBRT Lexer Bench options");
     // clang-format off
     desc.add_options()
 		("file", po::value<std::string>()->required(), "PBRT file to parse")

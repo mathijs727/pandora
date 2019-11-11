@@ -844,7 +844,7 @@ public:
         //          that has already been destructed (and has freed the blocks). This is only an issue because the queue
         //          was changed to share a single FreeList between all instances of the same type of queue (to reduce
         //          memory usage).
-        capacity = 0;
+        minCapacity = 0;
 
         implicitProducerHashResizeInProgress.clear(std::memory_order_relaxed);
         populate_initial_implicit_producer_hash();

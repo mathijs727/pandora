@@ -18,21 +18,21 @@ public:
 
     void inline push(T&& item)
     {
-        enqueue(std::move(item));
+        this->enqueue(std::move(item));
     }
     void inline push(const T& item)
     {
-        enqueue(item);
+        this->enqueue(item);
     }
 
     bool inline try_pop(T& item)
     {
-        return try_dequeue(item);
+        return this->try_dequeue(item);
     }
 
     size_t inline unsafe_size() const
     {
-        return size_approx();
+        return this->size_approx();
     }
 };
 

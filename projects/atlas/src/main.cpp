@@ -17,7 +17,7 @@
 #include "ui/fps_camera_controls.h"
 #include "ui/framebuffer_gl.h"
 #include "ui/window.h"
-
+#include "pbf/pbf_importer.h"
 #include "pandora/graphics_core/load_from_file.h"
 #include "stream/cache/dummy_cache.h"
 #include "stream/cache/lru_cache.h"
@@ -98,7 +98,17 @@ int main(int argc, char** argv)
     //tasking::DummyCache::Builder dummyCacheBuilder;
 
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
-    RenderConfig renderConfig = sceneFilePath.extension() == ".pbrt" ? pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false) : loadFromFile(sceneFilePath);
+    RenderConfig renderConfig;
+    if (sceneFilePath.extension() == ".pbrt")
+        renderConfig = pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false);
+    else if (sceneFilePath.extension() == ".pbf")
+        renderConfig = pbf::loadFromPBFFile(sceneFilePath, &cacheBuilder, false);
+    else if (sceneFilePath.extension() == ".json")
+        renderConfig = loadFromFile(sceneFilePath);
+    else {
+        spdlog::error("Unknown scene file extension {}", sceneFilePath.extension().string());
+        exit(1);
+    }
     const glm::ivec2 resolution = renderConfig.resolution;
     tasking::LRUCache geometryCache = cacheBuilder.build(500 * 1024 * 1024);
 
@@ -125,17 +135,19 @@ int main(int argc, char** argv)
     //PathIntegrator integrator { &taskGraph, &geometryCache, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Preprocessing scene");
-    using AccelBuilder = BatchingAccelerationStructureBuilder;
-    constexpr unsigned primitivesPerBatchingPoint = 100000;
-    if (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
+    //using AccelBuilder = BatchingAccelerationStructureBuilder;
+    using AccelBuilder = EmbreeAccelerationStructureBuilder;
+    /*constexpr unsigned primitivesPerBatchingPoint = 100000;
+    if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
         cacheBuilder = tasking::LRUCache::Builder { std::make_unique<tasking::InMemorySerializer>() };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
         auto newCache = cacheBuilder.build(geometryCache.maxSize());
         geometryCache = std::move(newCache);
-    }
+    }*/
 
     spdlog::info("Building acceleration structure");
-    AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint };
+    //AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint };
+    AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
     bool pressedEscape = false;
@@ -157,7 +169,7 @@ int main(int argc, char** argv)
             sensor.clear(glm::vec3(0.0f));
         }
 
-#if 1
+#if 0
         integrator.render(500 * 1000, camera, sensor, *renderConfig.pScene, accel, samples);
 #else
         samples = 0;

@@ -11,6 +11,11 @@ Sensor::Sensor(glm::ivec2 resolution)
     : m_resolution(resolution)
     , m_frameBuffer(static_cast<size_t>(resolution.x) * resolution.y)
 {
+    for (size_t i = 0; i < m_frameBuffer.size(); i++) {
+        Pixel defaultPixel { glm::vec3(0.0f) };
+        m_frameBuffer[i].store(defaultPixel);
+    }
+
     clear(glm::vec3(0.0f));
     cnl::fixed_point<uint64_t, -24> x;
     x += 2.0f;
