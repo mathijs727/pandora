@@ -21,7 +21,7 @@ class DummyCache::Builder : public CacheBuilder {
 public:
     void registerCacheable(Evictable* pItem, bool evict = false) final;
 
-    DummyCache build();
+    DummyCache build(size_t);
 };
 
 template <typename T>
