@@ -18,7 +18,7 @@ Parser::Parser(std::filesystem::path basePath, bool loadTextures)
 {
 }
 
-pandora::RenderConfig Parser::parse(std::filesystem::path file, tasking::CacheBuilder* pGeometryCacheBuilder)
+pandora::RenderConfig Parser::parse(std::filesystem::path file, unsigned cameraID, tasking::CacheBuilder* pGeometryCacheBuilder)
 {
     // Set a default material
     m_graphicsState.pMaterial = std::make_shared<pandora::MatteMaterial>(
@@ -50,7 +50,7 @@ pandora::RenderConfig Parser::parse(std::filesystem::path file, tasking::CacheBu
         });
 
     auto pScene = std::make_unique<pandora::Scene>(intermediateScene.sceneBuilder.build());
-    auto pCamera = std::make_unique<pandora::PerspectiveCamera>(cameras[0]);
+    auto pCamera = std::make_unique<pandora::PerspectiveCamera>(cameras[cameraID]);
     return pandora::RenderConfig { std::move(pScene), std::move(pCamera), intermediateScene.resolution };
 }
 
@@ -277,7 +277,7 @@ void Parser::parseShape(PBRTIntermediateScene& scene)
     } else if (shapeType == "trianglemesh") {
         parseTriangleShape(scene, std::move(params));
     } else {
-        spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
+        //spdlog::warn("Ignoring shape of unsupported type \"{}\"", shapeType);
     }
 }
 

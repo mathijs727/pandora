@@ -12,16 +12,16 @@
 
 namespace pbf {
 
-pandora::RenderConfig pbfToRenderConfig(PBFScene* pScene, tasking::CacheBuilder* pCacheBuilder, bool loadTextures);
+pandora::RenderConfig pbfToRenderConfig(PBFScene* pScene, unsigned cameraID, tasking::CacheBuilder* pCacheBuilder, bool loadTextures);
 
 pandora::RenderConfig pbf::loadFromPBFFile(
-    std::filesystem::path filePath, tasking::CacheBuilder* pCacheBuilder, bool loadTextures)
+    std::filesystem::path filePath, unsigned cameraID, tasking::CacheBuilder* pCacheBuilder, bool loadTextures)
 {
     Lexer lexer { filePath };
     Parser parser { &lexer };
     auto* pPBFScene = parser.parse();
 
-    return pbfToRenderConfig(pPBFScene, pCacheBuilder, loadTextures);
+    return pbfToRenderConfig(pPBFScene, cameraID, pCacheBuilder, loadTextures);
 }
 
 struct Converter {
@@ -50,10 +50,11 @@ private:
 
     TextureCache m_texCache;
     std::unordered_map<const PBFMaterial*, std::shared_ptr<pandora::Material>> m_materialCache;
+    std::unordered_map<const PBFShape*, std::shared_ptr<pandora::Shape>> m_shapeCache;
     std::unordered_map<const PBFObject*, std::shared_ptr<pandora::SceneNode>> m_instanceCache;
 };
 
-pandora::RenderConfig pbfToRenderConfig(PBFScene* pScene, tasking::CacheBuilder* pCacheBuilder, bool loadTextures)
+pandora::RenderConfig pbfToRenderConfig(PBFScene* pScene, unsigned cameraID, tasking::CacheBuilder* pCacheBuilder, bool loadTextures)
 {
     const glm::ivec2 resolution = pScene->pFilm->resolution;
     const float aspectRatio = static_cast<float>(resolution.x) / static_cast<float>(resolution.y);
@@ -61,7 +62,7 @@ pandora::RenderConfig pbfToRenderConfig(PBFScene* pScene, tasking::CacheBuilder*
     Converter converter { pCacheBuilder, loadTextures };
 
     pandora::RenderConfig out {};
-    out.camera = std::make_unique<pandora::PerspectiveCamera>(Converter::convertCamera(pScene->cameras[0], aspectRatio));
+    out.camera = std::make_unique<pandora::PerspectiveCamera>(Converter::convertCamera(pScene->cameras[cameraID], aspectRatio));
     out.resolution = resolution;
     out.pScene = std::make_unique<pandora::Scene>(converter.convertWorld(pScene->pWorld));
     return out;
@@ -101,8 +102,15 @@ void Converter::convertObject(
         if (!pPBFShape)
             continue;
 
-        auto pShape = convertShape(pPBFShape);
-        m_pCacheBuilder->registerCacheable(pShape.get());
+        std::shared_ptr<pandora::Shape> pShape;
+        if (auto iter = m_shapeCache.find(pPBFShape); iter != std::end(m_shapeCache)) {
+            pShape = iter->second;
+            spdlog::info("Cache");
+        } else {
+            pShape = convertShape(pPBFShape);
+            m_shapeCache[pPBFShape] = pShape;
+            m_pCacheBuilder->registerCacheable(pShape.get());
+        }
 
         auto pMaterial = convertMaterial(pPBFShape->pMaterial);
 
@@ -129,33 +137,38 @@ void Converter::convertObject(
 
     for (const auto* pPBFInstance : pObject->instances) {
         auto* pPBFChild = pPBFInstance->pObject;
-        auto optChildTransform = optTransform;
-        if (pPBFInstance->transform != glm::identity<glm::mat4x3>()) {
-            if (!optChildTransform)
-                optChildTransform = pPBFInstance->transform;
-            else
-                optChildTransform = *optChildTransform * glm::mat4(pPBFInstance->transform);
-        }
+        if (pPBFInstance->transform != glm::identity<glm::mat4x3>() && pObject->shapes.size() > 1) {
+            auto optChildTransform = optTransform;
+            if (pPBFInstance->transform != glm::identity<glm::mat4x3>()) {
+                if (!optChildTransform)
+                    optChildTransform = pPBFInstance->transform;
+                else
+                    optChildTransform = *optChildTransform * glm::mat4(pPBFInstance->transform);
+            }
 
-        std::shared_ptr<pandora::SceneNode> pChild;
-        if (auto iter = m_instanceCache.find(pPBFChild); iter != std::end(m_instanceCache)) {
-            pChild = iter->second;
-        } else {
-            pChild = sceneBuilder.addSceneNode();
-            convertObject(pPBFChild, pChild, optChildTransform, sceneBuilder);
-            m_instanceCache[pPBFChild] = pChild;
-        }
+            std::shared_ptr<pandora::SceneNode> pChild;
+            if (auto iter = m_instanceCache.find(pPBFChild); iter != std::end(m_instanceCache)) {
+                pChild = iter->second;
+            } else {
+                pChild = sceneBuilder.addSceneNode();
+                convertObject(pPBFChild, pChild, optChildTransform, sceneBuilder);
+                m_instanceCache[pPBFChild] = pChild;
+            }
 
-        if (optChildTransform) {
-            if (pSceneNode)
-                sceneBuilder.attachNode(pSceneNode, pChild, *optChildTransform);
-            else
-                sceneBuilder.attachNodeToRoot(pChild, *optChildTransform);
+            if (optChildTransform) {
+                if (pSceneNode)
+                    sceneBuilder.attachNode(pSceneNode, pChild, *optChildTransform);
+                else
+                    sceneBuilder.attachNodeToRoot(pChild, *optChildTransform);
+            } else {
+                if (pSceneNode)
+                    sceneBuilder.attachNode(pSceneNode, pChild);
+                else
+                    sceneBuilder.attachNodeToRoot(pChild);
+            }
         } else {
-            if (pSceneNode)
-                sceneBuilder.attachNode(pSceneNode, pChild);
-            else
-                sceneBuilder.attachNodeToRoot(pChild);
+            // Flatten nodes without transforms
+            convertObject(pPBFInstance->pObject, pSceneNode, optTransform, sceneBuilder);
         }
     }
 }
