@@ -103,7 +103,7 @@ private:
 class BatchingAccelerationStructureBuilder {
 public:
     BatchingAccelerationStructureBuilder(
-        const Scene* pScene, tasking::LRUCache* pCache, tasking::TaskGraph* pTaskGraph, unsigned primitivesPerBatchingPoint = 100 * 1000, size_t botLevelBVHCacheSize = 100llu * 1000 * 1000 * 1000);
+        const Scene* pScene, tasking::LRUCache* pCache, tasking::TaskGraph* pTaskGraph, unsigned primitivesPerBatchingPoint, size_t botLevelBVHCacheSize, unsigned svdagRes);
 
     static void preprocessScene(Scene& scene, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint);
 
@@ -117,10 +117,11 @@ private:
     static void verifyInstanceDepth(const SceneNode* pSceneNode, int depth = 0);
 
     [[nodiscard]] std::vector<tasking::CachedPtr<Shape>> makeSubSceneResident(const SubScene& subScene);
-    static SparseVoxelDAG createSVDAG(const SubScene& subScene, int resolution = 256);
+    static SparseVoxelDAG createSVDAG(const SubScene& subScene, int resolution);
 
 private:
-    size_t m_botLevelBVHCacheSize;
+    const size_t m_botLevelBVHCacheSize;
+    const unsigned m_svdagRes;
 
     RTCDevice m_embreeDevice;
     std::vector<SubScene> m_subScenes;
@@ -434,8 +435,8 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
         auto shapesOwningPtrs = makeSubSceneResident(subScene);
 
         // Voxelize and create SVO in parallel
-        tg.run([i, &subScene, shapesOwningPtrs=std::move(shapesOwningPtrs), &svdags]() {
-            svdags[i] = createSVDAG(subScene);
+        tg.run([i, &subScene, shapesOwningPtrs=std::move(shapesOwningPtrs), &svdags, this]() {
+            svdags[i] = createSVDAG(subScene, m_svdagRes);
         });
     }
     tg.wait();

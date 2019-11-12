@@ -94,15 +94,16 @@ int main(int argc, char** argv)
     g_stats.config.spp = vm["spp"].as<int>();
 
     spdlog::info("Loading scene");
-    tasking::LRUCache::Builder cacheBuilder { std::make_unique<tasking::InMemorySerializer>() };
-    //tasking::DummyCache::Builder dummyCacheBuilder;
+    //tasking::LRUCache::Builder cacheBuilder { std::make_unique<tasking::InMemorySerializer>() };
+    tasking::DummyCache::Builder cacheBuilder;
 
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
+    const unsigned cameraID = 0;
     RenderConfig renderConfig;
     if (sceneFilePath.extension() == ".pbrt")
-        renderConfig = pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false);
+        renderConfig = pbrt::loadFromPBRTFile(sceneFilePath, cameraID, &cacheBuilder, false);
     else if (sceneFilePath.extension() == ".pbf")
-        renderConfig = pbf::loadFromPBFFile(sceneFilePath, &cacheBuilder, false);
+        renderConfig = pbf::loadFromPBFFile(sceneFilePath, cameraID, &cacheBuilder, false);
     else if (sceneFilePath.extension() == ".json")
         renderConfig = loadFromFile(sceneFilePath);
     else {
@@ -110,7 +111,7 @@ int main(int argc, char** argv)
         exit(1);
     }
     const glm::ivec2 resolution = renderConfig.resolution;
-    tasking::LRUCache geometryCache = cacheBuilder.build(500llu * 1024 * 1024 * 1024);
+    auto geometryCache = cacheBuilder.build(500llu * 1024 * 1024 * 1024);
 
     std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
         for (const auto& pSceneObject : pSceneNode->objects) {
@@ -146,7 +147,7 @@ int main(int argc, char** argv)
     }*/
 
     spdlog::info("Building acceleration structure");
-    //AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 100000 };
+    //AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 100000, 128 };
     AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 

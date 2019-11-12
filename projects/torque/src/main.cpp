@@ -76,6 +76,7 @@ int main(int argc, char** argv)
 		("geomcache", po::value<size_t>()->default_value(100 * 1000), "Geometry cache size (MB)")
 		("bvhcache", po::value<size_t>()->default_value(100 * 1000), "Bot level BVH cache size (MB)")
 		("primgroup", po::value<unsigned>()->default_value(1000 * 1000), "Number of primitives per batching point")
+		("svdagres", po::value<unsigned>()->default_value(128), "Resolution of the voxel grid used to create the SVDAG")
 		("help", "show all arguments");
     // clang-format on
 
@@ -106,6 +107,7 @@ int main(int argc, char** argv)
     const size_t geomCacheSize = geomCacheSizeMB * 1000000;
     const size_t bvhCacheSize = bvhCacheSizeMB * 1000000;
     const unsigned primitivesPerBatchingPoint = vm["primgroup"].as<unsigned>();
+    const unsigned svdagRes = vm["svdagres"].as<unsigned>();
 
     std::cout << "Rendering with the following settings:\n";
     std::cout << "  file:           " << vm["file"].as<std::string>() << "\n";
@@ -116,6 +118,7 @@ int main(int argc, char** argv)
     std::cout << "  geom cache:     " << geomCacheSizeMB << "MB\n";
     std::cout << "  bot bvh cache:  " << bvhCacheSizeMB << "MB\n";
     std::cout << "  batching point: " << primitivesPerBatchingPoint << " primitives\n";
+    std::cout << "  svdag res:      " << svdagRes << " primitives\n";
 
     g_stats.config.sceneFile = vm["file"].as<std::string>();
     g_stats.config.integrator = vm["integrator"].as<std::string>();
@@ -172,7 +175,7 @@ int main(int argc, char** argv)
 
     spdlog::info("Building acceleration structure");
     //AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
-    AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint, bvhCacheSize };
+    AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint, bvhCacheSize, svdagRes };
     Sensor sensor { renderConfig.resolution };
 
     spdlog::info("Starting render");

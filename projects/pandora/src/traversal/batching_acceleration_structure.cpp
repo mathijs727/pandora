@@ -26,8 +26,10 @@ BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     tasking::LRUCache* pCache,
     tasking::TaskGraph* pTaskGraph,
     unsigned primitivesPerBatchingPoint,
-    size_t botLevelBVHCacheSize)
+    size_t botLevelBVHCacheSize,
+    unsigned svdagRes)
     : m_botLevelBVHCacheSize(botLevelBVHCacheSize)
+    , m_svdagRes(svdagRes)
     , m_pGeometryCache(pCache)
     , m_pTaskGraph(pTaskGraph)
 {
@@ -80,7 +82,6 @@ std::vector<tasking::CachedPtr<Shape>> BatchingAccelerationStructureBuilder::mak
     std::function<void(const SceneNode*)> makeResidentRecurse = [&](const SceneNode* pSceneNode) {
         for (const auto& pSceneObject : pSceneNode->objects) {
             owningPtrs.emplace_back(m_pGeometryCache->makeResident(pSceneObject->pShape.get()));
-
         }
 
         for (const auto& [pChild, _] : pSceneNode->children) {
@@ -91,7 +92,7 @@ std::vector<tasking::CachedPtr<Shape>> BatchingAccelerationStructureBuilder::mak
         makeResidentRecurse(pChild);
     }
 
-	return owningPtrs;
+    return owningPtrs;
 }
 
 SparseVoxelDAG BatchingAccelerationStructureBuilder::createSVDAG(const SubScene& subScene, int resolution)
