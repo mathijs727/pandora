@@ -5,6 +5,7 @@
 #include <mio/mmap.hpp>
 #include <tuple>
 #include <string_view>
+#include <mio_cache_control/mmap.hpp>
 
 namespace pbf {
 
@@ -23,7 +24,8 @@ private:
     gsl::span<const std::byte> readBytes(size_t numBytes);
 
 private:
-    mio::mmap_source m_mappedFile;
+    //mio::mmap_source m_mappedFile;
+    mio_cache_control::mmap_sink m_mappedFile;
     gsl::span<const std::byte> m_fileBytes;
 
 	const size_t m_fileSize;

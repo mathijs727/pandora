@@ -9,7 +9,7 @@
 namespace pbf {
 
 Lexer::Lexer(std::filesystem::path filePath)
-    : m_mappedFile(filePath.string())
+    : m_mappedFile(filePath.string(), mio_cache_control::cache_mode::sequential)
     , m_fileBytes(gsl::make_span(
           reinterpret_cast<const std::byte*>(m_mappedFile.data()), m_mappedFile.size()))
     , m_fileSize(m_mappedFile.size())
