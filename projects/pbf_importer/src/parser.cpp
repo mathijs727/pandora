@@ -125,7 +125,7 @@ void* Parser::parseEntity()
     case DISTANT_LIGHT_SOURCE:
         return parseDistantLightSource();
     default: {
-        spdlog::warn("Skipping unsupported entity type with tag {}", tag);
+        //spdlog::warn("Skipping unsupported entity type with tag {}", tag);
         (void)m_pLexer->readArray<std::byte>(size);
         return nullptr;
     } break;
