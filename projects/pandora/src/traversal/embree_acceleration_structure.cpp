@@ -56,19 +56,21 @@ EmbreeAccelerationStructureBuilder::EmbreeAccelerationStructureBuilder(const Sce
 RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pSceneNode)
 {
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
+
+    // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
+     // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of
+	//  RTC_INVALID_GEOMETRY_ID).
+    unsigned geometryID = 1;
     for (const auto& pSceneObject : pSceneNode->objects) {
         const Shape* pShape = pSceneObject->pShape.get();
         RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(m_embreeDevice);
         rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
         rtcCommitGeometry(embreeGeometry);
 
-        unsigned geometryID = rtcAttachGeometry(embreeScene, embreeGeometry);
-        (void)geometryID;
+        rtcAttachGeometryByID(embreeScene, embreeGeometry, geometryID++);
     }
 
-    for (const auto&& [geomID, childLink] : enumerate(pSceneNode->children)) {
-        auto&& [pChildNode, optTransform] = childLink;
-
+    for (const auto& [pChildNode, optTransform] : pSceneNode->children) {
         RTCScene childScene;
         if (auto iter = m_sceneCache.find(pChildNode.get()); iter != std::end(m_sceneCache)) {
             childScene = iter->second;
@@ -80,23 +82,20 @@ RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pScen
         RTCGeometry embreeInstanceGeometry = rtcNewGeometry(m_embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
         rtcSetGeometryInstancedScene(embreeInstanceGeometry, childScene);
         rtcSetGeometryUserData(embreeInstanceGeometry, childScene);
-		if (optTransform) {
+        if (optTransform) {
             rtcSetGeometryTransform(
                 embreeInstanceGeometry, 0,
                 RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
                 glm::value_ptr(*optTransform));
-		}
-		else {
-			glm::mat4 identityMatrix = glm::identity<glm::mat4>();
-			rtcSetGeometryTransform(
-				embreeInstanceGeometry, 0,
-				RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
-				glm::value_ptr(identityMatrix));
-		}
+        } else {
+            glm::mat4 identityMatrix = glm::identity<glm::mat4>();
+            rtcSetGeometryTransform(
+                embreeInstanceGeometry, 0,
+                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
+                glm::value_ptr(identityMatrix));
+        }
         rtcCommitGeometry(embreeInstanceGeometry);
-		// Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
-		// then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of RTC_INVALID_GEOMETRY_ID).
-        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geomID + 1);
+        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geometryID++);
     }
 
     rtcCommitScene(embreeScene);
