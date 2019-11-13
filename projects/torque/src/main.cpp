@@ -77,6 +77,7 @@ int main(int argc, char** argv)
 		("bvhcache", po::value<size_t>()->default_value(100 * 1000), "Bot level BVH cache size (MB)")
 		("primgroup", po::value<unsigned>()->default_value(1000 * 1000), "Number of primitives per batching point")
 		("svdagres", po::value<unsigned>()->default_value(128), "Resolution of the voxel grid used to create the SVDAG")
+		("cameraid", po::value<unsigned>()->default_value(0), "Camera ID (index of occurence in pbrt/pbf file)")
 		("help", "show all arguments");
     // clang-format on
 
@@ -108,6 +109,7 @@ int main(int argc, char** argv)
     const size_t bvhCacheSize = bvhCacheSizeMB * 1000000;
     const unsigned primitivesPerBatchingPoint = vm["primgroup"].as<unsigned>();
     const unsigned svdagRes = vm["svdagres"].as<unsigned>();
+    const unsigned cameraID = vm["cameraid"].as<unsigned>();
 
     std::cout << "Rendering with the following settings:\n";
     std::cout << "  file:           " << vm["file"].as<std::string>() << "\n";
@@ -119,6 +121,8 @@ int main(int argc, char** argv)
     std::cout << "  bot bvh cache:  " << bvhCacheSizeMB << "MB\n";
     std::cout << "  batching point: " << primitivesPerBatchingPoint << " primitives\n";
     std::cout << "  svdag res:      " << svdagRes << " primitives\n";
+    std::cout << "  camera ID:      " << cameraID << "\n";
+    std::cout << std::flush;
 
     g_stats.config.sceneFile = vm["file"].as<std::string>();
     g_stats.config.integrator = vm["integrator"].as<std::string>();
@@ -141,9 +145,9 @@ int main(int argc, char** argv)
         auto stopWatch = g_stats.timings.loadFromFileTime.getScopedStopwatch();
         const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
         if (sceneFilePath.extension() == ".pbrt")
-            renderConfig = pbrt::loadFromPBRTFile(sceneFilePath, &cacheBuilder, false);
+            renderConfig = pbrt::loadFromPBRTFile(sceneFilePath, cameraID, &cacheBuilder, false);
         else if (sceneFilePath.extension() == ".pbf")
-            renderConfig = pbf::loadFromPBFFile(sceneFilePath, &cacheBuilder, false);
+            renderConfig = pbf::loadFromPBFFile(sceneFilePath, cameraID, &cacheBuilder, false);
         else if (sceneFilePath.extension() == ".json")
             renderConfig = loadFromFile(sceneFilePath);
         else {

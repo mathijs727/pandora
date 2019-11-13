@@ -24,7 +24,7 @@ int main(int argc, const char** argv)
 
     {
         Timer timer;
-        parser.parse(filePath);
+        parser.parse(filePath, 0);
         auto elapsed = timer.elapsed<std::chrono::milliseconds>();
 
         spdlog::info("Time to parse: {}ms", elapsed.count());
