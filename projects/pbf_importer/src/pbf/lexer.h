@@ -6,6 +6,7 @@
 #include <tuple>
 #include <string_view>
 #include <mio_cache_control/mmap.hpp>
+#include <cstring>
 
 namespace pbf {
 

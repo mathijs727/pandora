@@ -197,7 +197,7 @@ PBFMatteMaterial* Parser::parseMatteMaterial()
 
 void Parser::parseTexture(PBFTexture* pOut)
 {
-    void;
+    //TODO
 }
 
 PBFImageTexture* Parser::parseImageTexture()
@@ -285,15 +285,15 @@ glm::vec3 colorTempToRGB(float colorTemp)
     if (colorTemp <= 66) {
         rgb.r = 255;
     } else {
-        rgb.r = 329.698727446f * std::powf(colorTemp - 60.0f, -0.1332047592f);
+        rgb.r = 329.698727446f * std::pow(colorTemp - 60.0f, -0.1332047592f);
         rgb.r = std::clamp(rgb.r, 0.0f, 255.0f);
     }
 
     // Green
     if (colorTemp <= 66) {
-        rgb.g = 99.4708025861f * std::logf(colorTemp) - 161.1195681661f;
+        rgb.g = 99.4708025861f * std::log(colorTemp) - 161.1195681661f;
     } else {
-        rgb.g = 288.1221695283f * std::powf(colorTemp - 60, -0.0755148492f);
+        rgb.g = 288.1221695283f * std::pow(colorTemp - 60, -0.0755148492f);
     }
     rgb.g = std::clamp(rgb.g, 0.0f, 255.0f);
 
@@ -303,7 +303,7 @@ glm::vec3 colorTempToRGB(float colorTemp)
     } else if (colorTemp <= 19) {
         rgb.b = 0;
     } else {
-        rgb.b = 138.5177312231f * std::logf(colorTemp - 10) - 305.0447927307f;
+        rgb.b = 138.5177312231f * std::log(colorTemp - 10) - 305.0447927307f;
         rgb.b = std::clamp(rgb.b, 0.0f, 255.0f);
     }
 

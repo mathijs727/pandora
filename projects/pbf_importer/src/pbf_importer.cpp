@@ -6,6 +6,8 @@
 #include <pandora/lights/area_light.h>
 #include <pandora/lights/distant_light.h>
 #include <pandora/lights/environment_light.h>
+#include <pandora/graphics_core/scene.h>
+#include <pandora/graphics_core/perspective_camera.h>
 #include <pandora/materials/matte_material.h>
 #include <pandora/shapes/triangle.h>
 #include <spdlog/spdlog.h>
@@ -14,7 +16,7 @@ namespace pbf {
 
 pandora::RenderConfig pbfToRenderConfig(PBFScene* pScene, unsigned cameraID, tasking::CacheBuilder* pCacheBuilder, bool loadTextures);
 
-pandora::RenderConfig pbf::loadFromPBFFile(
+pandora::RenderConfig loadFromPBFFile(
     std::filesystem::path filePath, unsigned cameraID, tasking::CacheBuilder* pCacheBuilder, bool loadTextures)
 {
     Lexer lexer { filePath };
