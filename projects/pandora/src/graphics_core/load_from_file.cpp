@@ -2,6 +2,8 @@
 #include "pandora/core/stats.h"
 #include "pandora/flatbuffers/triangle_mesh_generated.h"
 #include "pandora/graphics_core/load_from_file.h"
+#include "pandora/graphics_core/perspective_camera.h"
+#include "pandora/graphics_core/scene.h"
 #include "pandora/lights/distant_light.h"
 #include "pandora/lights/environment_light.h"
 #include "pandora/materials/matte_material.h"
@@ -202,9 +204,9 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
                 ALWAYS_ASSERT(std::filesystem::exists(geometryFile));
                 auto mappedFile = mio::mmap_source(geometryFile.string(), startByte, sizeBytes);
 
-				// NOTE: create a shared_ptr of mio::mmap_source and pass it to the lambdas instead of moving mio::mmap_source directly into
-				//       the lambda as a work-around for a bug in TBB (C++ feature detection breaks when using clang-cl.exe which makes it
-				//       think that move operators are not supported yet).
+                // NOTE: create a shared_ptr of mio::mmap_source and pass it to the lambdas instead of moving mio::mmap_source directly into
+                //       the lambda as a work-around for a bug in TBB (C++ feature detection breaks when using clang-cl.exe which makes it
+                //       think that move operators are not supported yet).
                 if (jsonGeometry.find("transform") != jsonGeometry.end()) {
                     glm::mat4 transform = getTransform(jsonGeometry["transform"]);
                     tg.run([i, &shapes, pMappedFile = std::make_shared<mio::mmap_source>(std::move(mappedFile)), transform]() {

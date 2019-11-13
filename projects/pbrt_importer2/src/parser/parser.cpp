@@ -1,5 +1,7 @@
 #include "pbrt/parser/parser.h"
 #include <glm/gtc/matrix_transform.hpp>
+#include <pandora/graphics_core/perspective_camera.h>
+#include <pandora/graphics_core/scene.h>
 #include <pandora/lights/area_light.h>
 #include <pandora/lights/distant_light.h>
 #include <pandora/lights/environment_light.h>

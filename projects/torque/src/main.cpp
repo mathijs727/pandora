@@ -23,6 +23,7 @@
 #include <stream/cache/lru_cache.h>
 #include <stream/serialize/file_serializer.h>
 #include <stream/serialize/in_memory_serializer.h>
+#include <pandora/graphics_core/perspective_camera.h>
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <string>
@@ -45,7 +46,6 @@ RenderConfig createDemoScene();
 int main(int argc, char** argv)
 {
     cnl::fixed_point<uint64_t, -24> v { 5.0f };
-
 
 #ifdef _WIN32
     auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");

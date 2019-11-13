@@ -1,5 +1,11 @@
 #pragma once
+#include <glm/glm.hpp>
+#include <filesystem>
 #include <gsl/span>
+#include <memory_resource>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
 
 namespace pbf {
 
@@ -57,13 +63,9 @@ struct PBFShape {
     virtual void dummy() const {}; // Must have virtual function to use dynamic_cast
 };
 struct PBFTriangleMesh : public PBFShape {
-    //std::pmr::vector<glm::ivec3> index;
-    //std::pmr::vector<glm::vec3> vertex;
-    //std::pmr::vector<glm::vec3> normal;
     gsl::span<const glm::ivec3> index;
     gsl::span<const glm::vec3> vertex;
     gsl::span<const glm::vec3> normal;
-    //std::pmr::vector<glm::vec2> texCoord;
 };
 
 struct PBFObject;
