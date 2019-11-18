@@ -9,6 +9,7 @@
 #include "pandora/traversal/acceleration_structure.h"
 #include "pandora/traversal/embree_cache.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
+#include "pandora/utility/enumerate.h"
 #include "stream/cache/lru_cache.h"
 #include "stream/task_graph.h"
 #include <embree3/rtcore.h>
@@ -53,6 +54,7 @@ private:
     class BatchingPoint {
     public:
         BatchingPoint(SubScene&& subScene, SparseVoxelDAG&& svdag, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph);
+        BatchingPoint(SubScene&& subScene, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph);
 
         std::optional<bool> intersect(Ray&, SurfaceInteraction&, const HitRayState&, const PauseableBVHInsertHandle&) const;
         std::optional<bool> intersectAny(Ray&, const AnyHitRayState&, const PauseableBVHInsertHandle&) const;
@@ -77,7 +79,7 @@ private:
         Bounds m_bounds;
         glm::vec3 m_color;
 
-        SparseVoxelDAG m_svdag;
+        std::optional<SparseVoxelDAG> m_svdag;
 
         tasking::LRUCache* m_pGeometryCache;
         EmbreeSceneCache* m_pEmbreeCache;
@@ -92,6 +94,7 @@ private:
     TopLevelBVH m_topLevelBVH;
     LRUEmbreeSceneCache m_embreeSceneCache;
 
+    bool m_enableOcclusionCulling;
     tasking::TaskGraph* m_pTaskGraph;
 
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> m_onHitTask;
@@ -149,6 +152,17 @@ BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::Batch
 }
 
 template <typename HitRayState, typename AnyHitRayState>
+BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
+    SubScene&& subScene, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph)
+    : m_subScene(std::move(subScene))
+    , m_bounds(m_subScene.computeBounds())
+    , m_color(randomVec3())
+    , m_pGeometryCache(pGeometryCache)
+    , m_pTaskGraph(pTaskGraph)
+{
+}
+
+template <typename HitRayState, typename AnyHitRayState>
 void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::setParent(
     BatchingAccelerationStructure<HitRayState, AnyHitRayState>* pParent, EmbreeSceneCache* pEmbreeCache)
 {
@@ -181,22 +195,14 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             return staticData;
         },
         [=](gsl::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
-            int raysCulled = 0;
             {
                 auto stopWatch = g_stats.timings.totalTraversalTime.getScopedStopwatch();
 
                 RTCScene embreeScene = pStaticData->scene->scene;
                 for (auto& [ray, si, state, insertHandle] : data) {
-                    if (!m_svdag.intersectScalar(ray)) {
-                        raysCulled++;
-                        continue;
-                    }
-
                     intersectInternal(embreeScene, ray, si);
                 }
             }
-            g_stats.svdag.numIntersectionTests += data.size();
-            g_stats.svdag.numRaysCulled += raysCulled;
 
             for (auto& [ray, si, state, insertHandle] : data) {
                 auto optHit = pParent->m_topLevelBVH.intersect(ray, si, state, insertHandle);
@@ -244,29 +250,20 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             hits.resize(data.size());
             std::fill(std::begin(hits), std::end(hits), false);
 
-            int i = 0;
-            int raysCulled = 0;
             {
                 auto stopWatch = g_stats.timings.totalTraversalTime.getScopedStopwatch();
 
                 RTCScene embreeScene = pStaticData->scene->scene;
-                for (auto& [ray, state, insertHandle] : data) {
-                    if (!m_svdag.intersectScalar(ray)) {
-                        hits[i++] = false;
-                        raysCulled++;
-                    } else {
-                        hits[i++] = intersectAnyInternal(embreeScene, ray);
-                    }
+                for (auto& [i, data] : enumerate(data)) {
+                    auto& [ray, state, insertHandle] = data;
+                    hits[i] = intersectAnyInternal(embreeScene, ray);
                 }
             }
-            g_stats.svdag.numIntersectionTests += data.size();
-            g_stats.svdag.numRaysCulled += raysCulled;
 
-            i = 0;
-            for (auto& [ray, state, insertHandle] : data) {
-                bool hit = hits[i++];
+            for (auto& [i, data] : enumerate(data)) {
+                auto& [ray, state, insertHandle] = data;
 
-                if (hit) {
+                if (hits[i]) {
                     m_pTaskGraph->enqueue(pParent->m_onAnyHitTask, std::tuple { ray, state });
                 } else {
                     auto optHit = pParent->m_topLevelBVH.intersectAny(ray, state, insertHandle);
@@ -302,6 +299,12 @@ template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersect(
     Ray& ray, SurfaceInteraction& si, const HitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
+    g_stats.svdag.numIntersectionTests++;
+    if (m_svdag && !m_svdag->intersectScalar(ray)) {
+        g_stats.svdag.numRaysCulled++;
+        return false;
+    }
+
     m_pTaskGraph->enqueue(m_intersectTask, std::tuple { ray, si, userState, bvhInsertHandle });
     return {};
 }
@@ -310,6 +313,12 @@ template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectAny(
     Ray& ray, const AnyHitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
+    g_stats.svdag.numIntersectionTests++;
+    if (m_svdag && !m_svdag->intersectScalar(ray)) {
+        g_stats.svdag.numRaysCulled++;
+        return false;
+    }
+
     m_pTaskGraph->enqueue(m_intersectAnyTask, std::tuple { ray, userState, bvhInsertHandle });
     return {};
 }
@@ -426,36 +435,42 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
     OPTICK_EVENT();
     spdlog::info("Creating batching points");
 
-    std::vector<std::optional<SparseVoxelDAG>> svdags;
-    svdags.resize(m_subScenes.size());
-    tbb::task_group tg;
-    for (size_t i = 0; i < m_subScenes.size(); i++) {
-        // Make resident sequentially
-        const auto& subScene = m_subScenes[i];
-        auto shapesOwningPtrs = makeSubSceneResident(subScene);
-
-        // Voxelize and create SVO in parallel
-        tg.run([i, &subScene, shapesOwningPtrs=std::move(shapesOwningPtrs), &svdags, this]() {
-            svdags[i] = createSVDAG(subScene, m_svdagRes);
-        });
-    }
-    tg.wait();
-
-    for (const auto& svdag : svdags)
-        g_stats.memory.svdagsBeforeCompression += svdag->sizeBytes();
-
-    std::vector<SparseVoxelDAG*> pSvdags;
-    for (auto& svdag : svdags)
-        pSvdags.push_back(&svdag.value());
-    SparseVoxelDAG::compressDAGs(pSvdags);
-
-    for (const auto& svdag : svdags)
-        g_stats.memory.svdagsAfterCompression += svdag->sizeBytes();
-
     using BatchingPointT = typename BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint;
     std::vector<BatchingPointT> batchingPoints;
-    for (size_t i = 0; i < m_subScenes.size(); i++) {
-        batchingPoints.emplace_back(std::move(m_subScenes[i]), std::move(*svdags[i]), m_pGeometryCache, m_pTaskGraph);
+    if (m_svdagRes > 0) {
+        std::vector<std::optional<SparseVoxelDAG>> svdags;
+        svdags.resize(m_subScenes.size());
+
+        tbb::task_group tg;
+        for (size_t i = 0; i < m_subScenes.size(); i++) {
+            // Make resident sequentially
+            const auto& subScene = m_subScenes[i];
+            auto shapesOwningPtrs = makeSubSceneResident(subScene);
+
+            // Voxelize and create SVO in parallel
+            tg.run([i, &subScene, shapesOwningPtrs = std::move(shapesOwningPtrs), &svdags, this]() {
+                svdags[i] = createSVDAG(subScene, m_svdagRes);
+            });
+        }
+        tg.wait();
+
+        for (const auto& svdag : svdags)
+            g_stats.memory.svdagsBeforeCompression += svdag->sizeBytes();
+
+        std::vector<SparseVoxelDAG*> pSvdags;
+        for (auto& svdag : svdags)
+            pSvdags.push_back(&svdag.value());
+        SparseVoxelDAG::compressDAGs(pSvdags);
+
+        for (const auto& svdag : svdags)
+            g_stats.memory.svdagsAfterCompression += svdag->sizeBytes();
+
+        for (size_t i = 0; i < m_subScenes.size(); i++) {
+            batchingPoints.emplace_back(std::move(m_subScenes[i]), std::move(*svdags[i]), m_pGeometryCache, m_pTaskGraph);
+        }
+    } else {
+        for (auto&& subScene : m_subScenes)
+            batchingPoints.emplace_back(std::move(subScene), m_pGeometryCache, m_pTaskGraph);
     }
 
     spdlog::info("Constructing top level BVH");

@@ -1,27 +1,30 @@
 // clang-format off
-#include "pandora/graphics_core/sensor.h"
+#include <pandora/graphics_core/sensor.h>
 // clang-format on
-#include "pandora/config.h"
-#include "pandora/core/stats.h"
-#include "pandora/graphics_core/load_from_file.h"
-#include "pandora/integrators/naive_direct_lighting_integrator.h"
-#include "pandora/integrators/normal_debug_integrator.h"
-#include "pandora/integrators/path_integrator.h"
-#include "pandora/materials/matte_material.h"
-#include "pandora/shapes/triangle.h"
-#include "pandora/textures/constant_texture.h"
-#include "pandora/traversal/batching_acceleration_structure.h"
-#include "pandora/traversal/embree_acceleration_structure.h"
-#include "pbrt/pbrt_importer.h"
-#include "stream/task_graph.h"
-#include "ui/fps_camera_controls.h"
-#include "ui/framebuffer_gl.h"
-#include "ui/window.h"
-#include "pbf/pbf_importer.h"
-#include "pandora/graphics_core/load_from_file.h"
-#include "stream/cache/dummy_cache.h"
-#include "stream/cache/lru_cache.h"
-#include "stream/serialize/in_memory_serializer.h"
+#include <pandora/config.h>
+#include <pandora/core/stats.h>
+#include <pandora/graphics_core/load_from_file.h>
+#include <pandora/integrators/naive_direct_lighting_integrator.h>
+#include <pandora/integrators/normal_debug_integrator.h>
+#include <pandora/integrators/path_integrator.h>
+#include <pandora/materials/matte_material.h>
+#include <pandora/shapes/triangle.h>
+#include <pandora/textures/constant_texture.h>
+#include <pandora/traversal/batching_acceleration_structure.h>
+#include <pandora/traversal/embree_acceleration_structure.h>
+#include <pandora/graphics_core/perspective_camera.h>
+#include <pandora/graphics_core/scene.h>
+#include <pbrt/pbrt_importer.h>
+#include <stream/task_graph.h>
+#include <ui/fps_camera_controls.h>
+#include <ui/framebuffer_gl.h>
+#include <ui/window.h>
+#include <pbf/pbf_importer.h>
+#include <pandora/graphics_core/load_from_file.h>
+#include <stream/cache/dummy_cache.h>
+#include <stream/cache/lru_cache.h>
+#include <stream/serialize/in_memory_serializer.h>
+
 #include <boost/program_options.hpp>
 #include <chrono>
 #include <iostream>
@@ -36,8 +39,6 @@ using namespace atlas;
 using namespace std::string_literals;
 
 const std::string projectBasePath = "../../"s;
-
-RenderConfig createStaticScene();
 
 int main(int argc, char** argv)
 {
