@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <thread>
 #include <vector>
+#include <cstring>
 
 struct DummyData : public tasking::Evictable {
     int value;

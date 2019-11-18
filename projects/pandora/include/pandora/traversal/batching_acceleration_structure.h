@@ -254,13 +254,13 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
                 auto stopWatch = g_stats.timings.totalTraversalTime.getScopedStopwatch();
 
                 RTCScene embreeScene = pStaticData->scene->scene;
-                for (auto& [i, data] : enumerate(data)) {
+                for (auto&& [i, data] : enumerate(data)) {
                     auto& [ray, state, insertHandle] = data;
                     hits[i] = intersectAnyInternal(embreeScene, ray);
                 }
             }
 
-            for (auto& [i, data] : enumerate(data)) {
+            for (auto&& [i, data] : enumerate(data)) {
                 auto& [ray, state, insertHandle] = data;
 
                 if (hits[i]) {
