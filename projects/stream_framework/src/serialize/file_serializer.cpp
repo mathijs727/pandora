@@ -45,6 +45,7 @@ void SplitFileSerializer::unmapPreviousAllocations()
 std::unique_ptr<Deserializer> SplitFileSerializer::createDeserializer()
 {
     // Cannot use make_unique with private constructors
+    m_currentFile.unmap();
     return std::unique_ptr<SplitFileDeserializer>(new SplitFileDeserializer(m_tempFolder, m_fileCacheMode));
 }
 
