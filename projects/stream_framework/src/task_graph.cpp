@@ -8,6 +8,11 @@
 
 namespace tasking {
 
+TaskGraph::TaskGraph(unsigned numSchedulers)
+    : m_numSchedulers(numSchedulers)
+{
+}
+
 void TaskGraph::run()
 {
     tbb::task_group tg;
@@ -34,10 +39,10 @@ void TaskGraph::run()
     };
 
     while (!allQueuesEmpty()) {
-        tg.run(schedule);
-        //tg.run(schedule);
-        //tg.run(schedule);
-        tg.run_and_wait(schedule);
+        for (unsigned i = 0; i < m_numSchedulers; i++) {
+            tg.run(schedule);
+        }
+        tg.wait();
     }
 }
 

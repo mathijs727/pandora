@@ -25,6 +25,8 @@ struct TaskHandle {
 
 class TaskGraph {
 public:
+    TaskGraph(unsigned numSchedulers = 1);
+
     // Kernel signature: void(gsl::span<const T>, std::pmr::memory_resource*>
     template <typename T, typename Kernel>
     TaskHandle<T> addTask(std::string_view name, Kernel&& kernel);
@@ -41,7 +43,9 @@ public:
 
     size_t approxMemoryUsage() const;
     size_t approxQueuedItems() const;
-
+	
+	// Number of scheduler tasks that may be spawned at once. Loading can only happen from one thread (to prevent
+	//  race conditions in cache) but using multiple schedulers allow for loading / traversal in parallel.
     void run();
 
 private:
@@ -92,6 +96,7 @@ private:
 
     std::vector<std::unique_ptr<TaskBase>> m_tasks;
     std::mutex m_staticDataMutex; // Run only one at a time because the cache implementation is not thread safe
+    const unsigned m_numSchedulers;
 };
 
 template <typename T, typename Kernel>
