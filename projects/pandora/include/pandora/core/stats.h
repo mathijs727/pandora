@@ -16,12 +16,17 @@ struct RenderStats : public metrics::Stats {
 
     struct {
         std::string sceneFile;
+        unsigned cameraID;
+
         std::string integrator;
         int spp;
+        unsigned concurrency;
+        unsigned schedulers;
 
         size_t geomCacheSize;
         size_t bvhCacheSize;
         unsigned primGroupSize;
+        unsigned svdagRes;
     } config;
 
     struct {

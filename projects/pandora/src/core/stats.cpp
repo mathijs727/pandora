@@ -37,8 +37,8 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
     ret["memory"]["geometry_loaded"] = memory.geometryLoaded;
     ret["memory"]["geometry_evicted"] = memory.geometryEvicted;
 
-    //ret["memory"]["bot_level_loaded"] = memory.botLevelLoaded;
-    //ret["memory"]["bot_level_evicted"] = memory.botLevelEvicted;
+    ret["memory"]["bot_level_loaded"] = memory.botLevelLoaded;
+    ret["memory"]["bot_level_evicted"] = memory.botLevelEvicted;
     //ret["memory"]["ooc_total_disk_read"] = memory.oocTotalDiskRead;
 
     ret["memory"]["top_bvh"] = memory.topBVH;

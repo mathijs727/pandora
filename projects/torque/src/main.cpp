@@ -69,15 +69,16 @@ int main(int argc, char** argv)
     // clang-format off
     desc.add_options()
 		("file", po::value<std::string>()->required(), "Pandora scene description JSON")
+		("cameraid", po::value<unsigned>()->default_value(0), "Camera ID (index of occurence in pbrt/pbf file)")
 		("out", po::value<std::string>()->default_value("output"s), "output name (without file extension!)")
 		("integrator", po::value<std::string>()->default_value("direct"), "integrator (normal, direct or path)")
 		("spp", po::value<int>()->default_value(1), "samples per pixel")
-		("concurrency", po::value<int>()->default_value(500*1000), "Number of paths traced concurrently")
+		("concurrency", po::value<unsigned>()->default_value(500*1000), "Number of paths traced concurrently")
+		("schedulers", po::value<unsigned>()->default_value(2), "Number of scheduler tasks spawned concurrently")
 		("geomcache", po::value<size_t>()->default_value(100 * 1000), "Geometry cache size (MB)")
 		("bvhcache", po::value<size_t>()->default_value(100 * 1000), "Bot level BVH cache size (MB)")
 		("primgroup", po::value<unsigned>()->default_value(1000 * 1000), "Number of primitives per batching point")
 		("svdagres", po::value<unsigned>()->default_value(128), "Resolution of the voxel grid used to create the SVDAG")
-		("cameraid", po::value<unsigned>()->default_value(0), "Camera ID (index of occurence in pbrt/pbf file)")
 		("help", "show all arguments");
     // clang-format on
 
@@ -101,35 +102,43 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    const unsigned cameraID = vm["cameraid"].as<unsigned>();
     const int spp = vm["spp"].as<int>();
-    const int concurrency = vm["concurrency"].as<int>();
+    const unsigned concurrency = vm["concurrency"].as<unsigned>();
+    const unsigned schedulers = vm["schedulers"].as<unsigned>();
     const size_t geomCacheSizeMB = vm["geomcache"].as<size_t>();
     const size_t bvhCacheSizeMB = vm["bvhcache"].as<size_t>();
     const size_t geomCacheSize = geomCacheSizeMB * 1000000;
     const size_t bvhCacheSize = bvhCacheSizeMB * 1000000;
     const unsigned primitivesPerBatchingPoint = vm["primgroup"].as<unsigned>();
     const unsigned svdagRes = vm["svdagres"].as<unsigned>();
-    const unsigned cameraID = vm["cameraid"].as<unsigned>();
 
     std::cout << "Rendering with the following settings:\n";
     std::cout << "  file:           " << vm["file"].as<std::string>() << "\n";
+    std::cout << "  camera ID:      " << cameraID << "\n";
     std::cout << "  out:            " << vm["out"].as<std::string>() << "\n";
     std::cout << "  integrator:     " << vm["integrator"].as<std::string>() << "\n";
     std::cout << "  spp:            " << spp << std::endl;
     std::cout << "  concurrency:    " << concurrency << "\n";
+    std::cout << "  schedulers:     " << schedulers << "\n";
     std::cout << "  geom cache:     " << geomCacheSizeMB << "MB\n";
     std::cout << "  bot bvh cache:  " << bvhCacheSizeMB << "MB\n";
     std::cout << "  batching point: " << primitivesPerBatchingPoint << " primitives\n";
     std::cout << "  svdag res:      " << svdagRes << " primitives\n";
-    std::cout << "  camera ID:      " << cameraID << "\n";
     std::cout << std::flush;
 
     g_stats.config.sceneFile = vm["file"].as<std::string>();
+    g_stats.config.cameraID = cameraID;
+
     g_stats.config.integrator = vm["integrator"].as<std::string>();
     g_stats.config.spp = spp;
+    g_stats.config.concurrency = concurrency;
+    g_stats.config.schedulers = schedulers;
+
     g_stats.config.geomCacheSize = geomCacheSize;
     g_stats.config.bvhCacheSize = bvhCacheSize;
     g_stats.config.primGroupSize = primitivesPerBatchingPoint;
+    g_stats.config.svdagRes = svdagRes;
 
     spdlog::info("Loading scene");
     // WARNING: This cache is not used during rendering when using the batched acceleration structure.
@@ -158,7 +167,7 @@ int main(int argc, char** argv)
     const glm::ivec2 resolution = renderConfig.resolution;
     tasking::LRUCache geometryCache = cacheBuilder.build(geomCacheSize);
 
-    tasking::TaskGraph taskGraph;
+    tasking::TaskGraph taskGraph { schedulers };
 
     //using AccelBuilder = BatchingAccelerationStructureBuilder;
     using AccelBuilder = BatchingAccelerationStructureBuilder;
