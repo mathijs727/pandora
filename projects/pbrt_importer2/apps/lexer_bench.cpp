@@ -5,14 +5,14 @@
 #include "timer.h"
 
 #include <boost/program_options.hpp>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 #include <cassert>
 #include <filesystem>
 #include <fmt/format.h>
 #include <fstream>
 #include <iostream>
 #include <mio/mmap.hpp>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 #include <string>
 
 boost::program_options::variables_map parseInput(int argc, const char** argv);
@@ -49,9 +49,9 @@ int main(int argc, const char** argv)
     //benchLexer<SIMDLexer>(fileContents);
     //benchLexer<Lexer>(fileContents);
 
-	printLexer<Lexer>(fileContents);
+    printLexer<Lexer>(fileContents);
 
-	// Don't need the file anymore but it's good to read it into memory first to warm up the (file system) cache
+    // Don't need the file anymore but it's good to read it into memory first to warm up the (file system) cache
     fileContents.clear();
     benchLexerMmap<Lexer>(filePath);
     benchLexerMmap<SIMDLexer>(filePath);
@@ -161,6 +161,9 @@ void printLexer(std::string_view fileContents)
         } break;
         case TokenType::LIST_END: {
             spdlog::info("LIST_END: {}", token.text);
+        } break;
+        case TokenType::NONE: {
+            spdlog::info("NON");
         } break;
         };
     }
