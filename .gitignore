@@ -48,3 +48,4 @@ projects/pbrt_importer/python/parsing/parsetab.py
 projects/pbrt_importer/python/pbrt_to_pandora.pyperf
 projects/pbrt_importer/python/parsing/lextab.py
 projects/stats_visualizer/flamegraph.html
+projects/pandora/include/pandora/flatbuffers/*
