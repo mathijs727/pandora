@@ -1,9 +1,3 @@
-# Flatbuffer generated folder
-#projects/pandora/include/pandora/flatbuffers/contiguous_allocator_generated.h
-#projects/pandora/include/pandora/flatbuffers/data_types_generated.h
-#projects/pandora/include/pandora/flatbuffers/ooc_batching_generated.h
-#projects/pandora/include/pandora/flatbuffers/triangle_mesh_generated.h
-
 # Manual build folder
 build
 build-release
@@ -11,7 +5,7 @@ build-gcc
 out
 
 # Flatbuffers include folder (generated from the actual flatbuffers)
-projects/pandora/flatbuffers/include/
+projects/pandora/include/pandora/flatbuffers/*_generated.h
 
 # Temporary python cache files
 *.pyc
@@ -48,4 +42,3 @@ projects/pbrt_importer/python/parsing/parsetab.py
 projects/pbrt_importer/python/pbrt_to_pandora.pyperf
 projects/pbrt_importer/python/parsing/lextab.py
 projects/stats_visualizer/flamegraph.html
-projects/pandora/include/pandora/flatbuffers/*
