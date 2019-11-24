@@ -41,14 +41,14 @@ pandora::RenderConfig Parser::parse(std::filesystem::path file, unsigned cameraI
         [=](auto cameraData) {
             // Use mutable reference instead of immutable reference to work around a Clang on Windows bug:
             // https://stackoverflow.com/questions/53721714/why-does-structured-binding-not-work-as-expected-on-struct
-            auto& [worldToCamera, cameraParams] = cameraData;
+            auto& [transform, cameraParams] = cameraData;
 
             // PBRT defines field of view along shortest axis
             float fov = cameraParams.template get<float>("fov", 45.0f);
             if (fResolution.x > fResolution.y)
                 fov = glm::degrees(std::atan(std::tan(glm::radians(fov / 2.0f)) * aspectRatio) * 2.0f);
 
-            return pandora::PerspectiveCamera(aspectRatio, fov, glm::inverse(worldToCamera));
+            return pandora::PerspectiveCamera(aspectRatio, fov, glm::inverse(transform));
         });
 
     auto pScene = std::make_unique<pandora::Scene>(intermediateScene.sceneBuilder.build());
@@ -303,7 +303,7 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, Params&& params)
     }
 
     m_asyncWorkTaskGroup.run([transform = m_currentTransform, pSceneObject, params = std::move(params), pLexerSource = m_pCurrentLexerSource, &scene]() {
-        Params& mutParams = const_cast<Params&>(params);
+        Params& mutParams = const_cast<Params&>(params); // Work-around because tbb doesn't support mutable lambda's on all platforms (does not detect Clang on Windows properly)
 
         // Load mesh
         std::vector<int> integerIndices = mutParams.getMove<std::vector<int>>("indices");
@@ -511,8 +511,15 @@ bool Parser::parseTransform(const Token& token) noexcept
         const glm::vec3 eye = parse<glm::vec3>();
         const glm::vec3 target = parse<glm::vec3>();
         const glm::vec3 up = parse<glm::vec3>();
-        glm::mat4 transform = glm::lookAtLH(eye, target, up);
-        m_currentTransform = glm::scale(glm::mat4(1), glm::vec3(1, -1, 1)) * transform;
+        glm::mat4x3 xfm;
+        xfm[2] = glm::normalize(target - eye);
+        xfm[0] = glm::normalize(glm::cross(xfm[2], up));
+        xfm[1] = glm::cross(xfm[0], xfm[2]);
+        xfm[3] = eye;
+
+        m_currentTransform *= glm::inverse(glm::mat4(xfm));
+        //glm::mat4 transform = glm::lookAtLH(eye, target, -up);
+        //glm::scale(glm::mat4(1), glm::vec3(1, -1, 1)) * transform;
         return true;
     }
     if (token == "Scale") {

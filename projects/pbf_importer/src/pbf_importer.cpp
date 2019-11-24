@@ -76,15 +76,23 @@ Converter::Converter(tasking::CacheBuilder* pCacheBuilder, bool loadTextures)
 {
 }
 
-pandora::PerspectiveCamera Converter::convertCamera(const PBFCamera* pBbfCamera, float aspectRatio)
+pandora::PerspectiveCamera Converter::convertCamera(const PBFCamera* pPbfCamera, float aspectRatio)
 {
     // PBRT defines field of view along shortest axis
-    float fovX = pBbfCamera->fov;
+    float fovX = pPbfCamera->fov;
     if (aspectRatio > 1.0f)
         fovX = glm::degrees(std::atan(std::tan(glm::radians(fovX / 2.0f)) * aspectRatio) * 2.0f);
 
-    const glm::mat4 transform = glm::mat4(pBbfCamera->frame) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1, -1, 1));
-    return pandora::PerspectiveCamera(aspectRatio, fovX, transform);
+    const glm::mat4 transform = pPbfCamera->frame;
+    const glm::mat4 frame = pPbfCamera->frame;
+    const glm::mat4 invFrame = glm::inverse(frame);
+    const glm::vec3 center = frame * glm::vec4(0, 0, 0, 1);
+    const float distance = glm::length(center - pPbfCamera->simplified.lenseCenter);
+    if (distance > 0.001) {
+        spdlog::error("Distance between frame and simplified: {}", distance);
+        throw std::runtime_error("");
+	}
+    return pandora::PerspectiveCamera(aspectRatio, fovX, pPbfCamera->lensRadius, pPbfCamera->focalDistance, transform);
 }
 
 pandora::Scene Converter::convertWorld(const PBFObject* pWorld)
@@ -111,7 +119,7 @@ void Converter::convertObject(
         } else {
             pShape = convertShape(pPBFShape);
             m_shapeCache[pPBFShape] = pShape;
-            m_pCacheBuilder->registerCacheable(pShape.get());
+            m_pCacheBuilder->registerCacheable(pShape.get(), true);
         }
 
         auto pMaterial = convertMaterial(pPBFShape->pMaterial);

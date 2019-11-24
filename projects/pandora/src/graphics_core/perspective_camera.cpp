@@ -7,13 +7,20 @@
 namespace pandora {
 
 PerspectiveCamera::PerspectiveCamera(float aspectRatio, float fovX, glm::mat4 transform)
+    : PerspectiveCamera(aspectRatio, fovX, 0.3f, 17.0f, transform)
+{
+}
+
+PerspectiveCamera::PerspectiveCamera(
+    float aspectRatio, float fovX, float lensRadius, float focalDistance,
+    glm::mat4 transform)
     : m_aspectRatio(aspectRatio)
     , m_fovX(fovX)
+    , m_lensRadius(lensRadius)
+    , m_focalDistance(focalDistance)
     , m_transform(transform)
 {
-    float virtualScreenWidth = std::tan(glm::radians(m_fovX / 2.0f)) * 2;
-    float virtualScreenHeight = virtualScreenWidth / m_aspectRatio;
-    m_virtualScreenSize = glm::vec2(virtualScreenWidth, virtualScreenHeight);
+    updatePosition();
 }
 
 glm::mat4 PerspectiveCamera::getTransform() const
@@ -24,15 +31,36 @@ glm::mat4 PerspectiveCamera::getTransform() const
 void PerspectiveCamera::setTransform(const glm::mat4& matrix)
 {
     m_transform = matrix;
+    updatePosition();
 }
 
 Ray PerspectiveCamera::generateRay(const glm::vec2& sample) const
 {
-    glm::vec2 pixel2D = (sample - 0.5f) * m_virtualScreenSize;
+    const glm::vec2 centeredSample = sample - 0.5f;
 
-    glm::vec3 origin = m_transform * glm::vec4(0, 0, 0, 1);
-    glm::vec3 direction = glm::normalize(m_transform * glm::vec4(pixel2D.x, pixel2D.y, 1.0f, 0.0f));
+    const glm::vec3 lensSample = m_lensCenter + centeredSample.x * m_lensDu + centeredSample.y * m_lensDv;
+    const glm::vec3 screenSample = m_screenCenter + centeredSample.x * m_screenDu + centeredSample.y * m_screenDv;
+
+    const glm::vec3 origin = lensSample;
+    const glm::vec3 direction = glm::normalize(screenSample - lensSample);
     return Ray(origin, direction);
+}
+
+void PerspectiveCamera::updatePosition()
+{
+    // Based on https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/semantic/Camera.cpp
+    m_lensCenter = m_transform[3];
+    m_lensDu = m_lensRadius * m_transform[0];
+    m_lensDv = m_lensRadius * m_transform[1];
+
+    const float fovDistanceToUnitPlane = 0.5f / std::tan(glm::radians(m_fovX / 2.0f));
+    m_screenCenter = m_transform[3] + m_focalDistance * m_transform[2];
+    m_screenDu = -m_focalDistance / fovDistanceToUnitPlane * m_transform[0];
+    m_screenDv = -m_focalDistance / fovDistanceToUnitPlane * m_transform[1];
+
+    /*float virtualScreenWidth = std::tan(glm::radians(m_fovX / 2.0f)) * 2;
+    float virtualScreenHeight = virtualScreenWidth / m_aspectRatio;
+    m_virtualScreenSize = glm::vec2(virtualScreenWidth, virtualScreenHeight);*/
 }
 
 }
