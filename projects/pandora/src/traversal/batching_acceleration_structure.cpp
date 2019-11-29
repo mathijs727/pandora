@@ -42,6 +42,8 @@ BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
 
 void BatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint)
 {
+    OPTICK_EVENT();
+
     // NOTE: modifies pScene in place
     //
     // Split large shapes into smaller sub shpaes so we can guarantee that the batching poinst never exceed the given size.
@@ -315,18 +317,18 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     struct BVHNode {
         virtual ~BVHNode() {};
 
-        //eastl::fixed_vector<Bounds, 2, false> childBounds;
-        std::vector<Bounds> childBounds;
+        eastl::fixed_vector<Bounds, 2, false> childBounds;
+        //std::vector<Bounds> childBounds;
         size_t numPrimitives { 0 };
     };
     struct LeafNode : public BVHNode {
-        //eastl::fixed_vector<Path, 2, false> sceneObjectPaths;
+        //eastl::fixed_vector<std::pair<SceneNode*, std::optional<glm::mat4>>, 8, false> sceneNodes;
         std::vector<std::pair<SceneNode*, std::optional<glm::mat4>>> sceneNodes;
         std::vector<SceneObject*> sceneObjects;
     };
     struct InnerNode : public BVHNode {
-        //eastl::fixed_vector<BVHNode*, 2, false> children;
-        std::vector<BVHNode*> children;
+        eastl::fixed_vector<BVHNode*, 2, false> children;
+        //std::vector<BVHNode*> children;
     };
 
     RTCBuildArguments arguments = rtcDefaultBuildArguments();
@@ -334,8 +336,8 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     arguments.buildFlags = RTC_BUILD_FLAG_NONE;
     arguments.buildQuality = RTC_BUILD_QUALITY_MEDIUM; // High build quality requires spatial splits
     arguments.maxBranchingFactor = 2;
-    arguments.minLeafSize = 1; // Stop splitting when number of prims is below minLeafSize
-    arguments.maxLeafSize = 2; // This is a hard constraint (always split when number of prims is larger than maxLeafSize)
+    arguments.minLeafSize = 2; // Stop splitting when number of prims is below minLeafSize
+    arguments.maxLeafSize = 8; // This is a hard constraint (always split when number of prims is larger than maxLeafSize)
     arguments.bvh = bvh;
     arguments.primitives = embreeBuildPrimitives.data();
     arguments.primitiveCount = embreeBuildPrimitives.size();
@@ -405,10 +407,10 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     };
     computePrimCount(pBvhRoot);
 
-    std::function<SubScene(const BVHNode*)> flattenSubTree = [&](const BVHNode* pNode) {
+    std::function<SubScene(BVHNode*)> flattenSubTree = [&](BVHNode* pNode) {
         if (const auto* pInnerNode = dynamic_cast<const InnerNode*>(pNode)) {
             SubScene outScene;
-            for (const auto* pChild : pInnerNode->children) {
+            for (auto* pChild : pInnerNode->children) {
                 auto childOutScene = flattenSubTree(pChild);
 
                 outScene.sceneNodes.reserve(outScene.sceneNodes.size() + childOutScene.sceneNodes.size());
@@ -418,7 +420,7 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
                 std::copy(std::begin(childOutScene.sceneObjects), std::end(childOutScene.sceneObjects), std::back_inserter(outScene.sceneObjects));
             }
             return outScene;
-        } else if (const auto* pLeafNode = dynamic_cast<const LeafNode*>(pNode)) {
+        } else if (auto* pLeafNode = dynamic_cast<LeafNode*>(pNode)) {
             SubScene outScene;
             outScene.sceneNodes = std::move(pLeafNode->sceneNodes);
             outScene.sceneObjects = std::move(pLeafNode->sceneObjects);
@@ -429,10 +431,10 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     };
 
     std::vector<SubScene> subScenes;
-    std::function<void(const BVHNode*)> computeSubScenes = [&](const BVHNode* pNode) {
+    std::function<void(BVHNode*)> computeSubScenes = [&](BVHNode* pNode) {
         if (pNode->numPrimitives > primitivesPerSubScene) {
-            if (const auto* pInnerNode = dynamic_cast<const InnerNode*>(pNode)) {
-                for (const auto* pChild : pInnerNode->children)
+            if (auto* pInnerNode = dynamic_cast<InnerNode*>(pNode)) {
+                for (auto* pChild : pInnerNode->children)
                     computeSubScenes(pChild);
             } else {
                 subScenes.push_back(flattenSubTree(pNode));
