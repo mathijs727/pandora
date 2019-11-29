@@ -209,7 +209,8 @@ inline size_t TaskGraph::Task<T>::approxQueueSize() const
 template <typename T>
 inline size_t TaskGraph::Task<T>::approxQueueSizeBytes() const
 {
-    return m_workQueue.unsafe_size() * sizeof(T);
+    //return m_workQueue.unsafe_size() * sizeof(T);
+    return m_workQueue.unsafe_size_bytes();
 }
 
 template <typename T>
