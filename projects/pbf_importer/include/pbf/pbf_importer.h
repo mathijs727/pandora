@@ -5,6 +5,6 @@
 
 namespace pbf {
 
-pandora::RenderConfig loadFromPBFFile(std::filesystem::path filePath, unsigned cameraID, tasking::CacheBuilder* pCacheBuilder = nullptr, bool loadTextures = false);
+pandora::RenderConfig loadFromPBFFile(std::filesystem::path filePath, unsigned cameraID, tasking::CacheBuilder* pCacheBuilder = nullptr, unsigned subdiv = 0, bool loadTextures = false);
 
 }

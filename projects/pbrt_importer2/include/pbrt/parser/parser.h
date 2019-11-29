@@ -99,7 +99,7 @@ private:
 
 class Parser {
 public:
-    Parser(std::filesystem::path basePath, bool loadTextures = true);
+    Parser(std::filesystem::path basePath, unsigned subdiv = 0, bool loadTextures = true);
 
     pandora::RenderConfig parse(std::filesystem::path file, unsigned cameraID, tasking::CacheBuilder* pGeometryCacheBuilder = nullptr);
 
@@ -141,6 +141,7 @@ private:
     void addLexer(std::filesystem::path file);
 
 private:
+    const unsigned m_subdiv;
     const bool m_loadTextures;
     const std::filesystem::path m_basePath;
 

@@ -33,7 +33,10 @@ public:
     Bounds getBounds() const final;
     Bounds getPrimitiveBounds(unsigned primitiveID) const final;
 
-	TriangleShape subMesh(gsl::span<const unsigned> primitives) const;
+    // Subdivide mesh to make the scene (artificially) more complex
+    void subdivide() final;
+
+    TriangleShape subMesh(gsl::span<const unsigned> primitives) const;
 
     RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const final;
 
@@ -82,7 +85,7 @@ private:
     std::vector<glm::vec3> m_normals;
     std::vector<glm::vec2> m_texCoords;
 
-	tasking::Allocation m_serializedStateHandle;
+    tasking::Allocation m_serializedStateHandle;
 };
 
 }

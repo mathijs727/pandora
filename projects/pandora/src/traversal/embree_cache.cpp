@@ -201,7 +201,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
 void LRUEmbreeSceneCache::evict()
 {
     for (auto iter = std::begin(m_scenes); iter != std::end(m_scenes); iter++) {
-        spdlog::info("Evicting BVH");
+        spdlog::debug("Evicting BVH");
         m_lookUp.erase(iter->pKey);
         m_scenes.erase(iter);
 

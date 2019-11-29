@@ -14,8 +14,9 @@
 
 std::pair<std::string_view, std::string_view> splitStringFirstWhitespace(std::string_view string);
 
-Parser::Parser(std::filesystem::path basePath, bool loadTextures)
-    : m_loadTextures(loadTextures)
+Parser::Parser(std::filesystem::path basePath, unsigned subdiv, bool loadTextures)
+    : m_subdiv(subdiv)
+    , m_loadTextures(loadTextures)
     , m_basePath(basePath)
 {
 }
@@ -302,7 +303,7 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, Params&& params)
         scene.sceneBuilder.attachObject(m_currentObject->pSceneNode, pSceneObject);
     }
 
-    m_asyncWorkTaskGroup.run([transform = m_currentTransform, pSceneObject, params = std::move(params), pLexerSource = m_pCurrentLexerSource, &scene]() {
+    m_asyncWorkTaskGroup.run([transform = m_currentTransform, pSceneObject, params = std::move(params), pLexerSource = m_pCurrentLexerSource, &scene, subdiv = m_subdiv]() {
         Params& mutParams = const_cast<Params&>(params); // Work-around because tbb doesn't support mutable lambda's on all platforms (does not detect Clang on Windows properly)
 
         // Load mesh
@@ -340,6 +341,9 @@ void Parser::parseTriangleShape(PBRTIntermediateScene& scene, Params&& params)
                 transform);
         }
 
+        for (unsigned i = 0; i < subdiv; i++)
+            pShape->subdivide();
+
         // Cache builders & serializers are not thread-safe so serializing/storing the geometry should happen sequentially.
         // TODO: make cache builders & serializers thread-safe because this lock may cause a serious bottleneck.
         if (scene.pGeometryCacheBuilder) {
@@ -372,7 +376,7 @@ void Parser::parsePlymesh(PBRTIntermediateScene& scene, Params&& params)
     // Make a copy of the lexer source so it doesn't immediately get deleted when
     // an include statement is encountered. This is a trade-off so we can keep working
     // with std::string_view's instead of making copies.
-    m_asyncWorkTaskGroup.run([basePath = m_basePath, transform = m_currentTransform, pSceneObject, params = std::move(params), pLexerSource = m_pCurrentLexerSource, &scene]() {
+    m_asyncWorkTaskGroup.run([basePath = m_basePath, transform = m_currentTransform, pSceneObject, params = std::move(params), pLexerSource = m_pCurrentLexerSource, &scene, subdiv = m_subdiv]() {
         // Load mesh
         auto filePath = basePath / params.get<std::string_view>("filename");
         std::optional<pandora::TriangleShape> shapeOpt;
@@ -385,6 +389,9 @@ void Parser::parsePlymesh(PBRTIntermediateScene& scene, Params&& params)
             return;
         }
         auto pShape = std::make_shared<pandora::TriangleShape>(std::move(*shapeOpt));
+
+        for (unsigned i = 0; i < subdiv; i++)
+            pShape->subdivide();
 
         // Cache builders & serializers are not thread-safe so serializing/storing the geometry should happen sequentially.
         // TODO: make cache builders & serializers thread-safe because this lock may cause a serious bottleneck.

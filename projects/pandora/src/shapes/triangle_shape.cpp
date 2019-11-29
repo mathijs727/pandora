@@ -127,6 +127,36 @@ TriangleShape::TriangleShape(
     g_stats.memory.geometryLoaded += sizeBytes();
 }
 
+void TriangleShape::subdivide()
+{
+    ALWAYS_ASSERT(m_normals.empty() || m_normals.size() == m_positions.size());
+    ALWAYS_ASSERT(m_texCoords.empty());
+
+    std::vector<glm::uvec3> outIndices;
+    outIndices.reserve(m_indices.size() * 3);
+    for (const auto& triangle : m_indices) {
+        glm::vec3 v0 = m_positions[triangle[0]];
+        glm::vec3 v1 = m_positions[triangle[1]];
+        glm::vec3 v2 = m_positions[triangle[2]];
+        glm::vec3 v3 = (v0 + v1 + v2) / 3.0f;
+
+        int newVertexID = static_cast<int>(m_positions.size());
+        m_positions.push_back(v3);
+        if (!m_normals.empty()) {
+            m_normals.push_back(
+                glm::normalize(
+                    m_normals[triangle[0]] + m_normals[triangle[1]] + m_normals[triangle[2]]));
+        }
+        outIndices.push_back({ triangle[0], triangle[1], newVertexID });
+        outIndices.push_back({ triangle[1], triangle[2], newVertexID });
+        outIndices.push_back({ triangle[2], triangle[0], newVertexID });
+    }
+    m_indices = std::move(outIndices);
+    m_indices.shrink_to_fit();
+    m_positions.shrink_to_fit();
+    m_normals.shrink_to_fit();
+}
+
 void TriangleShape::doEvict()
 {
     OPTICK_EVENT();

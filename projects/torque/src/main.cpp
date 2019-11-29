@@ -29,6 +29,7 @@
 #include <string>
 #include <tbb/tbb.h>
 #include <xmmintrin.h>
+#include <unordered_set>
 #ifdef _WIN32
 #include <spdlog/sinks/msvc_sink.h>
 #else
@@ -40,8 +41,6 @@ using namespace torque;
 using namespace std::string_literals;
 
 const std::string projectBasePath = "../../"s;
-
-RenderConfig createDemoScene();
 
 int main(int argc, char** argv)
 {
@@ -69,6 +68,7 @@ int main(int argc, char** argv)
     // clang-format off
     desc.add_options()
 		("file", po::value<std::string>()->required(), "Pandora scene description JSON")
+		("subdiv", po::value<unsigned>()->default_value(0), "Number of times to subdivide each triangle in the scene")
 		("cameraid", po::value<unsigned>()->default_value(0), "Camera ID (index of occurence in pbrt/pbf file)")
 		("out", po::value<std::string>()->default_value("output"s), "output name (without file extension!)")
 		("integrator", po::value<std::string>()->default_value("direct"), "integrator (normal, direct or path)")
@@ -102,6 +102,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    const unsigned subdiv = vm["subdiv"].as<unsigned>();
     const unsigned cameraID = vm["cameraid"].as<unsigned>();
     const int spp = vm["spp"].as<int>();
     const unsigned concurrency = vm["concurrency"].as<unsigned>();
@@ -115,6 +116,7 @@ int main(int argc, char** argv)
 
     std::cout << "Rendering with the following settings:\n";
     std::cout << "  file:           " << vm["file"].as<std::string>() << "\n";
+    std::cout << "  subdiv:         " << subdiv << "\n";
     std::cout << "  camera ID:      " << cameraID << "\n";
     std::cout << "  out:            " << vm["out"].as<std::string>() << "\n";
     std::cout << "  integrator:     " << vm["integrator"].as<std::string>() << "\n";
@@ -154,9 +156,9 @@ int main(int argc, char** argv)
         auto stopWatch = g_stats.timings.loadFromFileTime.getScopedStopwatch();
         const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
         if (sceneFilePath.extension() == ".pbrt")
-            renderConfig = pbrt::loadFromPBRTFile(sceneFilePath, cameraID, &cacheBuilder, false);
+            renderConfig = pbrt::loadFromPBRTFile(sceneFilePath, cameraID, &cacheBuilder, subdiv, false);
         else if (sceneFilePath.extension() == ".pbf")
-            renderConfig = pbf::loadFromPBFFile(sceneFilePath, cameraID, &cacheBuilder, false);
+            renderConfig = pbf::loadFromPBFFile(sceneFilePath, cameraID, &cacheBuilder, subdiv, false);
         else if (sceneFilePath.extension() == ".json")
             renderConfig = loadFromFile(sceneFilePath);
         else {
