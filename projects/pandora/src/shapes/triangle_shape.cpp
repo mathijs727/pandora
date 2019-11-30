@@ -232,6 +232,7 @@ void TriangleShape::doMakeResident(tasking::Deserializer& deserializer)
 
 unsigned TriangleShape::numPrimitives() const
 {
+    ALWAYS_ASSERT(m_indices.size() < std::numeric_limits<unsigned>::max());
     return m_numPrimitives;
 }
 

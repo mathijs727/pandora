@@ -311,6 +311,8 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
         embreeBuildPrimitives.push_back(primitive);
     }
 
+	ALWAYS_ASSERT(embreeBuildPrimitives.size() < std::numeric_limits<unsigned>::max());
+
     // Build a BVH over all scene objects (including instanced ones)
     RTCBVH bvh = rtcNewBVH(embreeDevice);
 
