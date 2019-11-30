@@ -140,7 +140,7 @@ void TriangleShape::subdivide()
         glm::vec3 v2 = m_positions[triangle[2]];
         glm::vec3 v3 = (v0 + v1 + v2) / 3.0f;
 
-        int newVertexID = static_cast<int>(m_positions.size());
+        unsigned newVertexID = static_cast<unsigned>(m_positions.size());
         m_positions.push_back(v3);
         if (!m_normals.empty()) {
             m_normals.push_back(
@@ -155,6 +155,9 @@ void TriangleShape::subdivide()
     m_indices.shrink_to_fit();
     m_positions.shrink_to_fit();
     m_normals.shrink_to_fit();
+
+	ALWAYS_ASSERT(m_indices.size() < std::numeric_limits<unsigned>::max());
+	m_numPrimitives = static_cast<unsigned>(m_indices.size());
 }
 
 void TriangleShape::doEvict()
@@ -232,7 +235,6 @@ void TriangleShape::doMakeResident(tasking::Deserializer& deserializer)
 
 unsigned TriangleShape::numPrimitives() const
 {
-    ALWAYS_ASSERT(m_indices.size() < std::numeric_limits<unsigned>::max());
     return m_numPrimitives;
 }
 
