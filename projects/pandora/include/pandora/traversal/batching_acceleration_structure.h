@@ -473,7 +473,7 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
             batchingPoints.emplace_back(std::move(subScene), m_pGeometryCache, m_pTaskGraph);
     }
 
-    spdlog::info("Constructing top level BVH");
+    spdlog::info("Constructing top level BVH over {} batching points", batchingPoints.size());
 
     // Moves batching points into internal structure
     PauseableBVH4<BatchingPointT, HitRayState, AnyHitRayState> topLevelBVH { batchingPoints };

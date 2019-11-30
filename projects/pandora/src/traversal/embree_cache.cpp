@@ -9,25 +9,25 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
 {
     switch (code) {
     case RTC_ERROR_NONE:
-        spdlog::error("RTC_ERROR_NONE {}", str);
+        spdlog::error("In EmbreeCache: RTC_ERROR_NONE {}", str);
         break;
     case RTC_ERROR_UNKNOWN:
-        spdlog::error("RTC_ERROR_UNKNOWN {}", str);
+        spdlog::error("In EmbreeCache: RTC_ERROR_UNKNOWN {}", str);
         break;
     case RTC_ERROR_INVALID_ARGUMENT:
-        spdlog::error("RTC_ERROR_INVALID_ARGUMENT {}", str);
+        spdlog::error("In EmbreeCache: RTC_ERROR_INVALID_ARGUMENT {}", str);
         break;
     case RTC_ERROR_INVALID_OPERATION:
-        spdlog::error("RTC_ERROR_INVALID_OPERATION {}", str);
+        spdlog::error("In EmbreeCache: RTC_ERROR_INVALID_OPERATION {}", str);
         break;
     case RTC_ERROR_OUT_OF_MEMORY:
-        spdlog::error("RTC_ERROR_OUT_OF_MEMORY {}", str);
+        spdlog::error("In EmbreeCache: RTC_ERROR_OUT_OF_MEMORY {}", str);
         break;
     case RTC_ERROR_UNSUPPORTED_CPU:
-        spdlog::error("RTC_ERROR_UNSUPPORTED_CPU {}", str);
+        spdlog::error("In EmbreeCache: RTC_ERROR_UNSUPPORTED_CPU {}", str);
         break;
     case RTC_ERROR_CANCELLED:
-        spdlog::error("RTC_ERROR_CANCELLED {}", str);
+        spdlog::error("In EmbreeCache: RTC_ERROR_CANCELLED {}", str);
         break;
     }
 }
@@ -110,6 +110,11 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
 {
 
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
+
+    // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
+    // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of
+    //  RTC_INVALID_GEOMETRY_ID).
+    unsigned geometryID = 1;
     for (const auto& pSceneObject : pSceneNode->objects) {
         Shape* pShape = pSceneObject->pShape.get();
 
@@ -117,14 +122,11 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
         rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
         rtcCommitGeometry(embreeGeometry);
 
-        unsigned geometryID = rtcAttachGeometry(embreeScene, embreeGeometry);
-        (void)geometryID;
+        rtcAttachGeometryByID(embreeScene, embreeGeometry, geometryID++);
     }
 
     std::vector<std::shared_ptr<CachedEmbreeScene>> children;
-    for (const auto&& [geomID, childLink] : enumerate(pSceneNode->children)) {
-        auto&& [pChildNode, optTransform] = childLink;
-
+    for (const auto& [pChildNode, optTransform] : pSceneNode->children) {
         std::shared_ptr<CachedEmbreeScene> pChildScene = fromSceneNode(pSceneNode);
 
         RTCGeometry embreeInstanceGeometry = rtcNewGeometry(m_embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
@@ -145,7 +147,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
         rtcCommitGeometry(embreeInstanceGeometry);
         // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
         // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of RTC_INVALID_GEOMETRY_ID).
-        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geomID + 1);
+        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geometryID++);
     }
 
     rtcCommitScene(embreeScene);
@@ -156,6 +158,11 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const SubScene* pSubScene)
 {
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
+
+	// Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
+    // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of
+    //  RTC_INVALID_GEOMETRY_ID).
+    unsigned geometryID = 1;
     for (const auto& pSceneObject : pSubScene->sceneObjects) {
         const Shape* pShape = pSceneObject->pShape.get();
 
@@ -163,8 +170,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
         rtcSetGeometryUserData(embreeGeometry, pSceneObject);
         rtcCommitGeometry(embreeGeometry);
 
-        unsigned geometryID = rtcAttachGeometry(embreeScene, embreeGeometry);
-        (void)geometryID;
+        rtcAttachGeometryByID(embreeScene, embreeGeometry, geometryID++);
     }
 
     std::vector<std::shared_ptr<CachedEmbreeScene>> children;
@@ -189,9 +195,8 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
                 glm::value_ptr(identityMatrix));
         }
         rtcCommitGeometry(embreeInstanceGeometry);
-        // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
-        // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of RTC_INVALID_GEOMETRY_ID).
-        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geomID + 1);
+
+        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geometryID++);
     }
 
     rtcCommitScene(embreeScene);
