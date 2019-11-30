@@ -79,7 +79,8 @@ void SamplerIntegrator::uniformSampleOneLight(
     if (numLights == 0)
         return;
 
-    uint32_t lightNum = std::min(rng.uniformU32(), numLights - 1);
+    //uint32_t lightNum = std::min(rng.uniformU32(), numLights - 1);
+    uint32_t lightNum = rng.uniformU32() % numLights;
     const auto& pLight = pScene->lights[lightNum];
 
     estimateDirect(si, *pLight, static_cast<float>(numLights), bounceRayState, rng);

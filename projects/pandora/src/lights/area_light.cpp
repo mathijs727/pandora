@@ -28,7 +28,7 @@ LightSample AreaLight::sampleLi(const Interaction& ref, PcgRng& rng) const
 
     LightSample result;
     result.wi = glm::normalize(pointOnShape.position - ref.position);
-    result.pdf = m_pShape->pdfPrimitive(primitiveID, ref, result.wi);
+    result.pdf = m_pShape->pdfPrimitive(primitiveID, ref, result.wi) / static_cast<float>(numPrimitives);
     result.visibilityRay = computeRayWithEpsilon(ref, pointOnShape);
     result.radiance = light(pointOnShape, -result.wi);
     return result;
