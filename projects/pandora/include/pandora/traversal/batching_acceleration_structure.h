@@ -480,6 +480,7 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
     g_stats.scene.numBatchingPoints = batchingPoints.size();
     g_stats.memory.topBVH = topLevelBVH.sizeBytes();
     g_stats.memory.topBVHLeafs = batchingPoints.size() * sizeof(BatchingPointT);
+	spdlog::info("PausableBVH constructed");
     return BatchingAccelerationStructure<HitRayState, AnyHitRayState>(
         m_embreeDevice, std::move(topLevelBVH), hitTask, missTask, anyHitTask, anyMissTask, m_pGeometryCache, m_pTaskGraph, m_botLevelBVHCacheSize);
 }

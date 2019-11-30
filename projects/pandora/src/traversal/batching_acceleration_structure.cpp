@@ -340,6 +340,7 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     arguments.maxBranchingFactor = 2;
     arguments.minLeafSize = 2; // Stop splitting when number of prims is below minLeafSize
     arguments.maxLeafSize = 8; // This is a hard constraint (always split when number of prims is larger than maxLeafSize)
+    arguments.maxDepth = 48;
     arguments.bvh = bvh;
     arguments.primitives = embreeBuildPrimitives.data();
     arguments.primitiveCount = embreeBuildPrimitives.size();
@@ -384,6 +385,7 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
         }
         return static_cast<BVHNode*>(pNode);
     };
+    spdlog::info("Constructing temporary BVH over scene objects/instances");
     auto* pBvhRoot = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
 
     std::function<size_t(BVHNode*)> computePrimCount = [&](BVHNode* pNode) -> size_t {
@@ -407,6 +409,7 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
             throw std::runtime_error("Unknown BVH node type");
         }
     };
+    spdlog::info("Counting number of primitives per BVH node");
     computePrimCount(pBvhRoot);
 
     std::function<SubScene(BVHNode*)> flattenSubTree = [&](BVHNode* pNode) {
@@ -445,8 +448,10 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
             subScenes.push_back(flattenSubTree(pNode));
         }
     };
+    spdlog::info("Creating sub scenes");
     computeSubScenes(pBvhRoot);
 
+	spdlog::info("Freeing temporary BVH");
     rtcReleaseBVH(bvh);
 
     return subScenes;
