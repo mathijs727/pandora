@@ -220,7 +220,7 @@ void TriangleShape::voxelize(VoxelGrid& grid, const Transform& transform) const
 
 bool TriangleShape::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const
 {
-#if 1
+#if 0
     // Based on PBRT v3 triangle intersection test (page 158):
     // https://github.com/mmp/pbrt-v3/blob/master/src/shapes/triangle.cpp
     //
@@ -343,7 +343,9 @@ bool TriangleShape::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primi
         return false;
 
     ray.tfar = t;
+    hitInfo.primitiveID = primitiveID;
     hitInfo.geometricUV = glm::vec2(u, v);
+    hitInfo.geometricNormal = glm::normalize(glm::cross(p1 - p0, p2 - p0));
     return true;
 #endif
 }
