@@ -51,7 +51,7 @@ public:
     std::unique_ptr<Deserializer> createDeserializer() final;
 
 private:
-    void openNewFile();
+    void openNewFile(size_t minSize);
 
 private:
     friend class SplitFileDeserializer;

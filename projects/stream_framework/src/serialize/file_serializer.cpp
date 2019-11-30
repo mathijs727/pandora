@@ -24,7 +24,7 @@ std::pair<Allocation, void*> SplitFileSerializer::allocateAndMap(size_t numBytes
 {
     assert(numBytes < m_batchSize);
     if (m_currentOffset + numBytes > m_batchSize || !m_currentFile.is_open() || !m_currentFile.is_mapped())
-        openNewFile();
+        openNewFile(numBytes);
 
     const size_t offset = m_currentOffset;
     m_currentOffset += numBytes;
@@ -103,7 +103,7 @@ static void createFileOfSize(std::filesystem::path filePath, size_t size)
     ofs.write("", 1);
 }
 
-void SplitFileSerializer::openNewFile()
+void SplitFileSerializer::openNewFile(size_t minSize)
 {
     if (m_currentFile.is_open() && m_currentFile.is_mapped())
         m_openFiles.push_back(std::move(m_currentFile));
@@ -111,7 +111,7 @@ void SplitFileSerializer::openNewFile()
     const std::filesystem::path fileName = std::to_string(++m_currentFileID) + ".bin";
     const auto filePath = m_tempFolder / fileName;
 
-    createFileOfSize(filePath, m_batchSize);
+    createFileOfSize(filePath, std::max(m_batchSize, minSize));
     m_currentFile = mio_cache_control::mmap_sink(filePath.string(), mio_cache_control::cache_mode::random_access);
     m_currentOffset = 0;
 }
