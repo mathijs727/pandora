@@ -94,7 +94,7 @@ void SamplerIntegrator::estimateDirect(
     PcgRng& rng)
 {
     //BxDFType bsdfFlags = specular ? BSDF_ALL : BxDFType(BSDF_ALL | ~BSDF_SPECULAR);
-    BxDFType bsdfFlags = BxDFType(BSDF_ALL | ~BSDF_SPECULAR);
+    BxDFType bsdfFlags = BxDFType(BSDF_ALL & ~BSDF_SPECULAR);
 
     // Sample light source with multiple importance sampling
     auto lightSample = light.sampleLi(si, rng);
