@@ -194,14 +194,16 @@ int main(int argc, char** argv)
     AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint, bvhCacheSize, svdagRes };
     Sensor sensor { renderConfig.resolution };
 
-    spdlog::info("Starting render");
     try {
         auto integratorType = vm["integrator"].as<std::string>();
 
         auto render = [&](auto& integrator) {
             auto stopWatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
 
+			spdlog::info("Building acceleration structure");
             auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
+
+            spdlog::info("Starting render");
             integrator.render(concurrency, *renderConfig.camera, sensor, *renderConfig.pScene, accel);
         };
 
