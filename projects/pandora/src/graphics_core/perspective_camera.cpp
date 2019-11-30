@@ -51,12 +51,12 @@ void PerspectiveCamera::updatePosition()
     // Based on https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/semantic/Camera.cpp
     m_lensCenter = m_transform[3];
     m_lensDu = m_lensRadius * m_transform[0];
-    m_lensDv = m_lensRadius * m_transform[1];
+    m_lensDv = m_lensRadius * m_transform[1] / m_aspectRatio;
 
     const float fovDistanceToUnitPlane = 0.5f / std::tan(glm::radians(m_fovX / 2.0f));
     m_screenCenter = m_transform[3] + m_focalDistance * m_transform[2];
     m_screenDu = -m_focalDistance / fovDistanceToUnitPlane * m_transform[0];
-    m_screenDv = -m_focalDistance / fovDistanceToUnitPlane * m_transform[1];
+    m_screenDv = -m_focalDistance / fovDistanceToUnitPlane * m_transform[1] / m_aspectRatio;
 
     /*float virtualScreenWidth = std::tan(glm::radians(m_fovX / 2.0f)) * 2;
     float virtualScreenHeight = virtualScreenWidth / m_aspectRatio;
