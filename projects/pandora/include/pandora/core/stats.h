@@ -16,6 +16,7 @@ struct RenderStats : public metrics::Stats {
 
     struct {
         std::string sceneFile;
+        unsigned subdiv { 0 };
         unsigned cameraID;
 
         std::string integrator;

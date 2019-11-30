@@ -130,6 +130,7 @@ int main(int argc, char** argv)
     std::cout << std::flush;
 
     g_stats.config.sceneFile = vm["file"].as<std::string>();
+    g_stats.config.subdiv = subdiv;
     g_stats.config.cameraID = cameraID;
 
     g_stats.config.integrator = vm["integrator"].as<std::string>();
@@ -176,7 +177,7 @@ int main(int argc, char** argv)
     spdlog::info("Preprocessing scene");
     if constexpr (false && std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
         auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
-            "pandora_render_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::sequential);
+            "pandora_render_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::no_buffering);
 
         cacheBuilder = tasking::LRUCache::Builder { std::move(pSerializer) };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
