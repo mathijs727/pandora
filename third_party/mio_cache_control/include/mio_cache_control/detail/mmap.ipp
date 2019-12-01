@@ -132,7 +132,7 @@ file_handle_type open_file(const String& path, const access_mode mode, const cac
 #ifdef _WIN32
     const auto handle = win::open_file_helper(path, mode, cacheMode);
 #else // POSIX
-    int flags = access_mode::read ? O_RDONLY : O_RDWR;
+    int flags = mode == access_mode::read ? O_RDONLY : O_RDWR;
     if ((cacheMode & cache_mode::no_buffering) == cache_mode::no_buffering)
         flags |= O_DIRECT;
     const auto handle = ::open(c_str(path), flags);
