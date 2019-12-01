@@ -108,7 +108,6 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSubScene(const SubSc
 
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const SceneNode* pSceneNode)
 {
-
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
 
     // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0

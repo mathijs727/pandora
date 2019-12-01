@@ -151,7 +151,6 @@ void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(
 
         auto pShapeOwner = oldCache.makeResident(pShape);
         if (pShape->numPrimitives() > maxSize) {
-
             if (pSceneObject->pAreaLight) {
                 spdlog::error("Shape attached to scene object with area light cannot be split");
                 newCacheBuilder.registerCacheable(pShape, true);
@@ -175,9 +174,12 @@ void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(
         }
     }
 
+	spdlog::info("INSTANCING");
+
     for (const auto& [pChild, _] : pSceneNode->children)
         copyShapeToNewCacheRecurse(pChild.get(), oldCache, newCacheBuilder);
 
+    spdlog::info("DONE");
     pSceneNode->objects = std::move(outObjects);
 }
 
@@ -311,7 +313,7 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
         embreeBuildPrimitives.push_back(primitive);
     }
 
-	ALWAYS_ASSERT(embreeBuildPrimitives.size() < std::numeric_limits<unsigned>::max());
+    ALWAYS_ASSERT(embreeBuildPrimitives.size() < std::numeric_limits<unsigned>::max());
 
     // Build a BVH over all scene objects (including instanced ones)
     RTCBVH bvh = rtcNewBVH(embreeDevice);
@@ -451,18 +453,10 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     spdlog::info("Creating sub scenes");
     computeSubScenes(pBvhRoot);
 
-	spdlog::info("Freeing temporary BVH");
+    spdlog::info("Freeing temporary BVH");
     rtcReleaseBVH(bvh);
 
     return subScenes;
-}
-
-void BatchingAccelerationStructureBuilder::verifyInstanceDepth(const SceneNode* pSceneNode, int depth)
-{
-    for (const auto& [pChildNode, optTransform] : pSceneNode->children) {
-        verifyInstanceDepth(pChildNode.get(), depth + 1);
-    }
-    ALWAYS_ASSERT(depth <= RTC_MAX_INSTANCE_LEVEL_COUNT);
 }
 
 static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
