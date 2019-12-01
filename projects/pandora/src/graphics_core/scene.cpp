@@ -19,6 +19,7 @@ Bounds SceneNode::computeBounds() const
             childBounds *= transformOpt.value();
         bounds.extend(childBounds);
     }
+    assert(bounds.min.x != std::numeric_limits<float>::max());
     return bounds;
 }
 
@@ -171,9 +172,23 @@ void SceneBuilder::addInfiniteLight(std::unique_ptr<InfiniteLight>&& pInfiniteLi
 
 Scene SceneBuilder::build()
 {
+    cullEmptyNodesRecurse(m_pRoot.get());
     attachLightRecurse(m_pRoot.get(), {});
 
     return Scene(std::move(m_pRoot), std::move(m_lights), std::move(m_infiniteLights));
+}
+
+bool SceneBuilder::cullEmptyNodesRecurse(SceneNode* pNode)
+{
+    std::vector<std::pair<std::shared_ptr<SceneNode>, std::optional<glm::mat4>>> newChildren;
+    for (auto [pChild, optTransform] : pNode->children) {
+        if (!cullEmptyNodesRecurse(pChild.get())) {
+            newChildren.emplace_back(pChild, optTransform);
+        }
+    }
+    pNode->children = std::move(newChildren);
+
+    return (pNode->children.empty() && pNode->objects.empty());
 }
 
 void SceneBuilder::attachLightRecurse(SceneNode* pNode, std::optional<glm::mat4> transform)
