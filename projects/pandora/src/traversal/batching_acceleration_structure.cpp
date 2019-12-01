@@ -12,11 +12,12 @@
 #include <spdlog/spdlog.h>
 #include <tbb/concurrent_vector.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace pandora {
 
-static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const TriangleShape& original, unsigned maxSize, RTCDevice embreeDevice);
+static std::vector<std::shared_ptr<Shape>> splitLargeTriangleShape(const TriangleShape& original, unsigned maxSize, RTCDevice embreeDevice);
 static std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice);
 
 static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
@@ -50,25 +51,42 @@ void BatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, tasking
     // This should also help with reducing the spatial extent of the batching points by (hopefully) splitting spatially large shapes.
     spdlog::info("Splitting large scene objects");
     RTCDevice embreeDevice = rtcNewDevice(nullptr);
-    splitLargeSceneObjectsRecurse(scene.pRoot.get(), oldCache, newCacheBuilder, embreeDevice, primitivesPerBatchingPoint / 8);
+    splitLargeSceneObjects(scene.pRoot.get(), oldCache, newCacheBuilder, embreeDevice, primitivesPerBatchingPoint / 8);
     rtcReleaseDevice(embreeDevice);
 }
 
-static void copyShapeToNewCacheRecurse(SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder)
+static void replaceShapeBySplitShapesRecurse(
+    SceneNode* pSceneNode,
+    tasking::LRUCache& oldCache,
+    tasking::CacheBuilder& newCacheBuilder,
+    std::unordered_set<Shape*>& cachedShapes,
+    const std::unordered_map<Shape*, std::vector<std::shared_ptr<Shape>>>& splitShapes)
 {
     OPTICK_EVENT();
 
+    std::vector<std::shared_ptr<SceneObject>> outObjects;
     for (const auto& pSceneObject : pSceneNode->objects) {
         Shape* pShape = pSceneObject->pShape.get();
-        if (!pShape)
-            continue;
 
-        auto pShapeOwner = oldCache.makeResident(pShape);
-        newCacheBuilder.registerCacheable(pShape);
+        if (auto iter = splitShapes.find(pShape); iter != std::end(splitShapes)) {
+            for (const auto& pSubShape : iter->second) {
+                auto pSubSceneObject = std::make_shared<SceneObject>(*pSceneObject);
+                pSubSceneObject->pShape = pSubShape;
+                outObjects.push_back(pSubSceneObject);
+            }
+        } else if (cachedShapes.find(pShape) == std::end(cachedShapes)) {
+            auto pShapeOwner = oldCache.makeResident(pShape);
+            newCacheBuilder.registerCacheable(pShape, true);
+            cachedShapes.insert(pShape);
+            outObjects.push_back(pSceneObject);
+        } else {
+            outObjects.push_back(pSceneObject);
+        }
     }
+    pSceneNode->objects = std::move(outObjects);
 
     for (const auto& [pChild, _] : pSceneNode->children) {
-        copyShapeToNewCacheRecurse(pChild.get(), oldCache, newCacheBuilder);
+        replaceShapeBySplitShapesRecurse(pChild.get(), oldCache, newCacheBuilder, cachedShapes, splitShapes);
     }
 }
 
@@ -137,10 +155,14 @@ SparseVoxelDAG BatchingAccelerationStructureBuilder::createSVDAG(const SubScene&
     return SparseVoxelDAG { grid };
 }
 
-void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(
+void BatchingAccelerationStructureBuilder::splitLargeSceneObjects(
     SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize)
 {
     OPTICK_EVENT();
+
+    // Only split a shape once (even if it is instanced multiple times)
+    std::unordered_map<Shape*, std::vector<std::shared_ptr<Shape>>> splitShapes;
+    std::unordered_set<Shape*> cachedShapes;
 
     std::vector<std::shared_ptr<SceneObject>> outObjects;
     for (const auto& pSceneObject : pSceneNode->objects) { // Only split non-instanced objects
@@ -154,36 +176,52 @@ void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(
             if (pSceneObject->pAreaLight) {
                 spdlog::error("Shape attached to scene object with area light cannot be split");
                 newCacheBuilder.registerCacheable(pShape, true);
+                cachedShapes.insert(pShape);
                 outObjects.push_back(pSceneObject);
             } else if (TriangleShape* pTriangleShape = dynamic_cast<TriangleShape*>(pShape)) {
-                auto subShapes = splitLargeTriangleShape(*pTriangleShape, maxSize, embreeDevice);
-                for (auto&& subShape : subShapes) {
-                    auto pSubSceneObject = std::make_shared<SceneObject>(*pSceneObject);
-                    pSubSceneObject->pShape = std::move(subShape);
-                    newCacheBuilder.registerCacheable(pSubSceneObject->pShape.get(), true);
-                    outObjects.push_back(pSubSceneObject);
+                if (auto iter = splitShapes.find(pShape); iter != std::end(splitShapes)) {
+                    for (const auto& pSubShape : iter->second) {
+                        auto pSubSceneObject = std::make_shared<SceneObject>(*pSceneObject);
+                        pSubSceneObject->pShape = pSubShape;
+                        outObjects.push_back(pSubSceneObject);
+                    }
+                } else {
+                    auto subShapes = splitLargeTriangleShape(*pTriangleShape, maxSize, embreeDevice);
+                    for (const auto& pSubShape : subShapes) {
+                        auto pSubSceneObject = std::make_shared<SceneObject>(*pSceneObject);
+                        pSubSceneObject->pShape = pSubShape;
+                        newCacheBuilder.registerCacheable(pSubShape.get(), true);
+                        cachedShapes.insert(pSubShape.get());
+                        outObjects.push_back(pSubSceneObject);
+                    }
+
+                    splitShapes[pShape] = subShapes;
                 }
             } else {
                 spdlog::error("Shape encountered with too many primitives but no way to split it");
                 newCacheBuilder.registerCacheable(pShape, true);
+                cachedShapes.insert(pShape);
                 outObjects.push_back(pSceneObject);
             }
         } else {
             newCacheBuilder.registerCacheable(pShape, true);
+            cachedShapes.insert(pShape);
             outObjects.push_back(pSceneObject);
         }
     }
+    pSceneNode->objects = std::move(outObjects);
 
-	spdlog::info("INSTANCING");
-
+    // This part is a small nightmare so just ignore it for now.
+    // Have to deal with multiple nodes pointing to the same node/subtree, nodes pointing to the same SceneObject and SceneObjects pointing to the same shape.
+    // So only update the SceneObjects if the shape they point to was split, but do not split anything new we encounter.
+    spdlog::info("INSTANCING");
     for (const auto& [pChild, _] : pSceneNode->children)
-        copyShapeToNewCacheRecurse(pChild.get(), oldCache, newCacheBuilder);
+        replaceShapeBySplitShapesRecurse(pChild.get(), oldCache, newCacheBuilder, cachedShapes, splitShapes);
 
     spdlog::info("DONE");
-    pSceneNode->objects = std::move(outObjects);
 }
 
-static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const TriangleShape& shape, unsigned maxSize, RTCDevice embreeDevice)
+static std::vector<std::shared_ptr<Shape>> splitLargeTriangleShape(const TriangleShape& shape, unsigned maxSize, RTCDevice embreeDevice)
 {
     OPTICK_EVENT();
 
@@ -248,7 +286,7 @@ static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const
     rtcBuildBVH(&arguments);
     rtcReleaseBVH(bvh);
 
-    std::vector<std::shared_ptr<TriangleShape>> subShapes;
+    std::vector<std::shared_ptr<Shape>> subShapes;
     std::copy(std::begin(userData.subShapes), std::end(userData.subShapes), std::back_inserter(subShapes));
     return subShapes;
 }
