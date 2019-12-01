@@ -273,8 +273,8 @@ static std::vector<std::shared_ptr<Shape>> splitLargeTriangleShape(const Triangl
     arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
         UserData& userData = *reinterpret_cast<UserData*>(userPtr);
 
-        void* pPrimitiveIDsMem = rtcThreadLocalAlloc(alloc, numPrims * sizeof(unsigned), std::alignment_of_v<unsigned>);
-        gsl::span<unsigned> primitiveIDs { reinterpret_cast<unsigned*>(pPrimitiveIDsMem), static_cast<gsl::span<unsigned>::index_type>(numPrims) };
+		std::vector<unsigned> primitiveIDs;
+        primitiveIDs.resize(numPrims);
         for (size_t i = 0; i < numPrims; i++) {
             primitiveIDs[i] = prims[i].primID;
         }

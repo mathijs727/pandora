@@ -189,7 +189,7 @@ int main(int argc, char** argv)
     g_stats.memory.geometryEvicted = 0;
     g_stats.memory.geometryLoaded = 0;
 
-    std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
+    /*std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
         for (const auto& pSceneObject : pSceneNode->objects) {
             geometryCache.makeResident(pSceneObject->pShape.get());
         }
@@ -198,7 +198,7 @@ int main(int argc, char** argv)
             makeShapeResident(pChild);
         }
     };
-    //makeShapeResident(renderConfig.pScene->pRoot);
+    makeShapeResident(renderConfig.pScene->pRoot);*/
 
     spdlog::info("Building acceleration structure");
     //AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
