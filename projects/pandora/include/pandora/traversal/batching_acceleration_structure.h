@@ -117,7 +117,6 @@ public:
 
 private:
     static void splitLargeSceneObjectsRecurse(SceneNode* pNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize);
-    static void verifyInstanceDepth(const SceneNode* pSceneNode, int depth = 0);
 
     [[nodiscard]] std::vector<tasking::CachedPtr<Shape>> makeSubSceneResident(const SubScene& subScene);
     static SparseVoxelDAG createSVDAG(const SubScene& subScene, int resolution);
@@ -346,6 +345,8 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
     embreeRayHit.ray.id = 0;
     embreeRayHit.ray.flags = 0;
     embreeRayHit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
+    for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++)
+		embreeRayHit.hit.instID[i] = RTC_INVALID_GEOMETRY_ID;
     rtcIntersect1(scene, &context, &embreeRayHit);
 
     if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
