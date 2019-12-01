@@ -172,10 +172,10 @@ int main(int argc, char** argv)
 
     tasking::TaskGraph taskGraph { schedulers };
 
-    //using AccelBuilder = BatchingAccelerationStructureBuilder;
+    //using AccelBuilder = EmbreeAccelerationStructureBuilder;
     using AccelBuilder = BatchingAccelerationStructureBuilder;
-    spdlog::info("Preprocessing scene");
-    if constexpr (false && std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
+    if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
+		spdlog::info("Preprocessing scene");
         auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
             "pandora_render_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::no_buffering);
 
@@ -189,6 +189,17 @@ int main(int argc, char** argv)
     g_stats.memory.geometryEvicted = 0;
     g_stats.memory.geometryLoaded = 0;
 
+    std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
+        for (const auto& pSceneObject : pSceneNode->objects) {
+            geometryCache.makeResident(pSceneObject->pShape.get());
+        }
+
+        for (const auto& [pChild, _] : pSceneNode->children) {
+            makeShapeResident(pChild);
+        }
+    };
+    //makeShapeResident(renderConfig.pScene->pRoot);
+
     spdlog::info("Building acceleration structure");
     //AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint, bvhCacheSize, svdagRes };
@@ -200,7 +211,7 @@ int main(int argc, char** argv)
         auto render = [&](auto& integrator) {
             auto stopWatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
 
-			spdlog::info("Building acceleration structure");
+            spdlog::info("Building acceleration structure");
             auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
             spdlog::info("Starting render");
