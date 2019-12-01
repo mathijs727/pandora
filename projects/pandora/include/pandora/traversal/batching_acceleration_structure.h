@@ -189,6 +189,8 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
                     makeResidentRecurse(pChild.get());
                 }
             };
+            for (const auto& [pSceneNode, _] : m_subScene.sceneNodes)
+				makeResidentRecurse(pSceneNode);
 
             staticData.scene = pEmbreeCache->fromSubScene(&m_subScene);
             return staticData;
@@ -361,7 +363,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             RTCScene localScene = scene;
             for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
                 unsigned geomID = embreeRayHit.hit.instID[i];
-                if (geomID == 0)
+                if (geomID == RTC_INVALID_GEOMETRY_ID)
                     break;
 
                 RTCGeometry geometry = rtcGetGeometry(localScene, geomID);

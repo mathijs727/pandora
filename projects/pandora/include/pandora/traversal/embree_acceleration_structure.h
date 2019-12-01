@@ -218,6 +218,8 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
         embreeRayHit.ray.id = 0;
         embreeRayHit.ray.flags = 0;
         embreeRayHit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
+        for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++)
+            embreeRayHit.hit.instID[i] = RTC_INVALID_GEOMETRY_ID;
         rtcIntersect1(m_embreeScene, &context, &embreeRayHit);
 
         if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
@@ -232,7 +234,7 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
                 RTCScene scene = m_embreeScene;
                 for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
                     unsigned geomID = embreeRayHit.hit.instID[i];
-                    if (geomID == 0)
+                    if (geomID == RTC_INVALID_GEOMETRY_ID)
                         break;
 
                     RTCGeometry geometry = rtcGetGeometry(scene, geomID);
