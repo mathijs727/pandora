@@ -157,9 +157,19 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
 
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const SubScene* pSubScene)
 {
+    int instanceLevels = 0;
+    for (const auto& [pSceneNode, _] : pSubScene->sceneNodes) {
+        instanceLevels = std::max(instanceLevels, computeMaxInstanceDepthRecurse(pSceneNode, 1));
+    }
+    if (instanceLevels > RTC_MAX_INSTANCE_LEVEL_COUNT) {
+        spdlog::critical("Embree does not support instancing {} levels deep (only {} levels are supported)", instanceLevels, RTC_MAX_INSTANCE_LEVEL_COUNT);
+        throw std::runtime_error("Too many instance levels");
+	}
+
+
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
 
-	// Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
+    // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
     // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of
     //  RTC_INVALID_GEOMETRY_ID).
     unsigned geometryID = 1;
@@ -226,4 +236,14 @@ bool LRUEmbreeSceneCache::memoryMonitorCallback(void* pThisMem, ssize_t bytes, b
 
     return true;
 }
+
+int LRUEmbreeSceneCache::computeMaxInstanceDepthRecurse(const SceneNode* pSceneNode, int depth)
+{
+    int maxDepth = depth;
+    for (const auto& [pChildNode, _] : pSceneNode->children) {
+        maxDepth = std::max(maxDepth, computeMaxInstanceDepthRecurse(pChildNode.get(), depth + 1));
+    }
+    return maxDepth;
+}
+
 }
