@@ -117,7 +117,6 @@ void Converter::convertObject(
         std::shared_ptr<pandora::Shape> pShape;
         if (auto iter = m_shapeCache.find(pPBFShape); iter != std::end(m_shapeCache)) {
             pShape = iter->second;
-            spdlog::info("Cache");
         } else {
             pShape = convertShape(pPBFShape, subdiv);
             m_shapeCache[pPBFShape] = pShape;
@@ -149,21 +148,23 @@ void Converter::convertObject(
 
     for (const auto* pPBFInstance : pObject->instances) {
         auto* pPBFChild = pPBFInstance->pObject;
-        if (pPBFInstance->transform != glm::identity<glm::mat4x3>() && pObject->shapes.size() > 1) {
-            auto optChildTransform = optTransform;
-            if (pPBFInstance->transform != glm::identity<glm::mat4x3>()) {
-                if (!optChildTransform)
-                    optChildTransform = pPBFInstance->transform;
-                else
-                    optChildTransform = *optChildTransform * glm::mat4(pPBFInstance->transform);
-            }
 
+        auto optChildTransform = optTransform;
+        if (pPBFInstance->transform != glm::identity<glm::mat4x3>()) {
+            if (!optChildTransform)
+                optChildTransform = pPBFInstance->transform;
+            else
+                optChildTransform = *optChildTransform * glm::mat4(pPBFInstance->transform);
+        }
+
+        if (pPBFInstance->transform != glm::identity<glm::mat4x3>() && pObject->shapes.size() > 1) {
             std::shared_ptr<pandora::SceneNode> pChild;
             if (auto iter = m_instanceCache.find(pPBFChild); iter != std::end(m_instanceCache)) {
                 pChild = iter->second;
             } else {
+				// We add the child to our current node with it's full transformation, so the transformation of objects relative to the child node should be empty.
                 pChild = sceneBuilder.addSceneNode();
-                convertObject(pPBFChild, pChild, optChildTransform, sceneBuilder, subdiv);
+                convertObject(pPBFChild, pChild, {}, sceneBuilder, subdiv);
                 m_instanceCache[pPBFChild] = pChild;
             }
 
@@ -180,7 +181,7 @@ void Converter::convertObject(
             }
         } else {
             // Flatten nodes without transforms
-            convertObject(pPBFInstance->pObject, pSceneNode, optTransform, sceneBuilder, subdiv);
+            convertObject(pPBFChild, pSceneNode, optChildTransform, sceneBuilder, subdiv);
         }
     }
 }
