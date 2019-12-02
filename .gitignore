@@ -11,7 +11,7 @@ build-gcc
 out
 
 # Flatbuffers include folder (generated from the actual flatbuffers)
-projects/pandora/flatbuffers/include/
+projects/pandora/include/pandora/flatbuffers/*_generated.h
 
 # Temporary python cache files
 *.pyc
@@ -48,4 +48,3 @@ projects/pbrt_importer/python/parsing/parsetab.py
 projects/pbrt_importer/python/pbrt_to_pandora.pyperf
 projects/pbrt_importer/python/parsing/lextab.py
 projects/stats_visualizer/flamegraph.html
-projects/pandora/include/pandora/flatbuffers/*
