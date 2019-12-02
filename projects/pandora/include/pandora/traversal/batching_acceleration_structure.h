@@ -364,7 +364,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             RTCScene localScene = scene;
             for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
                 unsigned geomID = embreeRayHit.hit.instID[i];
-                if (geomID == RTC_INVALID_GEOMETRY_ID)
+                if (geomID == 0)
                     break;
 
                 RTCGeometry geometry = rtcGetGeometry(localScene, geomID);
