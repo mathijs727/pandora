@@ -161,6 +161,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
 
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const SubScene* pSubScene)
 {
+#ifndef NDEBUG
     int instanceLevels = 0;
     for (const auto& [pSceneNode, _] : pSubScene->sceneNodes) {
         instanceLevels = std::max(instanceLevels, computeMaxInstanceDepthRecurse(pSceneNode, 1));
@@ -168,8 +169,8 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
     if (instanceLevels > RTC_MAX_INSTANCE_LEVEL_COUNT) {
         spdlog::critical("Embree does not support instancing {} levels deep (only {} levels are supported)", instanceLevels, RTC_MAX_INSTANCE_LEVEL_COUNT);
         throw std::runtime_error("Too many instance levels");
-	}
-
+    }
+#endif
 
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
 
@@ -232,11 +233,13 @@ void LRUEmbreeSceneCache::evict()
 bool LRUEmbreeSceneCache::memoryMonitorCallback(void* pThisMem, ssize_t bytes, bool post)
 {
     auto* pThis = reinterpret_cast<LRUEmbreeSceneCache*>(pThisMem);
+    pThis->m_size.fetch_add(bytes);
 
-    if (bytes > 0)
-        pThis->m_size.fetch_add(bytes);
+	// Not perfect: also counts temporary allocations
+    if (bytes >= 0)
+        g_stats.memory.botLevelLoaded += bytes;
     else
-        pThis->m_size.fetch_sub(-bytes);
+        g_stats.memory.botLevelEvicted += -bytes;
 
     return true;
 }
