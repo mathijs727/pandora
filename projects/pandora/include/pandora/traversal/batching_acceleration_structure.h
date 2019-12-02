@@ -21,6 +21,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+#include <atomic>
 
 namespace pandora {
 
@@ -441,15 +442,26 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
         std::vector<std::optional<SparseVoxelDAG>> svdags;
         svdags.resize(m_subScenes.size());
 
+		// TODO: make cache thread safe and update this code
+		// Because the caches are not thread safe (yet) we have to load the data from the main thread..
+		// We keep track of how many threads are working so that we never load new data faster than we can process it.
+		const unsigned maxParallelism = std::max(1u, std::thread::hardware_concurrency() - 1);
+        std::atomic_uint parallelTasks { 0 };
+
         tbb::task_group tg;
         for (size_t i = 0; i < m_subScenes.size(); i++) {
+            while (parallelTasks.load(std::memory_order::memory_order_acquire) >= maxParallelism)
+                continue;
+
             // Make resident sequentially
             const auto& subScene = m_subScenes[i];
             auto shapesOwningPtrs = makeSubSceneResident(subScene);
 
             // Voxelize and create SVO in parallel
-            tg.run([i, &subScene, shapesOwningPtrs = std::move(shapesOwningPtrs), &svdags, this]() {
+            parallelTasks.fetch_add(1);
+            tg.run([i, &subScene, shapesOwningPtrs = std::move(shapesOwningPtrs), &svdags, &parallelTasks, this]() {
                 svdags[i] = createSVDAG(subScene, m_svdagRes);
+                parallelTasks.fetch_sub(1);
             });
         }
         tg.wait();
