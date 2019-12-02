@@ -15,12 +15,12 @@ ScopedStopwatch<Unit>::~ScopedStopwatch()
     auto now = high_res_clock::now();
     auto diff = now - m_startTime;
     size_t diffMicroSeconds = std::chrono::duration_cast<Unit>(diff).count();
-    m_parent.m_value.fetch_add(diffMicroSeconds);
+    m_parent.m_value.fetch_add(diffMicroSeconds, std::memory_order::memory_order_relaxed);
 }
 
 template <typename Unit>
 Stopwatch<Unit>::Stopwatch(Stopwatch&& other) :
-    m_value(other.m_value.load())
+    m_value(other.m_value.load(std::memory_order::memory_order_relaxed))
 {
 }
 
@@ -35,7 +35,7 @@ Stopwatch<Unit>::operator nlohmann::json() const
 {
     nlohmann::json json;
     json["type"] = "stopwatch";
-    json["value"] = m_value.load();
+    json["value"] = m_value.load(std::memory_order::memory_order_relaxed);
     if constexpr (std::is_same_v<Unit, std::chrono::seconds>)
         json["unit"] = "seconds";
     else if constexpr (std::is_same_v<Unit, std::chrono::milliseconds>)

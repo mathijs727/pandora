@@ -11,35 +11,35 @@ Counter<T>::Counter(std::string_view unit)
 template <typename T>
 Counter<T>& Counter<T>::operator=(T v)
 {
-    m_value.store(v);
+    m_value.store(v, std::memory_order::memory_order_relaxed);
     return *this;
 }
 
 template <typename T>
 Counter<T>& Counter<T>::operator++(int)
 {
-    m_value.fetch_add(1);
+    m_value.fetch_add(1, std::memory_order::memory_order_relaxed);
     return *this;
 }
 
 template <typename T>
 Counter<T>& Counter<T>::operator+=(T v)
 {
-    m_value.fetch_add(v);
+    m_value.fetch_add(v, std::memory_order::memory_order_relaxed);
     return *this;
 }
 
 template <typename T>
 Counter<T>& Counter<T>::operator-=(T v)
 {
-    m_value.fetch_sub(v);
+    m_value.fetch_sub(v, std::memory_order::memory_order_relaxed);
     return *this;
 }
 
 template <typename T>
 Counter<T>::operator T() const
 {
-    return m_value.load();
+    return m_value.load(std::memory_order::memory_order_relaxed);
 }
 
 template <typename T>

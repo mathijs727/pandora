@@ -20,14 +20,14 @@ void Histogram::addItem(int value)
         bin = 0; // Casting to int truncates towards zero (up for negative numbers)
     else
         bin = std::min(m_numBins - 1, static_cast<int>((value - m_start) / m_binSize) + 1);
-    m_bins[bin].fetch_add(1);
+    m_bins[bin].fetch_add(1, std::memory_order::memory_order_relaxed);
 }
 
 Histogram::operator nlohmann::json() const
 {
     std::vector<size_t> bins(m_numBins);
     for (int i = 0; i < m_numBins; i++)
-        bins[i] = m_bins[i].load();
+        bins[i] = m_bins[i].load(std::memory_order::memory_order_relaxed);
 
     nlohmann::json json;
     json["type"] = "histogram";
