@@ -9,6 +9,7 @@
 #include "pandora/graphics_core/sensor.h"
 #include "pandora/samplers/rng/pcg.h"
 #include "pandora/utility/math.h"
+#include "pandora/core/stats.h"
 #include <functional>
 
 namespace pandora {
@@ -38,7 +39,7 @@ void SamplerIntegrator::render(int concurrentPaths, const PerspectiveCamera& cam
     pRenderData->pAccelerationStructure = &accel;
     m_pCurrentRenderData = std::move(pRenderData);
 
-	// Make sure that all geometry that is associated with an area light is always in memory (for efficient light sampling)
+    // Make sure that all geometry that is associated with an area light is always in memory (for efficient light sampling)
     m_lightShapeOwners.clear();
     std::function<void(const SceneNode*)> collectLightShapes = [&](const SceneNode* pSceneNode) {
         for (const auto& pSceneObject : pSceneNode->objects) {
@@ -57,7 +58,7 @@ void SamplerIntegrator::render(int concurrentPaths, const PerspectiveCamera& cam
     spawnNewPaths(concurrentPaths);
     m_pTaskGraph->run();
 
-	m_lightShapeOwners.clear();
+    m_lightShapeOwners.clear();
 }
 
 void SamplerIntegrator::uniformSampleAllLights(
@@ -121,7 +122,11 @@ void SamplerIntegrator::spawnNewPaths(int numPaths)
 {
     auto* pRenderData = m_pCurrentRenderData.get();
     const int startIndex = pRenderData->currentRayIndex.fetch_add(numPaths);
+    const int maxSample = pRenderData->maxPixelIndex * m_maxSpp;
     const int endIndex = std::min(startIndex + numPaths, pRenderData->maxPixelIndex * m_maxSpp);
+
+    if (startIndex < maxSample && endIndex == maxSample)
+        g_stats.asyncTriggerSnapshot();
 
     for (int i = startIndex; i < endIndex; i++) {
         //const int spp = i % m_maxSpp;
