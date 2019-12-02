@@ -399,8 +399,12 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
         const auto* pShape = pSceneObject->pShape.get();
         si = pShape->fillSurfaceInteraction(ray, hit);
         si.pSceneObject = pSceneObject;
-        si.localToWorld = transform;
         si.shading.batchingPointColor = m_color;
+
+        if (transform.has_value()) {
+            Transform localToWorldTransform { transform.value() };
+            si = localToWorldTransform.transform(si);
+        }
         return true;
     } else {
         return false;
