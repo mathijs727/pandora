@@ -42,6 +42,7 @@ public:
 struct LRUEmbreeSceneCache : public EmbreeSceneCache {
 public:
     LRUEmbreeSceneCache(size_t maxSize);
+    ~LRUEmbreeSceneCache();
 
     std::shared_ptr<CachedEmbreeScene> fromSceneNode(const SceneNode* pSceneNode) override;
     std::shared_ptr<CachedEmbreeScene> fromSubScene(const SubScene* pSubScene) override;

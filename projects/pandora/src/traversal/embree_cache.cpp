@@ -70,6 +70,11 @@ LRUEmbreeSceneCache::LRUEmbreeSceneCache(size_t maxSize)
     rtcSetDeviceMemoryMonitorFunction(m_embreeDevice, memoryMonitorCallback, this);
 }
 
+LRUEmbreeSceneCache::~LRUEmbreeSceneCache()
+{
+    rtcReleaseDevice(m_embreeDevice);
+}
+
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSceneNode(const SceneNode* pSceneNode)
 {
     const void* pKey = pSceneNode;

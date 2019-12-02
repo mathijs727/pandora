@@ -170,7 +170,7 @@ inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(std::string_view name, 
         [](std::pmr::memory_resource* pMemoryResource, void* pMem) {
             StaticData* pStaticData = reinterpret_cast<StaticData*>(pMem);
             pStaticData->~StaticData();
-            pMemoryResource->deallocate(pStaticData, sizeof(StaticData));
+            pMemoryResource->deallocate(pMem, sizeof(StaticData), std::alignment_of_v<StaticData>);
         });
 }
 
