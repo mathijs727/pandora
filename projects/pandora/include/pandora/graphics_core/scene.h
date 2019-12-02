@@ -69,6 +69,8 @@ public:
     Scene build();
 
 private:
+    bool cullEmptyNodesRecurse(SceneNode* pNode);
+
     void attachLightRecurse(SceneNode* pNode, std::optional<glm::mat4> transform);
 
 private:

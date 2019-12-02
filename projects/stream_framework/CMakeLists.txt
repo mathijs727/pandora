@@ -6,6 +6,9 @@ add_library(stream
 	"src/serialize/in_memory_serializer.cpp"
 	"src/stats.cpp"
 	"src/task_graph.cpp")
+if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+	target_compile_definitions(stream PUBLIC "NOMINMAX")
+endif()
 
 target_include_directories(stream
 	PUBLIC

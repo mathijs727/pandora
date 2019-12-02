@@ -69,7 +69,7 @@ size_t LRUCache::maxSize() const
 
 void LRUCache::evict(size_t desiredMemoryUsage)
 {
-    spdlog::info("Evicting items from LRUCache");
+    spdlog::debug("Evicting items from LRUCache");
 
     // Have to increment iterator before calling erase
     //for (auto iter = std::begin(m_residentItems); iter != std::end(m_residentItems); iter++) {

@@ -79,7 +79,8 @@ void SamplerIntegrator::uniformSampleOneLight(
     if (numLights == 0)
         return;
 
-    uint32_t lightNum = std::min(rng.uniformU32(), numLights - 1);
+    //uint32_t lightNum = std::min(rng.uniformU32(), numLights - 1);
+    uint32_t lightNum = rng.uniformU32() % numLights;
     const auto& pLight = pScene->lights[lightNum];
 
     estimateDirect(si, *pLight, static_cast<float>(numLights), bounceRayState, rng);
@@ -93,7 +94,7 @@ void SamplerIntegrator::estimateDirect(
     PcgRng& rng)
 {
     //BxDFType bsdfFlags = specular ? BSDF_ALL : BxDFType(BSDF_ALL | ~BSDF_SPECULAR);
-    BxDFType bsdfFlags = BxDFType(BSDF_ALL | ~BSDF_SPECULAR);
+    BxDFType bsdfFlags = BxDFType(BSDF_ALL & ~BSDF_SPECULAR);
 
     // Sample light source with multiple importance sampling
     auto lightSample = light.sampleLi(si, rng);

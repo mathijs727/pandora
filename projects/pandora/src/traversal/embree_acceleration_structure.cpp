@@ -58,7 +58,7 @@ RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pScen
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
 
     // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
-     // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of
+    // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of
 	//  RTC_INVALID_GEOMETRY_ID).
     unsigned geometryID = 1;
     for (const auto& pSceneObject : pSceneNode->objects) {

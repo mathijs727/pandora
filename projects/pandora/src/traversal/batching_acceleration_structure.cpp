@@ -12,11 +12,12 @@
 #include <spdlog/spdlog.h>
 #include <tbb/concurrent_vector.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace pandora {
 
-static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const TriangleShape& original, unsigned maxSize, RTCDevice embreeDevice);
+static std::vector<std::shared_ptr<Shape>> splitLargeTriangleShape(const TriangleShape& original, unsigned maxSize, RTCDevice embreeDevice);
 static std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice);
 
 static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
@@ -42,31 +43,50 @@ BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
 
 void BatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint)
 {
+    OPTICK_EVENT();
+
     // NOTE: modifies pScene in place
     //
     // Split large shapes into smaller sub shpaes so we can guarantee that the batching poinst never exceed the given size.
     // This should also help with reducing the spatial extent of the batching points by (hopefully) splitting spatially large shapes.
     spdlog::info("Splitting large scene objects");
     RTCDevice embreeDevice = rtcNewDevice(nullptr);
-    splitLargeSceneObjectsRecurse(scene.pRoot.get(), oldCache, newCacheBuilder, embreeDevice, primitivesPerBatchingPoint / 8);
+    splitLargeSceneObjects(scene.pRoot.get(), oldCache, newCacheBuilder, embreeDevice, primitivesPerBatchingPoint / 8);
     rtcReleaseDevice(embreeDevice);
 }
 
-static void copyShapeToNewCacheRecurse(SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder)
+static void replaceShapeBySplitShapesRecurse(
+    SceneNode* pSceneNode,
+    tasking::LRUCache& oldCache,
+    tasking::CacheBuilder& newCacheBuilder,
+    std::unordered_set<Shape*>& cachedShapes,
+    const std::unordered_map<Shape*, std::vector<std::shared_ptr<Shape>>>& splitShapes)
 {
     OPTICK_EVENT();
 
+    std::vector<std::shared_ptr<SceneObject>> outObjects;
     for (const auto& pSceneObject : pSceneNode->objects) {
         Shape* pShape = pSceneObject->pShape.get();
-        if (!pShape)
-            continue;
 
-        auto pShapeOwner = oldCache.makeResident(pShape);
-        newCacheBuilder.registerCacheable(pShape);
+        if (auto iter = splitShapes.find(pShape); iter != std::end(splitShapes)) {
+            for (const auto& pSubShape : iter->second) {
+                auto pSubSceneObject = std::make_shared<SceneObject>(*pSceneObject);
+                pSubSceneObject->pShape = pSubShape;
+                outObjects.push_back(pSubSceneObject);
+            }
+        } else if (cachedShapes.find(pShape) == std::end(cachedShapes)) {
+            auto pShapeOwner = oldCache.makeResident(pShape);
+            newCacheBuilder.registerCacheable(pShape, true);
+            cachedShapes.insert(pShape);
+            outObjects.push_back(pSceneObject);
+        } else {
+            outObjects.push_back(pSceneObject);
+        }
     }
+    pSceneNode->objects = std::move(outObjects);
 
     for (const auto& [pChild, _] : pSceneNode->children) {
-        copyShapeToNewCacheRecurse(pChild.get(), oldCache, newCacheBuilder);
+        replaceShapeBySplitShapesRecurse(pChild.get(), oldCache, newCacheBuilder, cachedShapes, splitShapes);
     }
 }
 
@@ -135,10 +155,14 @@ SparseVoxelDAG BatchingAccelerationStructureBuilder::createSVDAG(const SubScene&
     return SparseVoxelDAG { grid };
 }
 
-void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(
+void BatchingAccelerationStructureBuilder::splitLargeSceneObjects(
     SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize)
 {
     OPTICK_EVENT();
+
+    // Only split a shape once (even if it is instanced multiple times)
+    std::unordered_map<Shape*, std::vector<std::shared_ptr<Shape>>> splitShapes;
+    std::unordered_set<Shape*> cachedShapes;
 
     std::vector<std::shared_ptr<SceneObject>> outObjects;
     for (const auto& pSceneObject : pSceneNode->objects) { // Only split non-instanced objects
@@ -149,37 +173,55 @@ void BatchingAccelerationStructureBuilder::splitLargeSceneObjectsRecurse(
 
         auto pShapeOwner = oldCache.makeResident(pShape);
         if (pShape->numPrimitives() > maxSize) {
-
             if (pSceneObject->pAreaLight) {
                 spdlog::error("Shape attached to scene object with area light cannot be split");
                 newCacheBuilder.registerCacheable(pShape, true);
+                cachedShapes.insert(pShape);
                 outObjects.push_back(pSceneObject);
             } else if (TriangleShape* pTriangleShape = dynamic_cast<TriangleShape*>(pShape)) {
-                auto subShapes = splitLargeTriangleShape(*pTriangleShape, maxSize, embreeDevice);
-                for (auto&& subShape : subShapes) {
-                    auto pSubSceneObject = std::make_shared<SceneObject>(*pSceneObject);
-                    pSubSceneObject->pShape = std::move(subShape);
-                    newCacheBuilder.registerCacheable(pSubSceneObject->pShape.get(), true);
-                    outObjects.push_back(pSubSceneObject);
+                if (auto iter = splitShapes.find(pShape); iter != std::end(splitShapes)) {
+                    for (const auto& pSubShape : iter->second) {
+                        auto pSubSceneObject = std::make_shared<SceneObject>(*pSceneObject);
+                        pSubSceneObject->pShape = pSubShape;
+                        outObjects.push_back(pSubSceneObject);
+                    }
+                } else {
+                    auto subShapes = splitLargeTriangleShape(*pTriangleShape, maxSize, embreeDevice);
+                    for (const auto& pSubShape : subShapes) {
+                        auto pSubSceneObject = std::make_shared<SceneObject>(*pSceneObject);
+                        pSubSceneObject->pShape = pSubShape;
+                        newCacheBuilder.registerCacheable(pSubShape.get(), true);
+                        cachedShapes.insert(pSubShape.get());
+                        outObjects.push_back(pSubSceneObject);
+                    }
+
+                    splitShapes[pShape] = subShapes;
                 }
             } else {
                 spdlog::error("Shape encountered with too many primitives but no way to split it");
                 newCacheBuilder.registerCacheable(pShape, true);
+                cachedShapes.insert(pShape);
                 outObjects.push_back(pSceneObject);
             }
         } else {
             newCacheBuilder.registerCacheable(pShape, true);
+            cachedShapes.insert(pShape);
             outObjects.push_back(pSceneObject);
         }
     }
-
-    for (const auto& [pChild, _] : pSceneNode->children)
-        copyShapeToNewCacheRecurse(pChild.get(), oldCache, newCacheBuilder);
-
     pSceneNode->objects = std::move(outObjects);
+
+    // This part is a small nightmare so just ignore it for now.
+    // Have to deal with multiple nodes pointing to the same node/subtree, nodes pointing to the same SceneObject and SceneObjects pointing to the same shape.
+    // So only update the SceneObjects if the shape they point to was split, but do not split anything new we encounter.
+    spdlog::info("INSTANCING");
+    for (const auto& [pChild, _] : pSceneNode->children)
+        replaceShapeBySplitShapesRecurse(pChild.get(), oldCache, newCacheBuilder, cachedShapes, splitShapes);
+
+    spdlog::info("DONE");
 }
 
-static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const TriangleShape& shape, unsigned maxSize, RTCDevice embreeDevice)
+static std::vector<std::shared_ptr<Shape>> splitLargeTriangleShape(const TriangleShape& shape, unsigned maxSize, RTCDevice embreeDevice)
 {
     OPTICK_EVENT();
 
@@ -231,8 +273,8 @@ static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const
     arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
         UserData& userData = *reinterpret_cast<UserData*>(userPtr);
 
-        void* pPrimitiveIDsMem = rtcThreadLocalAlloc(alloc, numPrims * sizeof(unsigned), std::alignment_of_v<unsigned>);
-        gsl::span<unsigned> primitiveIDs { reinterpret_cast<unsigned*>(pPrimitiveIDsMem), static_cast<gsl::span<unsigned>::index_type>(numPrims) };
+		std::vector<unsigned> primitiveIDs;
+        primitiveIDs.resize(numPrims);
         for (size_t i = 0; i < numPrims; i++) {
             primitiveIDs[i] = prims[i].primID;
         }
@@ -244,7 +286,7 @@ static std::vector<std::shared_ptr<TriangleShape>> splitLargeTriangleShape(const
     rtcBuildBVH(&arguments);
     rtcReleaseBVH(bvh);
 
-    std::vector<std::shared_ptr<TriangleShape>> subShapes;
+    std::vector<std::shared_ptr<Shape>> subShapes;
     std::copy(std::begin(userData.subShapes), std::end(userData.subShapes), std::back_inserter(subShapes));
     return subShapes;
 }
@@ -309,24 +351,26 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
         embreeBuildPrimitives.push_back(primitive);
     }
 
+    ALWAYS_ASSERT(embreeBuildPrimitives.size() < std::numeric_limits<unsigned>::max());
+
     // Build a BVH over all scene objects (including instanced ones)
     RTCBVH bvh = rtcNewBVH(embreeDevice);
 
     struct BVHNode {
         virtual ~BVHNode() {};
 
-        //eastl::fixed_vector<Bounds, 2, false> childBounds;
-        std::vector<Bounds> childBounds;
+        eastl::fixed_vector<Bounds, 2, false> childBounds;
+        //std::vector<Bounds> childBounds;
         size_t numPrimitives { 0 };
     };
     struct LeafNode : public BVHNode {
-        //eastl::fixed_vector<Path, 2, false> sceneObjectPaths;
+        //eastl::fixed_vector<std::pair<SceneNode*, std::optional<glm::mat4>>, 8, false> sceneNodes;
         std::vector<std::pair<SceneNode*, std::optional<glm::mat4>>> sceneNodes;
         std::vector<SceneObject*> sceneObjects;
     };
     struct InnerNode : public BVHNode {
-        //eastl::fixed_vector<BVHNode*, 2, false> children;
-        std::vector<BVHNode*> children;
+        eastl::fixed_vector<BVHNode*, 2, false> children;
+        //std::vector<BVHNode*> children;
     };
 
     RTCBuildArguments arguments = rtcDefaultBuildArguments();
@@ -334,8 +378,9 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     arguments.buildFlags = RTC_BUILD_FLAG_NONE;
     arguments.buildQuality = RTC_BUILD_QUALITY_MEDIUM; // High build quality requires spatial splits
     arguments.maxBranchingFactor = 2;
-    arguments.minLeafSize = 1; // Stop splitting when number of prims is below minLeafSize
-    arguments.maxLeafSize = 2; // This is a hard constraint (always split when number of prims is larger than maxLeafSize)
+    arguments.minLeafSize = 2; // Stop splitting when number of prims is below minLeafSize
+    arguments.maxLeafSize = 8; // This is a hard constraint (always split when number of prims is larger than maxLeafSize)
+    arguments.maxDepth = 48;
     arguments.bvh = bvh;
     arguments.primitives = embreeBuildPrimitives.data();
     arguments.primitiveCount = embreeBuildPrimitives.size();
@@ -380,6 +425,7 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
         }
         return static_cast<BVHNode*>(pNode);
     };
+    spdlog::info("Constructing temporary BVH over scene objects/instances");
     auto* pBvhRoot = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
 
     std::function<size_t(BVHNode*)> computePrimCount = [&](BVHNode* pNode) -> size_t {
@@ -403,12 +449,13 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
             throw std::runtime_error("Unknown BVH node type");
         }
     };
+    spdlog::info("Counting number of primitives per BVH node");
     computePrimCount(pBvhRoot);
 
-    std::function<SubScene(const BVHNode*)> flattenSubTree = [&](const BVHNode* pNode) {
+    std::function<SubScene(BVHNode*)> flattenSubTree = [&](BVHNode* pNode) {
         if (const auto* pInnerNode = dynamic_cast<const InnerNode*>(pNode)) {
             SubScene outScene;
-            for (const auto* pChild : pInnerNode->children) {
+            for (auto* pChild : pInnerNode->children) {
                 auto childOutScene = flattenSubTree(pChild);
 
                 outScene.sceneNodes.reserve(outScene.sceneNodes.size() + childOutScene.sceneNodes.size());
@@ -418,7 +465,7 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
                 std::copy(std::begin(childOutScene.sceneObjects), std::end(childOutScene.sceneObjects), std::back_inserter(outScene.sceneObjects));
             }
             return outScene;
-        } else if (const auto* pLeafNode = dynamic_cast<const LeafNode*>(pNode)) {
+        } else if (auto* pLeafNode = dynamic_cast<LeafNode*>(pNode)) {
             SubScene outScene;
             outScene.sceneNodes = std::move(pLeafNode->sceneNodes);
             outScene.sceneObjects = std::move(pLeafNode->sceneObjects);
@@ -429,10 +476,10 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     };
 
     std::vector<SubScene> subScenes;
-    std::function<void(const BVHNode*)> computeSubScenes = [&](const BVHNode* pNode) {
+    std::function<void(BVHNode*)> computeSubScenes = [&](BVHNode* pNode) {
         if (pNode->numPrimitives > primitivesPerSubScene) {
-            if (const auto* pInnerNode = dynamic_cast<const InnerNode*>(pNode)) {
-                for (const auto* pChild : pInnerNode->children)
+            if (auto* pInnerNode = dynamic_cast<InnerNode*>(pNode)) {
+                for (auto* pChild : pInnerNode->children)
                     computeSubScenes(pChild);
             } else {
                 subScenes.push_back(flattenSubTree(pNode));
@@ -441,19 +488,13 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
             subScenes.push_back(flattenSubTree(pNode));
         }
     };
+    spdlog::info("Creating sub scenes");
     computeSubScenes(pBvhRoot);
 
+    spdlog::info("Freeing temporary BVH");
     rtcReleaseBVH(bvh);
 
     return subScenes;
-}
-
-void BatchingAccelerationStructureBuilder::verifyInstanceDepth(const SceneNode* pSceneNode, int depth)
-{
-    for (const auto& [pChildNode, optTransform] : pSceneNode->children) {
-        verifyInstanceDepth(pChildNode.get(), depth + 1);
-    }
-    ALWAYS_ASSERT(depth <= RTC_MAX_INSTANCE_LEVEL_COUNT);
 }
 
 static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)

@@ -29,6 +29,7 @@
 #include <string>
 #include <tbb/tbb.h>
 #include <xmmintrin.h>
+#include <unordered_set>
 #ifdef _WIN32
 #include <spdlog/sinks/msvc_sink.h>
 #else
@@ -40,8 +41,6 @@ using namespace torque;
 using namespace std::string_literals;
 
 const std::string projectBasePath = "../../"s;
-
-RenderConfig createDemoScene();
 
 int main(int argc, char** argv)
 {
@@ -69,6 +68,7 @@ int main(int argc, char** argv)
     // clang-format off
     desc.add_options()
 		("file", po::value<std::string>()->required(), "Pandora scene description JSON")
+		("subdiv", po::value<unsigned>()->default_value(0), "Number of times to subdivide each triangle in the scene")
 		("cameraid", po::value<unsigned>()->default_value(0), "Camera ID (index of occurence in pbrt/pbf file)")
 		("out", po::value<std::string>()->default_value("output"s), "output name (without file extension!)")
 		("integrator", po::value<std::string>()->default_value("direct"), "integrator (normal, direct or path)")
@@ -102,6 +102,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    const unsigned subdiv = vm["subdiv"].as<unsigned>();
     const unsigned cameraID = vm["cameraid"].as<unsigned>();
     const int spp = vm["spp"].as<int>();
     const unsigned concurrency = vm["concurrency"].as<unsigned>();
@@ -115,6 +116,7 @@ int main(int argc, char** argv)
 
     std::cout << "Rendering with the following settings:\n";
     std::cout << "  file:           " << vm["file"].as<std::string>() << "\n";
+    std::cout << "  subdiv:         " << subdiv << "\n";
     std::cout << "  camera ID:      " << cameraID << "\n";
     std::cout << "  out:            " << vm["out"].as<std::string>() << "\n";
     std::cout << "  integrator:     " << vm["integrator"].as<std::string>() << "\n";
@@ -128,6 +130,7 @@ int main(int argc, char** argv)
     std::cout << std::flush;
 
     g_stats.config.sceneFile = vm["file"].as<std::string>();
+    g_stats.config.subdiv = subdiv;
     g_stats.config.cameraID = cameraID;
 
     g_stats.config.integrator = vm["integrator"].as<std::string>();
@@ -154,9 +157,9 @@ int main(int argc, char** argv)
         auto stopWatch = g_stats.timings.loadFromFileTime.getScopedStopwatch();
         const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
         if (sceneFilePath.extension() == ".pbrt")
-            renderConfig = pbrt::loadFromPBRTFile(sceneFilePath, cameraID, &cacheBuilder, false);
+            renderConfig = pbrt::loadFromPBRTFile(sceneFilePath, cameraID, &cacheBuilder, subdiv, false);
         else if (sceneFilePath.extension() == ".pbf")
-            renderConfig = pbf::loadFromPBFFile(sceneFilePath, cameraID, &cacheBuilder, false);
+            renderConfig = pbf::loadFromPBFFile(sceneFilePath, cameraID, &cacheBuilder, subdiv, false);
         else if (sceneFilePath.extension() == ".json")
             renderConfig = loadFromFile(sceneFilePath);
         else {
@@ -169,12 +172,12 @@ int main(int argc, char** argv)
 
     tasking::TaskGraph taskGraph { schedulers };
 
-    //using AccelBuilder = BatchingAccelerationStructureBuilder;
+    //using AccelBuilder = EmbreeAccelerationStructureBuilder;
     using AccelBuilder = BatchingAccelerationStructureBuilder;
-    spdlog::info("Preprocessing scene");
-    if constexpr (false && std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
+    if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
+		spdlog::info("Preprocessing scene");
         auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
-            "pandora_render_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::sequential);
+            "pandora_render_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::no_buffering);
 
         cacheBuilder = tasking::LRUCache::Builder { std::move(pSerializer) };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
@@ -186,19 +189,32 @@ int main(int argc, char** argv)
     g_stats.memory.geometryEvicted = 0;
     g_stats.memory.geometryLoaded = 0;
 
+    /*std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
+        for (const auto& pSceneObject : pSceneNode->objects) {
+            geometryCache.makeResident(pSceneObject->pShape.get());
+        }
+
+        for (const auto& [pChild, _] : pSceneNode->children) {
+            makeShapeResident(pChild);
+        }
+    };
+    makeShapeResident(renderConfig.pScene->pRoot);*/
+
     spdlog::info("Building acceleration structure");
     //AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint, bvhCacheSize, svdagRes };
     Sensor sensor { renderConfig.resolution };
 
-    spdlog::info("Starting render");
     try {
         auto integratorType = vm["integrator"].as<std::string>();
 
         auto render = [&](auto& integrator) {
             auto stopWatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
 
+            spdlog::info("Building acceleration structure");
             auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
+
+            spdlog::info("Starting render");
             integrator.render(concurrency, *renderConfig.camera, sensor, *renderConfig.pScene, accel);
         };
 

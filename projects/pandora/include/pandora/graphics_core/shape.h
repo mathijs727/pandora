@@ -20,6 +20,8 @@ public:
     virtual Bounds getBounds() const = 0;
     virtual Bounds getPrimitiveBounds(unsigned primitiveID) const = 0;
 
+	virtual void subdivide() {};
+
     virtual RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const = 0;
 
     virtual float primitiveArea(unsigned primitiveID) const = 0;

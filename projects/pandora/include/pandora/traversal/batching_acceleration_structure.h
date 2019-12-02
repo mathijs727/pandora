@@ -117,8 +117,7 @@ public:
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask);
 
 private:
-    static void splitLargeSceneObjectsRecurse(SceneNode* pNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize);
-    static void verifyInstanceDepth(const SceneNode* pSceneNode, int depth = 0);
+    static void splitLargeSceneObjects(SceneNode* pNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize);
 
     [[nodiscard]] std::vector<tasking::CachedPtr<Shape>> makeSubSceneResident(const SubScene& subScene);
     static SparseVoxelDAG createSVDAG(const SubScene& subScene, int resolution);
@@ -191,6 +190,8 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
                     makeResidentRecurse(pChild.get());
                 }
             };
+            for (const auto& [pSceneNode, _] : m_subScene.sceneNodes)
+				makeResidentRecurse(pSceneNode);
 
             staticData.scene = pEmbreeCache->fromSubScene(&m_subScene);
             return staticData;
@@ -347,6 +348,8 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
     embreeRayHit.ray.id = 0;
     embreeRayHit.ray.flags = 0;
     embreeRayHit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
+    for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++)
+		embreeRayHit.hit.instID[i] = RTC_INVALID_GEOMETRY_ID;
     rtcIntersect1(scene, &context, &embreeRayHit);
 
     if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
@@ -361,7 +364,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             RTCScene localScene = scene;
             for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
                 unsigned geomID = embreeRayHit.hit.instID[i];
-                if (geomID == 0)
+                if (geomID == RTC_INVALID_GEOMETRY_ID)
                     break;
 
                 RTCGeometry geometry = rtcGetGeometry(localScene, geomID);
@@ -485,13 +488,14 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
             batchingPoints.emplace_back(std::move(subScene), m_pGeometryCache, m_pTaskGraph);
     }
 
-    spdlog::info("Constructing top level BVH");
+    spdlog::info("Constructing top level BVH over {} batching points", batchingPoints.size());
 
     // Moves batching points into internal structure
     PauseableBVH4<BatchingPointT, HitRayState, AnyHitRayState> topLevelBVH { batchingPoints };
     g_stats.scene.numBatchingPoints = batchingPoints.size();
     g_stats.memory.topBVH = topLevelBVH.sizeBytes();
     g_stats.memory.topBVHLeafs = batchingPoints.size() * sizeof(BatchingPointT);
+	spdlog::info("PausableBVH constructed");
     return BatchingAccelerationStructure<HitRayState, AnyHitRayState>(
         m_embreeDevice, std::move(topLevelBVH), hitTask, missTask, anyHitTask, anyMissTask, m_pGeometryCache, m_pTaskGraph, m_botLevelBVHCacheSize);
 }

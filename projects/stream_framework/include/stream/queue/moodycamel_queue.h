@@ -34,6 +34,11 @@ public:
     {
         return this->size_approx();
     }
+
+    size_t inline unsafe_size_bytes() const
+    {
+        return this->m_sizeBytes;
+    }
 };
 
 }

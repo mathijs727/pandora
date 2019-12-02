@@ -3,12 +3,12 @@
 
 namespace pbrt {
 
-pandora::RenderConfig loadFromPBRTFile(std::filesystem::path filePath, unsigned cameraID, tasking::CacheBuilder* pCacheBuilder, bool loadTextures)
+pandora::RenderConfig loadFromPBRTFile(std::filesystem::path filePath, unsigned cameraID, tasking::CacheBuilder* pCacheBuilder, unsigned subdiv, bool loadTextures)
 {
     std::filesystem::path basePath = filePath;
     basePath = basePath.remove_filename(); // Modified itself and returns a reference to *this
 
-    Parser parser { basePath, loadTextures };
+    Parser parser { basePath, subdiv, loadTextures };
     return parser.parse(filePath, cameraID, pCacheBuilder);
 }
 

@@ -53,6 +53,7 @@ private:
     void evict();
 
     static bool memoryMonitorCallback(void* pThisMem, ssize_t bytes, bool post);
+    static int computeMaxInstanceDepthRecurse(const SceneNode* pNode, int depth = 0);
 
 private:
     const size_t m_maxSize;

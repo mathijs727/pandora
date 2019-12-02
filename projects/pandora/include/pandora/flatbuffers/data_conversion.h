@@ -1,3 +1,4 @@
+#pragma once
 #include "pandora/flatbuffers/data_types_generated.h"
 #include <glm/glm.hpp>
 

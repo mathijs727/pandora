@@ -313,7 +313,7 @@ struct ConcurrentQueueDefaultTraits {
     // but many producers, a smaller block size should be favoured. For few producers
     // and/or many elements, a larger block size is preferred. A sane default
     // is provided. Must be a power of 2.
-    static const size_t BLOCK_SIZE = 32;
+    static const size_t BLOCK_SIZE = 256;
 
     // For explicit producers (i.e. when using a producer token), the block is
     // checked for being empty by iterating through a list of flags, one per element.
@@ -805,10 +805,10 @@ public:
         }
 
         // WARNING: overwrite capacity => 0 to prevent crashes when FreeList contains preallocated blocks from a Queue
-		//          that has already been destructed (and has freed the blocks). This is only an issue because the queue
-		//          was changed to share a single FreeList between all instances of the same type of queue (to reduce
-		//          memory usage).
-		capacity = 0;
+        //          that has already been destructed (and has freed the blocks). This is only an issue because the queue
+        //          was changed to share a single FreeList between all instances of the same type of queue (to reduce
+        //          memory usage).
+        capacity = 0;
 
         implicitProducerHashResizeInProgress.clear(std::memory_order_relaxed);
         populate_initial_implicit_producer_hash();
@@ -3092,11 +3092,15 @@ private:
         }
 
         if (canAlloc == CanAlloc) {
+            m_sizeBytes += sizeof(Block);
             return create<Block>();
         }
 
         return nullptr;
     }
+
+protected:
+	size_t m_sizeBytes { 0 };
 
 #ifdef MCDBGQ_TRACKMEM
 public:
