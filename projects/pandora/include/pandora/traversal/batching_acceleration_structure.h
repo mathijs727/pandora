@@ -21,7 +21,6 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
-#include <atomic>
 
 namespace pandora {
 
@@ -191,7 +190,7 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
                 }
             };
             for (const auto& [pSceneNode, _] : m_subScene.sceneNodes)
-				makeResidentRecurse(pSceneNode);
+                makeResidentRecurse(pSceneNode);
 
             staticData.scene = pEmbreeCache->fromSubScene(&m_subScene);
             return staticData;
@@ -301,10 +300,14 @@ template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersect(
     Ray& ray, SurfaceInteraction& si, const HitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
-    g_stats.svdag.numIntersectionTests++;
-    if (m_svdag && !m_svdag->intersectScalar(ray)) {
-        g_stats.svdag.numRaysCulled++;
-        return false;
+    {
+        auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+
+        g_stats.svdag.numIntersectionTests++;
+        if (m_svdag && !m_svdag->intersectScalar(ray)) {
+            g_stats.svdag.numRaysCulled++;
+            return false;
+        }
     }
 
     m_pTaskGraph->enqueue(m_intersectTask, std::tuple { ray, si, userState, bvhInsertHandle });
@@ -315,10 +318,14 @@ template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectAny(
     Ray& ray, const AnyHitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
-    g_stats.svdag.numIntersectionTests++;
-    if (m_svdag && !m_svdag->intersectScalar(ray)) {
-        g_stats.svdag.numRaysCulled++;
-        return false;
+    {
+        auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+
+        g_stats.svdag.numIntersectionTests++;
+        if (m_svdag && !m_svdag->intersectScalar(ray)) {
+            g_stats.svdag.numRaysCulled++;
+            return false;
+        }
     }
 
     m_pTaskGraph->enqueue(m_intersectAnyTask, std::tuple { ray, userState, bvhInsertHandle });
@@ -349,7 +356,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
     embreeRayHit.ray.flags = 0;
     embreeRayHit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
     for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++)
-		embreeRayHit.hit.instID[i] = RTC_INVALID_GEOMETRY_ID;
+        embreeRayHit.hit.instID[i] = RTC_INVALID_GEOMETRY_ID;
     rtcIntersect1(scene, &context, &embreeRayHit);
 
     if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
@@ -445,10 +452,10 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
         std::vector<std::optional<SparseVoxelDAG>> svdags;
         svdags.resize(m_subScenes.size());
 
-		// TODO: make cache thread safe and update this code
-		// Because the caches are not thread safe (yet) we have to load the data from the main thread..
-		// We keep track of how many threads are working so that we never load new data faster than we can process it.
-		const unsigned maxParallelism = std::max(1u, std::thread::hardware_concurrency() - 1);
+        // TODO: make cache thread safe and update this code
+        // Because the caches are not thread safe (yet) we have to load the data from the main thread..
+        // We keep track of how many threads are working so that we never load new data faster than we can process it.
+        const unsigned maxParallelism = std::max(1u, std::thread::hardware_concurrency() - 1);
         std::atomic_uint parallelTasks { 0 };
 
         tbb::task_group tg;
@@ -495,7 +502,7 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
     g_stats.scene.numBatchingPoints = batchingPoints.size();
     g_stats.memory.topBVH = topLevelBVH.sizeBytes();
     g_stats.memory.topBVHLeafs = batchingPoints.size() * sizeof(BatchingPointT);
-	spdlog::info("PausableBVH constructed");
+    spdlog::info("PausableBVH constructed");
     return BatchingAccelerationStructure<HitRayState, AnyHitRayState>(
         m_embreeDevice, std::move(topLevelBVH), hitTask, missTask, anyHitTask, anyMissTask, m_pGeometryCache, m_pTaskGraph, m_botLevelBVHCacheSize);
 }
