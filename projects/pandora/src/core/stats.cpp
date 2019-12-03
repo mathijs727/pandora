@@ -31,7 +31,8 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
 
     ret["timings"]["load_from_file_time"] = timings.loadFromFileTime;
     ret["timings"]["total_render_time"] = timings.totalRenderTime;
-    ret["timings"]["total_traversal_time"] = timings.totalTraversalTime;
+    ret["timings"]["bot_level_traversal_time"] = timings.botLevelTraversalTime;
+    ret["timings"]["top_level_traversal_time"] = timings.topLevelTraversalTime;
     ret["timings"]["svdag_traversal_time"] = timings.svdagTraversalTime;
 
     ret["memory"]["geometry_loaded"] = memory.geometryLoaded;

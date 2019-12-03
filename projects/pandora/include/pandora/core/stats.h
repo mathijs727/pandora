@@ -41,7 +41,8 @@ struct RenderStats : public metrics::Stats {
         metrics::Stopwatch<std::chrono::milliseconds> loadFromFileTime;
 
         metrics::Stopwatch<std::chrono::milliseconds> totalRenderTime;
-        metrics::Stopwatch<std::chrono::milliseconds> totalTraversalTime;
+        metrics::Stopwatch<std::chrono::milliseconds> botLevelTraversalTime;
+        metrics::Stopwatch<std::chrono::milliseconds> topLevelTraversalTime;
         metrics::Stopwatch<std::chrono::nanoseconds> svdagTraversalTime;
     } timings;
 
