@@ -172,6 +172,8 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
     }
 #endif
 
+	auto stopWatch = g_stats.timings.botLevelBuildTime.getScopedStopwatch();
+
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
 
     // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
