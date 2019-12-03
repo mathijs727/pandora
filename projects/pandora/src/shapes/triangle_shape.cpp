@@ -132,6 +132,8 @@ void TriangleShape::subdivide()
     ALWAYS_ASSERT(m_normals.empty() || m_normals.size() == m_positions.size());
     ALWAYS_ASSERT(m_texCoords.empty());
 
+	size_t sizeBefore = sizeBytes();
+
     std::vector<glm::uvec3> outIndices;
     outIndices.reserve(m_indices.size() * 3);
     for (const auto& triangle : m_indices) {
@@ -158,6 +160,8 @@ void TriangleShape::subdivide()
 
 	ALWAYS_ASSERT(m_indices.size() < std::numeric_limits<unsigned>::max());
 	m_numPrimitives = static_cast<unsigned>(m_indices.size());
+
+	g_stats.memory.geometryLoaded += (sizeBytes() - sizeBefore);
 }
 
 void TriangleShape::doEvict()
