@@ -170,6 +170,9 @@ int main(int argc, char** argv)
     const glm::ivec2 resolution = renderConfig.resolution;
     tasking::LRUCache geometryCache = cacheBuilder.build(geomCacheSize);
 
+	// Store geometry loaded data before we start splitting the large shapes as part of preprocess.
+    g_stats.asyncTriggerSnapshot();
+
     tasking::TaskGraph taskGraph { schedulers };
 
     //using AccelBuilder = EmbreeAccelerationStructureBuilder;
