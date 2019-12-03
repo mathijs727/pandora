@@ -43,9 +43,9 @@ public:
 
     size_t approxMemoryUsage() const;
     size_t approxQueuedItems() const;
-	
-	// Number of scheduler tasks that may be spawned at once. Loading can only happen from one thread (to prevent
-	//  race conditions in cache) but using multiple schedulers allow for loading / traversal in parallel.
+
+    // Number of scheduler tasks that may be spawned at once. Loading can only happen from one thread (to prevent
+    //  race conditions in cache) but using multiple schedulers allow for loading / traversal in parallel.
     void run();
 
 private:
@@ -221,7 +221,10 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
     flushStats.genStats = StreamStats::GeneralStats { pTaskGraph->approxQueuedItems(), pTaskGraph->approxMemoryUsage() };
     flushStats.startTime = std::chrono::high_resolution_clock::now();
 
-    std::pmr::memory_resource* pMemory = std::pmr::new_delete_resource();
+    //std::pmr::memory_resource* pMemory = std::pmr::new_delete_resource();
+    std::array<std::byte, 1024> buffer;
+    std::pmr::monotonic_buffer_resource memoryResource { reinterpret_cast<void*>(buffer.data()), buffer.size() };
+    std::pmr::memory_resource* pMemory = &memoryResource;
 
     void* pStaticData;
     {
