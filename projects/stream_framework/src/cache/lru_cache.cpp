@@ -31,6 +31,29 @@ LRUCache::LRUCache(std::unique_ptr<tasking::Deserializer>&& pDeserializer, gsl::
     }
 }
 
+LRUCache::~LRUCache()
+{
+    for (auto& [pItem, refCount] : m_items) {
+        assert(refCount == 0);
+        if (pItem->isResident())
+            pItem->evict();
+	}
+}
+
+void LRUCache::forceEvict(Evictable* pEvictable)
+{
+    assert(pItem->isResident());
+
+    m_usedMemory -= pEvictable->sizeBytes();
+    pEvictable->evict();
+    m_usedMemory += pEvictable->sizeBytes();
+
+    auto index = m_pointerToItemIndex[pEvictable];
+    auto listIter = m_residentItemsLookUp[index];
+    m_residentItems.erase(listIter);
+    m_residentItemsLookUp[index] = std::end(m_residentItems);
+}
+
 size_t LRUCache::memoryUsage() const noexcept
 {
     return m_usedMemory;
