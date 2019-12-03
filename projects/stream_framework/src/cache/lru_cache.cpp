@@ -42,7 +42,7 @@ LRUCache::~LRUCache()
 
 void LRUCache::forceEvict(Evictable* pEvictable)
 {
-    assert(pItem->isResident());
+    assert(pEvictable->isResident());
 
     m_usedMemory -= pEvictable->sizeBytes();
     pEvictable->evict();
