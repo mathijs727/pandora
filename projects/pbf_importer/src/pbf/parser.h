@@ -17,6 +17,7 @@ namespace pbf {
 class Parser {
 public:
     Parser(Lexer* pLexer);
+    ~Parser();
 
     PBFScene* parse();
 

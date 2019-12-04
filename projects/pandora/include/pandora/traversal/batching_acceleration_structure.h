@@ -309,11 +309,11 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
     Ray& ray, SurfaceInteraction& si, const HitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
     {
-        auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+       // auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        //g_stats.svdag.numIntersectionTests++;
 
-        g_stats.svdag.numIntersectionTests++;
         if (m_svdag && !m_svdag->intersectScalar(ray)) {
-            g_stats.svdag.numRaysCulled++;
+            //g_stats.svdag.numRaysCulled++;
             return false;
         }
     }
@@ -327,11 +327,11 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
     Ray& ray, const AnyHitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
     {
-        auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        //auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        //g_stats.svdag.numIntersectionTests++;
 
-        g_stats.svdag.numIntersectionTests++;
         if (m_svdag && !m_svdag->intersectScalar(ray)) {
-            g_stats.svdag.numRaysCulled++;
+            //g_stats.svdag.numRaysCulled++;
             return false;
         }
     }

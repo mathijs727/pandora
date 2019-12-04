@@ -12,6 +12,7 @@ StreamStats& StreamStats::getSingleton()
 
 StreamStats::~StreamStats()
 {
+    spdlog::info("Storing stream stats");
     asyncTriggerSnapshot();
 }
 
