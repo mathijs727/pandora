@@ -810,7 +810,7 @@ public:
         //          memory usage).
         capacity = 0;
 
-        implicitProducerHashResizeInProgress.clear(std::memory_order_relaxed);
+        //implicitProducerHashResizeInProgress.clear(std::memory_order_relaxed);
         populate_initial_implicit_producer_hash();
         populate_initial_block_list(capacity / BLOCK_SIZE + ((capacity & (BLOCK_SIZE - 1)) == 0 ? 0 : 1));
 
