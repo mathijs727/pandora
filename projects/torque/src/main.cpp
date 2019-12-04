@@ -170,6 +170,9 @@ int main(int argc, char** argv)
     const glm::ivec2 resolution = renderConfig.resolution;
     tasking::LRUCache geometryCache = cacheBuilder.build(geomCacheSize);
 
+	// Store geometry loaded data before we start splitting the large shapes as part of preprocess.
+    g_stats.asyncTriggerSnapshot();
+
     tasking::TaskGraph taskGraph { schedulers };
 
     //using AccelBuilder = EmbreeAccelerationStructureBuilder;
@@ -209,12 +212,11 @@ int main(int argc, char** argv)
         auto integratorType = vm["integrator"].as<std::string>();
 
         auto render = [&](auto& integrator) {
-            auto stopWatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
-
             spdlog::info("Building acceleration structure");
             auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
             spdlog::info("Starting render");
+            auto stopWatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
             integrator.render(concurrency, *renderConfig.camera, sensor, *renderConfig.pScene, accel);
         };
 

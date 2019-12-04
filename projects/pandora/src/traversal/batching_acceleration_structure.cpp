@@ -187,6 +187,7 @@ void BatchingAccelerationStructureBuilder::splitLargeSceneObjects(
                     }
                 } else {
                     auto subShapes = splitLargeTriangleShape(*pTriangleShape, maxSize, embreeDevice);
+                    oldCache.forceEvict(pShape);
                     for (const auto& pSubShape : subShapes) {
                         auto pSubSceneObject = std::make_shared<SceneObject>(*pSceneObject);
                         pSubSceneObject->pShape = pSubShape;

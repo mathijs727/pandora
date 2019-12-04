@@ -80,6 +80,10 @@ Parser::Parser(Lexer* pLexer)
     }
 }
 
+Parser::~Parser() {
+    m_memoryResource.release();
+}
+
 PBFScene* Parser::parse()
 {
     while (!m_pLexer->endOfFile()) {

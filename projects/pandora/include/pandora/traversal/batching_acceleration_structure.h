@@ -197,7 +197,7 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
         },
         [=](gsl::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
             {
-                auto stopWatch = g_stats.timings.totalTraversalTime.getScopedStopwatch();
+                auto stopWatch = g_stats.timings.botLevelTraversalTime.getScopedStopwatch();
 
                 RTCScene embreeScene = pStaticData->scene->scene;
                 for (auto& [ray, si, state, insertHandle] : data) {
@@ -205,17 +205,21 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
                 }
             }
 
-            for (auto& [ray, si, state, insertHandle] : data) {
-                auto optHit = pParent->m_topLevelBVH.intersect(ray, si, state, insertHandle);
-                if (optHit) { // Ray exited BVH
-                    assert(!optHit.value());
+            {
+                auto stopWatch = g_stats.timings.topLevelTraversalTime.getScopedStopwatch();
 
-                    if (si.pSceneObject) {
-                        // Ray hit something
-                        assert(si.pSceneObject);
-                        m_pTaskGraph->enqueue(pParent->m_onHitTask, std::tuple { ray, si, state });
-                    } else {
-                        m_pTaskGraph->enqueue(pParent->m_onMissTask, std::tuple { ray, state });
+                for (auto& [ray, si, state, insertHandle] : data) {
+                    auto optHit = pParent->m_topLevelBVH.intersect(ray, si, state, insertHandle);
+                    if (optHit) { // Ray exited BVH
+                        assert(!optHit.value());
+
+                        if (si.pSceneObject) {
+                            // Ray hit something
+                            assert(si.pSceneObject);
+                            m_pTaskGraph->enqueue(pParent->m_onHitTask, std::tuple { ray, si, state });
+                        } else {
+                            m_pTaskGraph->enqueue(pParent->m_onMissTask, std::tuple { ray, state });
+                        }
                     }
                 }
             }
@@ -252,7 +256,7 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             std::fill(std::begin(hits), std::end(hits), false);
 
             {
-                auto stopWatch = g_stats.timings.totalTraversalTime.getScopedStopwatch();
+                auto stopWatch = g_stats.timings.botLevelTraversalTime.getScopedStopwatch();
 
                 RTCScene embreeScene = pStaticData->scene->scene;
                 for (auto&& [i, data] : enumerate(data)) {
@@ -261,19 +265,23 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
                 }
             }
 
-            for (auto&& [i, data] : enumerate(data)) {
-                auto& [ray, state, insertHandle] = data;
+            {
+                auto stopWatch = g_stats.timings.topLevelTraversalTime.getScopedStopwatch();
 
-                if (hits[i]) {
-                    m_pTaskGraph->enqueue(pParent->m_onAnyHitTask, std::tuple { ray, state });
-                } else {
-                    auto optHit = pParent->m_topLevelBVH.intersectAny(ray, state, insertHandle);
-                    if (optHit) {
-                        assert(!optHit.value());
-                        if (optHit.value())
-                            m_pTaskGraph->enqueue(pParent->m_onAnyHitTask, std::tuple { ray, state });
-                        else
-                            m_pTaskGraph->enqueue(pParent->m_onAnyMissTask, std::tuple { ray, state });
+                for (auto&& [i, data] : enumerate(data)) {
+                    auto& [ray, state, insertHandle] = data;
+
+                    if (hits[i]) {
+                        m_pTaskGraph->enqueue(pParent->m_onAnyHitTask, std::tuple { ray, state });
+                    } else {
+                        auto optHit = pParent->m_topLevelBVH.intersectAny(ray, state, insertHandle);
+                        if (optHit) {
+                            assert(!optHit.value());
+                            if (optHit.value())
+                                m_pTaskGraph->enqueue(pParent->m_onAnyHitTask, std::tuple { ray, state });
+                            else
+                                m_pTaskGraph->enqueue(pParent->m_onAnyMissTask, std::tuple { ray, state });
+                        }
                     }
                 }
             }
@@ -301,11 +309,11 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
     Ray& ray, SurfaceInteraction& si, const HitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
     {
-        auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+       // auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        //g_stats.svdag.numIntersectionTests++;
 
-        g_stats.svdag.numIntersectionTests++;
         if (m_svdag && !m_svdag->intersectScalar(ray)) {
-            g_stats.svdag.numRaysCulled++;
+            //g_stats.svdag.numRaysCulled++;
             return false;
         }
     }
@@ -319,11 +327,11 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
     Ray& ray, const AnyHitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
     {
-        auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        //auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        //g_stats.svdag.numIntersectionTests++;
 
-        g_stats.svdag.numIntersectionTests++;
         if (m_svdag && !m_svdag->intersectScalar(ray)) {
-            g_stats.svdag.numRaysCulled++;
+            //g_stats.svdag.numRaysCulled++;
             return false;
         }
     }
@@ -539,6 +547,8 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::~BatchingAcce
 template <typename HitRayState, typename AnyHitRayState>
 inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersect(const Ray& ray, const HitRayState& state) const
 {
+    auto stopWatch = g_stats.timings.topLevelTraversalTime.getScopedStopwatch();
+
     auto mutRay = ray;
     SurfaceInteraction si;
     auto optHit = m_topLevelBVH.intersect(mutRay, si, state);
@@ -554,6 +564,8 @@ inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersec
 template <typename HitRayState, typename AnyHitRayState>
 inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectAny(const Ray& ray, const AnyHitRayState& state) const
 {
+    auto stopWatch = g_stats.timings.topLevelTraversalTime.getScopedStopwatch();
+
     auto mutRay = ray;
     auto optHit = m_topLevelBVH.intersectAny(mutRay, state);
     if (optHit) {

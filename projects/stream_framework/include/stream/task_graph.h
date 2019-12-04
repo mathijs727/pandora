@@ -6,6 +6,7 @@
 #include <functional>
 #include <gsl/span>
 #include <memory_resource>
+#include <tbb/task_arena.h>
 #define __TBB_ALLOW_MUTABLE_FUNCTORS 1
 #include <tbb/task_group.h>
 #undef __TBB_ALLOW_MUTABLE_FUNCTORS
@@ -43,9 +44,9 @@ public:
 
     size_t approxMemoryUsage() const;
     size_t approxQueuedItems() const;
-	
-	// Number of scheduler tasks that may be spawned at once. Loading can only happen from one thread (to prevent
-	//  race conditions in cache) but using multiple schedulers allow for loading / traversal in parallel.
+
+    // Number of scheduler tasks that may be spawned at once. Loading can only happen from one thread (to prevent
+    //  race conditions in cache) but using multiple schedulers allow for loading / traversal in parallel.
     void run();
 
 private:
@@ -94,6 +95,9 @@ private:
         MoodyCamelQueue<T> m_workQueue;
     };
 
+    tbb::task_arena m_taskArena;
+    bool m_inTaskArena { false };
+
     std::vector<std::unique_ptr<TaskBase>> m_tasks;
     std::mutex m_staticDataMutex; // Run only one at a time because the cache implementation is not thread safe
     const unsigned m_numSchedulers;
@@ -128,7 +132,13 @@ inline void TaskGraph::enqueue(TaskHandle<T> taskHandle, const T& item)
 {
     Task<T>* pTask = reinterpret_cast<Task<T>*>(m_tasks[taskHandle.index].get());
 
-    pTask->enqueue(item);
+    if (m_inTaskArena) {
+        pTask->enqueue(item);
+    } else {
+        m_taskArena.execute([&]() {
+            pTask->enqueue(item);
+        });
+    }
 }
 
 template <typename T>
@@ -136,7 +146,13 @@ inline void TaskGraph::enqueue(TaskHandle<T> taskHandle, gsl::span<const T> item
 {
     Task<T>* pTask = reinterpret_cast<Task<T>*>(m_tasks[taskHandle.index].get());
 
-    pTask->enqueue(items);
+    if (m_inTaskArena) {
+        pTask->enqueue(items);
+    } else {
+        m_taskArena.execute([&]() {
+            pTask->enqueue(items);
+        });
+    }
 }
 
 template <typename T>
@@ -221,7 +237,10 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
     flushStats.genStats = StreamStats::GeneralStats { pTaskGraph->approxQueuedItems(), pTaskGraph->approxMemoryUsage() };
     flushStats.startTime = std::chrono::high_resolution_clock::now();
 
-    std::pmr::memory_resource* pMemory = std::pmr::new_delete_resource();
+    //std::pmr::memory_resource* pMemory = std::pmr::new_delete_resource();
+    std::array<std::byte, 1024> buffer;
+    std::pmr::monotonic_buffer_resource memoryResource { reinterpret_cast<void*>(buffer.data()), buffer.size() };
+    std::pmr::memory_resource* pMemory = &memoryResource;
 
     void* pStaticData;
     {
@@ -285,10 +304,10 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
         m_staticDataDestructor(pMemory, pStaticData);
     }
 
-    auto& stats = StreamStats::getSingleton();
+    /*auto& stats = StreamStats::getSingleton();
     {
         std::lock_guard l { stats.infoAtFlushesMutex };
         stats.infoAtFlushes.emplace_back(std::move(flushStats));
-    }
+    }*/
 }
 }

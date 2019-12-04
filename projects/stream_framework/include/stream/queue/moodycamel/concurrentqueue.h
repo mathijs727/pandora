@@ -29,6 +29,11 @@
 
 #pragma once
 
+// NOTE: modified version that uses task arenas to get a thread index starting from 0.
+// Prevents us from having to allocate a hashmap and index it every time we want to push.
+#include <tbb/task_arena.h>
+#include <vector>
+
 #if defined(__GNUC__)
 // Disable -Wconversion warnings (spuriously triggered when Traits::size_t and
 // Traits::index_t are set to < 32 bits, causing integer promotion, causing warnings
@@ -313,18 +318,18 @@ struct ConcurrentQueueDefaultTraits {
     // but many producers, a smaller block size should be favoured. For few producers
     // and/or many elements, a larger block size is preferred. A sane default
     // is provided. Must be a power of 2.
-    static const size_t BLOCK_SIZE = 256;
+    static const size_t BLOCK_SIZE = 32;
 
     // For explicit producers (i.e. when using a producer token), the block is
     // checked for being empty by iterating through a list of flags, one per element.
     // For large block sizes, this is too inefficient, and switching to an atomic
     // counter-based approach is faster. The switch is made for block sizes strictly
     // larger than this threshold.
-    static const size_t EXPLICIT_BLOCK_EMPTY_COUNTER_THRESHOLD = 32;
+    static const size_t EXPLICIT_BLOCK_EMPTY_COUNTER_THRESHOLD = 8;
 
     // How many full blocks can be expected for a single explicit producer? This should
     // reflect that number's maximum for optimal performance. Must be a power of 2.
-    static const size_t EXPLICIT_INITIAL_INDEX_SIZE = 32;
+    static const size_t EXPLICIT_INITIAL_INDEX_SIZE = 4;
 
     // How many full blocks can be expected for a single implicit producer? This should
     // reflect that number's maximum for optimal performance. Must be a power of 2.
@@ -804,6 +809,13 @@ public:
             sharedFreeList = freeList;
         }
 
+        std::generate_n(
+            std::back_inserter(implicitProducers),
+            std::thread::hardware_concurrency(),
+            [&]() {
+                return reinterpret_cast<ImplicitProducer*>(recycle_or_create_producer(false));
+            });
+
         // WARNING: overwrite capacity => 0 to prevent crashes when FreeList contains preallocated blocks from a Queue
         //          that has already been destructed (and has freed the blocks). This is only an issue because the queue
         //          was changed to share a single FreeList between all instances of the same type of queue (to reduce
@@ -840,6 +852,13 @@ public:
             sharedFreeList = freeList;
         }
 
+        std::generate_n(
+            std::back_inserter(implicitProducers),
+            std::thread::hardware_concurrency(),
+            [&]() {
+                return reinterpret_cast<ImplicitProducer*>(recycle_or_create_producer(false));
+            });
+
         // WARNING: overwrite capacity => 0 to prevent crashes when FreeList contains preallocated blocks from a Queue
         //          that has already been destructed (and has freed the blocks). This is only an issue because the queue
         //          was changed to share a single FreeList between all instances of the same type of queue (to reduce
@@ -873,7 +892,7 @@ public:
             ptr = next;
         }
 
-        // Destroy implicit producer hash tables
+        /*// Destroy implicit producer hash tables
         if (INITIAL_IMPLICIT_PRODUCER_HASH_SIZE != 0) {
             auto hash = implicitProducerHash.load(std::memory_order_relaxed);
             while (hash != nullptr) {
@@ -887,7 +906,7 @@ public:
                 }
                 hash = prev;
             }
-        }
+        }*/
 
         // Destroy initial free list
         destroy_array(initialBlockPool, initialBlockPoolSize);
@@ -911,10 +930,11 @@ public:
           initialBlockPoolSize(other.initialBlockPoolSize),
           freeList(std::move(other.freeList)),
           nextExplicitConsumerId(other.nextExplicitConsumerId.load(std::memory_order_relaxed)),
-          globalExplicitConsumerOffset(other.globalExplicitConsumerOffset.load(std::memory_order_relaxed))
+          globalExplicitConsumerOffset(other.globalExplicitConsumerOffset.load(std::memory_order_relaxed)),
+          implicitProducers(std::move(other.implicitProducers))
     {
         // Move the other one into this, and leave the other one as an empty queue
-        implicitProducerHashResizeInProgress.clear(std::memory_order_relaxed);
+        //implicitProducerHashResizeInProgress.clear(std::memory_order_relaxed);
         populate_initial_implicit_producer_hash();
         swap_implicit_producer_hashes(other);
 
@@ -3100,7 +3120,7 @@ private:
     }
 
 protected:
-	size_t m_sizeBytes { 0 };
+    size_t m_sizeBytes { 0 };
 
 #ifdef MCDBGQ_TRACKMEM
 public:
@@ -3325,7 +3345,7 @@ private:
 
     inline void populate_initial_implicit_producer_hash()
     {
-        if (INITIAL_IMPLICIT_PRODUCER_HASH_SIZE == 0)
+        /*if (INITIAL_IMPLICIT_PRODUCER_HASH_SIZE == 0)
             return;
 
         implicitProducerHashCount.store(0, std::memory_order_relaxed);
@@ -3336,12 +3356,12 @@ private:
             initialImplicitProducerHashEntries[i].key.store(details::invalid_thread_id, std::memory_order_relaxed);
         }
         hash->prev = nullptr;
-        implicitProducerHash.store(hash, std::memory_order_relaxed);
+        implicitProducerHash.store(hash, std::memory_order_relaxed);*/
     }
 
     void swap_implicit_producer_hashes(ConcurrentQueue& other)
     {
-        if (INITIAL_IMPLICIT_PRODUCER_HASH_SIZE == 0)
+        /*if (INITIAL_IMPLICIT_PRODUCER_HASH_SIZE == 0)
             return;
 
         // Swap (assumes our implicit producer hash is initialized)
@@ -3369,13 +3389,15 @@ private:
                 continue;
             }
             hash->prev = &other.initialImplicitProducerHash;
-        }
+        }*/
     }
 
     // Only fails (returns nullptr) if memory allocation fails
     ImplicitProducer* get_or_add_implicit_producer()
     {
-        // Note that since the data is essentially thread-local (key is thread ID),
+        auto threadIdx = tbb::task_arena::current_thread_index();
+		return implicitProducers[threadIdx];
+        /*// Note that since the data is essentially thread-local (key is thread ID),
         // there's a reduced need for fences (memory ordering is already consistent
         // for any individual thread), except for the current table itself.
 
@@ -3518,7 +3540,7 @@ private:
             // We need to wait for the allocating thread to finish (if it succeeds, we add, if not,
             // we try to allocate ourselves).
             mainHash = implicitProducerHash.load(std::memory_order_acquire);
-        }
+        }*/
     }
 
 #ifdef MOODYCAMEL_CPP11_THREAD_LOCAL_SUPPORTED
@@ -3636,11 +3658,12 @@ private:
     debug::DebugFreeList<Block> freeList;
 #endif
 
-    std::atomic<ImplicitProducerHash*> implicitProducerHash;
+    /*std::atomic<ImplicitProducerHash*> implicitProducerHash;
     std::atomic<size_t> implicitProducerHashCount; // Number of slots logically used
     ImplicitProducerHash initialImplicitProducerHash;
     std::array<ImplicitProducerKVP, INITIAL_IMPLICIT_PRODUCER_HASH_SIZE> initialImplicitProducerHashEntries;
-    std::atomic_flag implicitProducerHashResizeInProgress;
+    std::atomic_flag implicitProducerHashResizeInProgress;*/
+    std::vector<ImplicitProducer*> implicitProducers;
 
     std::atomic<std::uint32_t> nextExplicitConsumerId;
     std::atomic<std::uint32_t> globalExplicitConsumerOffset;

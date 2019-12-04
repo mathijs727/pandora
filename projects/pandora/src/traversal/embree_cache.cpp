@@ -172,6 +172,8 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
     }
 #endif
 
+	auto stopWatch = g_stats.timings.botLevelBuildTime.getScopedStopwatch();
+
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
 
     // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
@@ -223,7 +225,7 @@ void LRUEmbreeSceneCache::evict()
     for (auto iter = std::begin(m_scenes); iter != std::end(m_scenes);) {
         spdlog::debug("Evicting BVH");
         m_lookUp.erase(iter->pKey);
-        iter = m_scenes.erase(iter); // Return new iter. Otherwise iter will point to free'd memory
+        iter = m_scenes.erase(iter); // Make iter point to the next item (calling iter++ after erase will reference free'd memory)
 
         if (m_size.load() < m_maxSize)
             break;

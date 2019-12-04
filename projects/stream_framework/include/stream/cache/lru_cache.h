@@ -19,16 +19,20 @@ class LRUCache {
 public:
     class Builder;
 
-	LRUCache(LRUCache&&) = default;
+	~LRUCache();
+
+    LRUCache(LRUCache&&) = default;
     LRUCache& operator=(LRUCache&&) = default;
 
     template <typename T>
     CachedPtr<T> makeResident(T* pEvictable);
 
+    void forceEvict(Evictable* pEvictable);
+
     size_t memoryUsage() const noexcept;
     bool checkResidencyIsValid() const;
 
-	size_t maxSize() const;
+    size_t maxSize() const;
 
 private:
     LRUCache(std::unique_ptr<tasking::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory);
