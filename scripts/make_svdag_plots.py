@@ -82,7 +82,7 @@ def plot_svdag_res_vs_memory_usage(svdag_stats):
 	ax = fig.gca()
 	for i, (scene, scene_stats) in enumerate(svdag_stats.items()):
 		x = np.array([int(res) for res in scene_stats.keys()])
-		y = np.array([np.mean([svdag_normalized_memory_after_compression(run_stats[-1]["data"]) / 1000 for run_stats in runs])
+		y = np.array([np.mean([svdag_memory_after_compression(run_stats[-1]["data"]) / 1000000 for run_stats in runs])
 					for runs in scene_stats.values()])
 		indices = np.argsort(x)
 		x = x[indices][:4]
@@ -97,7 +97,7 @@ def plot_svdag_res_vs_memory_usage(svdag_stats):
 	ax.set_xscale("log", basex=2)
 	ax.set_yscale("linear")
 	ax.xaxis.set_major_formatter(mpl.ticker.ScalarFormatter())
-	ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter("%dKB"))
+	ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter("%dMB"))
 	ax.legend(prop={"size": font_size}, frameon=False)
 	fig.tight_layout()
 	#fig.savefig("svdag_memory_usage.pdf", bbox_inches="tight")
@@ -136,7 +136,7 @@ def plot_svdag_traversal_time(svdag_stats):
 	plt.show()
 
 
-def plot_svdag_render_time(svdag_stats):
+def plot_svdag_cull_percentage(svdag_stats):
 	# brewer2mpl.get_map args: set name  set type  number of colors
 	bmap = brewer2mpl.get_map('Dark2', 'qualitative', 3)
 	colors = bmap.mpl_colors
@@ -145,7 +145,7 @@ def plot_svdag_render_time(svdag_stats):
 	ax = fig.gca()
 	for i, (scene, scene_stats) in enumerate(svdag_stats.items()):
 		x = np.array([int(res) for res in scene_stats.keys()])
-		y = np.array([np.mean([svdag_normalized_memory_after_compression(run_stats[-1]["data"]) / 1000 for run_stats in runs])
+		y = np.array([np.mean([culling_percentage(run_stats[-1]["data"]) for run_stats in runs])
 					for runs in scene_stats.values()])
 		indices = np.argsort(x)
 		x = x[indices][:4]
@@ -156,11 +156,11 @@ def plot_svdag_render_time(svdag_stats):
 	ax.tick_params("both", length=10, width=1.5, which="major", direction="in")
 	ax.tick_params("both", length=10, width=1, which="minor", direction="in")
 	ax.set_xlabel("SVDAG resolution")
-	ax.set_ylabel("Memory usage") # Per batching point
+	ax.set_ylabel("Culling effectiveness") # Per batching point
 	ax.set_xscale("log", basex=2)
 	ax.set_yscale("linear")
 	ax.xaxis.set_major_formatter(mpl.ticker.ScalarFormatter())
-	ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter("%dKB"))
+	ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter("%d%%"))
 	ax.legend(prop={"size": font_size}, frameon=False)
 	fig.tight_layout()
 	#fig.savefig("svdag_memory_usage.pdf", bbox_inches="tight")
@@ -172,4 +172,5 @@ if __name__ == "__main__":
 
 	configure_mpl()
 	#plot_svdag_res_vs_memory_usage(svdag_results)
-	plot_svdag_traversal_time(svdag_results)
+	#plot_svdag_traversal_time(svdag_results)
+	plot_svdag_cull_percentage(svdag_results)
