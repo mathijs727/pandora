@@ -51,15 +51,16 @@ Bounds SubScene::computeBounds() const
     return bounds;
 }
 
-CachedEmbreeScene::CachedEmbreeScene(RTCScene scene, std::vector<std::shared_ptr<CachedEmbreeScene>>&& parents)
+CachedEmbreeScene::CachedEmbreeScene(RTCScene scene, std::vector<std::shared_ptr<CachedEmbreeScene>>&& childrenScenes)
     : scene(scene)
-    , parents(std::move(parents))
+    , childrenScenes(std::move(childrenScenes))
 {
 }
 
 CachedEmbreeScene::~CachedEmbreeScene()
 {
     rtcReleaseScene(scene);
+    childrenScenes.clear();
 }
 
 LRUEmbreeSceneCache::LRUEmbreeSceneCache(size_t maxSize)
@@ -78,36 +79,52 @@ LRUEmbreeSceneCache::~LRUEmbreeSceneCache()
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSceneNode(const SceneNode* pSceneNode)
 {
     const void* pKey = pSceneNode;
-    if (auto iter = m_lookUp.find(pKey); iter != std::end(m_lookUp)) {
-        return iter->second->scene;
+    if (auto lutIter = m_lookUp.find(pKey); lutIter != std::end(m_lookUp)) {
+        // Item is used => update LRU
+		auto listIter = lutIter->second;
+        auto cacheItem = std::move(*listIter);
+        m_scenes.erase(listIter);
+        m_scenes.emplace_back(std::move(cacheItem));
+        listIter = --std::end(m_scenes);
+        m_lookUp[pKey] = listIter;
+
+        return listIter->scene;
     } else {
         m_scenes.emplace_back(CacheItem { pKey, createEmbreeScene(pSceneNode) });
         auto listIter = --std::end(m_scenes);
         m_lookUp[pKey] = listIter;
 
-        auto pScene = listIter->scene;
-        if (m_size.load() > m_maxSize)
-            evict();
-
-        return pScene;
+        return listIter->scene;
     }
 }
 
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSubScene(const SubScene* pSubScene)
 {
     const void* pKey = pSubScene;
-    if (auto iter = m_lookUp.find(pKey); iter != std::end(m_lookUp)) {
-        return iter->second->scene;
-    } else {
-        m_scenes.emplace_back(CacheItem { pKey, createEmbreeScene(pSubScene) });
-        auto listIter = --std::end(m_scenes);
+    if (auto lutIter = m_lookUp.find(pKey); lutIter != std::end(m_lookUp)) {
+        // Item is used => update LRU
+        auto listIter = lutIter->second;
+        auto cacheItem = std::move(*listIter);
+        m_scenes.erase(listIter);
+        m_scenes.emplace_back(std::move(cacheItem));
+        listIter = --std::end(m_scenes);
         m_lookUp[pKey] = listIter;
 
-        auto pScene = listIter->scene;
+        return listIter->scene;
+    } else {
+        auto sizeBefore = m_size.load();
+        auto embreeScene = createEmbreeScene(pSubScene);
+        auto sizeAfter = m_size.load();
+        //spdlog::info("Created Embree BVH of {} bytes", sizeAfter - sizeBefore);
+
         if (m_size.load() > m_maxSize)
             evict();
 
-        return pScene;
+        m_scenes.emplace_back(CacheItem { pKey, embreeScene });
+        auto listIter = --std::end(m_scenes);
+        m_lookUp[pKey] = listIter;
+
+        return listIter->scene;
     }
 }
 
@@ -127,11 +144,13 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
         rtcCommitGeometry(embreeGeometry);
 
         rtcAttachGeometryByID(embreeScene, embreeGeometry, geometryID++);
+        rtcReleaseGeometry(embreeGeometry); // Decrement reference counter (scene will keep it alive)
     }
 
     std::vector<std::shared_ptr<CachedEmbreeScene>> children;
     for (const auto& [pChildNode, optTransform] : pSceneNode->children) {
         std::shared_ptr<CachedEmbreeScene> pChildScene = fromSceneNode(pSceneNode);
+        children.push_back(pChildScene);
 
         RTCGeometry embreeInstanceGeometry = rtcNewGeometry(m_embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
         rtcSetGeometryInstancedScene(embreeInstanceGeometry, pChildScene->scene);
@@ -152,10 +171,10 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
         // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
         // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of RTC_INVALID_GEOMETRY_ID).
         rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geometryID++);
+        rtcReleaseGeometry(embreeInstanceGeometry); // Decrement reference counter (scene will keep it alive)
     }
 
     rtcCommitScene(embreeScene);
-
     return std::make_shared<CachedEmbreeScene>(embreeScene, std::move(children));
 }
 
@@ -172,7 +191,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
     }
 #endif
 
-	auto stopWatch = g_stats.timings.botLevelBuildTime.getScopedStopwatch();
+    auto stopWatch = g_stats.timings.botLevelBuildTime.getScopedStopwatch();
 
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
 
@@ -188,6 +207,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
         rtcCommitGeometry(embreeGeometry);
 
         rtcAttachGeometryByID(embreeScene, embreeGeometry, geometryID++);
+        rtcReleaseGeometry(embreeGeometry); // Decrement reference counter (scene will keep it alive)
     }
 
     std::vector<std::shared_ptr<CachedEmbreeScene>> children;
@@ -195,6 +215,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
         const auto& [pChildNode, optTransform] = childAndTransform;
 
         std::shared_ptr<CachedEmbreeScene> pChildScene = fromSceneNode(pChildNode);
+        children.push_back(pChildScene);
 
         RTCGeometry embreeInstanceGeometry = rtcNewGeometry(m_embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
         rtcSetGeometryInstancedScene(embreeInstanceGeometry, pChildScene->scene);
@@ -214,6 +235,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
         rtcCommitGeometry(embreeInstanceGeometry);
 
         rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geometryID++);
+        rtcReleaseGeometry(embreeInstanceGeometry); // Decrement reference counter (scene will keep it alive)
     }
 
     rtcCommitScene(embreeScene);
@@ -222,26 +244,35 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
 
 void LRUEmbreeSceneCache::evict()
 {
+    spdlog::debug("LRUEmbreeSceneCache::evict");
     for (auto iter = std::begin(m_scenes); iter != std::end(m_scenes);) {
-        spdlog::debug("Evicting BVH");
+        // If a scene is still actively being used then there is no point in removing it
+		if (iter->scene.use_count() > 1) {
+            iter++;
+            continue;
+        }
+
         m_lookUp.erase(iter->pKey);
         iter = m_scenes.erase(iter); // Make iter point to the next item (calling iter++ after erase will reference free'd memory)
 
-        if (m_size.load() < m_maxSize)
+        if (m_size.load() < m_maxSize * 3 / 4)
             break;
     }
+    spdlog::debug("Size of BVHs after evict: {}", m_size.load());
 }
 
 bool LRUEmbreeSceneCache::memoryMonitorCallback(void* pThisMem, ssize_t bytes, bool post)
 {
     auto* pThis = reinterpret_cast<LRUEmbreeSceneCache*>(pThisMem);
-    pThis->m_size.fetch_add(bytes);
 
-	// Not perfect: also counts temporary allocations
-    if (bytes >= 0)
+    if (bytes >= 0) {
+        pThis->m_size.fetch_add(bytes);
+        // Not perfect: also counts temporary allocations
         g_stats.memory.botLevelLoaded += bytes;
-    else
+    } else {
+        pThis->m_size.fetch_sub(-bytes);
         g_stats.memory.botLevelEvicted += -bytes;
+    }
 
     return true;
 }

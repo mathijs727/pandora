@@ -23,19 +23,19 @@ public:
 
 struct CachedEmbreeScene {
 public:
-    CachedEmbreeScene(RTCScene scene, std::vector<std::shared_ptr<CachedEmbreeScene>>&& parents);
+    CachedEmbreeScene(RTCScene scene, std::vector<std::shared_ptr<CachedEmbreeScene>>&& childrenScenes);
     CachedEmbreeScene(CachedEmbreeScene&&) = default;
     ~CachedEmbreeScene();
 
     RTCScene scene;
 
 private:
-    std::vector<std::shared_ptr<CachedEmbreeScene>> parents;
+    std::vector<std::shared_ptr<CachedEmbreeScene>> childrenScenes;
 };
 
 struct EmbreeSceneCache {
 public:
-    virtual std::shared_ptr<CachedEmbreeScene> fromSceneNode(const SceneNode* pSceneNode) = 0;
+    //virtual std::shared_ptr<CachedEmbreeScene> fromSceneNode(const SceneNode* pSceneNode) = 0;
     virtual std::shared_ptr<CachedEmbreeScene> fromSubScene(const SubScene* pSubScene) = 0;
 };
 
@@ -44,10 +44,11 @@ public:
     LRUEmbreeSceneCache(size_t maxSize);
     ~LRUEmbreeSceneCache();
 
-    std::shared_ptr<CachedEmbreeScene> fromSceneNode(const SceneNode* pSceneNode) override;
     std::shared_ptr<CachedEmbreeScene> fromSubScene(const SubScene* pSubScene) override;
 
 private:
+    std::shared_ptr<CachedEmbreeScene> fromSceneNode(const SceneNode* pSceneNode);
+
     std::shared_ptr<CachedEmbreeScene> createEmbreeScene(const SceneNode* pSceneNode);
     std::shared_ptr<CachedEmbreeScene> createEmbreeScene(const SubScene* pSubScene);
 
