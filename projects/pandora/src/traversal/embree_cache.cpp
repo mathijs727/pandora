@@ -81,12 +81,9 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSceneNode(const Scen
     const void* pKey = pSceneNode;
     if (auto lutIter = m_lookUp.find(pKey); lutIter != std::end(m_lookUp)) {
         // Item is used => update LRU
-		auto listIter = lutIter->second;
-        auto cacheItem = std::move(*listIter);
-        m_scenes.erase(listIter);
-        m_scenes.emplace_back(std::move(cacheItem));
+		auto& listIter = lutIter->second;
+        m_scenes.splice(std::end(m_scenes), m_scenes, listIter);
         listIter = --std::end(m_scenes);
-        m_lookUp[pKey] = listIter;
 
         return listIter->scene;
     } else {
@@ -102,13 +99,10 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSubScene(const SubSc
 {
     const void* pKey = pSubScene;
     if (auto lutIter = m_lookUp.find(pKey); lutIter != std::end(m_lookUp)) {
-        // Item is used => update LRU
-        auto listIter = lutIter->second;
-        auto cacheItem = std::move(*listIter);
-        m_scenes.erase(listIter);
-        m_scenes.emplace_back(std::move(cacheItem));
+        // Remove from list and add to end
+        auto& listIter = lutIter->second;
+        m_scenes.splice(std::end(m_scenes), m_scenes, listIter);
         listIter = --std::end(m_scenes);
-        m_lookUp[pKey] = listIter;
 
         return listIter->scene;
     } else {
