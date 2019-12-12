@@ -9,6 +9,7 @@
 #include "pandora/traversal/acceleration_structure.h"
 #include "pandora/traversal/embree_cache.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
+#include "pandora/traversal/wive8_cache.h"
 #include "pandora/utility/enumerate.h"
 #include "stream/cache/lru_cache.h"
 #include "stream/task_graph.h"
@@ -18,28 +19,26 @@
 #include <gsl/span>
 #include <optick/optick.h>
 #include <optional>
+#include <stream/cache/evictable.h>
 #include <tuple>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 namespace pandora {
 
-class BatchingAccelerationStructureBuilder;
-
 template <typename HitRayState, typename AnyHitRayState>
-class BatchingAccelerationStructure : public AccelerationStructure<HitRayState, AnyHitRayState> {
+class OfflineBatchingAccelerationStructure : public AccelerationStructure<HitRayState, AnyHitRayState> {
 public:
-    ~BatchingAccelerationStructure();
+    ~OfflineBatchingAccelerationStructure();
 
     void intersect(const Ray& ray, const HitRayState& state) const;
     void intersectAny(const Ray& ray, const AnyHitRayState& state) const;
 
-    std::optional<SurfaceInteraction> intersectDebug(Ray& ray) const;
-
 private:
-    friend class BatchingAccelerationStructureBuilder;
+    friend class OfflineBatchingAccelerationStructureBuilder;
     class BatchingPoint;
-    BatchingAccelerationStructure(
+    OfflineBatchingAccelerationStructure(
         RTCDevice embreeDevice, PauseableBVH4<BatchingPoint, HitRayState, AnyHitRayState>&& topLevelBVH,
         tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
@@ -65,10 +64,10 @@ private:
         bool intersectInternal(RTCScene scene, Ray&, SurfaceInteraction&) const;
         bool intersectAnyInternal(RTCScene scene, Ray&) const;
 
-        friend class BatchingAccelerationStructure<HitRayState, AnyHitRayState>;
-        void setParent(BatchingAccelerationStructure<HitRayState, AnyHitRayState>* pParent, EmbreeSceneCache* pEmbreeCache);
+        friend class OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>;
+        void setParent(OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>* pParent, EmbreeSceneCache* pEmbreeCache);
 
-		static inline glm::vec3 randomVec3()
+        static inline glm::vec3 randomVec3()
         {
             static PcgRng rng { 94892380 };
             return rng.uniformFloat3();
@@ -109,15 +108,15 @@ private:
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> m_onAnyMissTask;
 };
 
-class BatchingAccelerationStructureBuilder {
+class OfflineBatchingAccelerationStructureBuilder {
 public:
-    BatchingAccelerationStructureBuilder(
+    OfflineBatchingAccelerationStructureBuilder(
         const Scene* pScene, tasking::LRUCache* pCache, tasking::TaskGraph* pTaskGraph, unsigned primitivesPerBatchingPoint, size_t botLevelBVHCacheSize, unsigned svdagRes);
 
     static void preprocessScene(Scene& scene, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint);
 
     template <typename HitRayState, typename AnyHitRayState>
-    BatchingAccelerationStructure<HitRayState, AnyHitRayState> build(
+    OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState> build(
         tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask);
 
@@ -139,7 +138,7 @@ private:
 };
 
 template <typename HitRayState, typename AnyHitRayState>
-BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
+OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
     SubScene&& subScene, SparseVoxelDAG&& svdag, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph)
     : m_subScene(std::move(subScene))
     , m_bounds(m_subScene.computeBounds())
@@ -151,7 +150,7 @@ BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::Batch
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
+OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
     SubScene&& subScene, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph)
     : m_subScene(std::move(subScene))
     , m_bounds(m_subScene.computeBounds())
@@ -162,12 +161,12 @@ BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::Batch
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::setParent(
-    BatchingAccelerationStructure<HitRayState, AnyHitRayState>* pParent, EmbreeSceneCache* pEmbreeCache)
+void OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::setParent(
+    OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>* pParent, EmbreeSceneCache* pEmbreeCache)
 {
     //m_pParent = pParent;
     m_intersectTask = m_pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>, StaticData>(
-        "BatchingAccelerationStructure::leafIntersect",
+        "OfflineBatchingAccelerationStructure::leafIntersect",
         [=]() -> StaticData {
             //g_stats.memory.batches = m_pTaskGraph->approxMemoryUsage();
 
@@ -225,7 +224,7 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             }
         });
     m_intersectAnyTask = m_pTaskGraph->addTask<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>, StaticData>(
-        "BatchingAccelerationStructure::leafIntersectAny",
+        "OfflineBatchingAccelerationStructure::leafIntersectAny",
         [=]() -> StaticData {
             StaticData staticData;
 
@@ -289,13 +288,13 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-Bounds BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::getBounds() const
+Bounds OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::getBounds() const
 {
     return m_bounds;
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline std::optional<SurfaceInteraction> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectDebug(Ray& ray) const
+inline std::optional<SurfaceInteraction> OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectDebug(Ray& ray) const
 {
     SurfaceInteraction si;
     if (m_topLevelBVH.intersect(ray, si, HitRayState {}))
@@ -305,11 +304,11 @@ inline std::optional<SurfaceInteraction> BatchingAccelerationStructure<HitRaySta
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersect(
+std::optional<bool> OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersect(
     Ray& ray, SurfaceInteraction& si, const HitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
     {
-       // auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        // auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
         //g_stats.svdag.numIntersectionTests++;
 
         if (m_svdag && !m_svdag->intersectScalar(ray)) {
@@ -323,7 +322,7 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectAny(
+std::optional<bool> OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectAny(
     Ray& ray, const AnyHitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
     {
@@ -341,7 +340,7 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectInternal(
+bool OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectInternal(
     RTCScene scene, Ray& ray, SurfaceInteraction& si) const
 {
     // TODO: batching
@@ -420,7 +419,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectAnyInternal(
+bool OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectAnyInternal(
     RTCScene scene, Ray& ray) const
 {
     // TODO: batching
@@ -451,14 +450,14 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccelerationStructureBuilder::build(
+inline OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState> OfflineBatchingAccelerationStructureBuilder::build(
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask)
 {
     OPTICK_EVENT();
     spdlog::info("Creating batching points");
 
-    using BatchingPointT = typename BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint;
+    using BatchingPointT = typename OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint;
     std::vector<BatchingPointT> batchingPoints;
     if (m_svdagRes > 0) {
         std::vector<std::optional<SparseVoxelDAG>> svdags;
@@ -515,12 +514,12 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
     g_stats.memory.topBVH = topLevelBVH.sizeBytes();
     g_stats.memory.topBVHLeafs = batchingPoints.size() * sizeof(BatchingPointT);
     spdlog::info("PausableBVH constructed");
-    return BatchingAccelerationStructure<HitRayState, AnyHitRayState>(
+    return OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>(
         m_embreeDevice, std::move(topLevelBVH), hitTask, missTask, anyHitTask, anyMissTask, m_pGeometryCache, m_pTaskGraph, m_botLevelBVHCacheSize);
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingAccelerationStructure(
+inline OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::OfflineBatchingAccelerationStructure(
     RTCDevice embreeDevice, PauseableBVH4<BatchingPoint, HitRayState, AnyHitRayState>&& topLevelBVH,
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
@@ -539,13 +538,13 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingAccel
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::~BatchingAccelerationStructure()
+inline OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::~OfflineBatchingAccelerationStructure()
 {
     rtcReleaseDevice(m_embreeDevice);
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersect(const Ray& ray, const HitRayState& state) const
+inline void OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersect(const Ray& ray, const HitRayState& state) const
 {
     auto stopWatch = g_stats.timings.topLevelTraversalTime.getScopedStopwatch();
 
@@ -562,7 +561,7 @@ inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersec
 }
 
 template <typename HitRayState, typename AnyHitRayState>
-inline void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectAny(const Ray& ray, const AnyHitRayState& state) const
+inline void OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::intersectAny(const Ray& ray, const AnyHitRayState& state) const
 {
     auto stopWatch = g_stats.timings.topLevelTraversalTime.getScopedStopwatch();
 

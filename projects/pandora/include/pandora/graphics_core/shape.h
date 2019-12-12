@@ -31,6 +31,7 @@ public:
     virtual float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const = 0;
     virtual float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const = 0;
 
+	virtual bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const;
     virtual SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const = 0;
 
     virtual void voxelize(VoxelGrid& grid, const Transform& transform = Transform {}) const = 0;

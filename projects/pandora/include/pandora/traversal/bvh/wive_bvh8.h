@@ -1,5 +1,5 @@
 #pragma once
-#include "pandora/geometry/bounds.h"
+#include "pandora/graphics_core/bounds.h"
 #include "pandora/traversal/bvh.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
 #include "pandora/flatbuffers/wive_bvh8_generated.h"
@@ -15,7 +15,7 @@
 namespace pandora {
 
 template <typename LeafObj>
-class WiVeBVH8 : public BVH<LeafObj> {
+class WiVeBVH8 {
 public:
     WiVeBVH8(uint32_t numPrims);
     WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects);
@@ -24,10 +24,10 @@ public:
 
     flatbuffers::Offset<serialization::WiVeBVH8> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
-    size_t sizeBytes() const override final;
+    size_t sizeBytes() const; // override final;
 
-    void intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const override final;
-    void intersectAny(gsl::span<Ray> rays) const override final;
+    bool intersect(Ray& ray, RayHit& hitInfo) const;
+    bool intersectAny(Ray& rays) const;
 
 protected:
 	virtual void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) = 0;

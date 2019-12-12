@@ -1,6 +1,7 @@
 #pragma once
 #include "pandora/graphics_core/bounds.h"
 #include "pandora/graphics_core/pandora.h"
+#include "pandora/traversal/sub_scene.h"
 #include "stream/cache/lru_cache.h"
 #include <atomic>
 #include <embree3/rtcore.h>
@@ -12,14 +13,6 @@
 #include <vector>
 
 namespace pandora {
-
-struct SubScene {
-    std::vector<std::pair<SceneNode*, std::optional<glm::mat4>>> sceneNodes;
-    std::vector<SceneObject*> sceneObjects;
-
-public:
-    Bounds computeBounds() const;
-};
 
 struct CachedEmbreeScene {
 public:
