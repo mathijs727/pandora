@@ -245,6 +245,8 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
                     makeResidentRecurse(pChild.get());
                 }
             };
+            for (const auto& [pSceneNode, _] : m_subScene.sceneNodes)
+                makeResidentRecurse(pSceneNode);
 
             staticData.scene = pEmbreeCache->fromSubScene(&m_subScene);
 
