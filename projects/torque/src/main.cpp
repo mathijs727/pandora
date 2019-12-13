@@ -177,8 +177,8 @@ int main(int argc, char** argv)
     tasking::TaskGraph taskGraph { schedulers };
 
     //using AccelBuilder = EmbreeAccelerationStructureBuilder;
-    //using AccelBuilder = BatchingAccelerationStructureBuilder;
-    using AccelBuilder = OfflineBatchingAccelerationStructureBuilder;
+    using AccelBuilder = BatchingAccelerationStructureBuilder;
+    //using AccelBuilder = OfflineBatchingAccelerationStructureBuilder;
     if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder> || std::is_same_v<AccelBuilder, OfflineBatchingAccelerationStructureBuilder>) {
         spdlog::info("Preprocessing scene");
         auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(

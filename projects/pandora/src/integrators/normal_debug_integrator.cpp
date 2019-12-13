@@ -69,7 +69,7 @@ void NormalDebugIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si,
 {
     // glm::abs(glm::normalize(si.normal))
     const float cos = glm::dot(si.normal, -ray.direction);
-    m_pSensor->addPixelContribution(state.pixel, cos * si.shading.batchingPointColor);
+    m_pSensor->addPixelContribution(state.pixel, glm::vec3(cos));// * si.shading.batchingPointColor);
     spawnNewPaths(1);
 }
 
