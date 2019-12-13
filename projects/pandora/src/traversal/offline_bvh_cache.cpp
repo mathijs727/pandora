@@ -106,7 +106,20 @@ size_t CachedBVH::sizeBytes() const
 
 void CachedBVH::serialize(tasking::Serializer& serializer)
 {
-    //TODO(Mathijs): ...
+    //TODO(Mathijs):
+    flatbuffers::FlatBufferBuilder fbb;
+    auto serializedBVH = m_bvh->serialize(fbb);
+    fbb.Finish(serializedBVH);
+
+    auto [bvhAllocationHandle, pBVHMem] = serializer.allocateAndMap(fbb.GetSize());
+    std::memcpy(pBVHMem, fbb.GetBufferPointer(), fbb.GetSize());
+    m_bvhSerializeAllocation = bvhAllocationHandle;
+
+    gsl::span<const OfflineBVHLeaf> leafs = m_bvh->leafs();
+    auto [leafsAllocationHandle, pLeafsMem] = serializer.allocateAndMap(leafs.size_bytes());
+    std::memcpy(pLeafsMem, leafs.data(), leafs.size_bytes());
+    m_numLeafs = leafs.size();
+    m_leafsSerializeAllocation = leafsAllocationHandle;
 }
 
 void CachedBVH::doEvict()
@@ -117,6 +130,12 @@ void CachedBVH::doEvict()
 void CachedBVH::doMakeResident(tasking::Deserializer& deserializer)
 {
     //TODO(Mathijs): ...
+    const void* pLeafsMem = deserializer.map(m_leafsSerializeAllocation);
+    const OfflineBVHLeaf* pLeafs = static_cast<const OfflineBVHLeaf*>(pLeafsMem);
+
+    const void* pBVHMem = deserializer.map(m_bvhSerializeAllocation);
+    WiVeBVH8Build8<OfflineBVHLeaf> bvh { pandora::serialization::GetWiVeBVH8(pBVHMem), gsl::span(pLeafs, m_numLeafs) };
+    m_bvh.emplace(std::move(bvh));
 }
 
 bool CachedBVHSubScene::intersect(Ray& ray, SurfaceInteraction& si) const

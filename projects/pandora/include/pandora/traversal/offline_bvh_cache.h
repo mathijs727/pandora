@@ -57,8 +57,11 @@ private:
 
 private:
     std::optional<WiVeBVH8Build8<OfflineBVHLeaf>> m_bvh;
-
     Bounds m_bounds;
+
+    tasking::Allocation m_bvhSerializeAllocation;
+    tasking::Allocation m_leafsSerializeAllocation;
+    size_t m_numLeafs;
 };
 
 class LRUBVHSceneCache;

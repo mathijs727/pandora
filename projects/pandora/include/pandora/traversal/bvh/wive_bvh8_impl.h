@@ -6,6 +6,7 @@
 #include <array>
 #include <cassert>
 #include <mio/mmap.hpp>
+#include "wive_bvh8.h"
 
 namespace pandora {
 
@@ -18,19 +19,20 @@ inline WiVeBVH8<LeafObj>::WiVeBVH8(uint32_t numPrims)
 }
 
 template <typename LeafObj>
-inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects)
+inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, gsl::span<const LeafObj> leafs)
     : m_innerNodeAllocator(serialized->innerNodeAllocator())
     , m_leafIndexAllocator(serialized->leafIndexAllocator())
 {
     m_compressedRootHandle = serialized->compressedRootHandle();
 
-    size_t numNodesGiven = objects.size();
+    size_t numNodesGiven = leafs.size();
     size_t numNodesSerialized = serialized->numLeafObjects();
     assert(numNodesGiven > 0);
     assert(m_leafObjects.empty());
     ALWAYS_ASSERT(numNodesGiven == numNodesSerialized, "Number of leaf objects does not match that of the serialized BVH");
 
-    this->m_leafObjects = std::move(objects);
+    m_leafObjects.reserve(leafs.size());
+    std::copy(std::begin(leafs), std::end(leafs), std::back_inserter(m_leafObjects));
 }
 
 template <typename LeafObj>
@@ -199,6 +201,12 @@ inline bool WiVeBVH8<LeafObj>::intersectAny(Ray& ray) const
     }
 
     return false;
+}
+
+template <typename LeafObj>
+inline gsl::span<const LeafObj> WiVeBVH8<LeafObj>::leafs() const
+{
+    return m_leafObjects;
 }
 
 template <typename LeafObj>
