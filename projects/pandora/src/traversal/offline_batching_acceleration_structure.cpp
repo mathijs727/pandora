@@ -18,7 +18,7 @@
 namespace pandora {
 
 static std::vector<std::shared_ptr<Shape>> splitLargeTriangleShape(const TriangleShape& original, unsigned maxSize, RTCDevice embreeDevice);
-static std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice);
+static std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene);
 
 static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
 
@@ -34,11 +34,8 @@ OfflineBatchingAccelerationStructureBuilder::OfflineBatchingAccelerationStructur
     , m_pGeometryCache(pCache)
     , m_pTaskGraph(pTaskGraph)
 {
-    m_embreeDevice = rtcNewDevice(nullptr);
-    rtcSetDeviceErrorFunction(m_embreeDevice, embreeErrorFunc, nullptr);
-
     spdlog::info("Splitting scene into sub scenes");
-    m_subScenes = createSubScenes(*pScene, primitivesPerBatchingPoint, m_embreeDevice);
+    m_subScenes = createSubScenes(*pScene, primitivesPerBatchingPoint);
 }
 
 void OfflineBatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint)
@@ -50,9 +47,7 @@ void OfflineBatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, 
     // Split large shapes into smaller sub shpaes so we can guarantee that the batching poinst never exceed the given size.
     // This should also help with reducing the spatial extent of the batching points by (hopefully) splitting spatially large shapes.
     spdlog::info("Splitting large scene objects");
-    RTCDevice embreeDevice = rtcNewDevice(nullptr);
-    splitLargeSceneObjects(scene.pRoot.get(), oldCache, newCacheBuilder, embreeDevice, primitivesPerBatchingPoint / 8);
-    rtcReleaseDevice(embreeDevice);
+    splitLargeSceneObjects(scene.pRoot.get(), oldCache, newCacheBuilder, primitivesPerBatchingPoint / 8);
 }
 
 static void replaceShapeBySplitShapesRecurse(
@@ -156,9 +151,12 @@ SparseVoxelDAG OfflineBatchingAccelerationStructureBuilder::createSVDAG(const Su
 }
 
 void OfflineBatchingAccelerationStructureBuilder::splitLargeSceneObjects(
-    SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize)
+    SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned maxSize)
 {
     OPTICK_EVENT();
+
+    RTCDevice embreeDevice = rtcNewDevice(nullptr);
+    rtcSetDeviceErrorFunction(embreeDevice, embreeErrorFunc, nullptr);
 
     // Only split a shape once (even if it is instanced multiple times)
     std::unordered_map<Shape*, std::vector<std::shared_ptr<Shape>>> splitShapes;
@@ -218,6 +216,8 @@ void OfflineBatchingAccelerationStructureBuilder::splitLargeSceneObjects(
     spdlog::info("INSTANCING");
     for (const auto& [pChild, _] : pSceneNode->children)
         replaceShapeBySplitShapesRecurse(pChild.get(), oldCache, newCacheBuilder, cachedShapes, splitShapes);
+
+    rtcReleaseDevice(embreeDevice);
 
     spdlog::info("DONE");
 }
@@ -306,9 +306,12 @@ static size_t subTreePrimitiveCount(const SceneNode* pSceneNode)
     return primCount;
 }
 
-std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice)
+std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene)
 {
     OPTICK_EVENT();
+
+    RTCDevice embreeDevice = rtcNewDevice(nullptr);
+    rtcSetDeviceErrorFunction(embreeDevice, embreeErrorFunc, nullptr);
 
     // Split a large shape into smaller shapes with maxSize/2 to maxSize primitives.
     // The Embree BVH builder API used to efficiently partition the shapes primitives into groups.
@@ -494,6 +497,7 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
 
     spdlog::info("Freeing temporary BVH");
     rtcReleaseBVH(bvh);
+    rtcReleaseDevice(embreeDevice);
 
     return subScenes;
 }

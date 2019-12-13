@@ -10,17 +10,17 @@
 namespace pandora {
 
 template <typename LeafObj>
-inline WiVeBVH8<LeafObj>::WiVeBVH8(uint32_t numPrims) :
-    m_innerNodeAllocator(std::max(16u, numPrims / 2), 16),
-    m_leafIndexAllocator(numPrims + numPrims / 2)
+inline WiVeBVH8<LeafObj>::WiVeBVH8(uint32_t numPrims)
+    : m_innerNodeAllocator(std::max(16u, numPrims / 2), 16)
+    , m_leafIndexAllocator(numPrims + numPrims / 2)
 {
     std::cout << "Num prims: " << numPrims << std::endl;
 }
 
 template <typename LeafObj>
-inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects) :
-    m_innerNodeAllocator(serialized->innerNodeAllocator()),
-    m_leafIndexAllocator(serialized->leafIndexAllocator())
+inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects)
+    : m_innerNodeAllocator(serialized->innerNodeAllocator())
+    , m_leafIndexAllocator(serialized->leafIndexAllocator())
 {
     m_compressedRootHandle = serialized->compressedRootHandle();
 
@@ -54,11 +54,11 @@ inline size_t WiVeBVH8<LeafObj>::sizeBytes() const
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfos) const
+inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 {
     assert(rays.size() == hitInfos.size());
 
-	bool hit = false;
+    bool hit = false;
 
     SIMDRay simdRay;
     simdRay.originX = simd::vec8_f32(ray.origin.x);
@@ -108,7 +108,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfos) const
             assert(isLeafNode(compressedNodeHandle));
 #endif
             // Leaf node
-            if (intersectLeaf(&m_leafIndexAllocator.get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, hitInfo)) {
+            if (intersectLeaf(&m_leafIndexAllocator.get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, si)) {
                 hit = true;
                 simdRay.tfar.broadcast(ray.tfar);
 
@@ -137,11 +137,11 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, RayHit& hitInfos) const
         }
     }
 
-	return hit;
+    return hit;
 }
 
 template <typename LeafObj>
-inline void WiVeBVH8<LeafObj>::intersectAny(gsl::span<Ray> rays) const
+inline bool WiVeBVH8<LeafObj>::intersectAny(Ray& ray) const
 {
     SIMDRay simdRay;
     simdRay.originX = simd::vec8_f32(ray.origin.x);
@@ -198,7 +198,7 @@ inline void WiVeBVH8<LeafObj>::intersectAny(gsl::span<Ray> rays) const
         }
     }
 
-	return false;
+    return false;
 }
 
 template <typename LeafObj>
@@ -265,11 +265,11 @@ inline uint32_t WiVeBVH8<LeafObj>::intersectAnyInnerNode(const BVHNode* n, const
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersectLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray, RayHit& hitInfo) const
+inline bool WiVeBVH8<LeafObj>::intersectLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray, SurfaceInteraction& si) const
 {
     bool hit = false;
     for (uint32_t i = 0; i < objectCount; i++) {
-        hit |= m_leafObjects[leafObjectIndices[i]].intersect(ray, hitInfo);
+        hit |= m_leafObjects[leafObjectIndices[i]].intersect(ray, si);
     }
     return hit;
 }

@@ -2,38 +2,50 @@
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/traversal/sub_scene.h"
+#include <glm/glm.hpp>
+#include <gsl/span>
 #include <memory>
+#include <optional>
+#include <stream/cache/cached_ptr.h>
 #include <stream/cache/lru_cache.h>
 #include <unordered_map>
 #include <variant>
-#include <optional>
 
 namespace pandora {
 
-struct CachedBVHScene;
+struct CachedBVH;
 
-struct Leaf {
+struct OfflineBVHLeaf {
 public:
+    OfflineBVHLeaf(const SceneObject* pSceneObject, uint32_t primID);
+    OfflineBVHLeaf(const CachedBVH* pBVHScene, const glm::mat4& localToWorldTransform);
+    OfflineBVHLeaf(const CachedBVH* pBVHScene);
+
     Bounds getBounds() const;
-    bool intersect(Ray& ray, RayHit& rayHit) const;
+    bool intersect(Ray& ray, SurfaceInteraction& si) const;
     bool intersectAny(Ray& ray) const;
 
 public:
     struct Primitive {
-        Shape* pShape;
+        const SceneObject* pSceneObject;
+        const Shape* pShape;
         uint32_t primID;
-	};
-    std::variant<Primitive, CachedBVHScene*> m_object;
+    };
+    struct Instance {
+        const CachedBVH* pCachedBVH;
+        std::optional<glm::mat4> transform;
+    };
+    std::variant<Primitive, Instance> m_object;
 };
 
-struct CachedBVHScene : public tasking::Evictable {
+struct CachedBVH : public tasking::Evictable {
 public:
-    CachedBVHScene(WiVeBVH8Build8<Leaf>&& bvh, std::vector<Leaf>&& leafs);
-    CachedBVHScene(CachedBVHScene&&) = default;
-    ~CachedBVHScene() override = default;
+    CachedBVH(WiVeBVH8Build8<OfflineBVHLeaf>&& bvh, const Bounds& bounds);
+    CachedBVH(CachedBVH&&) = default;
+    ~CachedBVH() override = default;
 
-	Bounds getBounds() const;
-    bool intersect(Ray& ray, RayHit& rayHit) const;
+    Bounds getBounds() const;
+    bool intersect(Ray& ray, SurfaceInteraction& si) const;
     bool intersectAny(Ray& ray) const;
 
     size_t sizeBytes() const override;
@@ -44,29 +56,38 @@ private:
     void doMakeResident(tasking::Deserializer& deserializer) override;
 
 private:
-    std::optional<WiVeBVH8Build8<Leaf>> m_bvh;
-    std::vector<Leaf> m_leafs;
+    std::optional<WiVeBVH8Build8<OfflineBVHLeaf>> m_bvh;
 
-	Bounds m_bounds;
+    Bounds m_bounds;
+};
+
+struct CachedBVHSubScene {
+public:
+    bool intersect(Ray& ray, SurfaceInteraction& si) const;
+    bool intersectAny(Ray& ray) const;
+
+private:
+    CachedBVHSubScene(tasking::CachedPtr<CachedBVH>&& pBVH, std::vector<tasking::CachedPtr<CachedBVH>>&& childBVHs);
+
+private:
+    tasking::CachedPtr<CachedBVH> m_pBVH;
+    std::vector<tasking::CachedPtr<CachedBVH>> m_childBVHs;
 };
 
 struct LRUBVHSceneCache {
 public:
-    LRUBVHSceneCache(size_t maxSize);
+    LRUBVHSceneCache(gsl::span<const SubScene> subScenes, tasking::LRUCache* pSceneCache, size_t maxSize);
 
-    std::shared_ptr<CachedBVHScene> fromSubScene(const SubScene* pSubScene);
-
-private:
-    std::shared_ptr<CachedBVHScene> fromSceneNode(const SceneNode* pSceneNode);
-
-    std::shared_ptr<CachedBVHScene> createEmbreeScene(const SceneNode* pSceneNode);
-    std::shared_ptr<CachedBVHScene> createEmbreeScene(const SubScene* pSubScene);
-
-    void evict();
+    CachedBVHSubScene fromSubScene(const SubScene* pSubScene);
 
 private:
-    std::unordered_map<const SubScene*, std::unique_ptr<CachedBVHScene>> m_subSceneLUT;
-    tasking::LRUCache m_lruCache;
+    CachedBVH* createBVH(const SceneNode* pSceneNode, tasking::LRUCache* pGeomCache, tasking::CacheBuilder* pCacheBuilder);
+    CachedBVH* createBVH(const SubScene* pSubScene, tasking::LRUCache* pGeomCache, tasking::CacheBuilder* pCacheBuilder);
+
+private:
+    std::unordered_map<const void*, std::unique_ptr<CachedBVH>> m_bvhSceneLUT;
+
+    std::optional<tasking::LRUCache> m_lruCache;
 };
 
 }
