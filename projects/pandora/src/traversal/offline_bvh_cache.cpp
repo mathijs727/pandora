@@ -1,9 +1,12 @@
 #include "pandora/traversal/offline_bvh_cache.h"
 #include "pandora/graphics_core/scene.h"
 #include "pandora/graphics_core/shape.h"
+#include "pandora/utility/error_handling.h"
 #include <functional>
 #include <spdlog/spdlog.h>
 #include <stream/serialize/in_memory_serializer.h>
+#include <unordered_set>
+#include <vector>
 
 namespace pandora {
 
@@ -163,7 +166,26 @@ pandora::LRUBVHSceneCache::LRUBVHSceneCache(gsl::span<const SubScene*> subScenes
     CacheBuilder cacheBuilder = CacheBuilder(std::move(pSerializer));
 
     for (const SubScene* pSubScene : subScenes) {
-        createBVH(pSubScene, pSceneCache, &cacheBuilder);
+        const CachedBVH* pBVH = createBVH(pSubScene, pSceneCache, &cacheBuilder);
+
+        std::unordered_set<const SceneNode*> childNodes;
+        std::function<void(const SceneNode*)> collectSceneNodesRecurse = [&](const SceneNode* pNode) {
+            childNodes.insert(pNode);
+
+            for (const auto& [pChild, _] : pNode->children)
+                collectSceneNodesRecurse(pChild.get());
+        };
+        for (const auto& [pNode, _] : pSubScene->sceneNodes)
+            collectSceneNodesRecurse(pNode);
+
+        std::vector<CachedBVH*> childBVHs;
+        std::transform(std::begin(childNodes), std::end(childNodes), std::back_inserter(childBVHs),
+            [this](const SceneNode* pNode) {
+                auto iter = m_bvhSceneLUT.find(pNode);
+                ALWAYS_ASSERT(iter != std::end(m_bvhSceneLUT));
+				return iter->second.get();
+            });
+        m_childBVHs[pSubScene] = std::move(childBVHs);
     }
 
     m_lruCache = cacheBuilder.build(maxSize);
@@ -172,9 +194,12 @@ pandora::LRUBVHSceneCache::LRUBVHSceneCache(gsl::span<const SubScene*> subScenes
 CachedBVHSubScene LRUBVHSceneCache::fromSubScene(const SubScene* pSubScene)
 {
     // Load main BVH
+    ALWAYS_ASSERT(m_bvhSceneLUT.find(static_cast<const void*>(pSubScene)) != std::end(m_bvhSceneLUT));
     auto pCachedBVH = m_lruCache->makeResident(m_bvhSceneLUT.find(static_cast<const void*>(pSubScene))->second.get());
 
     // Load child BVHs (BVHs referred to by the leafs of the main BVH)
+    ALWAYS_ASSERT(m_childBVHs.find(pSubScene) != std::end(m_childBVHs));
+
     const auto& childBVHs = m_childBVHs.find(pSubScene)->second;
     std::vector<tasking::CachedPtr<CachedBVH>> cachedChildBVHs;
     std::transform(std::begin(childBVHs), std::end(childBVHs), std::back_inserter(cachedChildBVHs),
@@ -220,11 +245,19 @@ CachedBVH* LRUBVHSceneCache::createBVH(const SceneNode* pSceneNode, tasking::LRU
         residentShapes.emplace_back(std::move(pShapeOwner));
     }
 
-    // NOTE: takes ownership of leafs (moves leafs into it's own array)
+    // Construct BVH
     WiVeBVH8Build8<OfflineBVHLeaf> bvh { leafs };
+
+    // Store Evictable wrapper class
     auto pCachedBVHOwner = std::make_unique<CachedBVH>(std::move(bvh), bounds);
     auto pCachedBVH = pCachedBVHOwner.get();
+
+    // Add Evictable BVH to cache
+    pCacheBuilder->registerCacheable(pCachedBVH);
+
+    // Store SubScene pointer to Evictable BVH in a look-up table
     m_bvhSceneLUT[static_cast<const void*>(pSceneNode)] = std::move(pCachedBVHOwner);
+
     return pCachedBVH;
 }
 
@@ -263,11 +296,19 @@ CachedBVH* LRUBVHSceneCache::createBVH(const SubScene* pSubScene, tasking::LRUCa
         residentShapes.emplace_back(std::move(pShapeOwner));
     }
 
-    // NOTE: takes ownership of leafs (moves leafs into it's own array)
+    // Construct BVH
     WiVeBVH8Build8<OfflineBVHLeaf> bvh { leafs };
+
+    // Store Evictable wrapper class
     auto pCachedBVHOwner = std::make_unique<CachedBVH>(std::move(bvh), bounds);
     auto pCachedBVH = pCachedBVHOwner.get();
+
+    // Add Evictable BVH to cache
+    pCacheBuilder->registerCacheable(pCachedBVH);
+
+    // Store SubScene pointer to Evictable BVH in a look-up table
     m_bvhSceneLUT[static_cast<const void*>(pSubScene)] = std::move(pCachedBVHOwner);
+
     return pCachedBVH;
 }
 
