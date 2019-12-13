@@ -18,7 +18,7 @@
 namespace pandora {
 
 static std::vector<std::shared_ptr<Shape>> splitLargeTriangleShape(const TriangleShape& original, unsigned maxSize, RTCDevice embreeDevice);
-static std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene);
+static std::vector<std::unique_ptr<SubScene>> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene);
 
 static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str);
 
@@ -306,7 +306,7 @@ static size_t subTreePrimitiveCount(const SceneNode* pSceneNode)
     return primCount;
 }
 
-std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene)
+std::vector<std::unique_ptr<SubScene>> createSubScenes(const Scene& scene, unsigned primitivesPerSubScene)
 {
     OPTICK_EVENT();
 
@@ -479,17 +479,17 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
         }
     };
 
-    std::vector<SubScene> subScenes;
+    std::vector<std::unique_ptr<SubScene>> subScenes;
     std::function<void(BVHNode*)> computeSubScenes = [&](BVHNode* pNode) {
         if (pNode->numPrimitives > primitivesPerSubScene) {
             if (auto* pInnerNode = dynamic_cast<InnerNode*>(pNode)) {
                 for (auto* pChild : pInnerNode->children)
                     computeSubScenes(pChild);
             } else {
-                subScenes.push_back(flattenSubTree(pNode));
+                subScenes.push_back(std::make_unique<SubScene>(flattenSubTree(pNode)));
             }
         } else {
-            subScenes.push_back(flattenSubTree(pNode));
+            subScenes.push_back(std::make_unique<SubScene>(flattenSubTree(pNode)));
         }
     };
     spdlog::info("Creating sub scenes");

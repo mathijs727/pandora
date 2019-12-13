@@ -131,7 +131,7 @@ template <typename HitRayState, typename AnyHitRayState>
 OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
     std::unique_ptr<SubScene>&& pSubScene, SparseVoxelDAG&& svdag, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph)
     : m_pSubScene(std::move(pSubScene))
-    , m_bounds(m_subScene.computeBounds())
+    , m_bounds(m_pSubScene->computeBounds())
     , m_color(randomVec3())
     , m_svdag(std::move(svdag))
     , m_pGeometryCache(pGeometryCache)
@@ -143,7 +143,7 @@ template <typename HitRayState, typename AnyHitRayState>
 OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
     std::unique_ptr<SubScene>&& pSubScene, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph)
     : m_pSubScene(std::move(pSubScene))
-    , m_bounds(m_subScene.computeBounds())
+    , m_bounds(m_pSubScene->computeBounds())
     , m_color(randomVec3())
     , m_pGeometryCache(pGeometryCache)
     , m_pTaskGraph(pTaskGraph)
@@ -162,7 +162,7 @@ void OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::Batching
 
             // Load all top level shapes
             std::vector<tasking::CachedPtr<Shape>> shapeOwners;
-            for (const auto& pSceneObject : m_subScene.sceneObjects) {
+            for (const auto& pSceneObject : m_pSubScene->sceneObjects) {
                 auto shapeOwner = m_pGeometryCache->makeResident(pSceneObject->pShape.get());
                 shapeOwners.emplace_back(std::move(shapeOwner));
             }
@@ -177,10 +177,10 @@ void OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::Batching
                     makeResidentRecurse(pChild.get());
                 }
             };
-            for (const auto& [pSceneNode, _] : m_subScene.sceneNodes)
+            for (const auto& [pSceneNode, _] : m_pSubScene->sceneNodes)
                 makeResidentRecurse(pSceneNode);
 
-            auto bvhSubScene = pBVHCache->fromSubScene(&m_subScene);
+            auto bvhSubScene = pBVHCache->fromSubScene(m_pSubScene.get());
             return StaticData { std::move(shapeOwners), std::move(bvhSubScene) };
         },
         [=](gsl::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
@@ -216,7 +216,7 @@ void OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::Batching
         [=]() -> StaticData {
             // Load all top level shapes
             std::vector<tasking::CachedPtr<Shape>> shapeOwners;
-            for (const auto& pSceneObject : m_subScene.sceneObjects) {
+            for (const auto& pSceneObject : m_pSubScene->sceneObjects) {
                 auto shapeOwner = m_pGeometryCache->makeResident(pSceneObject->pShape.get());
                 shapeOwners.emplace_back(std::move(shapeOwner));
             }
@@ -231,10 +231,10 @@ void OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::Batching
                     makeResidentRecurse(pChild.get());
                 }
             };
-            for (const auto& [pSceneNode, _] : m_subScene.sceneNodes)
+            for (const auto& [pSceneNode, _] : m_pSubScene->sceneNodes)
                 makeResidentRecurse(pSceneNode);
 
-            auto bvhSubScene = pBVHCache->fromSubScene(&m_subScene);
+            auto bvhSubScene = pBVHCache->fromSubScene(m_pSubScene.get());
             return StaticData { std::move(shapeOwners), std::move(bvhSubScene) };
         },
         [=](gsl::span<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
@@ -324,7 +324,10 @@ inline OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState> Offline
     OPTICK_EVENT();
 
     spdlog::info("Constructing bot level BVHs");
-    LRUBVHSceneCache sceneCache { m_subScenes, m_pGeometryCache, m_botLevelBVHCacheSize };
+    // From vector of unique pointers to vector of raw pointers
+	std::vector<const SubScene*> subScenes;
+    std::transform(std::begin(m_subScenes), std::end(m_subScenes), std::back_inserter(subScenes), [](const auto& pSubScene) { return pSubScene.get(); });
+    LRUBVHSceneCache sceneCache { subScenes, m_pGeometryCache, m_botLevelBVHCacheSize };
 
     spdlog::info("Creating batching points");
     using BatchingPointT = typename OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint;
@@ -346,13 +349,13 @@ inline OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState> Offline
                 continue;
 
             // Make resident sequentially
-            const auto& subScene = m_subScenes[i];
-            auto shapesOwningPtrs = makeSubSceneResident(subScene);
+            const auto& pSubScene = m_subScenes[i].get();
+            auto shapesOwningPtrs = makeSubSceneResident(*pSubScene);
 
             // Voxelize and create SVO in parallel
             parallelTasks.fetch_add(1);
-            tg.run([i, &subScene, shapesOwningPtrs = std::move(shapesOwningPtrs), &svdags, &parallelTasks, this]() {
-                svdags[i] = createSVDAG(subScene, m_svdagRes);
+            tg.run([i, pSubScene, shapesOwningPtrs = std::move(shapesOwningPtrs), &svdags, &parallelTasks, this]() {
+                svdags[i] = createSVDAG(*pSubScene, m_svdagRes);
                 parallelTasks.fetch_sub(1);
             });
         }

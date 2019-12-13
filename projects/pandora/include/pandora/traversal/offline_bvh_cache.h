@@ -61,12 +61,14 @@ private:
     Bounds m_bounds;
 };
 
-struct CachedBVHSubScene {
+class LRUBVHSceneCache;
+class CachedBVHSubScene {
 public:
     bool intersect(Ray& ray, SurfaceInteraction& si) const;
     bool intersectAny(Ray& ray) const;
 
 private:
+    friend class LRUBVHSceneCache;
     CachedBVHSubScene(tasking::CachedPtr<CachedBVH>&& pBVH, std::vector<tasking::CachedPtr<CachedBVH>>&& childBVHs);
 
 private:
@@ -74,9 +76,9 @@ private:
     std::vector<tasking::CachedPtr<CachedBVH>> m_childBVHs;
 };
 
-struct LRUBVHSceneCache {
+class LRUBVHSceneCache {
 public:
-    LRUBVHSceneCache(gsl::span<const SubScene> subScenes, tasking::LRUCache* pSceneCache, size_t maxSize);
+    LRUBVHSceneCache(gsl::span<const SubScene*> subScenes, tasking::LRUCache* pSceneCache, size_t maxSize);
 
     CachedBVHSubScene fromSubScene(const SubScene* pSubScene);
 
@@ -86,6 +88,7 @@ private:
 
 private:
     std::unordered_map<const void*, std::unique_ptr<CachedBVH>> m_bvhSceneLUT;
+    std::unordered_map<const SubScene*, std::vector<CachedBVH*>> m_childBVHs;
 
     std::optional<tasking::LRUCache> m_lruCache;
 };

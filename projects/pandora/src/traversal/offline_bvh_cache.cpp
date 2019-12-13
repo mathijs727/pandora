@@ -129,7 +129,13 @@ bool CachedBVHSubScene::intersectAny(Ray& ray) const
     return m_pBVH->intersectAny(ray);
 }
 
-pandora::LRUBVHSceneCache::LRUBVHSceneCache(gsl::span<const SubScene> subScenes, tasking::LRUCache* pSceneCache, size_t maxSize)
+CachedBVHSubScene::CachedBVHSubScene(tasking::CachedPtr<CachedBVH>&& pBVH, std::vector<tasking::CachedPtr<CachedBVH>>&& childBVHs)
+    : m_pBVH(std::move(pBVH))
+    , m_childBVHs(std::move(childBVHs))
+{
+}
+
+pandora::LRUBVHSceneCache::LRUBVHSceneCache(gsl::span<const SubScene*> subScenes, tasking::LRUCache* pSceneCache, size_t maxSize)
 {
     spdlog::warn("Using in-memory serializer for BVH cache");
     auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
@@ -137,13 +143,27 @@ pandora::LRUBVHSceneCache::LRUBVHSceneCache(gsl::span<const SubScene> subScenes,
     using CacheBuilder = tasking::LRUCache::Builder;
     CacheBuilder cacheBuilder = CacheBuilder(std::move(pSerializer));
 
-    for (const SubScene& subScene : subScenes) {
-        createBVH(&subScene, pSceneCache, &cacheBuilder);
+    for (const SubScene* pSubScene : subScenes) {
+        createBVH(pSubScene, pSceneCache, &cacheBuilder);
     }
+
+    m_lruCache = cacheBuilder.build(maxSize);
 }
 
 CachedBVHSubScene LRUBVHSceneCache::fromSubScene(const SubScene* pSubScene)
 {
+    // Load main BVH
+    auto pCachedBVH = m_lruCache->makeResident(m_bvhSceneLUT.find(static_cast<const void*>(pSubScene))->second.get());
+
+    // Load child BVHs (BVHs referred to by the leafs of the main BVH)
+    const auto& childBVHs = m_childBVHs.find(pSubScene)->second;
+    std::vector<tasking::CachedPtr<CachedBVH>> cachedChildBVHs;
+    std::transform(std::begin(childBVHs), std::end(childBVHs), std::back_inserter(cachedChildBVHs),
+        [this](CachedBVH* pCachedBVH) {
+            return m_lruCache->makeResident<CachedBVH>(pCachedBVH);
+        });
+
+    return CachedBVHSubScene(std::move(pCachedBVH), std::move(cachedChildBVHs));
 }
 
 CachedBVH* LRUBVHSceneCache::createBVH(const SceneNode* pSceneNode, tasking::LRUCache* pGeomCache, tasking::CacheBuilder* pCacheBuilder)
