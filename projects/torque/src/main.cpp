@@ -126,7 +126,7 @@ int main(int argc, char** argv)
     std::cout << "  geom cache:     " << geomCacheSizeMB << "MB\n";
     std::cout << "  bot bvh cache:  " << bvhCacheSizeMB << "MB\n";
     std::cout << "  batching point: " << primitivesPerBatchingPoint << " primitives\n";
-    std::cout << "  svdag res:      " << svdagRes << " primitives\n";
+    std::cout << "  svdag res:      " << svdagRes << "\n";
     std::cout << std::flush;
 
     g_stats.config.sceneFile = vm["file"].as<std::string>();
