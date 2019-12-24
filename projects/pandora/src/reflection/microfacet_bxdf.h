@@ -1,6 +1,6 @@
 #pragma once
-#include "pandora/core/bxdf.h"
-#include "pandora/core/pandora.h"
+#include "pandora/graphics_core/bxdf.h"
+#include "pandora/graphics_core/pandora.h"
 #include "reflection/fresnel.h"
 #include "reflection/microfacet.h"
 
@@ -22,7 +22,7 @@ private:
 
 class MicrofacetTransmission : public BxDF {
 public:
-    MicrofacetTransmission(const Spectrum& t, const MicrofacetDistribution& distribution, float etaA, float etaB, TransportMode mode);
+    MicrofacetTransmission(const Spectrum& t, const MicrofacetDistribution& distribution, float etaA, float etaB);
 
     Spectrum f(const glm::vec3& wo, const glm::vec3& wi) const final;
 
@@ -33,7 +33,6 @@ private:
     const MicrofacetDistribution& m_distribution;
     const float m_etaA, m_etaB;
     const FresnelDielectric m_fresnel;
-    const TransportMode m_mode;
 };
 
 }

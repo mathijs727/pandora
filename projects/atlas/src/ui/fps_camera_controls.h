@@ -1,5 +1,5 @@
 #pragma once
-#include "pandora/core/perspective_camera.h"
+#include "pandora/graphics_core/perspective_camera.h"
 #include "ui/window.h"
 #include <chrono>
 #include <glm/glm.hpp>
@@ -32,5 +32,7 @@ private:
     bool m_cameraChanged;
     bool m_mouseCaptured;
     glm::dvec2 m_previousMousePos;
+
+	float m_moveSpeed { 0.5f };
 };
 }

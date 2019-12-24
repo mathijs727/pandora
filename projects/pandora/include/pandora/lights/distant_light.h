@@ -1,7 +1,7 @@
 #pragma once
-#include "pandora/core/transform.h"
-#include "pandora/core/light.h"
-#include "pandora/core/texture.h"
+#include "pandora/graphics_core/transform.h"
+#include "pandora/graphics_core/light.h"
+#include "pandora/graphics_core/texture.h"
 
 namespace pandora {
 
@@ -11,7 +11,7 @@ public:
 
     //glm::vec3 power() const final;
 
-    LightSample sampleLi(const Interaction& ref, const glm::vec2& randomSample) const final;
+    LightSample sampleLi(const Interaction& ref, PcgRng& rng) const final;
     float pdfLi(const Interaction& ref, const glm::vec3& wi) const final;
 
 private:

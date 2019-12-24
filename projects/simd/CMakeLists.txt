@@ -2,7 +2,9 @@ add_library(simd INTERFACE)
 #include("${CMAKE_CURRENT_LIST_DIR}/include/CMakeLists.txt")
 target_include_directories(simd INTERFACE "${CMAKE_CURRENT_LIST_DIR}/include")
 target_compile_features(simd INTERFACE cxx_std_17)
-target_link_libraries(simd INTERFACE GSL)
+#target_link_libraries(simd INTERFACE GSL)
+
+enable_native_isa(simd)
 
 option(SIMD_BUILD_TESTS OFF)
 

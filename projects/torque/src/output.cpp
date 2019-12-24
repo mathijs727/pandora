@@ -1,5 +1,7 @@
+// clang-format on
+#include "pandora/graphics_core/sensor.h"
+// clang-format off
 #include "output.h"
-#include "pandora/core/sensor.h"
 #include <OpenImageIO/imageio.h>
 #include <glm/glm.hpp>
 #include <iostream>
@@ -23,17 +25,17 @@ glm::vec3 ACESFilm(glm::vec3 x)
     return glm::clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0f, 1.0f);
 }
 
-
-void writeOutputToFile(pandora::Sensor& sensor, int spp, std::string_view fileName, bool applyPostProcessing)
+void writeOutputToFile(pandora::Sensor& sensor, int spp, std::filesystem::path file, bool applyPostProcessing)
 {
-    OIIO::ImageOutput* out = OIIO::ImageOutput::create(fileName.data());
+    std::string filenameString = file.string();
+    std::unique_ptr<OIIO::ImageOutput> out = OIIO::ImageOutput::create(filenameString);
     if (!out) {
-        std::cerr << "Could not create output file " << fileName << std::endl;
+        std::cerr << "Could not create output file " << file << std::endl;
         return;
     }
 
-    glm::ivec2 resolution = sensor.getResolution();
-    auto inPixels = sensor.getFramebufferRaw();
+    const glm::ivec2 resolution = sensor.getResolution();
+    auto inPixels = sensor.copyFrameBufferVec3();
     auto outPixels = std::vector<glm::vec3>(resolution.x * resolution.y);
     float invSPP = 1.0f / static_cast<float>(spp);
     if (applyPostProcessing) {
@@ -53,9 +55,8 @@ void writeOutputToFile(pandora::Sensor& sensor, int spp, std::string_view fileNa
         spec.attribute("oiio:ColorSpace", "srgb");
     else
         spec.attribute("oiio:ColorSpace", "linear");
-    out->open(fileName.data(), spec);
+    out->open(filenameString, spec);
     out->write_image(OIIO::TypeDesc::FLOAT, outPixels.data());
     out->close();
-    OIIO::ImageOutput::destroy(out);
 }
 }

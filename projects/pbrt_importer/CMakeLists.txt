@@ -5,41 +5,6 @@ cmake_minimum_required(VERSION 3.12)
 
 project("pandora_python")
 
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
-find_package(Boost REQUIRED COMPONENTS python37 numpy37)
- 
-# Build our library
-Python3_add_library(pandora_py MODULE
-    "src/pandora_py.cpp"
-    "src/mesh_exporter.cpp"
-    "src/mesh_exporter.h"
-    #"src/mesh_wrapper.cpp"
-    #"src/mesh_wrapper.h"
-    "src/string_to_number.cpp"
-    "src/string_to_number.h")
-set_target_properties(pandora_py PROPERTIES
-    CXX_STANDARD 17
-    CXX_EXTENSIONS OFF)
-
-# Define the wrapper library that wraps our library
-target_link_libraries(pandora_py PRIVATE
-    Boost::python37
-    Boost::numpy37
-    Python3::Python
-    GSL
-    libPandora
-    #tinyply
-    glm)
-
-if (MSVC)
-    set_target_properties(pandora_py PROPERTIES COMPILE_FLAGS "/arch:AVX2")
-else()
-    set_target_properties(pandora_py PROPERTIES COMPILE_FLAGS "-mavx2")
-endif()
-
-add_custom_command(
-    TARGET pandora_py
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-        "$<TARGET_FILE:pandora_py>"
-        "${CMAKE_CURRENT_LIST_DIR}/python/$<TARGET_FILE_NAME:pandora_py>")
+add_executable(string_to_float_benchmark "benchmark.cpp" "src/crack_atof.cpp" "src/crack_atof_sse.cpp" "src/crack_atof_avx2.cpp" "src/crack_atof_avx512.cpp")
+#target_link_libraries(string_to_float_benchmark PRIVATE TBB::tbb TBB::tbbmalloc TBB::tbbmalloc_proxy)
+target_compile_features(string_to_float_benchmark PRIVATE cxx_std_17)

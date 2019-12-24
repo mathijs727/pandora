@@ -35,8 +35,8 @@ Stats::~Stats()
 void Stats::asyncTriggerSnapshot()
 {
     nlohmann::json snapshot;
-    snapshot["data"] = getMetricsSnapshot();
     snapshot["timestamp"] = std::chrono::duration_cast<std::chrono::microseconds>(high_res_clock::now() - m_startTime).count();
+    snapshot["data"] = getMetricsSnapshot();
     m_workQueue.push(snapshot);
 }
 

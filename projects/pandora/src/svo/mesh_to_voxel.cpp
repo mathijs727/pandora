@@ -2,7 +2,7 @@
 #include "pandora/geometry/bounds.h"
 #include "pandora/geometry/triangle.h"
 #include "pandora/svo/voxel_grid.h"
-#include "pandora/core/scene.h"
+#include "pandora/graphics_core/scene.h"
 #include <iostream>
 
 #ifdef PANDORA_ISPC_SUPPORT

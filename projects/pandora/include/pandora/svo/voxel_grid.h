@@ -1,4 +1,5 @@
 #pragma once
+#include "pandora/graphics_core/bounds.h"
 #include <glm/glm.hpp>
 #include <memory>
 #include <tuple>
@@ -8,7 +9,7 @@ namespace pandora {
 
 class VoxelGrid {
 public:
-    VoxelGrid(int resolution);
+    VoxelGrid(const Bounds& bounds, int resolution);
 
     int resolution() const;
 
@@ -32,6 +33,8 @@ public:
     bool getMorton(uint_fast32_t mortonCode) const;
     void set(int x, int y, int z, bool value);
 
+	Bounds bounds() const;
+
     uint32_t* data() { return m_values.get(); };
 
 private:
@@ -40,8 +43,11 @@ private:
     std::pair<uint32_t*, uint32_t> index(int x, int y, int z) const;
 
 private:
+    Bounds m_bounds;
+
     int m_resolution;
     glm::ivec3 m_extent;
+    glm::ivec3 m_stride;
     //std::vector<bool> m_values;
     std::unique_ptr<uint32_t[]> m_values;
 };

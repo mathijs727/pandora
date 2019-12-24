@@ -17,7 +17,7 @@ PcgRng::PcgRng()
 
 PcgRng::PcgRng(uint64_t initseq)
 {
-	setSequence(initseq);
+    setSequence(initseq);
 }
 
 void PcgRng::setSequence(uint64_t initseq)
@@ -48,8 +48,26 @@ uint32_t PcgRng::uniformU32(uint32_t b)
     }
 }
 
+uint64_t PcgRng::uniformU64()
+{
+    uint64_t left = uniformU32();
+    uint64_t right = uniformU32();
+    return (left << 32) | right;
+}
+
 float PcgRng::uniformFloat()
 {
     return std::min(1.0f - std::numeric_limits<float>::epsilon(), uniformU32() * 0x1p-32f);
 }
+
+glm::vec2 PcgRng::uniformFloat2()
+{
+    return glm::vec2 { uniformFloat(), uniformFloat() };
+}
+
+glm::vec3 PcgRng::uniformFloat3()
+{
+    return glm::vec3 { uniformFloat(), uniformFloat(), uniformFloat() };
+}
+
 }

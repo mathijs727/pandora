@@ -1,3 +1,4 @@
+import pandora_py
 from deepmerge import merge_or_raise
 import numpy as np
 import os
@@ -10,7 +11,9 @@ from parsing.lexer import create_lexer, tokens
 from parsing.mesh_batch import MeshBatcher
 from parsing.file_backed_list import FileBackedList
 import parsing.lexer
-import ply.yacc as yacc
+import ply_mmap.yacc as yacc
+import mmap
+from sqlitedict import SqliteDict
 
 import itertools
 import collections
@@ -18,7 +21,6 @@ import collections
 # Get pandora_py from parent path
 # https://stackoverflow.com/questions/16780014/import-file-from-parent-directory
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import pandora_py
 
 
 class ParsingState(Enum):
@@ -81,16 +83,18 @@ def p_statement_include(p):
     with open(include_file, "r") as f:
         lexer = create_lexer()
         if parsing_state == ParsingState.CONFIG:
-            parser = yacc.yacc(start="statements_config")
+            parser = yacc.yacc(start="statements_config", optimize=False)
         else:
-            parser = yacc.yacc(start="statements_scene")
-        return parser.parse(f.read(), lexer=lexer)
+            parser = yacc.yacc(start="statements_scene", optimize=False)
+
+        mapped_bytes = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        result = parser.parse(mapped_bytes, lexer=lexer)
 
     # Restore state
     parsing.lexer.current_file = current_file_bak
     current_file = current_file_bak
 
-    return None
+    return result
 
 
 def p_statements_scene_include(p):
@@ -121,10 +125,10 @@ SampledSpectrumFile = namedtuple("SampledSpectrumFile", ["filename"])
 #TextureRef = namedtuple("TextureRef", ["name"])
 BlackBody = namedtuple("BlackBody", ["temperature_kelvin", "scale_factor"])
 
-named_materials = {}
-named_textures = {}
+named_materials = None # SqliteDict
+named_textures = None # SqliteDict
 light_sources = []
-instance_templates = {}
+instance_templates = None # SqliteDict
 instances = None  # FileBackedList
 non_instanced_shapes = None  # FileBackedList
 
@@ -145,7 +149,7 @@ graphics_state = {"area_light": None,
                   "flip_normals": False, "material": default_material}
 transform_start_active = True
 transform_stack = []
-named_transforms = {}
+named_transforms = None # SqliteDict
 cur_transform = np.identity(4)
 current_instance = None
 
@@ -227,22 +231,21 @@ def p_basic_data_type(p):
 def p_list(p):
     "list : LIST"
     text = p[1][1:-1]
-    if '"' in text:
+
+    # The Python string length in C++ is a 32-bit int
+    assert(len(text) < 2147483647)
+
+    if b'"' in text:
         import re
-        p[0] = [s[1:-1] for s in re.findall('"[^"]*"', text)]
-    elif '.' in text:
-        #result = np.fromstring(text, dtype=float, sep=' ')
-        # The Python string length in C++ is a 32-bit int
-        assert(len(text) < 2147483647)
+        res = [s[1:-1].decode("ascii") for s in re.findall(b'"[^"]*"', text)]
+        p[0] = res
+    elif b'.' in text:
         # Neither ujson nor rapidjson support float32 so convert to a double
-        result = pandora_py.string_to_numpy_double(text)
-        p[0] = result
+        p[0] = pandora_py.string_to_numpy_double(text)
+    elif b'-' in text:
+        p[0] = pandora_py.string_to_numpy_int32(text)
     else:
-        #result = np.fromstring(text, dtype=int, sep=' ')
-        # The Python string length in C++ is a 32-bit int
-        assert(len(text) < 2147483647)
-        result = pandora_py.string_to_numpy_int(text)
-        p[0] = result
+        p[0] = pandora_py.string_to_numpy_uint32(text)
 
 
 def p_argument(p):
@@ -275,7 +278,6 @@ def p_argument(p):
                 }
             }}
         else:
-            print(data)
             raise RuntimeError(f"Unknown argument type {arg_type}")
     else:
         if arg_type == "integer":
@@ -293,7 +295,6 @@ def p_argument(p):
             p[0] = {arg_name: {"type": arg_type, "value": SampledSpectrumFile(
                 os.path.join(base_path, data))}}
         else:
-            print(data)
             raise RuntimeError(f"Unknown argument type {arg_type}")
 
 
@@ -479,6 +480,7 @@ def p_statement_area_light(p):
 def p_statement_object_begin(p):
     "statement_scene : OBJECT_BEGIN STRING"
     global current_instance
+    assert(current_instance is None)
     current_instance = InstanceTemplate(p[2], [], cur_transform.tolist())
 
 
@@ -508,6 +510,7 @@ def p_statement_shape(p):
     else:
         global mesh_batcher
         filename, start_byte, num_bytes = mesh_batcher.add_mesh(arguments)
+        del arguments
         arguments = {"filename": filename,
                      "start_byte": start_byte, "num_bytes": num_bytes}
 
@@ -582,23 +585,32 @@ def p_statement_accelerator(p):
 
 def parse_file(file_path, int_mesh_folder):
     lexer = create_lexer()
-    parser = yacc.yacc()
+    parser = yacc.yacc(optimize=False)
 
     import parsing.lexer
     parsing.lexer.current_file = file_path
-
-    with open(file_path, "r") as f:
-        string = f.read()
 
     global base_path, mesh_batcher, current_file
     if not os.path.exists(int_mesh_folder):
         os.makedirs(int_mesh_folder)
     mesh_batcher = MeshBatcher(int_mesh_folder)
 
-    global non_instanced_shapes, instances
+    global named_transforms, named_materials, named_textures, instance_templates, non_instanced_shapes, instances
+
+    def create_sqlite_dict(file):
+        if os.path.exists(file):
+            os.remove(file)
+        return SqliteDict(file, flag="c", autocommit=True, journal_mode="OFF")
+
+    named_transforms = create_sqlite_dict(os.path.join(int_mesh_folder, "named_transforms.db"))
+    named_materials = create_sqlite_dict(os.path.join(int_mesh_folder, "named_materials.db"))
+    named_textures = create_sqlite_dict(os.path.join(int_mesh_folder, "named_textures.db"))
+    instance_templates = create_sqlite_dict(os.path.join(int_mesh_folder, "instance_templates.db"))
+
     shapes_folder = os.path.join(int_mesh_folder, "shapes")
-    instances_folder = os.path.join(int_mesh_folder, "instances")
     non_instanced_shapes = FileBackedList(shapes_folder)
+
+    instances_folder = os.path.join(int_mesh_folder, "instances")
     instances = FileBackedList(instances_folder)
 
     current_file = os.path.abspath(file_path)
@@ -608,12 +620,17 @@ def parse_file(file_path, int_mesh_folder):
     print("Base path: ", base_path)
 
     print("Parsing...")
-    ret = parser.parse(string, lexer=lexer)
+    with open(file_path, "r") as f:
+        mapped_bytes = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        ret = parser.parse(mapped_bytes, lexer=lexer)
 
     # Give the batches / lists a chance to write to disk (since this isnt allowed in __del__)
     mesh_batcher.destructor()
     non_instanced_shapes.destructor()
     instances.destructor()
+
+    named_materials.close()
+    named_transforms.close()
 
     return ret
 

@@ -19,6 +19,11 @@ serialization::Vec3i serialize(const glm::ivec3& v)
     return serialization::Vec3i(v.x, v.y, v.z);
 }
 
+serialization::Vec3u serialize(const glm::uvec3& v)
+{
+    return serialization::Vec3u(v.x, v.y, v.z);
+}
+
 serialization::Mat4 serialize(const glm::mat4& m)
 {
     return serialization::Mat4(
@@ -41,6 +46,11 @@ glm::vec3 deserialize(const serialization::Vec3& v)
 glm::ivec3 deserialize(const serialization::Vec3i& v)
 {
     return glm::ivec3(v.x(), v.y(), v.z());
+}
+
+glm::uvec3 deserialize(const serialization::Vec3u& v)
+{
+    return glm::uvec3(v.x(), v.y(), v.z());
 }
 
 glm::mat4 deserialize(const serialization::Mat4& m)

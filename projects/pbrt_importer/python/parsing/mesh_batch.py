@@ -25,6 +25,8 @@ class MeshBatcher:
 
         if start_byte + num_bytes > self._max_batch_size:
             self._create_new_batch()
+            import gc
+            gc.collect()
 
         return (filename, start_byte, num_bytes)
 

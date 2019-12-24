@@ -1,5 +1,5 @@
 #pragma once
-#include "pandora/core/texture.h"
+#include "pandora/graphics_core/texture.h"
 #include <memory>
 #include <filesystem>
 

@@ -1,4 +1,4 @@
-import ply.lex as lex
+import ply_mmap.lex as lex
 
 current_file = ""
 
@@ -59,14 +59,14 @@ t_REVERSE_ORIENTATION = r'ReverseOrientation'
 
 def t_STRING(t):
     r'"[^"]*"'
-    t.value = t.value[1:-1]
+    t.value = t.value[1:-1].decode("ascii")
     return t
 
 
 def t_NUMBER(t):
     # https://www.regular-expressions.info/floatingpoint.html
     r'[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?'
-    if "." in t.value or "e+" in t.value:
+    if b'.' in t.value or b'e+' in t.value:
         t.value = float(t.value)
     else:
         t.value = int(t.value)
@@ -88,21 +88,23 @@ def t_newline(t):
 #     input is the input text string
 #     token is a token instance
 def find_column(input, token):
-    line_start = input.rfind('\n', 0, token.lexpos) + 1
+    line_start = input.rfind(b'\n', 0, token.lexpos) + 1
     return (token.lexpos - line_start) + 1
 
 
 def t_error(t):
     global current_file
     column = find_column(t.lexer.lexdata, t)
-    print("Illegal character '{}' in file {} at ({}: {})".format(t.value[0], current_file, t.lexer.lineno, column))
+    print(f"Illegal character \"{t.value[0]}\" in file {current_file} at ({t.lexer.lineno}: {column})")
     t.lexer.skip(1)
 
 
 # Ignored characters
-t_ignore = " \t"
+t_ignore = " \t\r"
 
 
 def create_lexer():
-    import ply.lex as lex
-    return lex.lex()
+    import re
+    lexer = lex.lex(optimize=True)
+
+    return lexer

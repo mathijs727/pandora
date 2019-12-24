@@ -12,14 +12,14 @@ Gauge<T>::Gauge(std::string_view unit)
 template <typename T>
 Gauge<T>& Gauge<T>::operator=(T v)
 {
-    m_value.store(v);
+    m_value.store(v, std::memory_order::memory_order_relaxed);
     return *this;
 }
 
 template <typename T>
 Gauge<T>::operator T() const
 {
-    return m_value.load();
+    return m_value.load(std::memory_order::memory_order_relaxed);
 }
 
 template <typename T>
@@ -27,7 +27,7 @@ Gauge<T>::operator nlohmann::json() const
 {
     nlohmann::json json;
     json["type"] = "gauge";
-    json["value"] = m_value.load();
+    json["value"] = m_value.load(std::memory_order::memory_order_relaxed);
     json["unit"] = m_unit;
     return json;
 }

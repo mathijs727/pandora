@@ -1,6 +1,6 @@
 #pragma once
-#include "pandora/core/material.h"
-#include "pandora/core/texture.h"
+#include "pandora/graphics_core/material.h"
+#include "pandora/graphics_core/texture.h"
 
 namespace pandora {
 
@@ -15,7 +15,7 @@ namespace pandora {
             const std::shared_ptr<Texture<Spectrum>>& transmit,
             bool remapRoughness);
 
-		void computeScatteringFunctions(SurfaceInteraction& si, ShadingMemoryArena& arena, TransportMode mode, bool allowMultipleLobes) const final;
+		void computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena) const final;
 	private:
 		std::shared_ptr<Texture<Spectrum>> m_kd, m_ks;// Diffuse / specular
         std::shared_ptr<Texture<float>> m_roughness;

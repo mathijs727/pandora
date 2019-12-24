@@ -1,16 +1,15 @@
 add_library(libPandora "")
 target_compile_features(libPandora PRIVATE cxx_std_17)
 
-if (MSVC)
+if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_compile_definitions(libPandora PUBLIC "_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
 	target_compile_definitions(libPandora PUBLIC "NOMINMAX")
 
 	# Surpess warnings from OpenImageIO & libmorton and enable AVX2
 	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/arch:AVX2 /wd5040 /wd4244 /wd4275 /wd4309")
-else()
-	#target_compile_options(libPandora PRIVATE -W -Wall -Wpedantic -Wno-unused-parameter -Wno-unused-variable -Wno-unused-private-field)
-	target_compile_options(libPandora PUBLIC -mavx2 -mpopcnt -mbmi2)
 endif()
+enable_native_isa(libPandora)
+
 target_compile_definitions(libPandora PRIVATE "ENABLE_STATIC_LIB")# Embree static lib
 
 if (PANDORA_ISPC_SUPPORT)
@@ -37,22 +36,22 @@ build_flatbuffers(
 add_dependencies(libPandora pandoraFlatbuffers)
 
 target_link_libraries(libPandora PUBLIC
+	stream
 	simd
 	metrics
-	GSL
-    assimp_target # Loading 3D models
-    OpenImageIO # Loading textures
+	assimp_target
+    #assimp::assimp # Buggy (tries to link against a dll file...)
+    OIIO::OpenImageIO # Loading textures
+	Cnl::Cnl # Fixed point math library
 	glm # Vector math
-    embree # BVH builder and reference BVH traversal
-	TBB::tbb TBB::tbbmalloc # Multithreading
+    embree3::embree3 # BVH builder and reference BVH traversal
+	TBB::tbb # Multithreading
 	Threads::Threads
-	EASTL # Stack based STL containers <3 
-	mio) # Memory-mapped file IO for serialization
+	eastl # Stack based STL containers <3 
+	mio::mio # Memory-mapped file IO for serialization
+	mio_cache_control) # Modified version of mio that allows for control of the file system cache
 
-target_link_libraries(libPandora PRIVATE
-	Boost::boost # Header-only Boost libraries
-	libmorton # Morton code for voxelization & SVO
-	TBB::tbbmalloc_proxy) # Faster malloc/free
+target_link_libraries(libPandora PRIVATE Boost::boost)
 
 if (LINK_STDCXX_FILESYSTEM)
 	target_link_libraries(libPandora PRIVATE stdc++fs)
@@ -73,6 +72,6 @@ target_include_directories(libPandora PRIVATE
 include(${CMAKE_CURRENT_LIST_DIR}/src/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/include/CMakeLists.txt)
 
-if (PANDORA_BUILD_TESTS)
-    include(${CMAKE_CURRENT_LIST_DIR}/tests/CMakeLists.txt)
-endif()
+#if (PANDORA_BUILD_TESTS)
+#    include(${CMAKE_CURRENT_LIST_DIR}/tests/CMakeLists.txt)
+#endif()

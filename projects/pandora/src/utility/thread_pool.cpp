@@ -31,7 +31,11 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::emplace(std::function<void()>&& f)
 {
+	#if defined(WIN32) && defined(__clang__)
+    m_workQueue.push(f);
+	#else
     m_workQueue.emplace(std::move(f));
+	#endif
 }
 
 }

@@ -1,5 +1,5 @@
 #include "pandora/integrators/svo_test_integrator.h"
-#include "pandora/core/perspective_camera.h"
+#include "pandora/graphics_core/perspective_camera.h"
 #include "pandora/svo/mesh_to_voxel.h"
 #include "pandora/svo/voxel_grid.h"
 #include <tbb/blocked_range2d.h>

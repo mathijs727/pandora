@@ -1,12 +1,12 @@
 #pragma once
-#include "metrics/counter.h"
-#include "metrics/gauge.h"
-#include "metrics/histogram.h"
-#include "metrics/offline_exporter.h"
-#include "metrics/stats.h"
-#include "metrics/stopwatch.h"
 #include <chrono>
 #include <list>
+#include <metrics/counter.h>
+#include <metrics/gauge.h>
+#include <metrics/histogram.h>
+#include <metrics/offline_exporter.h>
+#include <metrics/stats.h>
+#include <metrics/stopwatch.h>
 
 namespace pandora {
 
@@ -16,17 +16,34 @@ struct RenderStats : public metrics::Stats {
 
     struct {
         std::string sceneFile;
+        unsigned subdiv { 0 };
+        unsigned cameraID;
+
         std::string integrator;
-        int spp = 0;
+        int spp;
+        unsigned concurrency;
+        unsigned schedulers;
+
+        size_t geomCacheSize;
+        size_t bvhCacheSize;
+        unsigned primGroupSize;
+        unsigned svdagRes;
     } config;
 
     struct {
         metrics::Counter<size_t> uniquePrimitives { "primitives" }; // Only count instances once
         metrics::Counter<size_t> totalPrimitives { "primitives" }; // Count each individual instance
+
+		metrics::Counter<size_t> numBatchingPoints { "batching points" };
     } scene;
 
     struct {
+        metrics::Stopwatch<std::chrono::milliseconds> loadFromFileTime;
+
         metrics::Stopwatch<std::chrono::milliseconds> totalRenderTime;
+        metrics::Stopwatch<std::chrono::nanoseconds> botLevelBuildTime;
+        metrics::Stopwatch<std::chrono::nanoseconds> botLevelTraversalTime;
+        metrics::Stopwatch<std::chrono::nanoseconds> topLevelTraversalTime;
         metrics::Stopwatch<std::chrono::nanoseconds> svdagTraversalTime;
     } timings;
 
@@ -66,6 +83,8 @@ struct RenderStats : public metrics::Stats {
         metrics::Counter<size_t> numIntersectionTests { "rays" };
         metrics::Counter<size_t> numRaysCulled { "rays" };
     } svdag;
+
+	~RenderStats();
 
 protected:
     nlohmann::json getMetricsSnapshot() const override final;

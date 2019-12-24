@@ -1,30 +1,35 @@
 target_sources(libPandora
 	PRIVATE
-        "${CMAKE_CURRENT_LIST_DIR}/core/bxdf.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/interaction.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/light.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/load_from_file.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/material.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/perspective_camera.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/sampler.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/spectrum.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/scene.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/sensor.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/core/stats.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/core/transform.cpp"
+
+		"${CMAKE_CURRENT_LIST_DIR}/graphics_core/bounds.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/bxdf.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/interaction.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/light.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/load_from_file.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/material.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/perspective_camera.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/sampler.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/shape.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/spectrum.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/scene.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/sensor.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/graphics_core/transform.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/flatbuffers/data_conversion.cpp"
 
-        "${CMAKE_CURRENT_LIST_DIR}/geometry/bounds.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/geometry/triangle.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shapes/tinyply.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_intersect.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_shading.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/shapes/triangle_shape.cpp"
 
-        "${CMAKE_CURRENT_LIST_DIR}/integrators/direct_lighting_integrator.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/naive_direct_lighting_integrator.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/integrators/naive_direct_lighting_integrator_old.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/normal_debug_integrator.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/path_integrator.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/integrators/sampler_integrator.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/integrators/svo_depth_test_integrator.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/integrators/svo_test_integrator.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/integrators/svo_depth_test_integrator.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/integrators/svo_test_integrator.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/lights/area_light.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/lights/distant_light.cpp"
@@ -33,12 +38,12 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/samplers/rng/pcg.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/samplers/uniform_sampler.cpp"
 
-        "${CMAKE_CURRENT_LIST_DIR}/scene/geometric_scene_object.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/scene/instanced_scene_object.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/scene/geometric_scene_object.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/scene/instanced_scene_object.cpp"
 
         #"${CMAKE_CURRENT_LIST_DIR}/svo/mesh_to_voxel.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_dag.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_octree.cpp"
+        #"${CMAKE_CURRENT_LIST_DIR}/svo/sparse_voxel_octree.cpp" # WARNING: intersectScalar should be updated to automatically transform the incoming ray
         "${CMAKE_CURRENT_LIST_DIR}/svo/voxel_grid.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/materials/matte_material.cpp"
@@ -61,11 +66,12 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/textures/constant_texture.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/textures/image_texture.cpp"
 		
-		#"${CMAKE_CURRENT_LIST_DIR}/traversal/bvh/embree_bvh_impl.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/traversal/batching_acceleration_structure.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/traversal/embree_acceleration_structure.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/traversal/embree_cache.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/utility/eastl_malloc.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/utility/memory_arena_ts.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/utility/thread_pool.cpp"
 )
 

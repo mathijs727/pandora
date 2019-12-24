@@ -19,7 +19,7 @@ DistantLight::DistantLight(const glm::mat4& lightToWorld, const Spectrum& L, con
     return m_l * glm::pi<float>();
 }*/
 
-LightSample DistantLight::sampleLi(const Interaction& ref, const glm::vec2& randomSample) const
+LightSample DistantLight::sampleLi(const Interaction& ref, PcgRng& rng) const
 {
     LightSample ret;
     ret.wi = -m_wLight;

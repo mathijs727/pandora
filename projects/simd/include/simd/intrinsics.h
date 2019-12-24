@@ -4,8 +4,8 @@
 #else
 #include <nmmintrin.h>
 #endif
-#include <cstdint>
 #include <cassert>
+#include <cstdint>
 
 namespace simd {
 

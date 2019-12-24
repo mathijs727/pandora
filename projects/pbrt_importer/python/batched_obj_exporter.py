@@ -2,10 +2,14 @@ import os
 import pickle
 import sys
 import pandora_py
+import numpy as np
 
 # Similar to parsing.MeshBatcher but for Pandora format meshes instead of Python (pickled) meshes
 class BatchedObjExporter:
     def __init__(self, out_mesh_path):
+        if not os.path.exists(out_mesh_path):
+            os.makedirs(out_mesh_path)
+
         self._out_mesh_path = out_mesh_path
         self._file_id = 0
 
@@ -21,7 +25,12 @@ class BatchedObjExporter:
     def add_triangle_mesh(self, triangles, positions, normals, tangents, uv_coords, transform):
         assert(len(triangles) > 0 and len(positions) > 0)
         filename, start_byte, size_bytes = self._current_mesh_batch.addTriangleMesh(
-            triangles, positions, normals, tangents, uv_coords, transform)
+            triangles.astype(np.uint32),
+            positions.astype(np.float32),
+            normals.astype(np.float32),
+            tangents.astype(np.float32),
+            uv_coords.astype(np.float32),
+            np.array(transform, np.float32))
 
         assert(size_bytes != 2147483647)# -1 => probably an error
         #print(f"New mesh at byte {start_byte} of size {size_bytes} bytes")

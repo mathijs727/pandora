@@ -16,8 +16,8 @@ static float sphericalPhi(const glm::vec3& v)
 
 namespace pandora {
 
-EnvironmentLight::EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum& l, int numSamples, const std::shared_ptr<Texture<glm::vec3>>& texture)
-    : InfiniteLight((int)LightFlags::Infinite, numSamples)
+EnvironmentLight::EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum& l, const std::shared_ptr<Texture<glm::vec3>>& texture)
+    : InfiniteLight((int)LightFlags::Infinite)
     , m_l(l)
     , m_texture(texture)
     , m_lightToWorld(lightToWorld)
@@ -33,11 +33,11 @@ EnvironmentLight::EnvironmentLight(const glm::mat4& lightToWorld, const Spectrum
 }*/
 
 // PBRTv3 page 849
-LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& u) const
+LightSample EnvironmentLight::sampleLi(const Interaction& ref, PcgRng& rng) const
 {
     // TODO: importance sampling
     float mapPDF = 1.0f;
-    glm::vec2 uv = u;
+    glm::vec2 uv = rng.uniformFloat2();
 
     float theta = uv[1] * glm::pi<float>();
     float phi = uv[0] * 2.0f * glm::pi<float>();
@@ -62,7 +62,7 @@ LightSample EnvironmentLight::sampleLi(const Interaction& ref, const glm::vec2& 
 float EnvironmentLight::pdfLi(const Interaction& ref, const glm::vec3& wiWorld) const
 {
 	glm::vec3 wi = worldToLight(wiWorld);
-	float theta = sphericalTheta(wi), phi = sphericalTheta(wi);
+    float theta = sphericalTheta(wi);//, phi = sphericalTheta(wi);
 	float sinTheta = std::sin(theta);
 	if (sinTheta == 0)
 		return 0.0f;
@@ -74,7 +74,7 @@ Spectrum EnvironmentLight::Le(const Ray& ray) const
 {
     // PBRTv3 page 741
     glm::vec3 w = glm::normalize(worldToLight(ray.direction)); // TODO: worldToLight()
-    glm::vec2 st(sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_pi<float>());
+    glm::vec2 st { sphericalPhi(w) * glm::one_over_two_pi<float>(), sphericalTheta(w) * glm::one_over_pi<float>() };
     return m_l * m_texture->evaluate(st);
 }
 

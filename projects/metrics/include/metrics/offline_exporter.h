@@ -1,12 +1,12 @@
 #pragma once
 #include "exporter.h"
+#include <nlohmann/json.hpp>
 #include <string>
 #include <string_view>
-#include <nlohmann/json.hpp>
 
 namespace metrics {
 
-class OfflineExporter : public Exporter{
+class OfflineExporter : public Exporter {
 public:
     OfflineExporter(std::string_view fileName);
     ~OfflineExporter();

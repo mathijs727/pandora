@@ -1,43 +1,56 @@
+
 #include "pandora/lights/area_light.h"
-#include "glm/gtc/constants.hpp"
-#include "pandora/core/scene.h"
+#include "pandora/graphics_core/scene.h"
+#include "pandora/shapes/triangle.h"
+#include <glm/gtc/constants.hpp>
+#include <spdlog/spdlog.h>
 
 namespace pandora {
 
-AreaLight::AreaLight(glm::vec3 emittedLight, int numSamples, const TriangleMesh& shape, unsigned primitiveID)
-    : Light((int)LightFlags::Area, numSamples)
+AreaLight::AreaLight(glm::vec3 emittedLight)
+    : Light((int)LightFlags::Area)
     , m_emmitedLight(emittedLight)
-    , m_shape(shape)
-    , m_primitiveID(primitiveID)
-    , m_area(m_shape.primitiveArea(primitiveID))
 {
 }
-
-/*glm::vec3 AreaLight::power() const
-{
-    return m_emmitedLight * m_area * glm::pi<float>();
-}*/
 
 glm::vec3 AreaLight::light(const Interaction& interaction, const glm::vec3& w) const
 {
     return glm::dot(interaction.normal, w) > 0.0f ? m_emmitedLight : glm::vec3(0.0f);
 }
 
-LightSample AreaLight::sampleLi(const Interaction& ref, const glm::vec2& randomSample) const
+LightSample AreaLight::sampleLi(const Interaction& ref, PcgRng& rng) const
 {
-    Interaction pShape = m_shape.samplePrimitive(m_primitiveID, ref, randomSample);
+    const uint32_t numPrimitives = m_pShape->numPrimitives();
+    const uint32_t primitiveID = rng.uniformU32() % numPrimitives;
+    Interaction pointOnShape = m_pShape->samplePrimitive(primitiveID, ref, rng);
+    if (m_transform)
+        pointOnShape = m_transform->transform(pointOnShape);
 
     LightSample result;
-    result.wi = glm::normalize(pShape.position - ref.position);
-	result.pdf = m_shape.pdfPrimitive(m_primitiveID, ref, result.wi);
-    result.visibilityRay = computeRayWithEpsilon(ref, pShape);
-    result.radiance = light(pShape, -result.wi);
+    result.wi = glm::normalize(pointOnShape.position - ref.position);
+    result.pdf = m_pShape->pdfPrimitive(primitiveID, ref, result.wi) / static_cast<float>(numPrimitives);
+    result.visibilityRay = computeRayWithEpsilon(ref, pointOnShape);
+    result.radiance = light(pointOnShape, -result.wi);
     return result;
 }
 
 float AreaLight::pdfLi(const Interaction& ref, const glm::vec3& wi) const
 {
-    return m_shape.pdfPrimitive(m_primitiveID, ref, wi);
+    //const auto* intersectGeom = m_shape.getIntersectGeometry();
+    //return intersectGeom->pdfPrimitive(m_primitiveID, ref, wi);
+    spdlog::warn("AreaLight::pdfLi returns 0.0f because pdfPrimitive with direction is not implemented");
+    return 0.0f;
+}
+
+void AreaLight::attachToShape(const Shape* pShape)
+{
+    m_pShape = pShape;
+}
+
+void AreaLight::attachToShape(const Shape* pShape, const glm::mat4& transform)
+{
+    m_pShape = pShape;
+    m_transform = transform;
 }
 
 }

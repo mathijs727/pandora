@@ -1,6 +1,6 @@
 #pragma once
 #include "GL/glew.h"
-#include "pandora/core/sensor.h"
+#include "pandora/graphics_core/sensor.h"
 
 using namespace pandora;
 

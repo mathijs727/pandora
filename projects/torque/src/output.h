@@ -1,10 +1,10 @@
 #pragma once
-#include "pandora/core/pandora.h"
-#include <string_view>
+#include "pandora/graphics_core/pandora.h"
+#include <filesystem>
 
 namespace torque
 {
 
-void writeOutputToFile(pandora::Sensor& sensor, int spp, std::string_view fileName, bool applyPostProcessing);
+void writeOutputToFile(pandora::Sensor& sensor, int spp, std::filesystem::path file, bool applyPostProcessing);
 
 }

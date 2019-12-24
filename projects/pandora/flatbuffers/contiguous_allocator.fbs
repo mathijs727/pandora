@@ -7,3 +7,5 @@ table ContiguousAllocator
 	currentSize: uint32;
 	data: [byte];
 }
+
+

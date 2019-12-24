@@ -9,5 +9,5 @@ if (MSVC)
     target_compile_options(simd_test PUBLIC "/wd4251" "/wd4275") # Gtest warnings about dll stuff
 endif()
 
-enable_testing()
+#add_test(AllTestsInSIMD simd_test)
 gtest_add_tests(TARGET simd_test)

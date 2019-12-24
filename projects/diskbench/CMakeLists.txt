@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.11)
 project("diskbench")
 
 add_executable(diskbench "main.cpp")
-target_link_libraries(diskbench PRIVATE mio)
+target_link_libraries(diskbench PRIVATE mio_cache_control)
 target_compile_features(diskbench PUBLIC cxx_std_17)
 
 if (LINK_STDCXX_FILESYSTEM)

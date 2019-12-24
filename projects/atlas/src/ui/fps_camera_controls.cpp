@@ -1,7 +1,7 @@
 #include "fps_camera_controls.h"
 #include <algorithm>
-#include <iostream>
 #include <glm/gtc/matrix_transform.hpp>
+#include <iostream>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
 
@@ -41,9 +41,9 @@ FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
             double yawDelta = delta2D.x * lookSpeed;
 
             if (pitchDelta != 0.0 || yawDelta != 0.0) {
-                glm::vec3 left = m_orientation * glm::vec3(-1, 0, 0);
+                const glm::vec3 left = m_orientation * glm::vec3(-1, 0, 0);
                 m_orientation = glm::angleAxis((float)pitchDelta, left) * m_orientation;
-                m_orientation = glm::angleAxis((float)yawDelta, m_up) * m_orientation;
+                m_orientation = glm::angleAxis((float)yawDelta, left) * m_orientation;
 
                 m_cameraChanged = true;
             }
@@ -67,6 +67,11 @@ FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)
             m_initialFrame = true; // Switching between capture modes changes the cursor position coordinate system
             m_window.setMouseCapture(m_mouseCaptured);
         }
+
+        if (key == GLFW_KEY_LEFT_BRACKET && action == GLFW_PRESS)
+            m_moveSpeed *= 0.8f;
+        if (key == GLFW_KEY_RIGHT_BRACKET && action == GLFW_PRESS)
+            m_moveSpeed *= 1.2f;
     });
 }
 
@@ -79,24 +84,23 @@ void FpsCameraControls::tick()
     float deltaMsFloat = deltaMs.count() / 10000000.0f;
 
     //TODO(Mathijs): store forward, left and up vectors in the class itself
-    float moveSpeed = 0.01f;
     glm::vec3 forward = m_orientation * glm::vec3(0.0f, 0.0f, 1.0f * m_scale.z);
     glm::vec3 left = m_orientation * glm::vec3(1.0f * m_scale.x, 0.0f, 0.0f);
 
     if (m_window.isKeyDown(GLFW_KEY_A)) {
-        m_position += -left * deltaMsFloat * moveSpeed;
+        m_position += -left * deltaMsFloat * m_moveSpeed;
         m_cameraChanged = true;
     }
     if (m_window.isKeyDown(GLFW_KEY_D)) {
-        m_position += left * deltaMsFloat * moveSpeed;
+        m_position += left * deltaMsFloat * m_moveSpeed;
         m_cameraChanged = true;
     }
     if (m_window.isKeyDown(GLFW_KEY_W)) {
-        m_position += forward * deltaMsFloat * moveSpeed;
+        m_position += forward * deltaMsFloat * m_moveSpeed;
         m_cameraChanged = true;
     }
     if (m_window.isKeyDown(GLFW_KEY_S)) {
-        m_position += -forward * deltaMsFloat * moveSpeed;
+        m_position += -forward * deltaMsFloat * m_moveSpeed;
         m_cameraChanged = true;
     }
 

@@ -1,197 +1,168 @@
 #include "string_to_number.h"
-#include <cctype>
+#include "crack_atof.h"
+#include <algorithm>
+#include <array>
+#include <charconv>
 #include <chrono>
 #include <cstdlib>
-#include <iostream>
+#include <execution>
+#include <gsl/span>
+#include <spdlog/spdlog.h>
+#include <string>
 #include <string_view>
 #include <thread>
-#include <tuple>
-
-namespace python = boost::python;
-namespace np = boost::python::numpy;
-
-struct TokenResult {
-    std::string_view token;
-    std::string_view next;
-    int charsSkipped;
-};
-TokenResult getNextToken(std::string_view string)
-{
-    const int stringSize = static_cast<int>(string.size());
-
-    int tokenStart = 0;
-    while (tokenStart < stringSize && std::isspace(string[tokenStart])) {
-        tokenStart++;
-    }
-
-    if (tokenStart == stringSize)
-        return { {}, {}, 0 };
-
-    int tokenEnd = tokenStart;
-    while (tokenEnd < stringSize && !std::isspace(string[tokenEnd])) {
-        tokenEnd++;
-    }
-
-    return {
-        string.substr(tokenStart, tokenEnd - tokenStart),
-        string.substr(tokenEnd),
-        tokenEnd
-    };
-}
+#include <vector>
 
 template <typename T>
-T fromString(const char* t);
-
-template <>
-int fromString(const char* str)
+T fromString(std::string_view str)
 {
-    return std::atoi(str);
+    // <charconv> is fast and generic
+    T value;
+    std::from_chars(str.data(), str.data() + str.size(), value);
+    return value;
 }
 
 template <>
-float fromString(const char* str)
+float fromString(std::string_view str)
 {
-    char* dummy;
-    return std::strtof(str, &dummy);
+    /*// <charconv>
+    float value;
+    std::from_chars(str.data(), str.data() + str.size(), value);
+    return value;*/
+
+    // Faster than <charconv> on MSVC 19.23.28106.4 but not sure if it is a 100% correct
+    return static_cast<float>(crackAtof(str));
 }
 
 template <>
-double fromString(const char* str)
+double fromString(std::string_view str)
 {
-    return std::atof(str);
+    /*// <charconv>
+    double value;
+    std::from_chars(str.data(), str.data() + str.size(), value);
+    return value;*/
+
+    // Faster than <charconv> on MSVC 19.23.28106.4 but not sure if it is a 100% correct
+    return crackAtof(str);
+}
+
+constexpr std::array<bool, 256> compuateIsSpaceLUT()
+{
+    // https://en.cppreference.com/w/cpp/string/byte/isspace
+    std::array<bool, 256> lut {};
+    for (int c = 0; c < 256; c++)
+        lut[c] = (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v');
+    return lut;
+}
+
+inline bool isSpace(const char c)
+{
+    // Lookup table is faster than 6 comparisons
+    static constexpr std::array<bool, 256> lut = compuateIsSpaceLUT();
+    return lut[c];
+    //return c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v';
 }
 
 template <typename T>
-std::vector<T> stringToVectorThreaded(std::string_view string)
+std::vector<T> stringToVector(const std::string_view string)
 {
-    unsigned numThreads = std::thread::hardware_concurrency();
-    int approxPartSize = static_cast<int>(string.size() / numThreads);
-
-    // First pass to get the number of tokens (numbers)
-    std::vector<std::tuple<int, std::string_view>> parts;
-    TokenResult tr = {
-        {},
-        string,
-        0
-    };
-    int count = 0;
-    int currentChar = 0;
-    int partStartCount = 0;
-    int partStartChar = 0;
-    while (!tr.next.empty()) {
-        tr = getNextToken(tr.next);
-        if (tr.token.empty())
-            break;
-
-        count++;
-        currentChar += tr.charsSkipped;
-
-        if (currentChar - partStartChar > approxPartSize) {
-            parts.push_back({ partStartCount, std::string_view(string.data() + partStartChar, currentChar - partStartChar) });
-            partStartCount = count;
-            partStartChar = currentChar;
-        }
-    }
-    if (count != partStartCount) {
-        parts.push_back({ partStartCount, std::string_view(string.data() + partStartChar, currentChar - partStartChar) });
-    }
-
-    //std::cout << "Desired thread count: " << numThreads << std::endl;
-    //std::cout << "Actual thread count: " << parts.size() << std::endl;
-
-    // Allocate
-    std::vector<T> ret(count);
-
-    // Second pass
-    std::vector<std::thread> threadPool;
-    for (const auto [partStartIndex, partString] : parts) {
-        threadPool.push_back(std::thread([partStartIndex, partString, &ret]() {
-            int outIndex = partStartIndex;
-            TokenResult tr = {
-                {},
-                partString,
-                0
-            };
-            while (!tr.next.empty()) {
-                tr = getNextToken(tr.next);
-                if (!tr.token.empty()) {
-                    ret[outIndex++] = fromString<T>(tr.token.data());
-                }
-            }
-        }));
-    }
-
-    for (auto& thread : threadPool)
-        thread.join();
-
-    return ret;
-}
-
-template <typename T>
-std::vector<T> stringToVector(std::string_view string)
-{
-    // First pass to get the number of tokens (numbers)
-    size_t count = 0;
-    TokenResult tr = {
-        {},
-        string,
-        0
-    };
-    while (!tr.next.empty()) {
-        tr = getNextToken(tr.next);
-        if (!tr.token.empty())
-            count++;
-    }
-
     // Allocate
     std::vector<T> ret;
-    ret.reserve(count);
 
-    // Second pas
-    tr = {
-        {},
-        string,
-        0
-    };
-    while (!tr.next.empty()) {
-        tr = getNextToken(tr.next);
-        if (!tr.token.empty()) {
-            ret.push_back(fromString<T>(tr.token.data()));
-        }
+    const size_t stringSize = string.size();
+    size_t cursor = 0;
+    while (cursor < stringSize) {
+        // std::isspace is slow because it tries to be too generic (checking locale settings)
+        while (cursor < stringSize && isSpace(string[cursor]))
+            cursor++;
+
+        const size_t tokenStart = cursor;
+        while (cursor < stringSize && !isSpace(string[cursor]))
+            cursor++;
+
+        if (cursor == tokenStart)
+            break;
+
+        const std::string_view token = string.substr(tokenStart, cursor);
+        ret.push_back(fromString<T>(token));
     }
-
     return ret;
 }
 
 template <typename T>
-python::object stringToNumpy(python::str string)
+std::vector<T> stringToVectorParallel(const std::string_view string)
 {
-    const char* chars = python::extract<const char*>(string);
-    int length = python::extract<int>(string.attr("__len__")());
+    const size_t numTasks = std::thread::hardware_concurrency() * 8;
 
-    // Heap allocation so that it stays alive outside of this function
-    std::vector<T>* numbers;
-    if (length > 10 * 1000 * 1000) { // Use multi-threading if the string is over 10MB
-        numbers = new std::vector<T>(std::move(stringToVectorThreaded<T>(std::string_view(chars, length))));
-    } else {
-        numbers = new std::vector<T>(std::move(stringToVector<T>(std::string_view(chars, length))));
+    std::vector<std::string_view> blocks;
+    size_t prevBlockEnd = 0;
+    for (size_t i = 1; i < numTasks; i++) {
+        size_t cursor = i * (string.size() / numTasks);
+        while (cursor < string.size() && !isSpace(string[cursor]))
+            cursor++;
+
+        blocks.push_back(string.substr(prevBlockEnd, cursor - prevBlockEnd));
+        prevBlockEnd = cursor;
     }
+    blocks.push_back(string.substr(prevBlockEnd)); // Make sure final work block goes to end (no integer truncation issues)
 
-    // https://github.com/ndarray/Boost.NumPy/issues/28
-    boost::python::handle<> h(::PyCapsule_New((void*)numbers, "numpy_array_from_string", [](PyObject* obj) {
-        auto* b = reinterpret_cast<std::vector<T>*>(PyCapsule_GetPointer(obj, "numpy_array_from_string"));
-        if (b) {
-            delete b;
-        }
-    }));
+    std::vector<std::vector<T>> partialResults { numTasks };
+    std::transform(
+        std::execution::par_unseq,
+        std::begin(blocks),
+        std::end(blocks),
+        std::begin(partialResults),
+        [](std::string_view partialStr) {
+            return stringToVector<T>(partialStr);
+        });
 
-    np::dtype dt = np::dtype::get_builtin<T>();
-    auto shape = python::make_tuple(numbers->size());
-    auto stride = python::make_tuple(sizeof(T));
+    size_t finalCount = 0;
+    for (const auto& partialResult : partialResults)
+        finalCount += partialResult.size();
 
-    return np::from_data(numbers->data(), dt, shape, stride, python::object(h));
+    std::vector<T> finalResults;
+    finalResults.resize(finalCount);
+    size_t offset = 0;
+    for (const auto& partialResult : partialResults) {
+        // Slightly faster than std::copy
+        std::memcpy(finalResults.data() + offset, partialResults.data(), partialResults.size());
+        offset += partialResults.size();
+
+        //std::copy(std::begin(partialResult), std::end(partialResult), std::back_inserter(finalResults));
+    }
+    return finalResults;
 }
 
-template python::object stringToNumpy<int>(python::str string);
-template python::object stringToNumpy<float>(python::str string);
-template python::object stringToNumpy<double>(python::str string);
+template <typename T>
+pybind11::array_t<T> toNumpyArray(gsl::span<const T> items)
+{
+    pybind11::array_t<T> outArray { static_cast<pybind11::size_t>(items.size()) };
+    for (int i = 0; i < items.size(); i++)
+        outArray.mutable_at(i) = items[i];
+    return outArray;
+}
+
+template <typename T>
+pybind11::array_t<T> stringToNumpy(std::string_view string)
+{
+    //const char* chars = python::extract<const char*>(string);
+    //int length = python::extract<int>(string.attr("__len__")());
+
+    // Heap allocation so that it stays alive outside of this function
+    std::vector<T> numbers;
+    if (string.size() > 5 * 1024 * 1024) { // Use multi-threading if the string is over 5MB
+        numbers = stringToVectorParallel<T>(string);
+    } else {
+        numbers = stringToVector<T>(string);
+    }
+
+    return toNumpyArray<T>(numbers);
+}
+
+template pybind11::array_t<float> stringToNumpy<float>(std::string_view string);
+template pybind11::array_t<double> stringToNumpy<double>(std::string_view string);
+template pybind11::array_t<int32_t> stringToNumpy<int32_t>(std::string_view string);
+template pybind11::array_t<int64_t> stringToNumpy<int64_t>(std::string_view string);
+template pybind11::array_t<uint32_t> stringToNumpy<uint32_t>(std::string_view string);
+template pybind11::array_t<uint64_t> stringToNumpy<uint64_t>(std::string_view string);
+

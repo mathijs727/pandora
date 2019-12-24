@@ -64,14 +64,13 @@ float MicrofacetReflection::pdf(const glm::vec3& wo, const glm::vec3& wi) const
     return m_distribution.pdf(wo, wh) / (4 * glm::dot(wo, wh));
 }
 
-MicrofacetTransmission::MicrofacetTransmission(const Spectrum& t, const MicrofacetDistribution& distribution, float etaA, float etaB, TransportMode mode)
+MicrofacetTransmission::MicrofacetTransmission(const Spectrum& t, const MicrofacetDistribution& distribution, float etaA, float etaB)
     : BxDF(BxDFType(BSDF_TRANSMISSION | BSDF_GLOSSY))
     , m_t(t)
     , m_distribution(distribution)
     , m_etaA(etaA)
     , m_etaB(etaB)
     , m_fresnel(etaA, etaB)
-    , m_mode(mode)
 
 {
 }
@@ -96,7 +95,8 @@ Spectrum MicrofacetTransmission::f(const glm::vec3& wo, const glm::vec3& wi) con
     Spectrum f = m_fresnel.evaluate(glm::dot(wo, wh));
 
     float sqrtDenom = glm::dot(wo, wh) + eta * glm::dot(wi, wh);
-    float factor = (m_mode == TransportMode::Radiance) ? (1.0f / eta) : 1.0f;
+    //float factor = (m_mode == TransportMode::Radiance) ? (1.0f / eta) : 1.0f;
+    float factor = 1.0f / eta;
 
     // clang-format off
 	return (Spectrum(1.f) - f) * m_t *

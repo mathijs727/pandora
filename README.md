@@ -7,14 +7,24 @@ Some parts of the code are directly based on, or inspired by, [PBRTv3](https://g
 Exploiting self-similarity in geometry for voxel based solid modeling](https://dl.acm.org/citation.cfm?id=781631). Finally, SVDAG traversal was implemented using SSE instructions based on a stripped down version of the GPU traversal algorithm presented in [Efficient Sparse Voxel Octrees](https://research.nvidia.com/publication/efficient-sparse-voxel-octrees).
 
 ## Dependencies
-To build Pandora, CMake and a C++17 compliant compiler and standard library are needed. The user is responsible for installing all the required libraries except for GSL, EASTL, mio, libmorton and tinylpy (which are included as git submodules because they are not commonly found in package managers).
+Pandora rellies on a significant amount of third-party libraries. To make installation easy we include the [package manager manager (pmm)](https://github.com/AnotherFoxGuy/pmm) (forked from [link](https://github.com/vector-of-bool/pmm)) which automatically downloads [vcpkg](https://github.com/microsoft/vcpkg) and installs the required packages.
+
+### Building on Windows
+
+All dependencies will be downloaded and build automatically. Users that have vcpkg installed and are using Visual Studio with CMake integration should make sure to set `CMAKE_TOOLCHAIN_FILE=""` in Visual Studio's CMake settings file (`CMakeSettings.json`).
+
+### Building on Linux
+
+At the time of writing vcpkg cannot build `hpx` because vcpkg does support building `hwloc` on Linux. To work around this issue we provide a modified portfile on Linux which disables the hwloc dependency. Linux users are required to install `hwloc` and `TCMalloc` manually:
+`sudo apt install libhwloc-dev libgoogle-perftools-dev`
 
 Pandora uses the following third-party libraries:
  - [Guideline Support Library](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md) ([implemented by Microsoft](https://github.com/Microsoft/GSL))
+ - [HPX](https://github.com/STEllAR-GROUP/hpx)
  - [TBB](https://github.com/01org/tbb)
- - [Embree 3](https://embree.github.io)
+ - [Embree](https://embree.github.io)
  - [GLM](https://github.com/g-truc/glm)
- - [Assimp](https://github.com/assimp/assimp)
+ - [assimp](https://github.com/assimp/assimp)
  - [tinyply](https://github.com/ddiakopoulos/tinyply)
  - [OpenImageIO](https://github.com/OpenImageIO/oiio)
  - [EASTL](https://github.com/electronicarts/EASTL) (bundled)
@@ -32,29 +42,6 @@ In addition Atlas, the real-time viewer, requires:
  - [GLFW3](http://www.glfw.org/)
  - [GLEW](http://glew.sourceforge.net/)
  - OpenGL
-
-### Windows
-
-On Windows it is recommended to use [vcpkg](https://github.com/Microsoft/vcpkg) to install all required dependencies except Embree (until vcpkg is updated to contain Embree 3).
-
-To get an updated version of Embree, simply build it from source using TBB installed through vcpkg:
-
-```bash
-vcpkg install tbb:x64-windows
-git clone git@github.com:embree/embree.git
-cd embree
-mkdir build
-cd build
-cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DEMBREE_ISPC_SUPPORT=OFF -DEMBREE_TBB_ROOT="/path_to_vcpkg/installed/x64-windows" ../
-ninja
-ninja install
-```
-
-### Arch Linux (and Arch based distros)
-
-All dependencies can be installed through pacman and yaourt (to access the Arch User Repository). Travis currently also uses Arch Linux (in a Docker container) to install all the dependencies.
-
-At the time of writing, the latest release of OpenEXR (included by OpenImageIO) contains header files that are not C++17 compliant. A work-around is to replace the problematic files with updated copies from the OpenImageIO master branch (see Travis as a reference).
 
 
 ## Projects

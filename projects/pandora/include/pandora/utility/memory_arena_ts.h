@@ -6,7 +6,6 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
-#include <tbb/enumerable_thread_specific.h>
 #include <tuple>
 #include <vector>
 
@@ -22,19 +21,20 @@ public:
     template <typename T>
     struct HandleN {
     public:
-		HandleN() = default;
+        HandleN() = default;
         HandleN(uint32_t block, uint32_t offsetInBytes, uint8_t N);
 
-		// These functions may be called in parallel with allocate calls
+        // These functions may be called in parallel with allocate calls
         T& get(MemoryArenaTS& arena);
         const T& get(const MemoryArenaTS& arena);
 
-		// Faster than regular get BUT no thread synchronization (don't call allocate at the same time)
-		T& getUnsafe(MemoryArenaTS& arena);
+        // Faster than regular get BUT no thread synchronization (don't call allocate at the same time)
+        T& getUnsafe(MemoryArenaTS& arena);
         const T& getUnsafe(const MemoryArenaTS& arena);
 
-		HandleN<T>& operator++();
-		HandleN<T> operator++(int);
+        HandleN<T>& operator++();
+        HandleN<T> operator++(int);
+
     private:
         uint32_t byteInBlock;
 #if MEMORY_ARENA_TS_BOUNDS_CHECK == 1
@@ -68,12 +68,11 @@ private:
     void* tryAlignedAllocInCurrentBlock(size_t amount, size_t alignment);
 
 private:
-	template <typename T>
-	struct MemoryAlignment
-	{
-		static constexpr size_t alignment = std::alignment_of_v<T>;
-		static constexpr size_t sizeWithAlignment = sizeof(T) + (alignment - 1 - (sizeof(T) - 1) % alignment);
-	};
+    template <typename T>
+    struct MemoryAlignment {
+        static constexpr size_t alignment = std::alignment_of_v<T>;
+        static constexpr size_t sizeWithAlignment = sizeof(T) + (alignment - 1 - (sizeof(T) - 1) % alignment);
+    };
 
     // Global allocation pool
     const uint32_t m_memoryBlockSize;
@@ -84,17 +83,17 @@ private:
     struct ThreadLocalData {
         ThreadLocalData()
             : data(nullptr)
-			, start(nullptr)
+            , start(nullptr)
             , blockIndex(0)
             , space(0)
         {
         }
-		std::byte* data;
-		std::byte* start;
+        std::byte* data;
+        std::byte* start;
         uint32_t blockIndex;
         uint32_t space; // In bytes
     };
-    tbb::enumerable_thread_specific<ThreadLocalData> m_threadLocalBlocks;
+    std::vector<ThreadLocalData> m_threadLocalBlocks;
 };
 
 template <typename T>
@@ -107,6 +106,7 @@ inline MemoryArenaTS::HandleN<T>::HandleN(uint32_t block, uint32_t offsetInBytes
 #else
     , block(block)
 #endif
+    , m_threadLocalBlocks(hpx::get_num_worker_threads())
 {
 }
 
@@ -140,24 +140,24 @@ inline const T& MemoryArenaTS::HandleN<T>::getUnsafe(const MemoryArenaTS& arena)
 template <class T>
 inline MemoryArenaTS::Handle<T>& MemoryArenaTS::HandleN<T>::operator++()
 {
-	byteInBlock += MemoryAlignment<T>::sizeWithAlignment;
+    byteInBlock += MemoryAlignment<T>::sizeWithAlignment;
 #if MEMORY_ARENA_TS_BOUNDS_CHECK == 1
-	i++;
-	assert(i < N);
+    i++;
+    assert(i < N);
 #endif
-	return *this;
+    return *this;
 }
 
 template <class T>
 inline MemoryArenaTS::Handle<T> MemoryArenaTS::HandleN<T>::operator++(int)
 {
-	Handle<T> result = *this;
-	byteInBlock += MemoryAlignment<T>::sizeWithAlignment;
+    Handle<T> result = *this;
+    byteInBlock += MemoryAlignment<T>::sizeWithAlignment;
 #if MEMORY_ARENA_TS_BOUNDS_CHECK == 1
-	i++;
-	assert(i < N);
+    i++;
+    assert(i < N);
 #endif
-	return result;
+    return result;
 }
 
 template <class T, class... Args>
@@ -170,9 +170,9 @@ template <class T, uint8_t N, class... Args>
 inline std::pair<MemoryArenaTS::HandleN<T>, T*> MemoryArenaTS::allocateN(Args... args)
 {
     // Amount of bytes to allocate
-	constexpr size_t alignment = MemoryAlignment<T>::alignment;
-	constexpr size_t sizeWithAlignment = MemoryAlignment<T>::sizeWithAlignment;
-	constexpr size_t amount = N * sizeWithAlignment;
+    constexpr size_t alignment = MemoryAlignment<T>::alignment;
+    constexpr size_t sizeWithAlignment = MemoryAlignment<T>::sizeWithAlignment;
+    constexpr size_t amount = N * sizeWithAlignment;
     static_assert(sizeWithAlignment >= sizeof(T));
     static_assert(amount % alignment == 0);
 
@@ -180,15 +180,15 @@ inline std::pair<MemoryArenaTS::HandleN<T>, T*> MemoryArenaTS::allocateN(Args...
     assert(amount <= m_memoryBlockSize);
 
     // If it is not going to fit in the current block then allocate a new one
-    if (m_threadLocalBlocks.local().space < amount) {
+    if (m_threadLocalBlocks[hpx::get_worker_thread_num()].space < amount) {
         allocateBlock();
     }
 
     {
         // Try to make an aligned allocation in the current block
-        auto localBlock = m_threadLocalBlocks.local();
+        auto localBlock = m_threadLocalBlocks[hpx::get_worker_thread_num()];
         if (void* ptr = tryAlignedAllocInCurrentBlock(amount, alignment)) {
-			size_t offsetInBytes = reinterpret_cast<std::byte*>(ptr) - localBlock.start;
+            size_t offsetInBytes = reinterpret_cast<std::byte*>(ptr) - localBlock.start;
 
             // Run constructors
             T* tPtr = reinterpret_cast<T*>(ptr);
@@ -197,37 +197,36 @@ inline std::pair<MemoryArenaTS::HandleN<T>, T*> MemoryArenaTS::allocateN(Args...
             }
 
             auto result = HandleN<T>(localBlock.blockIndex, (uint32_t)offsetInBytes, N);
-			assert(&result.get(*this) == ptr);
-			return { result, tPtr };
+            assert(&result.get(*this) == ptr);
+            return { result, tPtr };
         }
     }
 
     // Allocation failed because the block did not have enough space (taking into account alignment). Allocate a new block and try again
     allocateBlock();
 
-	{
-		// Try again
-		auto localBlock = m_threadLocalBlocks.local();
-		if (void* ptr = tryAlignedAllocInCurrentBlock(amount, alignment)) {
-			size_t offsetInBytes = reinterpret_cast<std::byte*>(ptr) - localBlock.start;
+    {
+        // Try again
+        auto localBlock = m_threadLocalBlocks[hpx::get_worker_thread_num()];
+        if (void* ptr = tryAlignedAllocInCurrentBlock(amount, alignment)) {
+            size_t offsetInBytes = reinterpret_cast<std::byte*>(ptr) - localBlock.start;
 
-			// Run constructors
-			T* tPtr = reinterpret_cast<T*>(ptr);
-			for (uint8_t i = 0; i < N; i++) {
-				new (tPtr + i) T(std::forward<Args>(args)...);
-			}
+            // Run constructors
+            T* tPtr = reinterpret_cast<T*>(ptr);
+            for (uint8_t i = 0; i < N; i++) {
+                new (tPtr + i) T(std::forward<Args>(args)...);
+            }
 
-			auto result = HandleN<T>(localBlock.blockIndex, (uint32_t)offsetInBytes, N);
-			assert(&result.get(*this) == ptr);
-			return { result, tPtr };
-		}
+            auto result = HandleN<T>(localBlock.blockIndex, (uint32_t)offsetInBytes, N);
+            assert(&result.get(*this) == ptr);
+            return { result, tPtr };
+        }
 
-
-		// If it failed again then we either ran out of memory or the amount we tried to allocate does not fit in our memory pool
-		//return nullptr;
-		THROW_ERROR("Could not allocate more memory!");
-		return { HandleN <T>(), nullptr };
-	}
+        // If it failed again then we either ran out of memory or the amount we tried to allocate does not fit in our memory pool
+        //return nullptr;
+        THROW_ERROR("Could not allocate more memory!");
+        return { HandleN<T>(), nullptr };
+    }
 }
 
 /*template <class T>

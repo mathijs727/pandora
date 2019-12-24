@@ -1,5 +1,5 @@
 #pragma once
-#include "pandora/core/bxdf.h"
+#include "pandora/graphics_core/bxdf.h"
 
 namespace pandora {
 class ScaledBxDF : public BxDF {

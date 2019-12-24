@@ -18,6 +18,9 @@ configure_file("${CMAKE_CURRENT_LIST_DIR}/shaders/atlas_output.vs" "${CMAKE_CURR
 
 target_link_libraries(atlas PRIVATE 
 	libPandora
+	libPbrt_importer2
+	libPbf_importer
+	Boost::program_options
 	glfw
 	OpenGL::GL
     GLEW::GLEW)

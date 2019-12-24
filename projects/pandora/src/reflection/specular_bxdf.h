@@ -1,7 +1,7 @@
 #pragma once
 #include "fresnel.h"
-#include "pandora/core/bxdf.h"
-#include "pandora/core/pandora.h"
+#include "pandora/graphics_core/bxdf.h"
+#include "pandora/graphics_core/pandora.h"
 
 namespace pandora {
 class SpecularReflection : public BxDF {
@@ -18,7 +18,7 @@ private:
 
 class SpecularTransmission : public BxDF {
 public:
-    SpecularTransmission(const Spectrum& t, float etaA, float etaB, TransportMode mode);
+    SpecularTransmission(const Spectrum& t, float etaA, float etaB);
 
     Spectrum f(const glm::vec3& wo, const glm::vec3& wi) const final;
     Sample sampleF(const glm::vec3& wo, const glm::vec2& sample, BxDFType sampledType) const final;
@@ -27,21 +27,19 @@ private:
     const Spectrum m_t;
     const float m_etaA, m_etaB;
     const FresnelDielectric m_fresnel;
-    const TransportMode m_mode;
 };
 
 class FresnelSpecular : public BxDF {
 public:
-    FresnelSpecular(const Spectrum& r, const Spectrum& t, float etaA, float etaB, TransportMode transportMode);
+    FresnelSpecular(const Spectrum& r, const Spectrum& t, float etaA, float etaB);
 
     Spectrum f(const glm::vec3& wo, const glm::vec3& wi) const final;
     Sample sampleF(const glm::vec3& wo, const glm::vec2& sample, BxDFType sampledType) const final;
 
 private:
-    const Spectrum m_r, m_t;
-    const float m_etaA, m_etaB;
+    //const Spectrum m_r, m_t;
+    //const float m_etaA, m_etaB;
     const FresnelDielectric m_fresnel;
-    const TransportMode m_mode;
 };
 
 }

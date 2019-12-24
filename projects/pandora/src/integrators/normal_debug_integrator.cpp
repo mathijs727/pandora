@@ -1,59 +1,124 @@
+// clang-format off
+#include "pandora/graphics_core/sensor.h"
+// clang-format on
 #include "pandora/integrators/normal_debug_integrator.h"
-#include "pandora/core/perspective_camera.h"
-#include <tbb/blocked_range2d.h>
-#include <tbb/parallel_for.h>
+#include "pandora/core/stats.h"
+#include "pandora/graphics_core/interaction.h"
+#include "pandora/graphics_core/perspective_camera.h"
+#include "pandora/graphics_core/ray.h"
+#include <optick/optick.h>
 
 namespace pandora {
 
-NormalDebugIntegrator::NormalDebugIntegrator(const Scene& scene, Sensor& sensor)
-    : Integrator(scene, sensor, 1)
-    , m_resolution(sensor.getResolution())
+NormalDebugIntegrator::NormalDebugIntegrator(
+    tasking::TaskGraph* pTaskGraph)
+    : m_pTaskGraph(pTaskGraph)
+    , m_hitTask(
+          pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, RayState>>(
+              "NormalDebugIntegrator::hit",
+              [this](gsl::span<const std::tuple<Ray, SurfaceInteraction, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
+                  for (const auto& [ray, si, state] : hits) {
+                      this->rayHit(ray, si, state);
+                  }
+              }))
+    , m_missTask(
+          pTaskGraph->addTask<std::tuple<Ray, RayState>>(
+              "NormalDebugIntegrator::miss",
+              [this](gsl::span<const std::tuple<Ray, RayState>> misses, std::pmr::memory_resource* pMemoryResource) {
+                  for (const auto& [ray, state] : misses) {
+                      this->rayMiss(ray, state);
+                  }
+              }))
+    , m_anyHitTask(
+          pTaskGraph->addTask<std::tuple<Ray, AnyRayState>>(
+              "NormalDebugIntegrator::anyHit",
+              [this](gsl::span<const std::tuple<Ray, AnyRayState>> hits, std::pmr::memory_resource* pMemoryResource) {
+                  for (const auto& [ray, state] : hits) {
+                      this->rayAnyHit(ray, state);
+                  }
+              }))
+    , m_anyMissTask(
+          pTaskGraph->addTask<std::tuple<Ray, AnyRayState>>(
+              "NormalDebugIntegrator::anyMiss",
+              [this](gsl::span<const std::tuple<Ray, AnyRayState>> misses, std::pmr::memory_resource* pMemoryResource) {
+                  for (const auto& [ray, state] : misses) {
+                      this->rayAnyMiss(ray, state);
+                  }
+              }))
 {
 }
 
-void NormalDebugIntegrator::reset()
+void NormalDebugIntegrator::render(int concurrentPaths, const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed)
+{
+    (void)seed;
+
+    m_pCamera = &camera;
+    m_pSensor = &sensor;
+    m_currentRayIndex.store(0);
+    m_resolution = sensor.getResolution();
+    m_fResolution = sensor.getResolution();
+    m_maxPixelIndex = m_resolution.x * m_resolution.y;
+    m_pAccelerationStructure = &accel;
+
+    // Spawn initial rays
+    spawnNewPaths(concurrentPaths);
+    m_pTaskGraph->run();
+}
+
+void NormalDebugIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, const RayState& state)
+{
+    // glm::abs(glm::normalize(si.normal))
+    const float cos = glm::dot(si.normal, -ray.direction);
+    m_pSensor->addPixelContribution(state.pixel, cos * si.shading.batchingPointColor);
+    spawnNewPaths(1);
+}
+
+void NormalDebugIntegrator::rayMiss(const Ray& ray, const RayState& state)
+{
+    spawnNewPaths(1);
+}
+
+void NormalDebugIntegrator::rayAnyHit(const Ray& ray, const AnyRayState& state)
 {
 }
 
-void NormalDebugIntegrator::render(const PerspectiveCamera& camera)
-{
-    // RAII stopwatch
-    auto stopwatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
-
-    // Generate camera rays
-    tbb::blocked_range2d<int, int> sensorRange(0, m_resolution.y, 0, m_resolution.x);
-    tbb::parallel_for(sensorRange, [&](tbb::blocked_range2d<int, int> localRange) {
-        auto rows = localRange.rows();
-        auto cols = localRange.cols();
-        for (int y = rows.begin(); y < rows.end(); y++) {
-            for (int x = cols.begin(); x < cols.end(); x++) {
-                glm::ivec2 pixel { x, y };
-                NormalDebugIntegratorState rayState { pixel };
-
-                CameraSample cameraSample = { glm::vec2(pixel) + glm::vec2(0.5f) };
-                Ray ray = camera.generateRay(cameraSample);
-                m_accelerationStructure.placeIntersectRequests(gsl::make_span(&ray, 1), gsl::make_span(&rayState, 1));
-            }
-        }
-    });
-
-    m_accelerationStructure.flush();
-}
-
-void NormalDebugIntegrator::rayHit(const Ray& r, SurfaceInteraction si, const NormalDebugIntegratorState& s)
-{
-    //if (s.pixel.x == 780 && s.pixel.y == 155) {
-    //    std::cout << "Plane scene object ID: " << si.sceneObjectMaterial->sceneObjectID << "\n";
-    // }
-    m_sensor.addPixelContribution(s.pixel, glm::abs(glm::normalize(si.normal)));
-}
-
-void NormalDebugIntegrator::rayAnyHit(const Ray& r, const NormalDebugIntegratorState& s)
+void NormalDebugIntegrator::rayAnyMiss(const Ray& ray, const AnyRayState& state)
 {
 }
 
-void NormalDebugIntegrator::rayMiss(const Ray& r, const NormalDebugIntegratorState& s)
+void NormalDebugIntegrator::spawnNewPaths(int numPaths)
 {
+    int startIndex = m_currentRayIndex.fetch_add(numPaths);
+    int endIndex = std::min(startIndex + numPaths, m_maxPixelIndex);
+
+    for (int pixelIndex = startIndex; pixelIndex < endIndex; pixelIndex++) {
+        int x = pixelIndex % m_resolution.x;
+        int y = pixelIndex / m_resolution.x;
+
+        const glm::vec2 cameraSample = glm::vec2(x, y) / m_fResolution;
+        const Ray cameraRay = m_pCamera->generateRay(cameraSample);
+        m_pAccelerationStructure->intersect(cameraRay, RayState { glm::ivec2 { x, y } });
+    }
+}
+
+NormalDebugIntegrator::HitTaskHandle NormalDebugIntegrator::hitTaskHandle() const
+{
+    return m_hitTask;
+}
+
+NormalDebugIntegrator::MissTaskHandle NormalDebugIntegrator::missTaskHandle() const
+{
+    return m_missTask;
+}
+
+NormalDebugIntegrator::AnyHitTaskHandle NormalDebugIntegrator::anyHitTaskHandle() const
+{
+    return m_anyHitTask;
+}
+
+NormalDebugIntegrator::AnyMissTaskHandle NormalDebugIntegrator::anyMissTaskHandle() const
+{
+    return m_anyMissTask;
 }
 
 }
