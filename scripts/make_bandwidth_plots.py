@@ -103,11 +103,48 @@ def plot_bandwidth_usage(ooc_stats):
 	plt.show()
 
 
+
+def plot_total_render_time(ooc_stats):
+	# brewer2mpl.get_map args: set name  set type  number of colors
+	bmap = brewer2mpl.get_map('Dark2', 'qualitative', 3)
+	colors = bmap.mpl_colors
+
+	fig = plt.figure(figsize=(8, 6))
+	ax = fig.gca()
+	for i, (scene, scene_stats) in enumerate(ooc_stats.items()):
+		for culling in [True, False]:
+			x = np.array([int(res) for res in scene_stats.keys()])
+			y = np.array([np.mean([total_render_time(run_stats[-1]["data"]) for run_stats in culling_stats[culling]])
+						for culling_stats in scene_stats.values()])
+			indices = np.argsort(x)
+			x = x[indices][:4]
+			y = y[indices][:4]
+			if culling:
+				ax.plot(x, y, label=f"{scene} - culling",
+					color=colors[i], **plot_style, linestyle="--")
+			else:
+				ax.plot(x, y, label=scene,
+					color=colors[i], **plot_style)
+
+	ax.tick_params("both", length=10, width=1.5, which="major", direction="in")
+	ax.tick_params("both", length=10, width=1, which="minor", direction="in")
+	ax.set_xlabel("Memory Limit")
+	ax.set_ylabel("Disk Bandwidth") # Per batching point
+	#ax.set_xscale("log", basex=2)
+	#ax.set_yscale("linear")
+	ax.set_ylim(bottom=0)
+	#ax.xaxis.set_major_formatter(mpl.ticker.ScalarFormatter())
+	ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter("%ds"))
+	ax.legend(prop={"size": font_size}, frameon=False)
+	fig.tight_layout()
+	#fig.savefig("svdag_memory_usage.pdf", bbox_inches="tight")
+	plt.show()
+
+
 if __name__ == "__main__":
-	results_folder = "C:/Users/mathijs/Desktop/Euro Graphics/New Results/mem_limit_in_memory_scheds2"
-	svdag_results = parse_ooc_stats(results_folder)
+	results_folder = "C:/Users/mathijs/Desktop/mem_limit_performance"
+	ooc_results = parse_ooc_stats(results_folder)
 
 	configure_mpl()
-	#plot_svdag_res_vs_memory_usage(svdag_results)
-	#plot_svdag_traversal_time(svdag_results)
-	plot_bandwidth_usage(svdag_results)
+	#plot_bandwidth_usage(svdag_results)
+	plot_total_render_time(ooc_results)
