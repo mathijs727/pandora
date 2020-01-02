@@ -4,6 +4,7 @@ import json
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import matplotlib.patches as mpatches
 import brewer2mpl
 import numpy as np
 from helpers import read_time_value
@@ -66,48 +67,121 @@ def parse_ooc_stats(results_folder):
 	return results
 
 
-def plot_bandwidth_usage(ooc_stats):
+def plot_total_render_time(ooc_stats):
+	xlabels = ("60%", "70%", "80%", "90%")#, "100%")
+
+	N = len(xlabels)
+	ind = np.arange(0, N)  # The x locations for the groups
+
+	num_scenes = len(ooc_stats)
+	width = 0.2  # Width of the bars
+	inner_margin = 0.05
+
 	# brewer2mpl.get_map args: set name  set type  number of colors
 	bmap = brewer2mpl.get_map('Dark2', 'qualitative', 3)
 	colors = bmap.mpl_colors
 
-	fig = plt.figure(figsize=(8, 6))
+	fig = plt.figure(figsize=(12, 6))
 	ax = fig.gca()
+	bars = []
 	for i, (scene, scene_stats) in enumerate(ooc_stats.items()):
-		for culling in [True, False]:
-			x = np.array([int(res) for res in scene_stats.keys()])
+		offset = (i - len(ooc_stats)//2) * (width + inner_margin)
+
+		for culling in [False, True]:
+			x = np.array([int(lim) for lim in scene_stats.keys()])
+			y = np.array([np.mean([total_render_time(run_stats[-1]["data"]) for run_stats in culling_stats[culling]])
+						for culling_stats in scene_stats.values()])
+			indices = np.argsort(x)[:-1]
+			x = x[indices]
+			y = y[indices]
+			if culling:
+				ax.bar(ind + offset, y, width=width, bottom=0, color=colors[i], hatch="//", edgecolor="black", linewidth=1)
+				pass
+			else:
+				bar = ax.bar(ind + offset, y, width=width, bottom=0, color=colors[i], edgecolor="black", linewidth=1)
+				bars.append(bar)
+
+	ax.set_xticks(ind)
+	ax.set_xticklabels(xlabels)
+	
+	ax.set_xlabel("Geometry Memory Limit")
+	ax.set_ylabel("Render Time") # Per batching point
+	ax.set_ylim(bottom=0)
+	ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter("%ds"))
+
+	wo_culling = mpatches.Patch(edgecolor="black", facecolor="gray")
+	w_culling = mpatches.Patch(edgecolor="black", facecolor="gray", hatch="//")
+	ax.legend(
+		bars + [wo_culling, w_culling],
+		[scene.title() for scene in ooc_stats.keys()] + ["Standard", "Early-Out"],
+		prop={"size": font_size},
+		ncol=2)
+
+	fig.tight_layout()
+	fig.savefig("total_render_time.pdf", bbox_inches="tight")
+	#plt.show()
+
+
+def plot_bandwidth_usage(ooc_stats):
+	xlabels = ("60%", "70%", "80%", "90%")#, "100%")
+
+	N = len(xlabels)
+	ind = np.arange(0, N)  # The x locations for the groups
+
+	num_scenes = len(ooc_stats)
+	width = 0.2  # Width of the bars
+	inner_margin = 0.05
+
+	# brewer2mpl.get_map args: set name  set type  number of colors
+	bmap = brewer2mpl.get_map('Dark2', 'qualitative', 3)
+	colors = bmap.mpl_colors
+
+	fig = plt.figure(figsize=(12, 6))
+	ax = fig.gca()
+	bars = []
+	for i, (scene, scene_stats) in enumerate(ooc_stats.items()):
+		offset = (i - len(ooc_stats)//2) * (width + inner_margin)
+
+		for culling in [False, True]:
+			x = np.array([int(lim) for lim in scene_stats.keys()])
 			y = np.array([np.mean([disk_bandwidth(run_stats[-1]["data"]) / 1000000000 for run_stats in culling_stats[culling]])
 						for culling_stats in scene_stats.values()])
-			indices = np.argsort(x)
-			x = x[indices][:4]
-			y = y[indices][:4]
+			indices = np.argsort(x)[:-1]
+			x = x[indices]
+			y = y[indices]
 			if culling:
-				ax.plot(x, y, label=f"{scene} - culling",
-					color=colors[i], **plot_style, linestyle="--")
+				ax.bar(ind + offset, y, width=width, bottom=0, color=colors[i], hatch="//", edgecolor="black", linewidth=1)
+				pass
 			else:
-				ax.plot(x, y, label=scene,
-					color=colors[i], **plot_style)
+				bar = ax.bar(ind + offset, y, width=width, bottom=0, color=colors[i], edgecolor="black", linewidth=1)
+				bars.append(bar)
 
-	ax.tick_params("both", length=10, width=1.5, which="major", direction="in")
-	ax.tick_params("both", length=10, width=1, which="minor", direction="in")
-	ax.set_xlabel("Memory Limit")
+	ax.set_xticks(ind)
+	ax.set_xticklabels(xlabels)
+	
+	ax.set_xlabel("Geometry Memory Limit")
 	ax.set_ylabel("Disk Bandwidth") # Per batching point
-	#ax.set_xscale("log", basex=2)
-	#ax.set_yscale("linear")
 	ax.set_ylim(bottom=0)
-	#ax.xaxis.set_major_formatter(mpl.ticker.ScalarFormatter())
 	ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter("%dGB"))
-	ax.legend(prop={"size": font_size}, frameon=False)
+
+	wo_culling = mpatches.Patch(edgecolor="black", facecolor="gray")
+	w_culling = mpatches.Patch(edgecolor="black", facecolor="gray", hatch="//")
+	ax.legend(
+		bars + [wo_culling, w_culling],
+		[scene.title() for scene in ooc_stats.keys()] + ["Standard", "Early-Out"],
+		prop={"size": font_size},
+		ncol=2)
+
 	fig.tight_layout()
-	#fig.savefig("svdag_memory_usage.pdf", bbox_inches="tight")
-	plt.show()
+	fig.savefig("bandwidth_usage.pdf", bbox_inches="tight")
+	#plt.show()
 
 
 if __name__ == "__main__":
-	results_folder = "C:/Users/mathijs/Desktop/Euro Graphics/New Results/mem_limit_in_memory_scheds2"
-	svdag_results = parse_ooc_stats(results_folder)
+	results_folder = "C:/Users/mathijs/Desktop/Euro Graphics/New Results/mem_limit_performance/"
+	stats = parse_ooc_stats(results_folder)
 
 	configure_mpl()
-	#plot_svdag_res_vs_memory_usage(svdag_results)
-	#plot_svdag_traversal_time(svdag_results)
-	plot_bandwidth_usage(svdag_results)
+	
+	plot_total_render_time(stats)
+	#plot_bandwidth_usage(stats)
