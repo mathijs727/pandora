@@ -76,7 +76,6 @@ private:
 template <typename HitRayState, typename AnyHitRayState>
 inline std::optional<SurfaceInteraction> EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectDebug(const Ray& ray) const
 {
-    RTCIntersectContext context {};
 
     RTCRayHit embreeRayHit;
     embreeRayHit.ray.org_x = ray.origin.x;
@@ -98,13 +97,15 @@ inline std::optional<SurfaceInteraction> EmbreeAccelerationStructure<HitRayState
     for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
         embreeRayHit.hit.instID[i] = RTC_INVALID_GEOMETRY_ID;
     }
+    RTCIntersectContext context;
+    rtcInitIntersectContext(&context);
     rtcIntersect1(m_embreeScene, &context, &embreeRayHit);
 
     if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
         std::optional<glm::mat4> transform;
         const SceneObject* pSceneObject { nullptr };
 
-        if (embreeRayHit.hit.instID[0] == 0) {
+        if (embreeRayHit.hit.instID[0] == RTC_INVALID_GEOMETRY_ID) {
             pSceneObject = reinterpret_cast<const SceneObject*>(
                 rtcGetGeometryUserData(rtcGetGeometry(m_embreeScene, embreeRayHit.hit.geomID)));
         } else {
@@ -112,7 +113,7 @@ inline std::optional<SurfaceInteraction> EmbreeAccelerationStructure<HitRayState
             RTCScene scene = m_embreeScene;
             for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
                 unsigned geomID = embreeRayHit.hit.instID[i];
-                if (geomID == 0)
+                if (geomID == RTC_INVALID_GEOMETRY_ID)
                     break;
 
                 RTCGeometry geometry = rtcGetGeometry(scene, geomID);
@@ -200,7 +201,6 @@ template <typename HitRayState, typename AnyHitRayState>
 inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectKernel(
     gsl::span<const std::tuple<Ray, HitRayState>> data, std::pmr::memory_resource* pMemoryResource)
 {
-    RTCIntersectContext context {};
     for (auto [ray, state] : data) {
         RTCRayHit embreeRayHit;
         embreeRayHit.ray.org_x = ray.origin.x;
@@ -220,13 +220,16 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
         embreeRayHit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
         for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++)
             embreeRayHit.hit.instID[i] = RTC_INVALID_GEOMETRY_ID;
+
+        RTCIntersectContext context;
+        rtcInitIntersectContext(&context);
         rtcIntersect1(m_embreeScene, &context, &embreeRayHit);
 
         if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
             std::optional<glm::mat4> transform;
             const SceneObject* pSceneObject { nullptr };
 
-            if (embreeRayHit.hit.instID[0] == 0) {
+            if (embreeRayHit.hit.instID[0] == RTC_INVALID_GEOMETRY_ID) {
                 pSceneObject = reinterpret_cast<const SceneObject*>(
                     rtcGetGeometryUserData(rtcGetGeometry(m_embreeScene, embreeRayHit.hit.geomID)));
             } else {
@@ -234,7 +237,7 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
                 RTCScene scene = m_embreeScene;
                 for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
                     unsigned geomID = embreeRayHit.hit.instID[i];
-                    if (geomID == 0)
+                    if (geomID == RTC_INVALID_GEOMETRY_ID)
                         break;
 
                     RTCGeometry geometry = rtcGetGeometry(scene, geomID);
@@ -272,7 +275,6 @@ template <typename HitRayState, typename AnyHitRayState>
 inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectAnyKernel(
     gsl::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource)
 {
-    RTCIntersectContext context {};
     for (auto [ray, state] : data) {
         RTCRay embreeRay;
         embreeRay.org_x = ray.origin.x;
@@ -290,6 +292,8 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectA
         embreeRay.id = 0;
         embreeRay.flags = 0;
 
+        RTCIntersectContext context;
+        rtcInitIntersectContext(&context);
         rtcOccluded1(m_embreeScene, &context, &embreeRay);
 
         constexpr float negativeInfinity = -std::numeric_limits<float>::infinity();

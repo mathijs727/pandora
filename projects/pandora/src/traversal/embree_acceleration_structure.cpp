@@ -57,17 +57,13 @@ RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pScen
 {
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
 
-    // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
-    // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of
-	//  RTC_INVALID_GEOMETRY_ID).
-    unsigned geometryID = 1;
     for (const auto& pSceneObject : pSceneNode->objects) {
         const Shape* pShape = pSceneObject->pShape.get();
         RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(m_embreeDevice);
         rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
         rtcCommitGeometry(embreeGeometry);
 
-        rtcAttachGeometryByID(embreeScene, embreeGeometry, geometryID++);
+        rtcAttachGeometry(embreeScene, embreeGeometry);
     }
 
     for (const auto& [pChildNode, optTransform] : pSceneNode->children) {
@@ -95,7 +91,7 @@ RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pScen
                 glm::value_ptr(identityMatrix));
         }
         rtcCommitGeometry(embreeInstanceGeometry);
-        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geometryID++);
+        rtcAttachGeometry(embreeScene, embreeInstanceGeometry);
     }
 
     rtcCommitScene(embreeScene);
