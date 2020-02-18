@@ -233,6 +233,7 @@ PBFTriangleMesh* Parser::parseTriangleMesh()
     parseShape(pOut);
     pOut->vertex = readSpan<glm::vec3>();
     pOut->normal = readSpan<glm::vec3>();
+    pOut->texCoord = readSpan<glm::vec2>();
     pOut->index = readSpan<glm::ivec3>();
     return pOut;
 }

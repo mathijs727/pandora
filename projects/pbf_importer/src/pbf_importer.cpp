@@ -86,7 +86,6 @@ pandora::PerspectiveCamera Converter::convertCamera(const PBFCamera* pPbfCamera,
 
     const glm::mat4 transform = pPbfCamera->frame;
     const glm::mat4 frame = pPbfCamera->frame;
-    const glm::mat4 invFrame = glm::inverse(frame);
     const glm::vec3 center = frame * glm::vec4(0, 0, 0, 1);
     const float distance = glm::length(center - pPbfCamera->simplified.lenseCenter);
     if (distance > 0.001) {
@@ -157,12 +156,12 @@ void Converter::convertObject(
                 optChildTransform = *optChildTransform * glm::mat4(pPBFInstance->transform);
         }
 
-        if (pPBFInstance->transform != glm::identity<glm::mat4x3>() && pObject->shapes.size() > 1) {
+        if (pPBFInstance->transform != glm::identity<glm::mat4x3>() || pObject->shapes.size() > 1) {
             std::shared_ptr<pandora::SceneNode> pChild;
             if (auto iter = m_instanceCache.find(pPBFChild); iter != std::end(m_instanceCache)) {
                 pChild = iter->second;
             } else {
-				// We add the child to our current node with it's full transformation, so the transformation of objects relative to the child node should be empty.
+                // We add the child to our current node with it's full transformation, so the transformation of objects relative to the child node should be empty.
                 pChild = sceneBuilder.addSceneNode();
                 convertObject(pPBFChild, pChild, {}, sceneBuilder, subdiv);
                 m_instanceCache[pPBFChild] = pChild;
@@ -191,8 +190,8 @@ std::shared_ptr<pandora::Shape> Converter::convertShape(const PBFShape* pPBFShap
     if (const auto* pPBFTriangleShape = dynamic_cast<const PBFTriangleMesh*>(pPBFShape)) {
         std::vector<glm::uvec3> indices { static_cast<size_t>(pPBFTriangleShape->index.size()) };
         std::vector<glm::vec3> positions { static_cast<size_t>(pPBFTriangleShape->vertex.size()) };
+        std::vector<glm::vec2> texCoords { static_cast<size_t>(pPBFTriangleShape->texCoord.size()) };
         std::vector<glm::vec3> normals { static_cast<size_t>(pPBFTriangleShape->normal.size()) };
-        std::vector<glm::vec2> texCoords;
         std::copy(
             std::begin(pPBFTriangleShape->index),
             std::end(pPBFTriangleShape->index),
@@ -201,6 +200,10 @@ std::shared_ptr<pandora::Shape> Converter::convertShape(const PBFShape* pPBFShap
             std::begin(pPBFTriangleShape->vertex),
             std::end(pPBFTriangleShape->vertex),
             std::begin(positions));
+        std::copy(
+            std::begin(pPBFTriangleShape->texCoord),
+            std::end(pPBFTriangleShape->texCoord),
+            std::begin(texCoords));
         std::copy(
             std::begin(pPBFTriangleShape->normal),
             std::end(pPBFTriangleShape->normal),
