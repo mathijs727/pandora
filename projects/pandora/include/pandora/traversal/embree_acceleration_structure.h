@@ -2,6 +2,7 @@
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/graphics_core/scene.h"
 #include "pandora/graphics_core/shape.h"
+#include "pandora/graphics_core/transform.h"
 #include "pandora/traversal/acceleration_structure.h"
 #include "stream/task_graph.h"
 #include <embree3/rtcore.h>
@@ -102,7 +103,7 @@ inline std::optional<SurfaceInteraction> EmbreeAccelerationStructure<HitRayState
     rtcIntersect1(m_embreeScene, &context, &embreeRayHit);
 
     if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
-        std::optional<glm::mat4> transform;
+        std::optional<glm::mat4> optLocalToWorldMatrix;
         const SceneObject* pSceneObject { nullptr };
 
         if (embreeRayHit.hit.instID[0] == RTC_INVALID_GEOMETRY_ID) {
@@ -125,21 +126,43 @@ inline std::optional<SurfaceInteraction> EmbreeAccelerationStructure<HitRayState
                 scene = reinterpret_cast<RTCScene>(rtcGetGeometryUserData(geometry));
             }
 
-            transform = accumulatedTransform;
+            optLocalToWorldMatrix = accumulatedTransform;
             pSceneObject = reinterpret_cast<const SceneObject*>(
                 rtcGetGeometryUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
         }
 
         RayHit hit;
         hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
-        hit.geometricNormal = glm::normalize(glm::dot(-ray.direction, hit.geometricNormal) > 0.0f ? hit.geometricNormal : -hit.geometricNormal);
+        hit.geometricNormal = glm::normalize(hit.geometricNormal); // Normal from Emrbee is already in object space.
         hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
         hit.primitiveID = embreeRayHit.hit.primID;
 
         const auto* pShape = pSceneObject->pShape.get();
-        auto si = pShape->fillSurfaceInteraction(ray, hit);
+        SurfaceInteraction si;
+        if (optLocalToWorldMatrix) {
+            // Transform from world space to shape local space.
+            Transform transform { *optLocalToWorldMatrix };
+            Ray localRay = transform.transformToLocal(ray);
+            // Hit is already in object space...
+            //hit = transform.transformToLocal(hit);
+
+            // Fill surface interaction in local space
+            si = pShape->fillSurfaceInteraction(localRay, hit);
+
+            // Flip the normal if it is facing away from the ray.
+            if (glm::dot(si.normal, -localRay.direction) < 0)
+                si.normal = -si.normal;
+            if (glm::dot(si.shading.normal, -localRay.direction) < 0)
+                si.shading.normal = -si.shading.normal;
+
+            // Transform surface interaction back to world space
+            si = transform.transformToWorld(si);
+        } else {
+            // Tell surface interaction which the shape was hit.
+            si = pShape->fillSurfaceInteraction(ray, hit);
+        }
         si.pSceneObject = pSceneObject;
-        si.localToWorld = transform;
+        si.localToWorld = optLocalToWorldMatrix;
         return si;
     } else {
         return {};
@@ -226,7 +249,7 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
         rtcIntersect1(m_embreeScene, &context, &embreeRayHit);
 
         if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
-            std::optional<glm::mat4> transform;
+            std::optional<glm::mat4> optLocalToWorldMatrix;
             const SceneObject* pSceneObject { nullptr };
 
             if (embreeRayHit.hit.instID[0] == RTC_INVALID_GEOMETRY_ID) {
@@ -249,21 +272,43 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
                     scene = reinterpret_cast<RTCScene>(rtcGetGeometryUserData(geometry));
                 }
 
-                transform = accumulatedTransform;
+                optLocalToWorldMatrix = accumulatedTransform;
                 pSceneObject = reinterpret_cast<const SceneObject*>(
                     rtcGetGeometryUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
             }
 
             RayHit hit;
             hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
-            hit.geometricNormal = glm::normalize(glm::dot(-ray.direction, hit.geometricNormal) > 0.0f ? hit.geometricNormal : -hit.geometricNormal);
+            hit.geometricNormal = glm::normalize(hit.geometricNormal); // Normal from Emrbee is already in object space.
             hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
             hit.primitiveID = embreeRayHit.hit.primID;
 
             const auto* pShape = pSceneObject->pShape.get();
-            auto si = pShape->fillSurfaceInteraction(ray, hit);
+            SurfaceInteraction si;
+            if (optLocalToWorldMatrix) {
+                // Transform from world space to shape local space.
+                Transform transform { *optLocalToWorldMatrix };
+                Ray localRay = transform.transformToLocal(ray);
+                // Hit is already in object space...
+                //hit = transform.transformToLocal(hit);
+
+                // Flip the normal if it is facing away from the ray.
+                if (glm::dot(si.normal, -localRay.direction) < 0)
+                    si.normal = -si.normal;
+                if (glm::dot(si.shading.normal, -localRay.direction) < 0)
+                    si.shading.normal = -si.shading.normal;
+
+                // Fill surface interaction in local space
+                si = pShape->fillSurfaceInteraction(localRay, hit);
+
+                // Transform surface interaction back to world space
+                si = transform.transformToWorld(si);
+            } else {
+                // Tell surface interaction which the shape was hit.
+                si = pShape->fillSurfaceInteraction(ray, hit);
+            }
             si.pSceneObject = pSceneObject;
-            si.localToWorld = transform;
+            si.localToWorld = optLocalToWorldMatrix;
             m_pTaskGraph->enqueue(m_onHitTask, std::tuple { ray, si, state });
         } else {
             m_pTaskGraph->enqueue(m_onMissTask, std::tuple { ray, state });

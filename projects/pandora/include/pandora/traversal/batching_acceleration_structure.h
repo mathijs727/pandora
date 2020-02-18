@@ -195,7 +195,8 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             staticData.scene = pEmbreeCache->fromSubScene(&m_subScene);
             return staticData;
         },
-        [=](gsl::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
+        [=](gsl::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data,
+            const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
             {
                 auto stopWatch = g_stats.timings.botLevelTraversalTime.getScopedStopwatch();
 
@@ -311,8 +312,8 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
     Ray& ray, SurfaceInteraction& si, const HitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
     {
-       // auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
-       g_stats.svdag.numIntersectionTests++;
+        // auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
+        g_stats.svdag.numIntersectionTests++;
 
         if (m_svdag && !m_svdag->intersectScalar(ray)) {
             g_stats.svdag.numRaysCulled++;
@@ -346,9 +347,6 @@ template <typename HitRayState, typename AnyHitRayState>
 bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectInternal(
     RTCScene scene, Ray& ray, SurfaceInteraction& si) const
 {
-    // TODO: batching
-    RTCIntersectContext context {};
-
     RTCRayHit embreeRayHit;
     embreeRayHit.ray.org_x = ray.origin.x;
     embreeRayHit.ray.org_y = ray.origin.y;
@@ -367,13 +365,15 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
     embreeRayHit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
     for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++)
         embreeRayHit.hit.instID[i] = RTC_INVALID_GEOMETRY_ID;
+    RTCIntersectContext context;
+    rtcInitIntersectContext(&context);
     rtcIntersect1(scene, &context, &embreeRayHit);
 
     if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
-        std::optional<glm::mat4> transform;
+        std::optional<glm::mat4> optLocalToWorldMatrix;
         const SceneObject* pSceneObject { nullptr };
 
-        if (embreeRayHit.hit.instID[0] == 0) {
+        if (embreeRayHit.hit.instID[0] == RTC_INVALID_GEOMETRY_ID) {
             pSceneObject = reinterpret_cast<const SceneObject*>(
                 rtcGetGeometryUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
         } else {
@@ -381,7 +381,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             RTCScene localScene = scene;
             for (int i = 0; i < RTC_MAX_INSTANCE_LEVEL_COUNT; i++) {
                 unsigned geomID = embreeRayHit.hit.instID[i];
-                if (geomID == 0)
+                if (geomID == RTC_INVALID_GEOMETRY_ID)
                     break;
 
                 RTCGeometry geometry = rtcGetGeometry(localScene, geomID);
@@ -393,28 +393,44 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
                 localScene = reinterpret_cast<RTCScene>(rtcGetGeometryUserData(geometry));
             }
 
-            transform = accumulatedTransform;
+            optLocalToWorldMatrix = accumulatedTransform;
             pSceneObject = reinterpret_cast<const SceneObject*>(
                 rtcGetGeometryUserData(rtcGetGeometry(localScene, embreeRayHit.hit.geomID)));
         }
 
         RayHit hit;
         hit.geometricNormal = { embreeRayHit.hit.Ng_x, embreeRayHit.hit.Ng_y, embreeRayHit.hit.Ng_z };
-        hit.geometricNormal = glm::normalize(glm::dot(-ray.direction, hit.geometricNormal) > 0.0f ? hit.geometricNormal : -hit.geometricNormal);
+        hit.geometricNormal = glm::normalize(hit.geometricNormal); // Normal from Emrbee is already in object space.
         hit.geometricUV = { embreeRayHit.hit.u, embreeRayHit.hit.v };
         hit.primitiveID = embreeRayHit.hit.primID;
 
-        ray.tfar = embreeRayHit.ray.tfar;
-
         const auto* pShape = pSceneObject->pShape.get();
-        si = pShape->fillSurfaceInteraction(ray, hit);
-        si.pSceneObject = pSceneObject;
-        si.shading.batchingPointColor = m_color;
+        SurfaceInteraction si;
+        if (optLocalToWorldMatrix) {
+            // Transform from world space to shape local space.
+            Transform transform { *optLocalToWorldMatrix };
+            Ray localRay = transform.transformToLocal(ray);
+            // Hit is already in object space...
+            //hit = transform.transformToLocal(hit);
 
-        if (transform.has_value()) {
-            Transform localToWorldTransform { transform.value() };
-            si = localToWorldTransform.transform(si);
+            // Fill surface interaction in local space
+            si = pShape->fillSurfaceInteraction(localRay, hit);
+
+            // Flip the normal if it is facing away from the ray.
+            if (glm::dot(si.normal, -localRay.direction) < 0)
+                si.normal = -si.normal;
+            if (glm::dot(si.shading.normal, -localRay.direction) < 0)
+                si.shading.normal = -si.shading.normal;
+
+            // Transform surface interaction back to world space
+            si = transform.transformToWorld(si);
+        } else {
+            // Tell surface interaction which the shape was hit.
+            si = pShape->fillSurfaceInteraction(ray, hit);
         }
+        si.pSceneObject = pSceneObject;
+        si.localToWorld = optLocalToWorldMatrix;
+        si.shading.batchingPointColor = m_color;
         return true;
     } else {
         return false;
@@ -425,9 +441,6 @@ template <typename HitRayState, typename AnyHitRayState>
 bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectAnyInternal(
     RTCScene scene, Ray& ray) const
 {
-    // TODO: batching
-    RTCIntersectContext context {};
-
     RTCRay embreeRay;
     embreeRay.org_x = ray.origin.x;
     embreeRay.org_y = ray.origin.y;
@@ -444,6 +457,8 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
     embreeRay.id = 0;
     embreeRay.flags = 0;
 
+    RTCIntersectContext context;
+    rtcInitIntersectContext(&context);
     rtcOccluded1(scene, &context, &embreeRay);
 
     ray.tfar = embreeRay.tfar;

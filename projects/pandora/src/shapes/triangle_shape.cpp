@@ -54,7 +54,7 @@ static std::vector<glm::vec3> transformPoints(std::vector<glm::vec3>&& points, c
     out.resize(points.size());
     std::transform(std::begin(points), std::end(points), std::begin(out),
         [&](const glm::vec3& p) {
-            return transform.transformPoint(p);
+            return transform.transformPointToWorld(p);
         });
     return out;
 }
@@ -66,7 +66,7 @@ static std::vector<glm::vec3> transformNormals(std::vector<glm::vec3>&& normals,
     out.resize(normals.size());
     std::transform(std::begin(normals), std::end(normals), std::begin(out),
         [&](const glm::vec3& n) {
-            return transform.transformNormal(n);
+            return transform.transformNormalToWorld(n);
         });
     return out;
 }
@@ -132,7 +132,7 @@ void TriangleShape::subdivide()
     ALWAYS_ASSERT(m_normals.empty() || m_normals.size() == m_positions.size());
     ALWAYS_ASSERT(m_texCoords.empty());
 
-	size_t sizeBefore = sizeBytes();
+    size_t sizeBefore = sizeBytes();
 
     std::vector<glm::uvec3> outIndices;
     outIndices.reserve(m_indices.size() * 3);
@@ -158,10 +158,10 @@ void TriangleShape::subdivide()
     m_positions.shrink_to_fit();
     m_normals.shrink_to_fit();
 
-	ALWAYS_ASSERT(m_indices.size() < std::numeric_limits<unsigned>::max());
-	m_numPrimitives = static_cast<unsigned>(m_indices.size());
+    ALWAYS_ASSERT(m_indices.size() < std::numeric_limits<unsigned>::max());
+    m_numPrimitives = static_cast<unsigned>(m_indices.size());
 
-	g_stats.memory.geometryLoaded += (sizeBytes() - sizeBefore);
+    g_stats.memory.geometryLoaded += (sizeBytes() - sizeBefore);
 }
 
 void TriangleShape::doEvict()
@@ -331,13 +331,13 @@ TriangleShape TriangleShape::createAssimpMesh(const aiScene* scene, const unsign
 
     // Positions
     for (unsigned i = 0; i < mesh->mNumVertices; i++) {
-        positions.push_back(transform.transformPoint(assimpVec(mesh->mVertices[i])));
+        positions.push_back(transform.transformPointToWorld(assimpVec(mesh->mVertices[i])));
     }
 
     // Normals
     if (mesh->HasNormals() && !ignoreVertexNormals) {
         for (unsigned i = 0; i < mesh->mNumVertices; i++) {
-            normals.push_back(transform.transformNormal(assimpVec(mesh->mNormals[i])));
+            normals.push_back(transform.transformNormalToWorld(assimpVec(mesh->mNormals[i])));
         }
     }
 
@@ -428,14 +428,14 @@ std::optional<TriangleShape> TriangleShape::loadFromFileSingleShape(const aiScen
             // Positions
             for (unsigned j = 0; j < mesh->mNumVertices; j++) {
                 glm::vec3 pos = assimpVec(mesh->mVertices[j]);
-                glm::vec3 transformedPos = transform.transformPoint(pos);
+                glm::vec3 transformedPos = transform.transformPointToWorld(pos);
                 positions.push_back(transformedPos);
             }
 
             // Normals
             if (mesh->HasNormals() && !ignoreVertexNormals) {
                 for (unsigned j = 0; j < mesh->mNumVertices; j++) {
-                    normals.push_back(transform.transformNormal(assimpVec(mesh->mNormals[j])));
+                    normals.push_back(transform.transformNormalToWorld(assimpVec(mesh->mNormals[j])));
                 }
             } else {
                 std::cout << "WARNING: submesh has no normal vectors" << std::endl;
@@ -632,7 +632,7 @@ TriangleShape TriangleShape::loadSerialized(const serialization::TriangleMesh* p
         pSerializedTriangleMesh->positions()->end(),
         std::begin(positions),
         [&](const serialization::Vec3* p) {
-            return transform.transformPoint(deserialize(*p));
+            return transform.transformPointToWorld(deserialize(*p));
         });
     positions.shrink_to_fit();
 
@@ -644,7 +644,7 @@ TriangleShape TriangleShape::loadSerialized(const serialization::TriangleMesh* p
             pSerializedTriangleMesh->normals()->end(),
             std::begin(normals),
             [&](const serialization::Vec3* n) {
-                return transform.transformNormal(deserialize(*n));
+                return transform.transformNormalToWorld(deserialize(*n));
             });
     }
     normals.shrink_to_fit();

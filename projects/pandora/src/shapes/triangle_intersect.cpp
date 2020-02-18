@@ -134,9 +134,9 @@ void TriangleShape::voxelize(VoxelGrid& grid, const Transform& transform) const
 
     for (glm::uvec3 triangle : m_indices) {
         glm::vec3 v[3] = {
-            transform.transformPoint(m_positions[triangle[0]]),
-            transform.transformPoint(m_positions[triangle[1]]),
-            transform.transformPoint(m_positions[triangle[2]])
+            transform.transformPointToWorld(m_positions[triangle[0]]),
+            transform.transformPointToWorld(m_positions[triangle[1]]),
+            transform.transformPointToWorld(m_positions[triangle[2]])
         };
         glm::vec3 e[3] = { v[1] - v[0], v[2] - v[1], v[0] - v[2] };
         glm::vec3 n = glm::cross(e[0], e[1]);

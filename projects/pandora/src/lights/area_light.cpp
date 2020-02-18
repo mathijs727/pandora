@@ -24,7 +24,7 @@ LightSample AreaLight::sampleLi(const Interaction& ref, PcgRng& rng) const
     const uint32_t primitiveID = rng.uniformU32() % numPrimitives;
     Interaction pointOnShape = m_pShape->samplePrimitive(primitiveID, ref, rng);
     if (m_transform)
-        pointOnShape = m_transform->transform(pointOnShape);
+        pointOnShape = m_transform->transformToWorld(pointOnShape);
 
     LightSample result;
     result.wi = glm::normalize(pointOnShape.position - ref.position);
