@@ -1,6 +1,5 @@
 #include "stream/pmr_allocator.h"
 #include "stream/task_graph.h"
-#include <EASTL/fixed_vector.h>
 #ifdef  _WIN32
 #include <spdlog/sinks/msvc_sink.h>
 #else

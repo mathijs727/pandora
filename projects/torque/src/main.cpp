@@ -104,7 +104,7 @@ int main(int argc, char** argv)
 
     const unsigned subdiv = vm["subdiv"].as<unsigned>();
     const unsigned cameraID = vm["cameraid"].as<unsigned>();
-    const int spp = vm["spp"].as<int>();
+    int spp = vm["spp"].as<int>();
     const unsigned concurrency = vm["concurrency"].as<unsigned>();
     const unsigned schedulers = vm["schedulers"].as<unsigned>();
     const size_t geomCacheSizeMB = vm["geomcache"].as<size_t>();
@@ -230,7 +230,7 @@ int main(int argc, char** argv)
         } else if (integratorType == "normal") {
             if (spp != 1)
                 spdlog::warn("Normal visualization does not support multi-sampling, setting spp to 1!");
-            g_stats.config.spp = 1;
+            spp = g_stats.config.spp = 1;
 
             NormalDebugIntegrator integrator { &taskGraph };
             render(integrator);

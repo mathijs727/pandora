@@ -11,8 +11,10 @@
 #include <optick/optick.h>
 #include <spdlog/spdlog.h>
 #include <tbb/concurrent_vector.h>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
 #include <vector>
 
 namespace pandora {
@@ -274,7 +276,7 @@ static std::vector<std::shared_ptr<Shape>> splitLargeTriangleShape(const Triangl
     arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
         UserData& userData = *reinterpret_cast<UserData*>(userPtr);
 
-		std::vector<unsigned> primitiveIDs;
+        std::vector<unsigned> primitiveIDs;
         primitiveIDs.resize(numPrims);
         for (size_t i = 0; i < numPrims; i++) {
             primitiveIDs[i] = prims[i].primID;
@@ -429,23 +431,49 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
     spdlog::info("Constructing temporary BVH over scene objects/instances");
     auto* pBvhRoot = reinterpret_cast<BVHNode*>(rtcBuildBVH(&arguments));
 
-    std::function<size_t(BVHNode*)> computePrimCount = [&](BVHNode* pNode) -> size_t {
+    std::function<std::pair<size_t, std::unordered_map<const void*, size_t>>(BVHNode*)> computePrimCount =
+        [&](BVHNode* pNode) -> std::pair<size_t, std::unordered_map<const void*, size_t>> {
         if (auto* pInnerNode = dynamic_cast<InnerNode*>(pNode)) {
             pInnerNode->numPrimitives = 0;
-            for (auto* pChild : pInnerNode->children)
-                pInnerNode->numPrimitives += computePrimCount(pChild);
-            return pInnerNode->numPrimitives;
+
+            std::unordered_map<const void*, size_t> countedEntities;
+            for (auto* pChild : pInnerNode->children) {
+                const auto [childPrimitives, childEntities] = computePrimCount(pChild);
+                for (auto [pEntity, numPrimitives] : childEntities) {
+                    // Count SceneNode(trees)/SceneObjects that appear in multiple children only once.
+                    if (countedEntities.find(pEntity) == std::end(countedEntities)) {
+                        countedEntities[pEntity] = numPrimitives;
+                        pInnerNode->numPrimitives += numPrimitives;
+                    }
+                }
+            }
+
+            return { pInnerNode->numPrimitives, std::move(countedEntities) };
         } else if (auto* pLeafNode = dynamic_cast<LeafNode*>(pNode)) {
             pLeafNode->numPrimitives = 0;
 
+            std::unordered_map<const void*, size_t> countedEntities;
             for (const SceneObject* pSceneObject : pLeafNode->sceneObjects) {
-                pLeafNode->numPrimitives += pSceneObject->pShape->numPrimitives();
+                const Shape* pShape = pSceneObject->pShape.get();
+                const void* pEntity = reinterpret_cast<const void*>(pShape);
+
+                if (countedEntities.find(pEntity) == std::end(countedEntities)) {
+                    const size_t numPrims = pShape->numPrimitives();
+                    countedEntities[pEntity] = numPrims;
+                    pLeafNode->numPrimitives += numPrims;
+                }
             }
             for (const auto& [pSceneNode, _] : pLeafNode->sceneNodes) {
-                pLeafNode->numPrimitives += subTreePrimitiveCount(pSceneNode);
+                // TODO: don't count duplicate objects within a subtree
+                const size_t numPrims = subTreePrimitiveCount(pSceneNode);
+                const void* pEntity = reinterpret_cast<const void*>(pSceneNode);
+                if (countedEntities.find(pEntity) == std::end(countedEntities)) {
+                    countedEntities[pEntity] = numPrims;
+                    pLeafNode->numPrimitives += numPrims;
+                }
             }
 
-            return pLeafNode->numPrimitives;
+            return { pLeafNode->numPrimitives, std::move(countedEntities) };
         } else {
             throw std::runtime_error("Unknown BVH node type");
         }

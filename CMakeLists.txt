@@ -26,7 +26,8 @@ endif()
 #		REQUIRES eastl ms-gsl tbb fmt spdlog gtest assimp glm openimageio mio flatbuffers "boost-program-options" nlohmann-json embree3 libmorton
 #		PORTS "${CMAKE_CURRENT_LIST_DIR}/third_party/assimp5/") # TODO: assimp version in vcpkg@ea79220f9d9d33a11101c8dea0827aaff5a2b9b3 is broken. Update 5.0.0 is available but requires VCPKG revision update = recompile everything
 
-find_package(eastl REQUIRED)
+find_package(EASTL CONFIG REQUIRED)
+find_package(EABase CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 find_package(glm REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)

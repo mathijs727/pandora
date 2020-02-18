@@ -7,6 +7,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 
 	# Surpess warnings from OpenImageIO & libmorton and enable AVX2
 	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/arch:AVX2 /wd5040 /wd4244 /wd4275 /wd4309")
+	target_compile_options(libPandora PUBLIC "/wd4275")
 endif()
 enable_native_isa(libPandora)
 
@@ -47,7 +48,7 @@ target_link_libraries(libPandora PUBLIC
     embree3::embree3 # BVH builder and reference BVH traversal
 	TBB::tbb # Multithreading
 	Threads::Threads
-	eastl # Stack based STL containers <3 
+	EABase EASTL # Stack based STL containers <3 
 	mio::mio # Memory-mapped file IO for serialization
 	mio_cache_control) # Modified version of mio that allows for control of the file system cache
 

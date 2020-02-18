@@ -19,13 +19,13 @@ target_compile_features(stream PUBLIC cxx_std_17)
 target_link_libraries(stream PUBLIC
 	metrics
 	OptickCore # Profiling
-	eastl
+	EABase eastl
 	fmt::fmt
 	spdlog::spdlog
 	mio_cache_control
 	TBB::tbb TBB::tbbmalloc Threads::Threads)
 
-add_subdirectory("example")
+#add_subdirectory("example")
 
 if (STREAM_BUILD_TESTS)
 	add_subdirectory("tests")
