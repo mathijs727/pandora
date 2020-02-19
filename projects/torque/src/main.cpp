@@ -38,13 +38,14 @@
 
 using namespace pandora;
 using namespace torque;
-using namespace std::string_literals;
 
-const std::string projectBasePath = "../../"s;
+#define OUTPUT_PROFILE_DATA 1
 
 int main(int argc, char** argv)
 {
-    cnl::fixed_point<uint64_t, -24> v { 5.0f };
+#if OUTPUT_PROFILE_DATA
+    OPTICK_START_CAPTURE();
+#endif
 
 #ifdef _WIN32
     auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
@@ -53,6 +54,7 @@ int main(int argc, char** argv)
     auto colorLogger = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("color_logger");
     spdlog::set_default_logger(colorLogger);
 #endif
+
     OPTICK_APP("Torque");
     Optick::setThisMainThreadOptick();
 
@@ -70,7 +72,7 @@ int main(int argc, char** argv)
 		("file", po::value<std::string>()->required(), "Pandora scene description JSON")
 		("subdiv", po::value<unsigned>()->default_value(0), "Number of times to subdivide each triangle in the scene")
 		("cameraid", po::value<unsigned>()->default_value(0), "Camera ID (index of occurence in pbrt/pbf file)")
-		("out", po::value<std::string>()->default_value("output"s), "output name (without file extension!)")
+		("out", po::value<std::string>()->default_value("output"), "output name (without file extension!)")
 		("integrator", po::value<std::string>()->default_value("direct"), "integrator (normal, direct or path)")
 		("spp", po::value<int>()->default_value(1), "samples per pixel")
 		("concurrency", po::value<unsigned>()->default_value(500*1000), "Number of paths traced concurrently")
@@ -245,6 +247,11 @@ int main(int argc, char** argv)
     spdlog::info("Writing output to {}.jpg/exr", vm["out"].as<std::string>());
     writeOutputToFile(sensor, spp, vm["out"].as<std::string>() + ".jpg", true);
     writeOutputToFile(sensor, spp, vm["out"].as<std::string>() + ".exr", false);
+
+#if OUTPUT_PROFILE_DATA
+    OPTICK_STOP_CAPTURE();
+    OPTICK_SAVE_CAPTURE("");
+#endif
 
     spdlog::info("Shutting down...");
     return 0;
