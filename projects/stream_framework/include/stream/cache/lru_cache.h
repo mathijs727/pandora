@@ -86,7 +86,6 @@ inline CachedPtr<T> LRUCache::makeResident(T* pEvictable)
 
         return CachedPtr<T>(dynamic_cast<T*>(pItem), &refCountedItem.refCount);
     } else {
-        OPTICK_EVENT("Evictable::MakeResident");
         assert(m_residentItemsLookUp[itemIndex] == std::end(m_residentItems));
 
         size_t sizeBefore = pItem->sizeBytes();

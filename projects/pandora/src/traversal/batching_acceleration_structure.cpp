@@ -224,6 +224,32 @@ void BatchingAccelerationStructureBuilder::splitLargeSceneObjects(
     spdlog::info("DONE");
 }
 
+std::vector<Shape*> BatchingAccelerationStructureBuilder::getSubSceneShapes(const SubScene& subScene)
+{
+    OPTICK_EVENT();
+
+    std::unordered_set<Shape*> visitedShapes;
+    for (const auto& pSceneObject : subScene.sceneObjects) {
+        visitedShapes.insert(pSceneObject->pShape.get());
+    }
+
+    // Load instanced shapes
+    std::function<void(const SceneNode*)> visitRecurse = [&](const SceneNode* pSceneNode) {
+        for (const auto& pSceneObject : pSceneNode->objects) {
+            visitedShapes.insert(pSceneObject->pShape.get());
+        }
+        for (const auto& [pChild, _] : pSceneNode->children) {
+            visitRecurse(pChild.get());
+        }
+    };
+    for (const auto& [pSceneNode, _] : subScene.sceneNodes)
+        visitRecurse(pSceneNode);
+
+    std::vector<Shape*> result { visitedShapes.size() };
+    std::copy(std::begin(visitedShapes), std::end(visitedShapes), std::begin(result));
+    return result;
+}
+
 static std::vector<std::shared_ptr<Shape>> splitLargeTriangleShape(const TriangleShape& shape, unsigned maxSize, RTCDevice embreeDevice)
 {
     OPTICK_EVENT();
