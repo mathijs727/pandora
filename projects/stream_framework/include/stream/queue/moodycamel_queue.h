@@ -50,6 +50,7 @@ public:
     {
         auto threadIdx = tbb::this_task_arena::current_thread_index();
         auto& token = m_consumerTokens[threadIdx];
+        (void)token;
         return this->try_dequeue(item);
     }
 

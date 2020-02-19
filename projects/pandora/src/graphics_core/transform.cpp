@@ -86,6 +86,7 @@ SurfaceInteraction Transform::transformToWorld(const SurfaceInteraction& si) con
 
     result.shading.normal = transformNormalToWorld(si.shading.normal);
     result.shading.normal = faceForward(result.shading.normal, result.normal);
+    result.shading.batchingPointColor = si.shading.batchingPointColor;
 
     result.wo = glm::normalize(transformVectorToWorld(si.wo));
     return result;

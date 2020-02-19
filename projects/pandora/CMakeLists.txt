@@ -1,9 +1,12 @@
 add_library(libPandora "")
 target_compile_features(libPandora PRIVATE cxx_std_17)
 
+if (WIN32)
+	# Define both with MSVC and clang(-cl) on Windows.
+	target_compile_definitions(libPandora PUBLIC "NOMINMAX")
+endif()
 if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_compile_definitions(libPandora PUBLIC "_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
-	target_compile_definitions(libPandora PUBLIC "NOMINMAX")
 
 	# Surpess warnings from OpenImageIO & libmorton and enable AVX2
 	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/arch:AVX2 /wd5040 /wd4244 /wd4275 /wd4309")
@@ -49,6 +52,7 @@ target_link_libraries(libPandora PUBLIC
 	TBB::tbb # Multithreading
 	Threads::Threads
 	EABase EASTL # Stack based STL containers <3 
+	OptickCore
 	mio::mio # Memory-mapped file IO for serialization
 	mio_cache_control) # Modified version of mio that allows for control of the file system cache
 

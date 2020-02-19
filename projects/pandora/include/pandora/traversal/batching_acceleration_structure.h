@@ -311,11 +311,11 @@ template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersect(
     Ray& ray, SurfaceInteraction& si, const HitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
-    {
+    if (m_svdag) {
         // auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
         g_stats.svdag.numIntersectionTests++;
 
-        if (m_svdag && !m_svdag->intersectScalar(ray)) {
+        if (!m_svdag->intersectScalar(ray)) {
             g_stats.svdag.numRaysCulled++;
             return false;
         }
@@ -329,11 +329,11 @@ template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectAny(
     Ray& ray, const AnyHitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
-    {
+    if (m_svdag) {
         //auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
         g_stats.svdag.numIntersectionTests++;
 
-        if (m_svdag && !m_svdag->intersectScalar(ray)) {
+        if (!m_svdag->intersectScalar(ray)) {
             g_stats.svdag.numRaysCulled++;
             return false;
         }
@@ -368,6 +368,10 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
     RTCIntersectContext context;
     rtcInitIntersectContext(&context);
     rtcIntersect1(scene, &context, &embreeRayHit);
+
+    static constexpr float minInf = -std::numeric_limits<float>::infinity();
+    if (embreeRayHit.ray.tfar == minInf || embreeRayHit.ray.tfar == ray.tfar)
+        return false;
 
     if (embreeRayHit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
         std::optional<glm::mat4> optLocalToWorldMatrix;
@@ -405,7 +409,6 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
         hit.primitiveID = embreeRayHit.hit.primID;
 
         const auto* pShape = pSceneObject->pShape.get();
-        SurfaceInteraction si;
         if (optLocalToWorldMatrix) {
             // Transform from world space to shape local space.
             Transform transform { *optLocalToWorldMatrix };
@@ -416,21 +419,23 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             // Fill surface interaction in local space
             si = pShape->fillSurfaceInteraction(localRay, hit);
 
-            // Flip the normal if it is facing away from the ray.
-            if (glm::dot(si.normal, -localRay.direction) < 0)
-                si.normal = -si.normal;
-            if (glm::dot(si.shading.normal, -localRay.direction) < 0)
-                si.shading.normal = -si.shading.normal;
-
             // Transform surface interaction back to world space
             si = transform.transformToWorld(si);
         } else {
             // Tell surface interaction which the shape was hit.
             si = pShape->fillSurfaceInteraction(ray, hit);
         }
+
+        // Flip the normal if it is facing away from the ray.
+        if (glm::dot(si.normal, -ray.direction) < 0)
+            si.normal = -si.normal;
+        if (glm::dot(si.shading.normal, -ray.direction) < 0)
+            si.shading.normal = -si.shading.normal;
+
         si.pSceneObject = pSceneObject;
         si.localToWorld = optLocalToWorldMatrix;
         si.shading.batchingPointColor = m_color;
+        ray.tfar = embreeRayHit.ray.tfar;
         return true;
     } else {
         return false;
@@ -544,12 +549,12 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingAccel
     tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph, size_t embreeSceneCacheSize)
     : m_embreeDevice(embreeDevice)
     , m_topLevelBVH(std::move(topLevelBVH))
+    , m_embreeSceneCache(embreeSceneCacheSize)
     , m_pTaskGraph(pTaskGraph)
     , m_onHitTask(hitTask)
     , m_onMissTask(missTask)
     , m_onAnyHitTask(anyHitTask)
     , m_onAnyMissTask(anyMissTask)
-    , m_embreeSceneCache(embreeSceneCacheSize)
 {
     for (auto& leaf : m_topLevelBVH.leafs())
         leaf.setParent(this, &m_embreeSceneCache);

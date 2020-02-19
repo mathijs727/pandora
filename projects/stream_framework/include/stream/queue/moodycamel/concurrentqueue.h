@@ -929,9 +929,9 @@ public:
           initialBlockPool(other.initialBlockPool),
           initialBlockPoolSize(other.initialBlockPoolSize),
           freeList(std::move(other.freeList)),
+          implicitProducers(std::move(other.implicitProducers)),
           nextExplicitConsumerId(other.nextExplicitConsumerId.load(std::memory_order_relaxed)),
-          globalExplicitConsumerOffset(other.globalExplicitConsumerOffset.load(std::memory_order_relaxed)),
-          implicitProducers(std::move(other.implicitProducers))
+          globalExplicitConsumerOffset(other.globalExplicitConsumerOffset.load(std::memory_order_relaxed))
     {
         // Move the other one into this, and leave the other one as an empty queue
         //implicitProducerHashResizeInProgress.clear(std::memory_order_relaxed);

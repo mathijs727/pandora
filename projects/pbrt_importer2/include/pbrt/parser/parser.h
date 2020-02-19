@@ -20,6 +20,7 @@
 #include <pandora/graphics_core/perspective_camera.h>
 #include <pandora/graphics_core/scene.h>
 #include <pandora/textures/image_texture.h>
+#include <spdlog/spdlog.h>
 #include <stack>
 #include <stream/cache/lru_cache.h>
 #include <tbb/task_group.h>
@@ -27,7 +28,6 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
-#include <spdlog/spdlog.h>
 
 // Inspiration taken from pbrt-parser by Ingo Wald:
 // https://github.com/ingowald/pbrt-parser/blob/master/pbrtParser/impl/syntactic/Parser.h
@@ -250,6 +250,7 @@ template <>
 inline glm::mat4 Parser::parse<glm::mat4>() noexcept
 {
     const std::string_view bracketOpen = next().text;
+    (void)bracketOpen;
     assert(bracketOpen == "[");
 
     glm::mat4 out;
@@ -274,6 +275,7 @@ inline glm::mat4 Parser::parse<glm::mat4>() noexcept
     out[3][3] = parse<float>();
 
     const auto nextTokenType = next().type;
+    (void)nextTokenType;
     assert(nextTokenType == TokenType::LIST_END);
 
     return out;
@@ -300,6 +302,7 @@ template <typename T>
 inline std::vector<T> Parser::parseParamArray()
 {
     auto listBeginToken = next();
+    (void)listBeginToken;
     assert(listBeginToken.type == TokenType::LIST_BEGIN);
 
     std::vector<T> res;
@@ -308,6 +311,7 @@ inline std::vector<T> Parser::parseParamArray()
     }
 
     auto listEndToken = next();
+    (void)listEndToken;
     assert(listEndToken.type == TokenType::LIST_END);
     return res;
 }

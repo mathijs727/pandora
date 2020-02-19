@@ -5,8 +5,6 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
 
-const double PI = 3.141592653589793;
-
 namespace atlas {
 
 FpsCameraControls::FpsCameraControls(Window& window, PerspectiveCamera& camera)

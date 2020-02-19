@@ -6,23 +6,24 @@ add_library(stream
 	"src/serialize/in_memory_serializer.cpp"
 	"src/stats.cpp"
 	"src/task_graph.cpp")
-if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-	target_compile_definitions(stream PUBLIC "NOMINMAX")
-endif()
-
 target_include_directories(stream
 	PUBLIC
 		"include"
 	PRIVATE
 		"src")
+
 target_compile_features(stream PUBLIC cxx_std_17)
+if (WIN32)
+	target_compile_definitions(stream PUBLIC "NOMINMAX")
+endif()
+
 target_link_libraries(stream PUBLIC
 	metrics
-	OptickCore # Profiling
 	EABase eastl
 	fmt::fmt
 	spdlog::spdlog
 	mio_cache_control
+	OptickCore
 	TBB::tbb TBB::tbbmalloc Threads::Threads)
 
 #add_subdirectory("example")

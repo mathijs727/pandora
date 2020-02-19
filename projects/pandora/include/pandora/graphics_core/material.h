@@ -44,6 +44,8 @@ private:
 
 class Material {
 public:
+    virtual ~Material() = default;
+
     virtual void computeScatteringFunctions(SurfaceInteraction& si, MemoryArena& arena) const = 0;
 };
 

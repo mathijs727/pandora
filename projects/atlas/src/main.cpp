@@ -95,8 +95,8 @@ int main(int argc, char** argv)
     g_stats.config.spp = vm["spp"].as<int>();
 
     spdlog::info("Loading scene");
-    //tasking::LRUCache::Builder cacheBuilder { std::make_unique<tasking::InMemorySerializer>() };
-    tasking::DummyCache::Builder cacheBuilder;
+    tasking::LRUCache::Builder cacheBuilder { std::make_unique<tasking::InMemorySerializer>() };
+    //tasking::DummyCache::Builder cacheBuilder;
 
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
     const unsigned cameraID = 0;
@@ -114,16 +114,21 @@ int main(int argc, char** argv)
     const glm::ivec2 resolution = renderConfig.resolution;
     auto geometryCache = cacheBuilder.build(500llu * 1024 * 1024 * 1024);
 
-    std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
-        for (const auto& pSceneObject : pSceneNode->objects) {
-            geometryCache.makeResident(pSceneObject->pShape.get());
-        }
+    using AccelBuilder = BatchingAccelerationStructureBuilder;
+    //using AccelBuilder = EmbreeAccelerationStructureBuilder;
 
-        for (const auto& [pChild, _] : pSceneNode->children) {
-            makeShapeResident(pChild);
-        }
-    };
-    makeShapeResident(renderConfig.pScene->pRoot);
+    if constexpr (std::is_same_v<AccelBuilder, EmbreeAccelerationStructureBuilder>) {
+        std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
+            for (const auto& pSceneObject : pSceneNode->objects) {
+                geometryCache.makeResident(pSceneObject->pShape.get());
+            }
+
+            for (const auto& [pChild, _] : pSceneNode->children) {
+                makeShapeResident(pChild);
+            }
+        };
+        makeShapeResident(renderConfig.pScene->pRoot);
+    }
 
     Window myWindow(resolution.x, resolution.y, "Atlas - Pandora viewer");
     FramebufferGL frameBuffer(resolution.x, resolution.y);
@@ -137,19 +142,17 @@ int main(int argc, char** argv)
     //PathIntegrator integrator { &taskGraph, &geometryCache, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Preprocessing scene");
-    //using AccelBuilder = BatchingAccelerationStructureBuilder;
-    using AccelBuilder = EmbreeAccelerationStructureBuilder;
-    /*constexpr unsigned primitivesPerBatchingPoint = 100000;
+    constexpr unsigned primitivesPerBatchingPoint = 10000;
     if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
         cacheBuilder = tasking::LRUCache::Builder { std::make_unique<tasking::InMemorySerializer>() };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
         auto newCache = cacheBuilder.build(geometryCache.maxSize());
         geometryCache = std::move(newCache);
-    }*/
+    }
 
     spdlog::info("Building acceleration structure");
-    //AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 100000, 128 };
-    AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
+    AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 100000, 1024*1024*1024, 0 };
+    //AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
     bool pressedEscape = false;
@@ -159,7 +162,7 @@ int main(int argc, char** argv)
     });
 
     auto& camera = *renderConfig.camera;
-    Sensor sensor { renderConfig.resolution };
+    Sensor sensor { resolution };
     auto previousTimestamp = std::chrono::high_resolution_clock::now();
     int samples = 0;
     while (!myWindow.shouldClose() && !pressedEscape) {
@@ -171,21 +174,21 @@ int main(int argc, char** argv)
             sensor.clear(glm::vec3(0.0f));
         }
 
-#if 0
+#if 1
         integrator.render(500 * 1000, camera, sensor, *renderConfig.pScene, accel, samples);
 #else
         samples = 0;
         sensor.clear(glm::vec3(0));
 
-        const glm::vec2 fResolution = renderConfig.resolution;
-        tbb::blocked_range2d range { 0, renderConfig.resolution.x, 0, renderConfig.resolution.y };
+        const glm::vec2 fResolution = resolution;
+        tbb::blocked_range2d range { 0, resolution.x, 0, resolution.y };
         tbb::parallel_for(range, [&](tbb::blocked_range2d<int> subRange) {
             for (int y = subRange.cols().begin(); y < subRange.cols().end(); y++) {
                 for (int x = subRange.rows().begin(); x < subRange.rows().end(); x++) {
                     Ray cameraRay = renderConfig.camera->generateRay(glm::vec2(x, y) / fResolution);
                     auto siOpt = accel.intersectDebug(cameraRay);
                     if (siOpt) {
-                        const float cos = glm::dot(siOpt->shading.normal, -cameraRay.direction);
+                        const float cos = glm::dot(siOpt->normal, -cameraRay.direction);
                         //const float cos = glm::abs(glm::dot(siOpt->geometricNormal, -cameraRay.direction));
                         //sensor.addPixelContribution(glm::ivec2 { x, y }, cos * siOpt->shading.batchingPointColor);
                         sensor.addPixelContribution(glm::ivec2 { x, y }, glm::vec3(cos));

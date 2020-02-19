@@ -146,9 +146,9 @@ int main(int argc, char** argv)
     spdlog::info("Loading scene");
     // WARNING: This cache is not used during rendering when using the batched acceleration structure.
     //          A new cache is instantiated when splitting the scene into smaller objects. Scroll down...
-    //auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
-    auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
-        "pandora_pre_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::sequential);
+    auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
+    //auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
+    //    "pandora_pre_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::sequential);
     tasking::LRUCache::Builder cacheBuilder { std::move(pSerializer) };
 
     RenderConfig renderConfig;
@@ -170,7 +170,7 @@ int main(int argc, char** argv)
     const glm::ivec2 resolution = renderConfig.resolution;
     tasking::LRUCache geometryCache = cacheBuilder.build(geomCacheSize);
 
-	// Store geometry loaded data before we start splitting the large shapes as part of preprocess.
+    // Store geometry loaded data before we start splitting the large shapes as part of preprocess.
     g_stats.asyncTriggerSnapshot();
 
     tasking::TaskGraph taskGraph { schedulers };
@@ -178,9 +178,10 @@ int main(int argc, char** argv)
     //using AccelBuilder = EmbreeAccelerationStructureBuilder;
     using AccelBuilder = BatchingAccelerationStructureBuilder;
     if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
-		spdlog::info("Preprocessing scene");
-        auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
-            "pandora_render_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::no_buffering);
+        spdlog::info("Preprocessing scene");
+        auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
+        //auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
+        //    "pandora_render_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::no_buffering);
 
         cacheBuilder = tasking::LRUCache::Builder { std::move(pSerializer) };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
@@ -192,16 +193,18 @@ int main(int argc, char** argv)
     g_stats.memory.geometryEvicted = 0;
     g_stats.memory.geometryLoaded = 0;
 
-    /*std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
-        for (const auto& pSceneObject : pSceneNode->objects) {
-            geometryCache.makeResident(pSceneObject->pShape.get());
-        }
+    if constexpr (std::is_same_v<AccelBuilder, EmbreeAccelerationStructureBuilder>) {
+        std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
+            for (const auto& pSceneObject : pSceneNode->objects) {
+                geometryCache.makeResident(pSceneObject->pShape.get());
+            }
 
-        for (const auto& [pChild, _] : pSceneNode->children) {
-            makeShapeResident(pChild);
-        }
-    };
-    makeShapeResident(renderConfig.pScene->pRoot);*/
+            for (const auto& [pChild, _] : pSceneNode->children) {
+                makeShapeResident(pChild);
+            }
+        };
+        makeShapeResident(renderConfig.pScene->pRoot);
+    }
 
     spdlog::info("Building acceleration structure");
     //AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };

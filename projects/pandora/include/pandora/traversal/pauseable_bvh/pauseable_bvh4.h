@@ -335,12 +335,12 @@ inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::
         // No children left to visit; find the first ancestor that has work left
 
         // Set all bits after bitPos to 1
-        uint64_t oldStack = stack;
         stack = stack | (0xFFFFFFFFFFFFFFFF << bitPos);
         if (stack == 0xFFFFFFFFFFFFFFFF)
             break;
 
         int prevDepth = node->depth;
+        (void)prevDepth;
         nodeHandle = node->parentHandle;
         node = &m_bvhNodes[nodeHandle];
         assert(node->depth == prevDepth - 1);
@@ -464,7 +464,7 @@ inline void PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::generateFinalBV
     // Recursively generate all the inner node children
     if (constructionInnerChildPointers.size() > 0) {
         auto firstInnerNodeHandle = static_cast<uint32_t>(m_bvhNodes.size());
-        for (const auto& _ : constructionInnerChildPointers)
+        for (size_t i = 0; i < constructionInnerChildPointers.size(); i++)
             m_bvhNodes.emplace_back();
 
         auto handle = firstInnerNodeHandle;
@@ -520,8 +520,6 @@ template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
 inline void* PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::leafCreate(RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr)
 {
     assert(numPrims == 1);
-
-    auto* self = reinterpret_cast<PauseableBVH4*>(userPtr);
 
     void* pMem = rtcThreadLocalAlloc(alloc, sizeof(ConstructionLeafNode), 8);
     auto pLeafNode = new (pMem) ConstructionLeafNode();
