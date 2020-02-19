@@ -125,9 +125,11 @@ int main(int argc, char** argv)
 #endif
 
     if constexpr (std::is_same_v<AccelBuilder, EmbreeAccelerationStructureBuilder>) {
+        // The EmbreeAccelerationStructure doesn't handle out-of-core traversal and expects everything to be loaded from the start.
+        // Call makeResident and assume that nothing gets evicted (don't hold onto reference counted pointers).
         std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
             for (const auto& pSceneObject : pSceneNode->objects) {
-                geometryCache.makeResident(pSceneObject->pShape.get());
+                (void)geometryCache.makeResident(pSceneObject->pShape.get());
             }
 
             for (const auto& [pChild, _] : pSceneNode->children) {
@@ -142,7 +144,7 @@ int main(int argc, char** argv)
     FpsCameraControls cameraControls(myWindow, *renderConfig.camera);
 
     spdlog::info("Creating integrator");
-    tasking::TaskGraph taskGraph;
+    tasking::TaskGraph taskGraph { 8 };
     const int spp = vm["spp"].as<int>();
     //NormalDebugIntegrator integrator { &taskGraph };
     //DirectLightingIntegrator integrator { &taskGraph, &geometryCache, 8, spp, LightStrategy::UniformSampleOne };
