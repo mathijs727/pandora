@@ -116,8 +116,8 @@ int main(int argc, char** argv)
     const glm::ivec2 resolution = renderConfig.resolution;
     auto geometryCache = cacheBuilder.build(500llu * 1024 * 1024 * 1024);
 
-    using AccelBuilder = BatchingAccelerationStructureBuilder;
-    //using AccelBuilder = EmbreeAccelerationStructureBuilder;
+    //using AccelBuilder = BatchingAccelerationStructureBuilder;
+    using AccelBuilder = EmbreeAccelerationStructureBuilder;
 
     if constexpr (std::is_same_v<AccelBuilder, EmbreeAccelerationStructureBuilder>) {
         std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
@@ -147,14 +147,14 @@ int main(int argc, char** argv)
     constexpr unsigned primitivesPerBatchingPoint = 100000;
     if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
         cacheBuilder = tasking::LRUCache::Builder { std::make_unique<tasking::InMemorySerializer>() };
-        AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
+        //AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
         auto newCache = cacheBuilder.build(geometryCache.maxSize());
         geometryCache = std::move(newCache);
     }
 
     spdlog::info("Building acceleration structure");
-    AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 100000, 1024 * 1024 * 1024, 0 };
-    //AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
+    //AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 100000, 1024 * 1024 * 1024, 0 };
+    AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
     bool pressedEscape = false;
@@ -187,6 +187,9 @@ int main(int argc, char** argv)
         const glm::vec2 fResolution = resolution;
         tbb::blocked_range2d range { 0, resolution.x, 0, resolution.y };
         tbb::parallel_for(range, [&](tbb::blocked_range2d<int> subRange) {
+            Optick::tryRegisterThreadWithOptick();
+            OPTICK_EVENT("RenderTile");
+
             for (int y = subRange.cols().begin(); y < subRange.cols().end(); y++) {
                 for (int x = subRange.rows().begin(); x < subRange.rows().end(); x++) {
                     Ray cameraRay = renderConfig.camera->generateRay(glm::vec2(x, y) / fResolution);

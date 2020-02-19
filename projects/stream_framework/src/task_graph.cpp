@@ -22,9 +22,10 @@ void TaskGraph::run()
     m_taskArena.execute([&] {
         tbb::task_group tg;
         std::function<void()> schedule = [&]() {
+            Optick::tryRegisterThreadWithOptick();
+
             TaskBase* pTask { nullptr };
             {
-                Optick::tryRegisterThreadWithOptick();
                 OPTICK_EVENT("Task Selection");
                 auto bestTaskIter = std::max_element(
                     std::begin(m_tasks),

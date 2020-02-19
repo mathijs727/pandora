@@ -256,15 +256,15 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 
     {
         const std::string taskName = fmt::format("{}::execute", m_name);
-        OPTICK_EVENT_DYNAMIC(taskName.c_str());
         auto stopWatch = flushStats.processingTime.getScopedStopwatch();
 
         std::atomic_size_t itemsFlushed { 0 };
 
         tbb::task_group tg;
         for (unsigned i = 0; i < std::thread::hardware_concurrency(); i++) {
-            tg.run([this, pStaticData, &itemsFlushed]() {
+            tg.run([this, pStaticData, &itemsFlushed, &taskName]() {
                 Optick::tryRegisterThreadWithOptick();
+                OPTICK_EVENT_DYNAMIC(taskName.c_str());
 
                 constexpr size_t workBatchSize = 256;
 
