@@ -149,18 +149,19 @@ inline std::optional<SurfaceInteraction> EmbreeAccelerationStructure<HitRayState
             // Fill surface interaction in local space
             si = pShape->fillSurfaceInteraction(localRay, hit);
 
-            // Flip the normal if it is facing away from the ray.
-            if (glm::dot(si.normal, -localRay.direction) < 0)
-                si.normal = -si.normal;
-            if (glm::dot(si.shading.normal, -localRay.direction) < 0)
-                si.shading.normal = -si.shading.normal;
-
             // Transform surface interaction back to world space
             si = transform.transformToWorld(si);
         } else {
             // Tell surface interaction which the shape was hit.
             si = pShape->fillSurfaceInteraction(ray, hit);
         }
+
+        // Flip the normal if it is facing away from the ray.
+        if (glm::dot(si.normal, -ray.direction) < 0)
+            si.normal = -si.normal;
+        if (glm::dot(si.shading.normal, -ray.direction) < 0)
+            si.shading.normal = -si.shading.normal;
+
         si.pSceneObject = pSceneObject;
         si.localToWorld = optLocalToWorldMatrix;
         return si;
@@ -292,12 +293,6 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
                 // Hit is already in object space...
                 //hit = transform.transformToLocal(hit);
 
-                // Flip the normal if it is facing away from the ray.
-                if (glm::dot(si.normal, -localRay.direction) < 0)
-                    si.normal = -si.normal;
-                if (glm::dot(si.shading.normal, -localRay.direction) < 0)
-                    si.shading.normal = -si.shading.normal;
-
                 // Fill surface interaction in local space
                 si = pShape->fillSurfaceInteraction(localRay, hit);
 
@@ -307,6 +302,12 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
                 // Tell surface interaction which the shape was hit.
                 si = pShape->fillSurfaceInteraction(ray, hit);
             }
+            // Flip the normal if it is facing away from the ray.
+            if (glm::dot(si.normal, -ray.direction) < 0)
+                si.normal = -si.normal;
+            if (glm::dot(si.shading.normal, -ray.direction) < 0)
+                si.shading.normal = -si.shading.normal;
+
             si.pSceneObject = pSceneObject;
             si.localToWorld = optLocalToWorldMatrix;
             m_pTaskGraph->enqueue(m_onHitTask, std::tuple { ray, si, state });
