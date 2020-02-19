@@ -64,6 +64,7 @@ RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pScen
         rtcCommitGeometry(embreeGeometry);
 
         rtcAttachGeometry(embreeScene, embreeGeometry);
+        rtcReleaseGeometry(embreeGeometry);
     }
 
     for (const auto& [pChildNode, optTransform] : pSceneNode->children) {
@@ -92,6 +93,7 @@ RTCScene EmbreeAccelerationStructureBuilder::buildRecurse(const SceneNode* pScen
         }
         rtcCommitGeometry(embreeInstanceGeometry);
         rtcAttachGeometry(embreeScene, embreeInstanceGeometry);
+        rtcReleaseGeometry(embreeInstanceGeometry);
     }
 
     rtcCommitScene(embreeScene);
