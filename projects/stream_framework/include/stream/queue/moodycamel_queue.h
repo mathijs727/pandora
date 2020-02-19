@@ -19,7 +19,7 @@ public:
     MoodyCamelQueue()
         : moodycamel::ConcurrentQueue<T>()
     {
-        /*std::generate_n(
+        std::generate_n(
             std::back_inserter(m_producerTokens),
             std::thread::hardware_concurrency(),
             [&]() {
@@ -30,28 +30,30 @@ public:
             std::thread::hardware_concurrency(),
             [&]() {
                 return moodycamel::ConsumerToken(*this);
-            });*/
+            });
     }
 
     void inline push(T&& item)
     {
-        //auto threadIdx = tbb::this_task_arena::current_thread_index();
-        //auto& token = m_producerTokens[threadIdx];
-        this->enqueue(std::move(item));
+        auto threadIdx = tbb::this_task_arena::current_thread_index();
+        auto& token = m_producerTokens[threadIdx];
+        this->enqueue(token, std::move(item));
+        //this->enqueue(std::move(item));
     }
     void inline push(const T& item)
     {
-        //auto threadIdx = tbb::this_task_arena::current_thread_index();
-        //auto& token = m_producerTokens[threadIdx];
-        this->enqueue(item);
+        auto threadIdx = tbb::this_task_arena::current_thread_index();
+        auto& token = m_producerTokens[threadIdx];
+        this->enqueue(token, item);
+        //this->enqueue(item);
     }
 
     bool inline try_pop(T& item)
     {
         auto threadIdx = tbb::this_task_arena::current_thread_index();
         auto& token = m_consumerTokens[threadIdx];
-        (void)token;
-        return this->try_dequeue(item);
+        return this->try_dequeue(token, item);
+        //return this->try_dequeue(item);
     }
 
     size_t inline unsafe_size() const
