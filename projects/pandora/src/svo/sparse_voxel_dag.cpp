@@ -643,7 +643,7 @@ std::pair<std::vector<glm::vec3>, std::vector<glm::ivec3>> SparseVoxelDAG::gener
 size_t SparseVoxelDAG::sizeBytes() const
 {
     size_t size = sizeof(decltype(*this));
-    size += m_nodeAllocator.capacity() * sizeof(decltype(m_nodeAllocator)::value_type);
+    size += m_nodeAllocator.size() * sizeof(decltype(m_nodeAllocator)::value_type);
     return size;
 }
 }
