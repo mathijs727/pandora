@@ -8,6 +8,7 @@ static thread_local bool registeredWithOptick { false };
 
 namespace Optick {
 
+#if USE_OPTICK
 OPTICK_API void tryRegisterThreadWithOptick()
 {
     static std::atomic_int workerIDs { 0 };
@@ -23,5 +24,6 @@ OPTICK_API void setThisMainThreadOptick()
 {
     registeredWithOptick = true;
 }
+#endif
 
 }
