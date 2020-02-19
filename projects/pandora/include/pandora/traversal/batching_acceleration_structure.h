@@ -174,25 +174,34 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             StaticData staticData;
 
             // Load all top level shapes
-            for (const auto& pSceneObject : m_subScene.sceneObjects) {
-                auto shapeOwner = m_pGeometryCache->makeResident(pSceneObject->pShape.get());
-                staticData.shapeOwners.emplace_back(std::move(shapeOwner));
-            }
-
-            // Load instanced shapes
-            std::function<void(const SceneNode*)> makeResidentRecurse = [&](const SceneNode* pSceneNode) {
-                for (const auto& pSceneObject : pSceneNode->objects) {
+            {
+                OPTICK_EVENT("MakeShapesResident");
+                for (const auto& pSceneObject : m_subScene.sceneObjects) {
                     auto shapeOwner = m_pGeometryCache->makeResident(pSceneObject->pShape.get());
                     staticData.shapeOwners.emplace_back(std::move(shapeOwner));
                 }
-                for (const auto& [pChild, _] : pSceneNode->children) {
-                    makeResidentRecurse(pChild.get());
-                }
-            };
-            for (const auto& [pSceneNode, _] : m_subScene.sceneNodes)
-                makeResidentRecurse(pSceneNode);
+            }
 
-            staticData.scene = pEmbreeCache->fromSubScene(&m_subScene);
+            // Load instanced shapes
+            {
+                OPTICK_EVENT("MakeSceneNodesResident");
+                std::function<void(const SceneNode*)> makeResidentRecurse = [&](const SceneNode* pSceneNode) {
+                    for (const auto& pSceneObject : pSceneNode->objects) {
+                        auto shapeOwner = m_pGeometryCache->makeResident(pSceneObject->pShape.get());
+                        staticData.shapeOwners.emplace_back(std::move(shapeOwner));
+                    }
+                    for (const auto& [pChild, _] : pSceneNode->children) {
+                        makeResidentRecurse(pChild.get());
+                    }
+                };
+                for (const auto& [pSceneNode, _] : m_subScene.sceneNodes)
+                    makeResidentRecurse(pSceneNode);
+            }
+
+            {
+                OPTICK_EVENT("LoadOrBuildBVH");
+                staticData.scene = pEmbreeCache->fromSubScene(&m_subScene);
+            }
             return staticData;
         },
         [=](gsl::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data,

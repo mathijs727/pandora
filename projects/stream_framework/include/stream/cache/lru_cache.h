@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <gsl/span>
 #include <list>
+#include <optick.h>
 #include <unordered_map>
 #include <vector>
 
@@ -19,7 +20,7 @@ class LRUCache {
 public:
     class Builder;
 
-	~LRUCache();
+    ~LRUCache();
 
     LRUCache(LRUCache&&) = default;
     LRUCache& operator=(LRUCache&&) = default;
@@ -85,6 +86,7 @@ inline CachedPtr<T> LRUCache::makeResident(T* pEvictable)
 
         return CachedPtr<T>(dynamic_cast<T*>(pItem), &refCountedItem.refCount);
     } else {
+        OPTICK_EVENT("Evictable::MakeResident");
         assert(m_residentItemsLookUp[itemIndex] == std::end(m_residentItems));
 
         size_t sizeBefore = pItem->sizeBytes();

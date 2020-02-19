@@ -479,30 +479,33 @@ std::vector<SubScene> createSubScenes(const Scene& scene, unsigned primitivesPer
         }
     };
     spdlog::info("Counting number of primitives per BVH node");
-    computePrimCount(pBvhRoot);
+    (void)computePrimCount(pBvhRoot);
 
-    std::function<SubScene(BVHNode*)> flattenSubTree = [&](BVHNode* pNode) {
-        if (const auto* pInnerNode = dynamic_cast<const InnerNode*>(pNode)) {
-            SubScene outScene;
-            for (auto* pChild : pInnerNode->children) {
-                auto childOutScene = flattenSubTree(pChild);
+    spdlog::info("Number of unique primitives: {}", pBvhRoot->numPrimitives);
 
-                outScene.sceneNodes.reserve(outScene.sceneNodes.size() + childOutScene.sceneNodes.size());
-                std::copy(std::begin(childOutScene.sceneNodes), std::end(childOutScene.sceneNodes), std::back_inserter(outScene.sceneNodes));
+    std::function<SubScene(BVHNode*)>
+        flattenSubTree = [&](BVHNode* pNode) {
+            if (const auto* pInnerNode = dynamic_cast<const InnerNode*>(pNode)) {
+                SubScene outScene;
+                for (auto* pChild : pInnerNode->children) {
+                    auto childOutScene = flattenSubTree(pChild);
 
-                outScene.sceneObjects.reserve(outScene.sceneObjects.size() + childOutScene.sceneObjects.size());
-                std::copy(std::begin(childOutScene.sceneObjects), std::end(childOutScene.sceneObjects), std::back_inserter(outScene.sceneObjects));
+                    outScene.sceneNodes.reserve(outScene.sceneNodes.size() + childOutScene.sceneNodes.size());
+                    std::copy(std::begin(childOutScene.sceneNodes), std::end(childOutScene.sceneNodes), std::back_inserter(outScene.sceneNodes));
+
+                    outScene.sceneObjects.reserve(outScene.sceneObjects.size() + childOutScene.sceneObjects.size());
+                    std::copy(std::begin(childOutScene.sceneObjects), std::end(childOutScene.sceneObjects), std::back_inserter(outScene.sceneObjects));
+                }
+                return outScene;
+            } else if (auto* pLeafNode = dynamic_cast<LeafNode*>(pNode)) {
+                SubScene outScene;
+                outScene.sceneNodes = std::move(pLeafNode->sceneNodes);
+                outScene.sceneObjects = std::move(pLeafNode->sceneObjects);
+                return outScene;
+            } else {
+                throw std::runtime_error("Unknown BVH node type");
             }
-            return outScene;
-        } else if (auto* pLeafNode = dynamic_cast<LeafNode*>(pNode)) {
-            SubScene outScene;
-            outScene.sceneNodes = std::move(pLeafNode->sceneNodes);
-            outScene.sceneObjects = std::move(pLeafNode->sceneObjects);
-            return outScene;
-        } else {
-            throw std::runtime_error("Unknown BVH node type");
-        }
-    };
+        };
 
     std::vector<SubScene> subScenes;
     std::function<void(BVHNode*)> computeSubScenes = [&](BVHNode* pNode) {

@@ -260,23 +260,28 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 
         std::atomic_size_t itemsFlushed { 0 };
 
+        // Queues with little items should be popped using smaller batches to improve parallelism.
+        static constexpr size_t maxBatchSize = 512;
+        const size_t approxSize = m_workQueue.unsafe_size();
+        const size_t fairShareBatchSize = std::clamp(approxSize / std::thread::hardware_concurrency(), static_cast<size_t>(8), static_cast<size_t>(512));
+
+        const unsigned numThreads = std::min(std::thread::hardware_concurrency(), static_cast<unsigned>((approxSize - 1) / fairShareBatchSize + 1));
         tbb::task_group tg;
-        for (unsigned i = 0; i < std::thread::hardware_concurrency(); i++) {
-            tg.run([this, pStaticData, &itemsFlushed, &taskName]() {
+        for (unsigned i = 0; i < numThreads; i++) {
+            tg.run([this, pStaticData, &itemsFlushed, &taskName, fairShareBatchSize]() {
                 Optick::tryRegisterThreadWithOptick();
                 OPTICK_EVENT_DYNAMIC(taskName.c_str());
 
                 size_t itemsFlushedLocal = 0;
-                eastl::fixed_vector<T, 512, false> workBatch;
+                eastl::fixed_vector<T, maxBatchSize, false> workBatch;
                 auto executeKernel = [&]() {
-                    OPTICK_EVENT("Kernel Execution");
                     m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
                     itemsFlushedLocal += workBatch.size();
                 };
 
                 while (m_workQueue.unsafe_size() > 0) {
                     while (true) {
-                        workBatch.resize(workBatch.max_size());
+                        workBatch.resize(fairShareBatchSize);
                         const size_t numItems = m_workQueue.try_pop_bulk(workBatch);
                         workBatch.resize(numItems);
                         if (numItems == 0)
