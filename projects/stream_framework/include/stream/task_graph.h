@@ -266,27 +266,25 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
                 Optick::tryRegisterThreadWithOptick();
                 OPTICK_EVENT_DYNAMIC(taskName.c_str());
 
-                constexpr size_t workBatchSize = 256;
-
                 size_t itemsFlushedLocal = 0;
-                eastl::fixed_vector<T, 256, false> workBatch;
+                eastl::fixed_vector<T, 512, false> workBatch;
                 auto executeKernel = [&]() {
                     OPTICK_EVENT("Kernel Execution");
                     m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
                     itemsFlushedLocal += workBatch.size();
                 };
 
-                T workItem;
-                while (m_workQueue.try_pop(workItem)) {
-                    workBatch.push_back(workItem);
+                while (m_workQueue.unsafe_size() > 0) {
+                    while (true) {
+                        workBatch.resize(workBatch.max_size());
+                        const size_t numItems = m_workQueue.try_pop_bulk(workBatch);
+                        workBatch.resize(numItems);
+                        if (numItems == 0)
+                            break;
 
-                    if (workBatch.size() == workBatchSize) {
                         executeKernel();
                         workBatch.clear();
                     }
-                }
-                if (!workBatch.empty()) {
-                    executeKernel();
                 }
 
                 itemsFlushed.fetch_add(itemsFlushedLocal, std::memory_order_relaxed);

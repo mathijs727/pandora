@@ -196,9 +196,7 @@ int main(int argc, char** argv)
                     auto siOpt = accel.intersectDebug(cameraRay);
                     if (siOpt) {
                         const float cos = glm::dot(siOpt->normal, -cameraRay.direction);
-                        //const float cos = glm::abs(glm::dot(siOpt->geometricNormal, -cameraRay.direction));
-                        //sensor.addPixelContribution(glm::ivec2 { x, y }, cos * siOpt->shading.batchingPointColor);
-                        sensor.addPixelContribution(glm::ivec2 { x, y }, glm::vec3(cos));
+                        sensor.addPixelContribution(glm::ivec2 { x, y }, cos * siOpt->shading.batchingPointColor);
                     }
                 }
             }

@@ -1,5 +1,6 @@
 #pragma once
 #include "moodycamel/concurrentqueue.h"
+#include <gsl/span>
 #include <tbb/task_arena.h>
 #include <thread>
 #include <vector>
@@ -33,14 +34,14 @@ public:
             });
     }
 
-    void inline push(T&& item)
+    inline void push(T&& item)
     {
         auto threadIdx = tbb::this_task_arena::current_thread_index();
         auto& token = m_producerTokens[threadIdx];
         this->enqueue(token, std::move(item));
         //this->enqueue(std::move(item));
     }
-    void inline push(const T& item)
+    inline void push(const T& item)
     {
         auto threadIdx = tbb::this_task_arena::current_thread_index();
         auto& token = m_producerTokens[threadIdx];
@@ -48,7 +49,7 @@ public:
         //this->enqueue(item);
     }
 
-    bool inline try_pop(T& item)
+    inline bool try_pop(T& item)
     {
         auto threadIdx = tbb::this_task_arena::current_thread_index();
         auto& token = m_consumerTokens[threadIdx];
@@ -56,12 +57,19 @@ public:
         //return this->try_dequeue(item);
     }
 
-    size_t inline unsafe_size() const
+    inline size_t try_pop_bulk(gsl::span<T> items)
+    {
+        auto threadIdx = tbb::this_task_arena::current_thread_index();
+        auto& token = m_consumerTokens[threadIdx];
+        return this->try_dequeue_bulk(token, items.data(), items.size());
+    }
+
+    inline size_t unsafe_size() const
     {
         return this->size_approx();
     }
 
-    size_t inline unsafe_size_bytes() const
+    inline size_t unsafe_size_bytes() const
     {
         return this->m_sizeBytes;
     }
