@@ -116,8 +116,13 @@ int main(int argc, char** argv)
     const glm::ivec2 resolution = renderConfig.resolution;
     auto geometryCache = cacheBuilder.build(500llu * 1024 * 1024 * 1024);
 
-    //using AccelBuilder = BatchingAccelerationStructureBuilder;
+#define BATCHING_ACCEL 1
+
+#ifdef BATCHING_ACCEL
+    using AccelBuilder = BatchingAccelerationStructureBuilder;
+#else
     using AccelBuilder = EmbreeAccelerationStructureBuilder;
+#endif
 
     if constexpr (std::is_same_v<AccelBuilder, EmbreeAccelerationStructureBuilder>) {
         std::function<void(const std::shared_ptr<SceneNode>&)> makeShapeResident = [&](const std::shared_ptr<SceneNode>& pSceneNode) {
@@ -139,22 +144,27 @@ int main(int argc, char** argv)
     spdlog::info("Creating integrator");
     tasking::TaskGraph taskGraph;
     const int spp = vm["spp"].as<int>();
-    NormalDebugIntegrator integrator { &taskGraph };
+    //NormalDebugIntegrator integrator { &taskGraph };
     //DirectLightingIntegrator integrator { &taskGraph, &geometryCache, 8, spp, LightStrategy::UniformSampleOne };
-    //PathIntegrator integrator { &taskGraph, &geometryCache, 8, spp, LightStrategy::UniformSampleOne };
+    PathIntegrator integrator { &taskGraph, &geometryCache, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Preprocessing scene");
-    constexpr unsigned primitivesPerBatchingPoint = 100000;
+    constexpr unsigned primitivesPerBatchingPoint = 5000000;
     if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
         cacheBuilder = tasking::LRUCache::Builder { std::make_unique<tasking::InMemorySerializer>() };
-        //AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
+#ifdef BATCHING_ACCEL
+        AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
+#endif
         auto newCache = cacheBuilder.build(geometryCache.maxSize());
         geometryCache = std::move(newCache);
     }
 
     spdlog::info("Building acceleration structure");
-    //AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 100000, 1024 * 1024 * 1024, 0 };
+#ifdef BATCHING_ACCEL
+    AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, primitivesPerBatchingPoint, 128llu * 1024 * 1024 * 1024, 0 };
+#else
     AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
+#endif
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
     bool pressedEscape = false;
