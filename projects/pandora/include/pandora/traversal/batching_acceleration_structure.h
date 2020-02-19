@@ -505,8 +505,7 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
             g_stats.memory.svdagsBeforeCompression += svdag->sizeBytes();
 
         spdlog::info("Compressing SVO to SVDAGs");
-        std::vector<SparseVoxelDAG*>
-            pSvdags;
+        std::vector<SparseVoxelDAG*> pSvdags;
         for (auto& svdag : svdags)
             pSvdags.push_back(&svdag.value());
         SparseVoxelDAG::compressDAGs(pSvdags);
