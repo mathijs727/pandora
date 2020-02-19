@@ -3,6 +3,7 @@
 #include "pandora/graphics_core/scene.h"
 #include "pandora/utility/enumerate.h"
 #include <glm/gtc/type_ptr.hpp>
+#include <optick.h>
 #include <spdlog/spdlog.h>
 
 static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
@@ -81,7 +82,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSceneNode(const Scen
     const void* pKey = pSceneNode;
     if (auto lutIter = m_lookUp.find(pKey); lutIter != std::end(m_lookUp)) {
         // Item is used => update LRU
-		auto& listIter = lutIter->second;
+        auto& listIter = lutIter->second;
         m_scenes.splice(std::end(m_scenes), m_scenes, listIter);
         listIter = --std::end(m_scenes);
 
@@ -124,12 +125,9 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSubScene(const SubSc
 
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const SceneNode* pSceneNode)
 {
+    OPTICK_EVENT();
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
 
-    // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
-    // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of
-    //  RTC_INVALID_GEOMETRY_ID).
-    unsigned geometryID = 1;
     for (const auto& pSceneObject : pSceneNode->objects) {
         Shape* pShape = pSceneObject->pShape.get();
 
@@ -137,7 +135,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
         rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
         rtcCommitGeometry(embreeGeometry);
 
-        rtcAttachGeometryByID(embreeScene, embreeGeometry, geometryID++);
+        rtcAttachGeometry(embreeScene, embreeGeometry);
         rtcReleaseGeometry(embreeGeometry); // Decrement reference counter (scene will keep it alive)
     }
 
@@ -162,9 +160,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
                 glm::value_ptr(identityMatrix));
         }
         rtcCommitGeometry(embreeInstanceGeometry);
-        // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
-        // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of RTC_INVALID_GEOMETRY_ID).
-        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geometryID++);
+        rtcAttachGeometry(embreeScene, embreeInstanceGeometry);
         rtcReleaseGeometry(embreeInstanceGeometry); // Decrement reference counter (scene will keep it alive)
     }
 
@@ -174,6 +170,8 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
 
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const SubScene* pSubScene)
 {
+    OPTICK_EVENT();
+
 #ifndef NDEBUG
     int instanceLevels = 0;
     for (const auto& [pSceneNode, _] : pSubScene->sceneNodes) {
@@ -189,10 +187,6 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
 
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
 
-    // Offset geomID by 1 so that we never have geometry with ID=0. This way we know that if hit.instID[x] = 0
-    // then this means that the value is invalid (since Embree always sets it to 0 when invalid instead of
-    //  RTC_INVALID_GEOMETRY_ID).
-    unsigned geometryID = 1;
     for (const auto& pSceneObject : pSubScene->sceneObjects) {
         const Shape* pShape = pSceneObject->pShape.get();
 
@@ -200,7 +194,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
         rtcSetGeometryUserData(embreeGeometry, pSceneObject);
         rtcCommitGeometry(embreeGeometry);
 
-        rtcAttachGeometryByID(embreeScene, embreeGeometry, geometryID++);
+        rtcAttachGeometry(embreeScene, embreeGeometry);
         rtcReleaseGeometry(embreeGeometry); // Decrement reference counter (scene will keep it alive)
     }
 
@@ -228,7 +222,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
         }
         rtcCommitGeometry(embreeInstanceGeometry);
 
-        rtcAttachGeometryByID(embreeScene, embreeInstanceGeometry, geometryID++);
+        rtcAttachGeometry(embreeScene, embreeInstanceGeometry);
         rtcReleaseGeometry(embreeInstanceGeometry); // Decrement reference counter (scene will keep it alive)
     }
 
@@ -241,7 +235,7 @@ void LRUEmbreeSceneCache::evict()
     spdlog::debug("LRUEmbreeSceneCache::evict");
     for (auto iter = std::begin(m_scenes); iter != std::end(m_scenes);) {
         // If a scene is still actively being used then there is no point in removing it
-		if (iter->scene.use_count() > 1) {
+        if (iter->scene.use_count() > 1) {
             iter++;
             continue;
         }
