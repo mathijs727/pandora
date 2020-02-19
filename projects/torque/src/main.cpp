@@ -14,8 +14,8 @@
 #include "pandora/shapes/triangle.h"
 #include "pandora/textures/constant_texture.h"
 #include "stream/task_graph.h"
-#include <optick/optick.h>
-#include <optick/optick_tbb.h>
+#include <optick.h>
+#include <optick_tbb.h>
 #include <pandora/traversal/batching_acceleration_structure.h>
 #include <pandora/traversal/embree_acceleration_structure.h>
 #include <pbrt/pbrt_importer.h>
@@ -54,7 +54,7 @@ int main(int argc, char** argv)
     spdlog::set_default_logger(colorLogger);
 #endif
     OPTICK_APP("Torque");
-    setThisMainThreadOptick();
+    Optick::setThisMainThreadOptick();
 
     spdlog::info("Parsing input");
 

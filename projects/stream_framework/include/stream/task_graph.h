@@ -11,8 +11,8 @@
 #include <tbb/task_group.h>
 #undef __TBB_ALLOW_MUTABLE_FUNCTORS
 #include <fmt/format.h>
-#include <optick/optick.h>
-#include <optick/optick_tbb.h>
+#include <optick.h>
+#include <optick_tbb.h>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -264,6 +264,8 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
         tbb::task_group tg;
         for (unsigned i = 0; i < std::thread::hardware_concurrency(); i++) {
             tg.run([this, pStaticData, &itemsFlushed]() {
+                Optick::tryRegisterThreadWithOptick();
+
                 constexpr size_t workBatchSize = 256;
 
                 size_t itemsFlushedLocal = 0;

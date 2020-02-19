@@ -9,4 +9,5 @@ target_link_libraries(torque PRIVATE
 	libPbf_importer
 	OIIO::OpenImageIO
 	Boost::program_options
+	OptickCore
 	glm)

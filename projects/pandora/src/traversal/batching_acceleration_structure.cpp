@@ -8,7 +8,7 @@
 #include <deque>
 #include <embree3/rtcore.h>
 #include <memory>
-#include <optick/optick.h>
+#include <optick.h>
 #include <spdlog/spdlog.h>
 #include <tbb/concurrent_vector.h>
 #include <tuple>

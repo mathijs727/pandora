@@ -2,8 +2,8 @@
 #include <algorithm>
 #include <cassert>
 #include <mutex>
-#include <optick/optick.h>
-#include <optick/optick_tbb.h>
+#include <optick.h>
+#include <optick_tbb.h>
 #include <thread>
 
 namespace tasking {
@@ -24,6 +24,7 @@ void TaskGraph::run()
         std::function<void()> schedule = [&]() {
             TaskBase* pTask { nullptr };
             {
+                Optick::tryRegisterThreadWithOptick();
                 OPTICK_EVENT("Task Selection");
                 auto bestTaskIter = std::max_element(
                     std::begin(m_tasks),

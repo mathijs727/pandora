@@ -1,12 +1,14 @@
-#include "optick/optick_tbb.h"
-#include "optick/optick.h"
+#include "optick_tbb.h"
+#include "optick.h"
 #include <atomic>
 #include <fmt/format.h>
 #include <string>
 
 static thread_local bool registeredWithOptick { false };
 
-void tryRegisterThreadWithOptick()
+namespace Optick {
+
+OPTICK_API void tryRegisterThreadWithOptick()
 {
     static std::atomic_int workerIDs { 0 };
     if (!registeredWithOptick) {
@@ -17,7 +19,9 @@ void tryRegisterThreadWithOptick()
     }
 }
 
-void setThisMainThreadOptick()
+OPTICK_API void setThisMainThreadOptick()
 {
     registeredWithOptick = true;
+}
+
 }

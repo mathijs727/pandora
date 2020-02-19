@@ -13,7 +13,7 @@
 #include <immintrin.h>
 #include <libmorton/morton.h>
 #include <limits>
-#include <optick/optick.h>
+#include <optick.h>
 #include <simd/simd4.h>
 
 namespace pandora {

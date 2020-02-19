@@ -16,7 +16,7 @@
 #include <execution>
 #include <glm/gtc/type_ptr.hpp>
 #include <gsl/span>
-#include <optick/optick.h>
+#include <optick.h>
 #include <optional>
 #include <tuple>
 #include <unordered_map>

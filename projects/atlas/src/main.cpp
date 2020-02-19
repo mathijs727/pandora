@@ -24,7 +24,8 @@
 #include <stream/cache/dummy_cache.h>
 #include <stream/cache/lru_cache.h>
 #include <stream/serialize/in_memory_serializer.h>
-
+#include <optick.h>
+#include <optick_tbb.h>
 #include <boost/program_options.hpp>
 #include <chrono>
 #include <iostream>
@@ -46,12 +47,13 @@ int main(int argc, char** argv)
     spdlog::set_default_logger(colorLogger);
     //spdlog::set_level(spdlog::level::critical);
 
-    spdlog::info("Parsing input");
-
     // https://embree.github.io/api.html
     // For optimal Embree performance
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+
+    OPTICK_APP("Atlas");
+    Optick::setThisMainThreadOptick();
 
     namespace po = boost::program_options;
     po::options_description desc("Pandora options");
@@ -142,7 +144,7 @@ int main(int argc, char** argv)
     //PathIntegrator integrator { &taskGraph, &geometryCache, 8, spp, LightStrategy::UniformSampleOne };
 
     spdlog::info("Preprocessing scene");
-    constexpr unsigned primitivesPerBatchingPoint = 10000;
+    constexpr unsigned primitivesPerBatchingPoint = 100000;
     if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
         cacheBuilder = tasking::LRUCache::Builder { std::make_unique<tasking::InMemorySerializer>() };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
@@ -151,7 +153,7 @@ int main(int argc, char** argv)
     }
 
     spdlog::info("Building acceleration structure");
-    AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 100000, 1024*1024*1024, 0 };
+    AccelBuilder accelBuilder { renderConfig.pScene.get(), &geometryCache, &taskGraph, 100000, 1024 * 1024 * 1024, 0 };
     //AccelBuilder accelBuilder { *renderConfig.pScene, &taskGraph };
     auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
@@ -166,6 +168,8 @@ int main(int argc, char** argv)
     auto previousTimestamp = std::chrono::high_resolution_clock::now();
     int samples = 0;
     while (!myWindow.shouldClose() && !pressedEscape) {
+        OPTICK_FRAME("MainThread");
+
         myWindow.updateInput();
         cameraControls.tick();
 
@@ -214,5 +218,6 @@ int main(int argc, char** argv)
         myWindow.swapBuffers();
     }
 
+    OPTICK_SHUTDOWN();
     return 0;
 }

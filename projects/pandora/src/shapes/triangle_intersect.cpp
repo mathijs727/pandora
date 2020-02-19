@@ -4,7 +4,7 @@
 #include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
 #include <glm/glm.hpp>
-#include <optick/optick.h>
+#include <optick.h>
 
 namespace pandora {
 

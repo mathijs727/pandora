@@ -12,7 +12,7 @@
 #include <cassert>
 #include <fstream>
 #include <glm/gtc/matrix_transform.hpp>
-#include <optick/optick.h>
+#include <optick.h>
 #include <spdlog/spdlog.h>
 #include <stack>
 #include <string>

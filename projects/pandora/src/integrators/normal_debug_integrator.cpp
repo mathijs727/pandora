@@ -6,7 +6,7 @@
 #include "pandora/graphics_core/interaction.h"
 #include "pandora/graphics_core/perspective_camera.h"
 #include "pandora/graphics_core/ray.h"
-#include <optick/optick.h>
+#include <optick.h>
 
 namespace pandora {
 

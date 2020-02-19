@@ -424,6 +424,11 @@ OutputDataStream& operator<<(OutputDataStream& stream, const FiberSyncData& ob)
 	return stream << (EventTime)(ob) << ob.threadId;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+OutputDataStream& operator<<(OutputDataStream& stream, const FrameData& ob)
+{
+	return stream << (EventData)(ob) << ob.threadID;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static std::mutex& GetBoardLock()
@@ -969,7 +974,7 @@ EventTime CalculateRange(const ThreadEntry& entry, const EventDescription* rootD
 EventTime CalculateRange(FrameStorage& frameStorage)
 {
 	EventTime timeSlice = { INT64_MAX, INT64_MIN };
-	frameStorage.m_Frames.ForEach([&](const EventData& data)
+	frameStorage.m_Frames.ForEach([&](const FrameData& data)
 	{
 		timeSlice.start = std::min(timeSlice.start, data.start);
 		timeSlice.finish = std::max(timeSlice.finish, data.finish);
@@ -1002,9 +1007,13 @@ void Core::DumpFrames(uint32 mode)
 		if (threads[i]->description.threadID == mainThreadID)
 			mainThreadIndex = (uint32)i;
 
-	EventTime timeSlice = CalculateRange(frames[FrameType::CPU]); 
+	std::array<EventTime, FrameType::COUNT> timeSlice;
+	for (int i = 0; i < FrameType::COUNT; ++i)
+	{
+		timeSlice[i] = CalculateRange(frames[i]);
+	} 
 
-	DumpBoard(mode, timeSlice, mainThreadIndex);
+	DumpBoard(mode, timeSlice[FrameType::CPU], mainThreadIndex);
 
 	{
 		DumpProgress("Serializing Frames");
@@ -1026,7 +1035,15 @@ void Core::DumpFrames(uint32 mode)
 	for (size_t i = 0; i < threads.size(); ++i)
 	{
 		threadScope.header.threadNumber = (uint32)i;
-		DumpThread(*threads[i], timeSlice, threadScope);
+
+		ThreadEntry* entry = threads[i];
+
+		EventTime range = timeSlice[FrameType::CPU];
+
+		if ((entry->description.mask & ThreadMask::GPU) != 0 && timeSlice[FrameType::GPU].IsValid())
+			range = timeSlice[FrameType::GPU];
+
+		DumpThread(*entry, range, threadScope);
 	}
 
 	ScopeData fiberScope;
@@ -1035,7 +1052,7 @@ void Core::DumpFrames(uint32 mode)
 	for (size_t i = 0; i < fibers.size(); ++i)
 	{
 		fiberScope.header.fiberNumber = (uint32)i;
-		DumpFiber(*fibers[i], timeSlice, fiberScope);
+		DumpFiber(*fibers[i], timeSlice[FrameType::CPU], fiberScope);
 	}
 
 	for (int i = 0; i < FrameType::COUNT; ++i)
@@ -1252,28 +1269,35 @@ void Core::Update()
 	while (UpdateState()) {}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-uint32_t Core::BeginUpdateFrame(FrameType::Type frameType, int64_t timestamp)
+uint32_t Core::BeginUpdateFrame(FrameType::Type frameType, int64_t timestamp, uint64_t threadID)
 {
 	std::lock_guard<std::recursive_mutex> lock(coreLock);
 
 	if (currentMode != Mode::OFF)
 	{
-		EventData& time = frames[frameType].m_Frames.Add();
-		time.description = frames[frameType].m_Description;
-		time.start = timestamp;
-		time.finish = timestamp;
+		FrameData& data = frames[frameType].m_Frames.Add();
+		data.description = frames[frameType].m_Description;
+		data.start = timestamp;
+		data.finish = timestamp;
+		data.threadID = threadID;
 	}
 
 	return ++frames[frameType].m_FrameNumber;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-uint32_t Core::EndUpdateFrame(FrameType::Type frameType, int64_t timestamp)
+uint32_t Core::EndUpdateFrame(FrameType::Type frameType, int64_t timestamp, uint64_t threadID)
 {
 	std::lock_guard<std::recursive_mutex> lock(coreLock);
 
 	if (currentMode != Mode::OFF)
-		if (EventData* lastFrame = frames[frameType].m_Frames.Back())
+	{
+		if (FrameData* lastFrame = frames[frameType].m_Frames.Back())
+		{
 			lastFrame->finish = timestamp;
+			(void)threadID;
+			OPTICK_ASSERT(lastFrame->threadID == threadID, "ThreadID mismatch");
+		}
+	}
 
 	return frames[frameType].m_FrameNumber;
 }
@@ -1665,14 +1689,14 @@ OPTICK_API void Update()
 	return Core::Get().Update();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-OPTICK_API uint32_t BeginFrame(Optick::FrameType::Type frameType, int64_t timestamp)
+OPTICK_API uint32_t BeginFrame(Optick::FrameType::Type frameType, int64_t timestamp, uint64_t threadID)
 {
-	return Core::BeginFrame(frameType, timestamp != EventTime::INVALID_TIMESTAMP ? timestamp : Optick::GetHighPrecisionTime());
+	return Core::BeginFrame(frameType, timestamp != EventTime::INVALID_TIMESTAMP ? timestamp : Optick::GetHighPrecisionTime(), threadID);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-OPTICK_API uint32_t EndFrame(Optick::FrameType::Type frameType, int64_t timestamp)
+OPTICK_API uint32_t EndFrame(Optick::FrameType::Type frameType, int64_t timestamp, uint64_t threadID)
 {
-	return Core::EndFrame(frameType, timestamp != EventTime::INVALID_TIMESTAMP ? timestamp : Optick::GetHighPrecisionTime());
+	return Core::EndFrame(frameType, timestamp != EventTime::INVALID_TIMESTAMP ? timestamp : Optick::GetHighPrecisionTime(), threadID);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 OPTICK_API bool IsActive(Mode::Type mode /*= Mode::INSTRUMENTATION_EVENTS*/)
@@ -1767,7 +1791,7 @@ OPTICK_API bool StartCapture(Mode::Type mode /*= Mode::DEFAULT*/, int samplingFr
 	if (force)
 	{
 		core.Update();
-		core.BeginFrame(FrameType::CPU, GetHighPrecisionTime());
+		core.BeginFrame(FrameType::CPU, GetHighPrecisionTime(), Platform::GetThreadID());
 	}
 	
 	return true;
@@ -1783,7 +1807,7 @@ OPTICK_API bool StopCapture(bool force /*= true*/)
 
 	if (force)
 	{
-		core.EndFrame(FrameType::CPU, GetHighPrecisionTime());
+		core.EndFrame(FrameType::CPU, GetHighPrecisionTime(), Platform::GetThreadID());
 		core.Update();
 	}
 
