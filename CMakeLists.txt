@@ -18,6 +18,10 @@ if (PANDORA_ISPC_SUPPORT)
 	include("${CMAKE_CURRENT_LIST_DIR}/cmake/ispc.cmake")
 endif()
 
+# vcpkg only installs Release and Debug libraries. Map RelWithDebInfo to Release.
+set(CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL MinSizeRel Release)
+set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO RelWithDebInfo Release)
+
 #include("cmake/pmm.cmake")
 #pmm(VERBOSE
 #	DEBUG
