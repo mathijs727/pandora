@@ -39,7 +39,7 @@
 using namespace pandora;
 using namespace torque;
 
-#define OUTPUT_PROFILE_DATA 1
+#define OUTPUT_PROFILE_DATA 0
 
 int main(int argc, char** argv)
 {
