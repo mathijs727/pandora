@@ -16,6 +16,7 @@
 #include "stream/task_graph.h"
 #include <optick.h>
 #include <optick_tbb.h>
+#include <pandora/traversal/offline_batching_acceleration_structure.h>
 #include <pandora/traversal/batching_acceleration_structure.h>
 #include <pandora/traversal/embree_acceleration_structure.h>
 #include <pbrt/pbrt_importer.h>
@@ -178,12 +179,13 @@ int main(int argc, char** argv)
     tasking::TaskGraph taskGraph { schedulers };
 
     //using AccelBuilder = EmbreeAccelerationStructureBuilder;
-    using AccelBuilder = BatchingAccelerationStructureBuilder;
-    if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
+    //using AccelBuilder = BatchingAccelerationStructureBuilder;
+    using AccelBuilder = OfflineBatchingAccelerationStructureBuilder;
+    if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder> || std::is_same_v<AccelBuilder, OfflineBatchingAccelerationStructureBuilder>) {
         spdlog::info("Preprocessing scene");
-        auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
         //auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
         //    "pandora_render_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::no_buffering);
+        auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
 
         cacheBuilder = tasking::LRUCache::Builder { std::move(pSerializer) };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);

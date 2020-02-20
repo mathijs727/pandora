@@ -1,8 +1,9 @@
 #pragma once
-#include "pandora/geometry/bounds.h"
+#include "pandora/flatbuffers/wive_bvh8_generated.h"
+#include "pandora/graphics_core/bounds.h"
+#include "pandora/graphics_core/interaction.h"
 #include "pandora/traversal/bvh.h"
 #include "pandora/utility/contiguous_allocator_ts.h"
-#include "pandora/flatbuffers/wive_bvh8_generated.h"
 #include "simd/simd8.h"
 #include <EASTL/fixed_vector.h>
 #include <embree3/rtcore.h>
@@ -15,22 +16,26 @@
 namespace pandora {
 
 template <typename LeafObj>
-class WiVeBVH8 : public BVH<LeafObj> {
+class WiVeBVH8 {
 public:
-    WiVeBVH8(uint32_t numPrims);
-    WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects);
-	WiVeBVH8(WiVeBVH8&&) = default;
+    WiVeBVH8(const serialization::WiVeBVH8* serialized, gsl::span<const LeafObj> objects);
+    WiVeBVH8(WiVeBVH8&&) = default;
     ~WiVeBVH8() = default;
 
     flatbuffers::Offset<serialization::WiVeBVH8> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 
-    size_t sizeBytes() const override final;
+    size_t sizeBytes() const; // override final;
 
-    void intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const override final;
-    void intersectAny(gsl::span<Ray> rays) const override final;
+    bool intersect(Ray& ray, SurfaceInteraction& si) const;
+    bool intersectAny(Ray& rays) const;
+
+    gsl::span<const LeafObj> leafs() const;
 
 protected:
-	virtual void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) = 0;
+    WiVeBVH8(uint32_t numPrims);
+
+protected:
+    virtual void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) = 0;
 
     void testBVH() const;
 
@@ -57,7 +62,7 @@ private:
     struct SIMDRay;
     uint32_t intersectInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
     uint32_t intersectAnyInnerNode(const BVHNode* n, const SIMDRay& ray, simd::vec8_u32& outChildren, simd::vec8_f32& outDistances) const;
-    bool intersectLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray, RayHit& hitInfo) const;
+    bool intersectLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray, SurfaceInteraction& si) const;
     bool intersectAnyLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray) const;
 
     struct TestBVHData {

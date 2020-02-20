@@ -9,12 +9,15 @@ class WiVeBVH8Build8 : public WiVeBVH8<LeafObj> {
 public:
     using WiVeBVH8<LeafObj>::WiVeBVH8;
     WiVeBVH8Build8(gsl::span<LeafObj> objects);
-    WiVeBVH8Build8(WiVeBVH8Build8<LeafObj>&& other)
+    WiVeBVH8Build8(WiVeBVH8Build8<LeafObj>&&) = default;
+
+    WiVeBVH8Build8<LeafObj>& operator=(WiVeBVH8Build8<LeafObj>&&) = default;
+    /*WiVeBVH8Build8(WiVeBVH8Build8<LeafObj>&& other)
         : WiVeBVH8<LeafObj>(std::move(other))
     {
-    }
+    }*/
 
-    WiVeBVH8Build8<LeafObj>& operator=(WiVeBVH8Build8<LeafObj>&& other)
+    /*WiVeBVH8Build8<LeafObj>& operator=(WiVeBVH8Build8<LeafObj>&& other)
     {
         this->m_innerNodeAllocator = std::move(other.m_innerNodeAllocator);
         this->m_leafIndexAllocator = std::move(other.m_leafIndexAllocator);
@@ -22,7 +25,7 @@ public:
         this->m_compressedRootHandle = other.m_compressedRootHandle;
 
         return *this;
-    }
+    }*/
 
 protected:
     void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) override final;

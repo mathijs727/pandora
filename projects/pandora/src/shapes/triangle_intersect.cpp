@@ -346,6 +346,8 @@ bool TriangleShape::intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primi
     hitInfo.primitiveID = primitiveID;
     hitInfo.geometricUV = glm::vec2(u, v);
     hitInfo.geometricNormal = glm::normalize(glm::cross(p1 - p0, p2 - p0));
+    if (glm::dot(hitInfo.geometricNormal, -ray.direction) < 0)
+        hitInfo.geometricNormal = -hitInfo.geometricNormal;
     return true;
 #endif
 }

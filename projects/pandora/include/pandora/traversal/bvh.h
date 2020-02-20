@@ -1,6 +1,6 @@
 #pragma once
 #include "pandora/graphics_core/pandora.h"
-#include "pandora/geometry/bounds.h"
+#include "pandora/graphics_core/bounds.h"
 #include <boost/tti/has_member_function.hpp>
 #include <gsl/span>
 

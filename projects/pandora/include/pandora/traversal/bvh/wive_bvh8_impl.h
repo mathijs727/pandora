@@ -6,31 +6,32 @@
 #include <array>
 #include <cassert>
 #include <mio/mmap.hpp>
+#include "wive_bvh8.h"
 
 namespace pandora {
 
 template <typename LeafObj>
-inline WiVeBVH8<LeafObj>::WiVeBVH8(uint32_t numPrims) :
-    m_innerNodeAllocator(std::max(16u, numPrims / 2), 16),
-    m_leafIndexAllocator(numPrims + numPrims / 2)
+inline WiVeBVH8<LeafObj>::WiVeBVH8(uint32_t numPrims)
+    : m_innerNodeAllocator(std::max(16u, numPrims / 2), 16)
+    , m_leafIndexAllocator(numPrims + numPrims / 2)
 {
-    std::cout << "Num prims: " << numPrims << std::endl;
 }
 
 template <typename LeafObj>
-inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, std::vector<LeafObj>&& objects) :
-    m_innerNodeAllocator(serialized->innerNodeAllocator()),
-    m_leafIndexAllocator(serialized->leafIndexAllocator())
+inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, gsl::span<const LeafObj> leafs)
+    : m_innerNodeAllocator(serialized->innerNodeAllocator())
+    , m_leafIndexAllocator(serialized->leafIndexAllocator())
 {
     m_compressedRootHandle = serialized->compressedRootHandle();
 
-    size_t numNodesGiven = objects.size();
+    size_t numNodesGiven = leafs.size();
     size_t numNodesSerialized = serialized->numLeafObjects();
     assert(numNodesGiven > 0);
     assert(m_leafObjects.empty());
     ALWAYS_ASSERT(numNodesGiven == numNodesSerialized, "Number of leaf objects does not match that of the serialized BVH");
 
-    this->m_leafObjects = std::move(objects);
+    m_leafObjects.reserve(leafs.size());
+    std::copy(std::begin(leafs), std::end(leafs), std::back_inserter(m_leafObjects));
 }
 
 template <typename LeafObj>
@@ -54,151 +55,157 @@ inline size_t WiVeBVH8<LeafObj>::sizeBytes() const
 }
 
 template <typename LeafObj>
-inline void WiVeBVH8<LeafObj>::intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const
+inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 {
     assert(rays.size() == hitInfos.size());
 
-    for (int64_t i = 0; i < rays.size(); i++) {
-        auto& ray = rays[i];
-        auto& hitInfo = hitInfos[i];
+    bool hit = false;
 
-        SIMDRay simdRay;
-        simdRay.originX = simd::vec8_f32(ray.origin.x);
-        simdRay.originY = simd::vec8_f32(ray.origin.y);
-        simdRay.originZ = simd::vec8_f32(ray.origin.z);
-        simdRay.invDirectionX = simd::vec8_f32(1.0f / ray.direction.x);
-        simdRay.invDirectionY = simd::vec8_f32(1.0f / ray.direction.y);
-        simdRay.invDirectionZ = simd::vec8_f32(1.0f / ray.direction.z);
-        simdRay.tnear = simd::vec8_f32(ray.tnear);
-        simdRay.tfar = simd::vec8_f32(ray.tfar);
-        simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
+    SIMDRay simdRay;
+    simdRay.originX = simd::vec8_f32(ray.origin.x);
+    simdRay.originY = simd::vec8_f32(ray.origin.y);
+    simdRay.originZ = simd::vec8_f32(ray.origin.z);
+    simdRay.invDirectionX = simd::vec8_f32(1.0f / ray.direction.x);
+    simdRay.invDirectionY = simd::vec8_f32(1.0f / ray.direction.y);
+    simdRay.invDirectionZ = simd::vec8_f32(1.0f / ray.direction.z);
+    simdRay.tnear = simd::vec8_f32(ray.tnear);
+    simdRay.tfar = simd::vec8_f32(ray.tfar);
+    simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
 
-        // Stack
-        alignas(32) std::array<uint32_t, 96> stackCompressedNodeHandles;
-        alignas(32) std::array<float, 96> stackDistances;
-        std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
-        size_t stackPtr = 0;
+    // Stack
+    alignas(32) std::array<uint32_t, 96> stackCompressedNodeHandles;
+    alignas(32) std::array<float, 96> stackDistances;
+    std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
+    size_t stackPtr = 0;
 
-        // Push root node onto the stack
-        stackCompressedNodeHandles[stackPtr] = m_compressedRootHandle;
-        stackDistances[stackPtr] = 0.0f;
-        stackPtr++;
+    // Push root node onto the stack
+    stackCompressedNodeHandles[stackPtr] = m_compressedRootHandle;
+    stackDistances[stackPtr] = 0.0f;
+    stackPtr++;
 
-        while (stackPtr > 0) {
-            stackPtr--;
-            uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
-            float distance = stackDistances[stackPtr];
+    while (stackPtr > 0) {
+        stackPtr--;
+        uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
+        float distance = stackDistances[stackPtr];
 
-            uint32_t handle = decompressNodeHandle(compressedNodeHandle);
-            const auto* node = &m_innerNodeAllocator.get(handle);
-            if (isInnerNode(compressedNodeHandle)) {
-                // Inner node
-                simd::vec8_u32 childrenSIMD;
-                simd::vec8_f32 distancesSIMD;
-                uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
+        uint32_t handle = decompressNodeHandle(compressedNodeHandle);
+        const auto* node = &m_innerNodeAllocator.get(handle);
+        if (isInnerNode(compressedNodeHandle)) {
+            // Inner node
+            simd::vec8_u32 childrenSIMD;
+            simd::vec8_f32 distancesSIMD;
+            uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
 
-                if (numChildren > 0) {
-                    childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
-                    distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
+            if (numChildren > 0) {
+                childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
+                distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
 
-                    stackPtr += numChildren;
-                }
-            } else {
+                stackPtr += numChildren;
+            }
+        } else {
 #ifndef NDEBUG
-                if (isEmptyNode(compressedNodeHandle))
-                    THROW_ERROR("Empty node in traversal");
-                assert(isLeafNode(compressedNodeHandle));
+            if (isEmptyNode(compressedNodeHandle))
+                THROW_ERROR("Empty node in traversal");
+            assert(isLeafNode(compressedNodeHandle));
 #endif
-                // Leaf node
-                if (intersectLeaf(&m_leafIndexAllocator.get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, hitInfo)) {
-                    simdRay.tfar.broadcast(ray.tfar);
+            // Leaf node
+            if (intersectLeaf(&m_leafIndexAllocator.get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray, si)) {
+                hit = true;
+                simdRay.tfar.broadcast(ray.tfar);
 
-                    // Compress stack
-                    size_t outStackPtr = 0;
-                    for (size_t i = 0; i < stackPtr; i += 8) {
-                        simd::vec8_u32 nodesSIMD;
-                        simd::vec8_f32 distancesSIMD;
-                        distancesSIMD.loadAligned(gsl::make_span(stackDistances.data() + i, 8));
-                        nodesSIMD.loadAligned(gsl::make_span(stackCompressedNodeHandles.data() + i, 8));
+                // Compress stack
+                size_t outStackPtr = 0;
+                for (size_t i = 0; i < stackPtr; i += 8) {
+                    simd::vec8_u32 nodesSIMD;
+                    simd::vec8_f32 distancesSIMD;
+                    distancesSIMD.loadAligned(gsl::make_span(stackDistances.data() + i, 8));
+                    nodesSIMD.loadAligned(gsl::make_span(stackCompressedNodeHandles.data() + i, 8));
 
-                        simd::mask8 distMask = distancesSIMD < simdRay.tfar;
-                        simd::vec8_u32 compressPermuteIndices(distMask.computeCompressPermutation()); // Compute permute indices that represent the compression (so we only have to calculate them once)
-                        distancesSIMD = distancesSIMD.permute(compressPermuteIndices);
-                        nodesSIMD = nodesSIMD.permute(compressPermuteIndices);
+                    simd::mask8 distMask = distancesSIMD < simdRay.tfar;
+                    simd::vec8_u32 compressPermuteIndices(distMask.computeCompressPermutation()); // Compute permute indices that represent the compression (so we only have to calculate them once)
+                    distancesSIMD = distancesSIMD.permute(compressPermuteIndices);
+                    nodesSIMD = nodesSIMD.permute(compressPermuteIndices);
 
-                        distancesSIMD.store(gsl::make_span(stackDistances.data() + outStackPtr, 8));
-                        nodesSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + outStackPtr, 8));
+                    distancesSIMD.store(gsl::make_span(stackDistances.data() + outStackPtr, 8));
+                    nodesSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + outStackPtr, 8));
 
-                        size_t numItems = std::min((size_t)8, stackPtr - i);
-                        unsigned validMask = (1 << numItems) - 1;
-                        outStackPtr += distMask.count(validMask);
-                    }
-                    stackPtr = outStackPtr;
+                    size_t numItems = std::min((size_t)8, stackPtr - i);
+                    unsigned validMask = (1 << numItems) - 1;
+                    outStackPtr += distMask.count(validMask);
                 }
+                stackPtr = outStackPtr;
             }
         }
     }
+
+    return hit;
 }
 
 template <typename LeafObj>
-inline void WiVeBVH8<LeafObj>::intersectAny(gsl::span<Ray> rays) const
+inline bool WiVeBVH8<LeafObj>::intersectAny(Ray& ray) const
 {
-    for (auto& ray : rays) {
-        SIMDRay simdRay;
-        simdRay.originX = simd::vec8_f32(ray.origin.x);
-        simdRay.originY = simd::vec8_f32(ray.origin.y);
-        simdRay.originZ = simd::vec8_f32(ray.origin.z);
-        simdRay.invDirectionX = simd::vec8_f32(1.0f / ray.direction.x);
-        simdRay.invDirectionY = simd::vec8_f32(1.0f / ray.direction.y);
-        simdRay.invDirectionZ = simd::vec8_f32(1.0f / ray.direction.z);
-        simdRay.tnear = simd::vec8_f32(ray.tnear);
-        simdRay.tfar = simd::vec8_f32(ray.tfar);
-        simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
+    SIMDRay simdRay;
+    simdRay.originX = simd::vec8_f32(ray.origin.x);
+    simdRay.originY = simd::vec8_f32(ray.origin.y);
+    simdRay.originZ = simd::vec8_f32(ray.origin.z);
+    simdRay.invDirectionX = simd::vec8_f32(1.0f / ray.direction.x);
+    simdRay.invDirectionY = simd::vec8_f32(1.0f / ray.direction.y);
+    simdRay.invDirectionZ = simd::vec8_f32(1.0f / ray.direction.z);
+    simdRay.tnear = simd::vec8_f32(ray.tnear);
+    simdRay.tfar = simd::vec8_f32(ray.tfar);
+    simdRay.raySignShiftAmount = simd::vec8_u32(signShiftAmount(ray.direction.x > 0, ray.direction.y > 0, ray.direction.z > 0));
 
-        // Stack
-        alignas(32) std::array<uint32_t, 96> stackCompressedNodeHandles;
-        alignas(32) std::array<float, 96> stackDistances;
-        std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
-        size_t stackPtr = 0;
+    // Stack
+    alignas(32) std::array<uint32_t, 96> stackCompressedNodeHandles;
+    alignas(32) std::array<float, 96> stackDistances;
+    std::fill(std::begin(stackDistances), std::end(stackDistances), std::numeric_limits<float>::max());
+    size_t stackPtr = 0;
 
-        // Push root node onto the stack
-        stackCompressedNodeHandles[stackPtr] = m_compressedRootHandle;
-        stackDistances[stackPtr] = 0.0f;
-        stackPtr++;
+    // Push root node onto the stack
+    stackCompressedNodeHandles[stackPtr] = m_compressedRootHandle;
+    stackDistances[stackPtr] = 0.0f;
+    stackPtr++;
 
-        while (stackPtr > 0) {
-            stackPtr--;
-            uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
-            float distance = stackDistances[stackPtr];
+    while (stackPtr > 0) {
+        stackPtr--;
+        uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
+        float distance = stackDistances[stackPtr];
 
-            uint32_t handle = decompressNodeHandle(compressedNodeHandle);
-            const auto* node = &m_innerNodeAllocator.get(handle);
-            if (isInnerNode(compressedNodeHandle)) {
-                // Inner node
-                simd::vec8_u32 childrenSIMD;
-                simd::vec8_f32 distancesSIMD;
-                uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
+        uint32_t handle = decompressNodeHandle(compressedNodeHandle);
+        const auto* node = &m_innerNodeAllocator.get(handle);
+        if (isInnerNode(compressedNodeHandle)) {
+            // Inner node
+            simd::vec8_u32 childrenSIMD;
+            simd::vec8_f32 distancesSIMD;
+            uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
 
-                if (numChildren > 0) {
-                    childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
-                    distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
+            if (numChildren > 0) {
+                childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
+                distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
 
-                    stackPtr += numChildren;
-                }
-            } else {
+                stackPtr += numChildren;
+            }
+        } else {
 #ifndef NDEBUG
-                if (isEmptyNode(compressedNodeHandle))
-                    THROW_ERROR("Empty node in traversal");
-                assert(isLeafNode(compressedNodeHandle));
+            if (isEmptyNode(compressedNodeHandle))
+                THROW_ERROR("Empty node in traversal");
+            assert(isLeafNode(compressedNodeHandle));
 #endif
-                // Leaf node
-                if (intersectAnyLeaf(&m_leafIndexAllocator.get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray)) {
-                    ray.tfar = -std::numeric_limits<float>::infinity();
-                    return;
-                }
+            // Leaf node
+            if (intersectAnyLeaf(&m_leafIndexAllocator.get(handle), leafNodePrimitiveCount(compressedNodeHandle), ray)) {
+                ray.tfar = -std::numeric_limits<float>::infinity();
+                return true;
             }
         }
     }
+
+    return false;
+}
+
+template <typename LeafObj>
+inline gsl::span<const LeafObj> WiVeBVH8<LeafObj>::leafs() const
+{
+    return m_leafObjects;
 }
 
 template <typename LeafObj>
@@ -265,11 +272,11 @@ inline uint32_t WiVeBVH8<LeafObj>::intersectAnyInnerNode(const BVHNode* n, const
 }
 
 template <typename LeafObj>
-inline bool WiVeBVH8<LeafObj>::intersectLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray, RayHit& hitInfo) const
+inline bool WiVeBVH8<LeafObj>::intersectLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray, SurfaceInteraction& si) const
 {
     bool hit = false;
     for (uint32_t i = 0; i < objectCount; i++) {
-        hit |= m_leafObjects[leafObjectIndices[i]].intersect(ray, hitInfo);
+        hit |= m_leafObjects[leafObjectIndices[i]].intersect(ray, si);
     }
     return hit;
 }
@@ -277,9 +284,8 @@ inline bool WiVeBVH8<LeafObj>::intersectLeaf(const uint32_t* leafObjectIndices, 
 template <typename LeafObj>
 inline bool WiVeBVH8<LeafObj>::intersectAnyLeaf(const uint32_t* leafObjectIndices, uint32_t objectCount, Ray& ray) const
 {
-    RayHit hitInfo = {};
     for (uint32_t i = 0; i < objectCount; i++) {
-        if (m_leafObjects[leafObjectIndices[i]].intersect(ray, hitInfo))
+        if (m_leafObjects[leafObjectIndices[i]].intersectAny(ray))
             return true;
     }
     return false;

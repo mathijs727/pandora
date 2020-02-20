@@ -67,7 +67,10 @@ target_sources(libPandora
         "${CMAKE_CURRENT_LIST_DIR}/textures/constant_texture.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/textures/image_texture.cpp"
 		
+		"${CMAKE_CURRENT_LIST_DIR}/traversal/batching.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/traversal/batching_acceleration_structure.cpp"
+		#"${CMAKE_CURRENT_LIST_DIR}/traversal/offline_batching_acceleration_structure.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/traversal/offline_bvh_cache.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/traversal/embree_acceleration_structure.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/traversal/embree_cache.cpp"
 

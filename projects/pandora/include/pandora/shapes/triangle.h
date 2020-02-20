@@ -47,6 +47,7 @@ public:
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const final;
     float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const final;
 
+    bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const final;
     SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& hit) const final;
 
     void voxelize(VoxelGrid& grid, const Transform& transform = Transform {}) const final;
@@ -63,9 +64,6 @@ private:
     // Evictable
     void doEvict() final;
     void doMakeResident(tasking::Deserializer& deserializer) final;
-
-    // Shape
-    bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const;
 
     static std::optional<TriangleShape> loadFromPlyFile(std::filesystem::path filePath, std::optional<glm::mat4> transform);
 
