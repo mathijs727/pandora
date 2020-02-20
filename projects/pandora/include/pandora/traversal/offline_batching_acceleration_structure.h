@@ -118,7 +118,7 @@ private:
     const size_t m_botLevelBVHCacheSize;
     const unsigned m_svdagRes;
 
-    std::vector<std::unique_ptr<SubScene>> m_pSubScenes;
+    std::vector<std::unique_ptr<SubScene>> m_subScenes;
 
     tasking::LRUCache* m_pGeometryCache;
     tasking::TaskGraph* m_pTaskGraph;
@@ -311,7 +311,7 @@ inline OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState> Offline
     spdlog::info("Constructing bot level BVHs");
     // From vector of unique pointers to vector of raw pointers
     std::vector<const SubScene*> subScenes;
-    std::transform(std::begin(m_pSubScenes), std::end(m_pSubScenes), std::back_inserter(subScenes), [](const auto& subScene) { return &subScene; });
+    std::transform(std::begin(m_subScenes), std::end(m_subScenes), std::back_inserter(subScenes), [](const auto& subScene) { return subScene.get(); });
     LRUBVHSceneCache sceneCache { subScenes, m_pGeometryCache, m_botLevelBVHCacheSize };
 
     spdlog::info("Creating batching points");
@@ -319,7 +319,7 @@ inline OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState> Offline
     std::vector<BatchingPointT> batchingPoints;
     if (m_svdagRes > 0) {
         std::vector<std::optional<SparseVoxelDAG>> svdags;
-        svdags.resize(m_pSubScenes.size());
+        svdags.resize(m_subScenes.size());
 
         // TODO: make cache thread safe and update this code
         // Because the caches are not thread safe (yet) we have to load the data from the main thread..
@@ -329,12 +329,12 @@ inline OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState> Offline
 
         spdlog::info("Voxelizing geometry");
         tbb::task_group tg;
-        for (size_t i = 0; i < m_pSubScenes.size(); i++) {
+        for (size_t i = 0; i < m_subScenes.size(); i++) {
             while (parallelTasks.load(std::memory_order::memory_order_acquire) >= maxParallelism)
                 continue;
 
             // Make resident sequentially
-            const auto& subScene = m_pSubScenes[i];
+            const auto& subScene = *m_subScenes[i];
             auto shapesOwningPtrs = detail::makeSubSceneResident(subScene, *m_pGeometryCache);
 
             // Voxelize and create SVO in parallel
@@ -358,15 +358,15 @@ inline OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState> Offline
         for (const auto& svdag : svdags)
             g_stats.memory.svdagsAfterCompression += svdag->sizeBytes();
 
-        for (size_t i = 0; i < m_pSubScenes.size(); i++) {
-            auto& subScene = m_pSubScenes[i];
-            auto shapes = detail::getSubSceneShapes(subScene);
-            batchingPoints.emplace_back(std::move(subScene), std::move(shapes), std::move(*svdags[i]), m_pGeometryCache, m_pTaskGraph);
+        for (size_t i = 0; i < m_subScenes.size(); i++) {
+            auto& pSubScene = m_subScenes[i];
+            auto shapes = detail::getSubSceneShapes(*pSubScene);
+            batchingPoints.emplace_back(std::move(pSubScene), std::move(shapes), std::move(*svdags[i]), m_pGeometryCache, m_pTaskGraph);
         }
     } else {
-        for (auto& subScene : m_pSubScenes) {
-            auto shapes = detail::getSubSceneShapes(subScene);
-            batchingPoints.emplace_back(std::move(subScene), std::move(shapes), m_pGeometryCache, m_pTaskGraph);
+        for (auto& pSubScene : m_subScenes) {
+            auto shapes = detail::getSubSceneShapes(*pSubScene);
+            batchingPoints.emplace_back(std::move(pSubScene), std::move(shapes), m_pGeometryCache, m_pTaskGraph);
         }
     }
 
