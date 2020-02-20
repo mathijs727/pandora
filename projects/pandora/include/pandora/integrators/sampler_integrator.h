@@ -1,4 +1,5 @@
 #pragma once
+#include "pandora/graphics_core/output.h"
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/samplers/rng/pcg.h"
 #include "pandora/traversal/acceleration_structure.h"
@@ -8,8 +9,8 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <memory>
-#include <vector>
 #include <tuple>
+#include <vector>
 
 namespace pandora {
 
@@ -41,7 +42,7 @@ public:
     using AnyMissTaskHandle = tasking::TaskHandle<std::tuple<Ray, AnyRayState>>;
 
     using Accel = AccelerationStructure<RayState, AnyRayState>;
-    void render(int concurrentPaths, const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed = 891379);
+    virtual void render(int concurrentPaths, const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed = 891379);
 
 protected:
     void spawnNewPaths(int numPaths);
@@ -79,10 +80,12 @@ protected:
 
         const Scene* pScene;
         const Accel* pAccelerationStructure;
+
+        ArbitraryOutputVariable<uint64_t, AOVOperator::Add>* pAOVNumTopLevelIntersections;
     };
     std::unique_ptr<RenderData> m_pCurrentRenderData;
 
-	std::vector<tasking::CachedPtr<Shape>> m_lightShapeOwners;
+    std::vector<tasking::CachedPtr<Shape>> m_lightShapeOwners;
 };
 
 }

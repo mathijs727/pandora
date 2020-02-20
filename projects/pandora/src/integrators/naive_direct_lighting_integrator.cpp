@@ -22,6 +22,10 @@ DirectLightingIntegrator::DirectLightingIntegrator(
               "DirectLightingIntegrator::hit",
               [this](gsl::span<const std::tuple<Ray, SurfaceInteraction, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
                   for (auto [ray, si, state] : hits) {
+                      if (ray.numTopLevelIntersections > 0)
+                          m_pCurrentRenderData->pAOVNumTopLevelIntersections->addSplat(
+                              state.pixel, ray.numTopLevelIntersections);
+
                       // TODO: make this use pMemoryResource
                       MemoryArena memoryArena;
                       si.computeScatteringFunctions(ray, memoryArena);
@@ -33,6 +37,10 @@ DirectLightingIntegrator::DirectLightingIntegrator(
               "DirectLightingIntegrator::miss",
               [this](gsl::span<const std::tuple<Ray, RayState>> misses, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, state] : misses) {
+                      if (ray.numTopLevelIntersections > 0)
+                          m_pCurrentRenderData->pAOVNumTopLevelIntersections->addSplat(
+                              state.pixel, ray.numTopLevelIntersections);
+
                       this->rayMiss(ray, state);
                   }
               }))
@@ -41,6 +49,10 @@ DirectLightingIntegrator::DirectLightingIntegrator(
               "DirectLightingIntegrator::anyHit",
               [this](gsl::span<const std::tuple<Ray, AnyRayState>> hits, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, state] : hits) {
+                      if (ray.numTopLevelIntersections > 0)
+                          m_pCurrentRenderData->pAOVNumTopLevelIntersections->addSplat(
+                              state.pixel, ray.numTopLevelIntersections);
+
                       this->rayAnyHit(ray, state);
                   }
               }))
@@ -49,6 +61,10 @@ DirectLightingIntegrator::DirectLightingIntegrator(
               "DirectLightingIntegrator::anyMiss",
               [this](gsl::span<const std::tuple<Ray, AnyRayState>> misses, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, state] : misses) {
+                      if (ray.numTopLevelIntersections > 0)
+                          m_pCurrentRenderData->pAOVNumTopLevelIntersections->addSplat(
+                              state.pixel, ray.numTopLevelIntersections);
+
                       this->rayAnyMiss(ray, state);
                   }
               }))

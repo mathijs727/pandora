@@ -26,6 +26,7 @@ SamplerIntegrator::SamplerIntegrator(tasking::TaskGraph* pTaskGraph, tasking::LR
 void SamplerIntegrator::render(int concurrentPaths, const PerspectiveCamera& camera, Sensor& sensor, const Scene& scene, const Accel& accel, size_t seed)
 {
     auto resolution = sensor.getResolution();
+    ArbitraryOutputVariable<uint64_t, AOVOperator::Add> numTopLevelIntersectionsAOV { resolution };
 
     auto pRenderData = std::make_unique<RenderData>();
     pRenderData->pCamera = &camera;
@@ -37,6 +38,7 @@ void SamplerIntegrator::render(int concurrentPaths, const PerspectiveCamera& cam
     pRenderData->maxPixelIndex = resolution.x * resolution.y;
     pRenderData->pScene = &scene;
     pRenderData->pAccelerationStructure = &accel;
+    pRenderData->pAOVNumTopLevelIntersections = &numTopLevelIntersectionsAOV;
     m_pCurrentRenderData = std::move(pRenderData);
 
     // Make sure that all geometry that is associated with an area light is always in memory (for efficient light sampling)
@@ -54,9 +56,12 @@ void SamplerIntegrator::render(int concurrentPaths, const PerspectiveCamera& cam
     };
     collectLightShapes(scene.pRoot.get());
 
+
     // Spawn initial rays
     spawnNewPaths(concurrentPaths);
     m_pTaskGraph->run();
+
+    m_pCurrentRenderData->pAOVNumTopLevelIntersections->writeImage("num_top_level_intersections.exr");
 
     m_lightShapeOwners.clear();
 }

@@ -16,7 +16,6 @@
 #include <execution>
 #include <glm/gtc/type_ptr.hpp>
 #include <gsl/span>
-#include <optick.h>
 #include <optional>
 #include <spdlog/spdlog.h>
 #include <tuple>
@@ -310,6 +309,7 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
         }
     }
 
+    ray.numTopLevelIntersections += 1;
     m_pTaskGraph->enqueue(m_intersectTask, std::tuple { ray, si, userState, bvhInsertHandle });
     return {};
 }
@@ -328,6 +328,7 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
         }
     }
 
+    ray.numTopLevelIntersections += 1;
     m_pTaskGraph->enqueue(m_intersectAnyTask, std::tuple { ray, userState, bvhInsertHandle });
     return {};
 }

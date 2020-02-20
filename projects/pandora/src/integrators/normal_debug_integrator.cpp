@@ -18,6 +18,9 @@ NormalDebugIntegrator::NormalDebugIntegrator(
               "NormalDebugIntegrator::hit",
               [this](gsl::span<const std::tuple<Ray, SurfaceInteraction, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, si, state] : hits) {
+                      if (ray.numTopLevelIntersections > 0)
+                          m_pAOVNumTopLevelIntersections->addSplat(state.pixel, ray.numTopLevelIntersections);
+
                       this->rayHit(ray, si, state);
                   }
               }))
@@ -26,6 +29,9 @@ NormalDebugIntegrator::NormalDebugIntegrator(
               "NormalDebugIntegrator::miss",
               [this](gsl::span<const std::tuple<Ray, RayState>> misses, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, state] : misses) {
+                      if (ray.numTopLevelIntersections > 0)
+                          m_pAOVNumTopLevelIntersections->addSplat(state.pixel, ray.numTopLevelIntersections);
+
                       this->rayMiss(ray, state);
                   }
               }))
@@ -34,6 +40,9 @@ NormalDebugIntegrator::NormalDebugIntegrator(
               "NormalDebugIntegrator::anyHit",
               [this](gsl::span<const std::tuple<Ray, AnyRayState>> hits, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, state] : hits) {
+                      if (ray.numTopLevelIntersections > 0)
+                          m_pAOVNumTopLevelIntersections->addSplat(state.pixel, ray.numTopLevelIntersections);
+
                       this->rayAnyHit(ray, state);
                   }
               }))
@@ -42,6 +51,9 @@ NormalDebugIntegrator::NormalDebugIntegrator(
               "NormalDebugIntegrator::anyMiss",
               [this](gsl::span<const std::tuple<Ray, AnyRayState>> misses, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, state] : misses) {
+                      if (ray.numTopLevelIntersections > 0)
+                          m_pAOVNumTopLevelIntersections->addSplat(state.pixel, ray.numTopLevelIntersections);
+
                       this->rayAnyMiss(ray, state);
                   }
               }))
@@ -60,16 +72,20 @@ void NormalDebugIntegrator::render(int concurrentPaths, const PerspectiveCamera&
     m_maxPixelIndex = m_resolution.x * m_resolution.y;
     m_pAccelerationStructure = &accel;
 
+    ArbitraryOutputVariable<uint64_t, AOVOperator::Add> numTopLevelIntersectionsAOV { m_resolution };
+    m_pAOVNumTopLevelIntersections = &numTopLevelIntersectionsAOV;
+
     // Spawn initial rays
     spawnNewPaths(concurrentPaths);
     m_pTaskGraph->run();
+
+    numTopLevelIntersectionsAOV.writeImage("num_top_level_intersections.exr");
 }
 
 void NormalDebugIntegrator::rayHit(const Ray& ray, const SurfaceInteraction& si, const RayState& state)
 {
     const float cos = glm::dot(si.normal, -ray.direction);
     m_pSensor->addPixelContribution(state.pixel, cos * si.shading.batchingPointColor);
-    //m_pSensor->addPixelContribution(state.pixel, glm::vec3(cos));
     spawnNewPaths(1);
 }
 

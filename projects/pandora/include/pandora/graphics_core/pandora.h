@@ -1,6 +1,6 @@
 #pragma once
-#include <glm/glm.hpp>
 #include "pandora/graphics_core/spectrum.h"
+#include <glm/glm.hpp>
 
 namespace pandora {
 
@@ -56,12 +56,5 @@ class Sensor;
 
 class VoxelGrid;
 class SparseVoxelOctree;
-
-/*template <typename, size_t>
-class OOCBatchingAccelerationStructure;
-template <typename T, size_t>
-class InCoreBatchingAccelerationStructure;
-template <typename T>
-class InCoreAccelerationStructure;*/
 
 }

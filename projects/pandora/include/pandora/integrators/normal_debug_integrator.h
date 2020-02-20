@@ -1,4 +1,5 @@
 #pragma once
+#include "pandora/graphics_core/output.h"
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/traversal/acceleration_structure.h"
 #include "stream/task_graph.h"
@@ -56,6 +57,8 @@ private:
     glm::ivec2 m_resolution;
     glm::vec2 m_fResolution;
     int m_maxPixelIndex;
+
+    ArbitraryOutputVariable<uint64_t, AOVOperator::Add>* m_pAOVNumTopLevelIntersections;
 
     const Accel* m_pAccelerationStructure;
 };

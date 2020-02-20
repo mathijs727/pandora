@@ -19,13 +19,15 @@ public:
         , direction(direction)
         , tnear(0.0f)
         , tfar(std::numeric_limits<float>::max())
+        , numTopLevelIntersections(0)
     {
     }
-    Ray(const glm::vec3& origin, const glm::vec3& direction, float tnear, float tfar = std::numeric_limits<float>::max())
+    Ray(const glm::vec3& origin, const glm::vec3& direction, float tnear, float tfar = std::numeric_limits<float>::max(), uint64_t numTopLevelIntersections = 0)
         : origin(origin)
         , direction(direction)
         , tnear(tnear)
         , tfar(tfar)
+        , numTopLevelIntersections(numTopLevelIntersections)
     {
     }
 
@@ -33,6 +35,8 @@ public:
     glm::vec3 direction;
     float tnear;
     float tfar;
+
+    uint64_t numTopLevelIntersections;
 };
 
 struct RayHit {
