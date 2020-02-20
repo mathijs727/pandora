@@ -37,13 +37,6 @@ glm::vec3 Transform::transformVectorToLocal(const glm::vec3& v) const
     return glm::mat3(m_inverseMatrix) * v;
 }
 
-RayHit Transform::transformToLocal(const RayHit& hit) const
-{
-    RayHit result = hit;
-    //result.geometricNormal = glm::normalize(glm::transpose(glm::mat3(m_matrix)) * hit.geometricNormal);
-    return result;
-}
-
 Ray Transform::transformToLocal(const Ray& ray) const
 {
     const glm::vec3 origin = m_inverseMatrix * glm::vec4(ray.origin, 1.0f);
@@ -86,7 +79,6 @@ SurfaceInteraction Transform::transformToWorld(const SurfaceInteraction& si) con
 
     result.shading.normal = transformNormalToWorld(si.shading.normal);
     result.shading.normal = faceForward(result.shading.normal, result.normal);
-    result.shading.batchingPointColor = si.shading.batchingPointColor;
 
     result.wo = glm::normalize(transformVectorToWorld(si.wo));
     return result;
