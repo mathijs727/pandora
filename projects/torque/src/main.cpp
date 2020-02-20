@@ -222,6 +222,12 @@ int main(int argc, char** argv)
             spdlog::info("Building acceleration structure");
             auto accel = accelBuilder.build(integrator.hitTaskHandle(), integrator.missTaskHandle(), integrator.anyHitTaskHandle(), integrator.anyMissTaskHandle());
 
+            // Offline BVH generates BVHs and evicts them immediately after construction. Clear stats so that final stats
+            // show only BVH traffic during rendering.
+            g_stats.asyncTriggerSnapshot();
+            g_stats.memory.botLevelEvicted = 0;
+            g_stats.memory.botLevelLoaded = 0;
+
             spdlog::info("Starting render");
             auto stopWatch = g_stats.timings.totalRenderTime.getScopedStopwatch();
             integrator.render(concurrency, *renderConfig.camera, sensor, *renderConfig.pScene, accel);

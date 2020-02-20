@@ -1,4 +1,5 @@
 #include "pandora/traversal/offline_bvh_cache.h"
+#include "pandora/core/stats.h"
 #include "pandora/graphics_core/scene.h"
 #include "pandora/graphics_core/shape.h"
 #include "pandora/utility/error_handling.h"
@@ -79,6 +80,7 @@ CachedBVH::CachedBVH(WiVeBVH8Build8<OfflineBVHLeaf>&& bvh, const Bounds& bounds)
     , m_bvh(std::move(bvh))
     , m_bounds(bounds)
 {
+    g_stats.memory.botLevelLoaded += m_bvh->sizeBytes();
 }
 
 Bounds CachedBVH::getBounds() const
@@ -127,18 +129,20 @@ void CachedBVH::serialize(tasking::Serializer& serializer)
 
 void CachedBVH::doEvict()
 {
+    g_stats.memory.botLevelEvicted += m_bvh->sizeBytes();
     m_bvh.reset();
 }
 
 void CachedBVH::doMakeResident(tasking::Deserializer& deserializer)
 {
-    //TODO(Mathijs): ...
     const void* pLeafsMem = deserializer.map(m_leafsSerializeAllocation);
     const OfflineBVHLeaf* pLeafs = static_cast<const OfflineBVHLeaf*>(pLeafsMem);
 
     const void* pBVHMem = deserializer.map(m_bvhSerializeAllocation);
     WiVeBVH8Build8<OfflineBVHLeaf> bvh { pandora::serialization::GetWiVeBVH8(pBVHMem), gsl::span(pLeafs, m_numLeafs) };
     m_bvh.emplace(std::move(bvh));
+
+    g_stats.memory.botLevelLoaded += m_bvh->sizeBytes();
 }
 
 bool CachedBVHSubScene::intersect(Ray& ray, SurfaceInteraction& si) const
