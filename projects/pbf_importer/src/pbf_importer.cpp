@@ -208,6 +208,9 @@ std::shared_ptr<pandora::Shape> Converter::convertShape(const PBFShape* pPBFShap
             std::begin(pPBFTriangleShape->normal),
             std::end(pPBFTriangleShape->normal),
             std::begin(normals));
+        // TODO: support tex coords when subdividing triangle shape
+        texCoords.clear();
+        texCoords.shrink_to_fit();
         auto pShape = std::make_shared<pandora::TriangleShape>(
             std::move(indices), std::move(positions), std::move(normals), std::move(texCoords));
 
