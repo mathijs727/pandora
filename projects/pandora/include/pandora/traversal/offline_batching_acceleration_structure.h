@@ -269,16 +269,17 @@ template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersect(
     Ray& ray, SurfaceInteraction& si, const HitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
-    {
+    if (m_svdag) {
         // auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
         g_stats.svdag.numIntersectionTests++;
 
-        if (m_svdag && !m_svdag->intersectScalar(ray)) {
+        if (!m_svdag->intersectScalar(ray)) {
             g_stats.svdag.numRaysCulled++;
             return false;
         }
     }
 
+    ray.numTopLevelIntersections += 1;
     m_pTaskGraph->enqueue(m_intersectTask, std::tuple { ray, si, userState, bvhInsertHandle });
     return {};
 }
@@ -287,16 +288,17 @@ template <typename HitRayState, typename AnyHitRayState>
 std::optional<bool> OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::intersectAny(
     Ray& ray, const AnyHitRayState& userState, const PauseableBVHInsertHandle& bvhInsertHandle) const
 {
-    {
+    if (m_svdag) {
         //auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
         g_stats.svdag.numIntersectionTests++;
 
-        if (m_svdag && !m_svdag->intersectScalar(ray)) {
+        if (!m_svdag->intersectScalar(ray)) {
             g_stats.svdag.numRaysCulled++;
             return false;
         }
     }
 
+    ray.numTopLevelIntersections += 1;
     m_pTaskGraph->enqueue(m_intersectAnyTask, std::tuple { ray, userState, bvhInsertHandle });
     return {};
 }
