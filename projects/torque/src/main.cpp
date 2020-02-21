@@ -44,6 +44,9 @@ using namespace torque;
 
 int main(int argc, char** argv)
 {
+    OPTICK_APP("Torque");
+    Optick::setThisMainThreadOptick();
+
 #if OUTPUT_PROFILE_DATA
     OPTICK_START_CAPTURE();
 #endif
@@ -56,8 +59,6 @@ int main(int argc, char** argv)
     spdlog::set_default_logger(colorLogger);
 #endif
 
-    OPTICK_APP("Torque");
-    Optick::setThisMainThreadOptick();
 
     spdlog::info("Parsing input");
 
