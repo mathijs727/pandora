@@ -127,6 +127,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
 {
     OPTICK_EVENT();
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
+    rtcSetSceneFlags(embreeScene, RTC_SCENE_FLAG_COMPACT);
 
     for (const auto& pSceneObject : pSceneNode->objects) {
         Shape* pShape = pSceneObject->pShape.get();
@@ -186,6 +187,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
     auto stopWatch = g_stats.timings.botLevelBuildTime.getScopedStopwatch();
 
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
+    rtcSetSceneFlags(embreeScene, RTC_SCENE_FLAG_COMPACT);
 
     for (const auto& pSceneObject : pSubScene->sceneObjects) {
         const Shape* pShape = pSceneObject->pShape.get();
