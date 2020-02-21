@@ -254,10 +254,10 @@ CachedBVH* LRUBVHSceneCache::createBVH(const SceneNode* pSceneNode, tasking::LRU
 
     // Store Evictable wrapper class
     auto pCachedBVHOwner = std::make_unique<CachedBVH>(std::move(bvh), bounds);
-    auto pCachedBVH = pCachedBVHOwner.get();
+    auto* pCachedBVH = pCachedBVHOwner.get();
 
     // Add Evictable BVH to cache
-    pCacheBuilder->registerCacheable(pCachedBVH);
+    pCacheBuilder->registerCacheable(pCachedBVH, true);
 
     // Store SubScene pointer to Evictable BVH in a look-up table
     m_bvhSceneLUT[static_cast<const void*>(pSceneNode)] = std::move(pCachedBVHOwner);
@@ -308,7 +308,7 @@ CachedBVH* LRUBVHSceneCache::createBVH(const SubScene* pSubScene, tasking::LRUCa
     auto pCachedBVH = pCachedBVHOwner.get();
 
     // Add Evictable BVH to cache
-    pCacheBuilder->registerCacheable(pCachedBVH);
+    pCacheBuilder->registerCacheable(pCachedBVH, true);
 
     // Store SubScene pointer to Evictable BVH in a look-up table
     m_bvhSceneLUT[static_cast<const void*>(pSubScene)] = std::move(pCachedBVHOwner);
