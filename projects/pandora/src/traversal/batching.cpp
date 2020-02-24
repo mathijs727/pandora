@@ -4,9 +4,11 @@
 #include "pandora/utility/enumerate.h"
 #include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
+#include <mutex>
 #include <optick.h>
 #include <spdlog/spdlog.h>
 #include <stream/cache/lru_cache.h>
+#include <tbb/task_group.h>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -230,15 +232,23 @@ std::vector<pandora::SubScene> createSubScenes(const pandora::Scene& scene, unsi
         };
 
     std::vector<SubScene> subScenes;
+    std::mutex subScenesMutex;
     std::function<void(BVHNode*)> computeSubScenes = [&](BVHNode* pNode) {
         if (pNode->numPrimitives > primitivesPerSubScene) {
+            tbb::task_group tg;
             if (auto* pInnerNode = dynamic_cast<InnerNode*>(pNode)) {
-                for (auto* pChild : pInnerNode->children)
-                    computeSubScenes(pChild);
+                for (auto* pChild : pInnerNode->children) {
+                    tg.run([=]() {
+                        computeSubScenes(pChild);
+                    });
+                }
             } else {
+                std::lock_guard l { subScenesMutex };
                 subScenes.push_back(flattenSubTree(pNode));
             }
+            tg.wait();
         } else {
+            std::lock_guard l { subScenesMutex };
             subScenes.push_back(flattenSubTree(pNode));
         }
     };
