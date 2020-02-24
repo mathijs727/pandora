@@ -23,6 +23,7 @@ pandora::RenderConfig loadFromPBFFile(
     Parser parser { &lexer };
     auto* pPBFScene = parser.parse();
 
+    spdlog::info("Converting pbf scene into Pandora scene");
     return pbfToRenderConfig(pPBFScene, cameraID, pCacheBuilder, subdiv, loadTextures);
 }
 
