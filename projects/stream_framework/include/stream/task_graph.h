@@ -310,10 +310,10 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
         m_staticDataDestructor(pMemory, pStaticData);
     }
 
-    /*auto& stats = StreamStats::getSingleton();
+    auto& stats = StreamStats::getSingleton();
     {
         std::lock_guard l { stats.infoAtFlushesMutex };
         stats.infoAtFlushes.emplace_back(std::move(flushStats));
-    }*/
+    }
 }
 }
