@@ -14,7 +14,7 @@
 
 namespace pandora {
 
-SamplerIntegrator::SamplerIntegrator(tasking::TaskGraph* pTaskGraph, tasking::LRUCache* pGeomCache, int maxDepth, int spp, LightStrategy strategy)
+SamplerIntegrator::SamplerIntegrator(tasking::TaskGraph* pTaskGraph, tasking::LRUCacheTS* pGeomCache, int maxDepth, int spp, LightStrategy strategy)
     : m_pTaskGraph(pTaskGraph)
     , m_pGeomCache(pGeomCache)
     , m_maxDepth(maxDepth)

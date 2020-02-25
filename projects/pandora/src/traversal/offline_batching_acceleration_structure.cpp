@@ -22,7 +22,7 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
 
 OfflineBatchingAccelerationStructureBuilder::OfflineBatchingAccelerationStructureBuilder(
     const Scene* pScene,
-    tasking::LRUCache* pCache,
+    tasking::LRUCacheTS* pCache,
     tasking::TaskGraph* pTaskGraph,
     unsigned primitivesPerBatchingPoint,
     size_t botLevelBVHCacheSize,
@@ -43,7 +43,7 @@ OfflineBatchingAccelerationStructureBuilder::OfflineBatchingAccelerationStructur
         [](auto& subScene) { return std::make_unique<SubScene>(std::move(subScene)); });
 }
 
-void OfflineBatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint)
+void OfflineBatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, tasking::LRUCacheTS& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint)
 {
     OPTICK_EVENT();
 

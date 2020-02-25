@@ -22,8 +22,9 @@ public:
 
 private:
     friend class LRUCache;
+    friend class LRUCacheTS;
     friend class DummyCache;
-    CachedPtr(T* pItem, std::atomic_int* pRefCount);
+    CachedPtr(T* pItem, std::atomic_int* pRefCount, bool shouldIncrement = true);
 
 private:
     T* m_pItem;
@@ -31,11 +32,11 @@ private:
 };
 
 template <typename T>
-inline CachedPtr<T>::CachedPtr(T* pItem, std::atomic_int* pRefCount)
+inline CachedPtr<T>::CachedPtr(T* pItem, std::atomic_int* pRefCount, bool shouldIncrement)
     : m_pItem(pItem)
     , m_pRefCount(pRefCount)
 {
-    if (m_pRefCount)
+    if (shouldIncrement && m_pRefCount)
         m_pRefCount->fetch_add(1);
 }
 

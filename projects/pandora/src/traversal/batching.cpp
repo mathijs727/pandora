@@ -8,6 +8,7 @@
 #include <optick.h>
 #include <spdlog/spdlog.h>
 #include <stream/cache/lru_cache.h>
+#include <stream/cache/lru_cache_ts.h>
 #include <tbb/task_group.h>
 #include <tuple>
 #include <unordered_map>
@@ -16,7 +17,7 @@
 namespace pandora::detail {
 
 static std::vector<std::shared_ptr<Shape>> splitLargeTriangleShape(const TriangleShape& original, unsigned maxSize, RTCDevice embreeDevice);
-static void replaceShapeBySplitShapesRecurse(SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, std::unordered_set<Shape*>& cachedShapes, const std::unordered_map<Shape*, std::vector<std::shared_ptr<Shape>>>& splitShapes);
+static void replaceShapeBySplitShapesRecurse(SceneNode* pSceneNode, tasking::LRUCacheTS& oldCache, tasking::CacheBuilder& newCacheBuilder, std::unordered_set<Shape*>& cachedShapes, const std::unordered_map<Shape*, std::vector<std::shared_ptr<Shape>>>& splitShapes);
 
 static size_t subTreePrimitiveCount(const SceneNode* pSceneNode)
 {
@@ -287,7 +288,7 @@ std::vector<Shape*> getSubSceneShapes(const SubScene& subScene)
     return result;
 }
 
-std::vector<tasking::CachedPtr<Shape>> makeSubSceneResident(const pandora::SubScene& subScene, tasking::LRUCache& geometryCache)
+std::vector<tasking::CachedPtr<Shape>> makeSubSceneResident(const pandora::SubScene& subScene, tasking::LRUCacheTS& geometryCache)
 {
     OPTICK_EVENT();
 
@@ -352,7 +353,7 @@ pandora::SparseVoxelDAG createSVDAGfromSubScene(const pandora::SubScene& subScen
     return SparseVoxelDAG { grid };
 }
 
-void splitLargeSceneObjects(pandora::SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize)
+void splitLargeSceneObjects(pandora::SceneNode* pSceneNode, tasking::LRUCacheTS& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize)
 {
     OPTICK_EVENT();
 
@@ -490,7 +491,7 @@ static std::vector<std::shared_ptr<Shape>> splitLargeTriangleShape(const Triangl
 
 static void replaceShapeBySplitShapesRecurse(
     SceneNode* pSceneNode,
-    tasking::LRUCache& oldCache,
+    tasking::LRUCacheTS& oldCache,
     tasking::CacheBuilder& newCacheBuilder,
     std::unordered_set<Shape*>& cachedShapes,
     const std::unordered_map<Shape*, std::vector<std::shared_ptr<Shape>>>& splitShapes)

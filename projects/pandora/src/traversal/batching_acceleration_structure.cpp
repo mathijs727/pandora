@@ -23,7 +23,7 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
 
 BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     const Scene* pScene,
-    tasking::LRUCache* pCache,
+    tasking::LRUCacheTS* pCache,
     tasking::TaskGraph* pTaskGraph,
     unsigned primitivesPerBatchingPoint,
     size_t botLevelBVHCacheSize,
@@ -40,7 +40,7 @@ BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     m_subScenes = detail::createSubScenes(*pScene, primitivesPerBatchingPoint, m_embreeDevice);
 }
 
-void BatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint)
+void BatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, tasking::LRUCacheTS& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint)
 {
     OPTICK_EVENT();
 

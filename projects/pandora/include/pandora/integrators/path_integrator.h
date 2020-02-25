@@ -5,7 +5,7 @@ namespace pandora {
 
 class PathIntegrator : public SamplerIntegrator {
 public:
-    PathIntegrator(tasking::TaskGraph* pTaskGraph, tasking::LRUCache* pGeomCache, int maxDepth, int spp, LightStrategy strategy = LightStrategy::UniformSampleAll);
+    PathIntegrator(tasking::TaskGraph* pTaskGraph, tasking::LRUCacheTS* pGeomCache, int maxDepth, int spp, LightStrategy strategy = LightStrategy::UniformSampleAll);
 
     HitTaskHandle hitTaskHandle() const;
     MissTaskHandle missTaskHandle() const;

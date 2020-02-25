@@ -3,12 +3,12 @@
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/samplers/rng/pcg.h"
 #include "pandora/traversal/acceleration_structure.h"
-#include "stream/cache/lru_cache.h"
-#include "stream/task_graph.h"
 #include <atomic>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <memory>
+#include <stream/cache/lru_cache_ts.h>
+#include <stream/task_graph.h>
 #include <tuple>
 #include <vector>
 
@@ -21,7 +21,7 @@ enum class LightStrategy {
 
 class SamplerIntegrator {
 public:
-    SamplerIntegrator(tasking::TaskGraph* pTaskGraph, tasking::LRUCache* pGeomCache, int maxDepth, int spp, LightStrategy strategy = LightStrategy::UniformSampleAll);
+    SamplerIntegrator(tasking::TaskGraph* pTaskGraph, tasking::LRUCacheTS* pGeomCache, int maxDepth, int spp, LightStrategy strategy = LightStrategy::UniformSampleAll);
 
     struct BounceRayState {
         glm::ivec2 pixel { 0 };
@@ -62,7 +62,7 @@ private:
 
 protected:
     tasking::TaskGraph* m_pTaskGraph;
-    tasking::LRUCache* m_pGeomCache;
+    tasking::LRUCacheTS* m_pGeomCache;
 
     const int m_maxDepth;
     const int m_maxSpp;

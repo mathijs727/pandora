@@ -22,17 +22,18 @@ public:
 
 private:
     friend class SplitFileSerializer;
-    SplitFileDeserializer(std::filesystem::path tempFolder, mio_cache_control::cache_mode fileCacheMode);
+    SplitFileDeserializer(std::filesystem::path tempFolder, uint32_t numFiles, mio_cache_control::cache_mode fileCacheMode);
 
 private:
     std::filesystem::path m_tempFolder;
     mio_cache_control::cache_mode m_fileCacheMode;
 
-    struct MappedFile {
+    /*struct MappedFile {
         mio_cache_control::mmap_source file;
         uint32_t useCount;
     };
-    std::unordered_map<uint32_t, MappedFile> m_openFiles;
+    std::unordered_map<uint32_t, MappedFile> m_openFiles;*/
+    std::vector<mio_cache_control::mmap_source> m_mappedFiles;
 };
 
 class SplitFileSerializer : public Serializer {

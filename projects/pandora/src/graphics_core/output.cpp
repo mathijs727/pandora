@@ -114,7 +114,7 @@ void ArbitraryOutputVariable<T, Op>::writeImage(std::filesystem::path file) cons
         pOut->write_image(OIIO::TypeDesc::FLOAT, pixels.data());
         pOut->close();
     } else {
-        static_assert(false);
+        //static_assert(false);
     }
 }
 

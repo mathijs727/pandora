@@ -8,6 +8,7 @@
 #include <glm/mat4x4.hpp>
 #include <list>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -53,6 +54,8 @@ private:
 private:
     const size_t m_maxSize;
     std::atomic_size_t m_size { 0 };
+
+    std::mutex m_mutex;
 
     struct CacheItem {
         const void* pKey;
