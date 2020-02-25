@@ -20,6 +20,7 @@
 #include <stream/cache/lru_cache.h>
 #include <stream/cache/lru_cache_ts.h>
 #include <stream/task_graph.h>
+#include <tbb/parallel_for_each.h>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
@@ -173,10 +174,25 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             StaticData staticData;
             {
                 OPTICK_EVENT("MakeShapesResident");
-                 staticData.shapeOwners.reserve(m_shapes.size());
+                /*staticData.shapeOwners.reserve(m_shapes.size());
                 for (Shape* pShape : m_shapes) {
                     auto shapeOwner = m_pGeometryCache->makeResident(pShape);
                     staticData.shapeOwners.emplace_back(std::move(shapeOwner));
+                }*/
+                staticData.shapeOwners.resize(m_shapes.size());
+                if (m_shapes.size() > 100) {
+                    tbb::blocked_range<size_t> shapeRange { 0, m_shapes.size() };
+                    tbb::parallel_for(shapeRange,
+                        [&](tbb::blocked_range<size_t> localRange) {
+                            for (size_t i = std::begin(localRange); i != std::end(localRange); i++) {
+                                staticData.shapeOwners[i] = m_pGeometryCache->makeResident(m_shapes[i]);
+                            }
+                        });
+                } else {
+                    std::transform(std::begin(m_shapes), std::end(m_shapes), std::begin(staticData.shapeOwners),
+                        [=](Shape* pShape) {
+                            return m_pGeometryCache->makeResident(pShape);
+                        });
                 }
             }
 
@@ -420,7 +436,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             si.shading.normal = -si.shading.normal;
 
         si.pSceneObject = pSceneObject;
-        si.localToWorld = optLocalToWorldMatrix;
+        //si.localToWorld = optLocalToWorldMatrix;
         si.shading.batchingPointColor = m_color;
         ray.tfar = embreeRayHit.ray.tfar;
         return true;
