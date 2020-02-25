@@ -63,6 +63,7 @@ SplitFileDeserializer::SplitFileDeserializer(std::filesystem::path tempFolder, u
 
 SplitFileDeserializer::~SplitFileDeserializer()
 {
+    m_mappedFiles.clear();
     std::filesystem::remove_all(m_tempFolder);
 }
 
