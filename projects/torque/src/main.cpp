@@ -21,6 +21,7 @@
 #include <pandora/traversal/offline_batching_acceleration_structure.h>
 #include <pbf/pbf_importer.h>
 #include <pbrt/pbrt_importer.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <stream/cache/lru_cache.h>
 #include <stream/cache/lru_cache_ts.h>
 #include <stream/serialize/file_serializer.h>
@@ -30,16 +31,11 @@
 #include <tbb/tbb.h>
 #include <unordered_set>
 #include <xmmintrin.h>
-#ifdef _WIN32
-#include <spdlog/sinks/msvc_sink.h>
-#else
-#include <spdlog/sinks/stdout_color_sinks.h>
-#endif
 
 using namespace pandora;
 using namespace torque;
 
-#define OUTPUT_PROFILE_DATA 1
+#define OUTPUT_PROFILE_DATA 0
 
 int main(int argc, char** argv)
 {
@@ -48,14 +44,8 @@ int main(int argc, char** argv)
     Optick::setThisMainThreadOptick();
 #endif
 
-
-#ifdef _WIN32
-    auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
-    spdlog::set_default_logger(vsLogger);
-#else
     auto colorLogger = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("color_logger");
     spdlog::set_default_logger(colorLogger);
-#endif
 
     spdlog::info("Parsing input");
 
