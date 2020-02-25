@@ -1,6 +1,5 @@
-// clang-format off
 #include "pandora/graphics_core/sensor.h"
-// clang-format on
+// asdfsd
 #include "output.h"
 #include "pandora/config.h"
 #include "pandora/core/stats.h"
@@ -8,30 +7,29 @@
 #include "pandora/integrators/naive_direct_lighting_integrator.h"
 #include "pandora/integrators/normal_debug_integrator.h"
 #include "pandora/integrators/path_integrator.h"
-//#include "pandora/integrators/svo_depth_test_integrator.h"
-//#include "pandora/integrators/svo_test_integrator.h"
 #include "pandora/materials/matte_material.h"
 #include "pandora/shapes/triangle.h"
 #include "pandora/textures/constant_texture.h"
 #include "stream/task_graph.h"
+#include <boost/program_options.hpp>
+#include <iostream>
 #include <optick.h>
 #include <optick_tbb.h>
-#include <pandora/traversal/offline_batching_acceleration_structure.h>
+#include <pandora/graphics_core/perspective_camera.h>
 #include <pandora/traversal/batching_acceleration_structure.h>
 #include <pandora/traversal/embree_acceleration_structure.h>
-#include <pbrt/pbrt_importer.h>
+#include <pandora/traversal/offline_batching_acceleration_structure.h>
 #include <pbf/pbf_importer.h>
+#include <pbrt/pbrt_importer.h>
 #include <stream/cache/lru_cache.h>
 #include <stream/cache/lru_cache_ts.h>
 #include <stream/serialize/file_serializer.h>
 #include <stream/serialize/in_memory_serializer.h>
-#include <pandora/graphics_core/perspective_camera.h>
-#include <boost/program_options.hpp>
-#include <iostream>
+#include <stream/stats.h>
 #include <string>
 #include <tbb/tbb.h>
-#include <xmmintrin.h>
 #include <unordered_set>
+#include <xmmintrin.h>
 #ifdef _WIN32
 #include <spdlog/sinks/msvc_sink.h>
 #else
@@ -149,9 +147,9 @@ int main(int argc, char** argv)
     spdlog::info("Loading scene");
     // WARNING: This cache is not used during rendering when using the batched acceleration structure.
     //          A new cache is instantiated when splitting the scene into smaller objects. Scroll down...
-    auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
-    //auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
-    //    "pandora_pre_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::sequential);
+    //auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
+    auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
+        "pandora_pre_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::sequential);
     tasking::LRUCacheTS::Builder cacheBuilder { std::move(pSerializer) };
 
     RenderConfig renderConfig;
@@ -183,9 +181,9 @@ int main(int argc, char** argv)
     //using AccelBuilder = OfflineBatchingAccelerationStructureBuilder;
     if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder> || std::is_same_v<AccelBuilder, OfflineBatchingAccelerationStructureBuilder>) {
         spdlog::info("Preprocessing scene");
-        //auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
-        //    "pandora_render_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::no_buffering);
-        auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
+        auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
+            "pandora_render_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::no_buffering);
+        //auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
 
         cacheBuilder = tasking::LRUCacheTS::Builder { std::move(pSerializer) };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
@@ -255,6 +253,9 @@ int main(int argc, char** argv)
     spdlog::info("Writing output to {}.jpg/exr", vm["out"].as<std::string>());
     writeOutputToFile(sensor, spp, vm["out"].as<std::string>() + ".jpg", true);
     writeOutputToFile(sensor, spp, vm["out"].as<std::string>() + ".exr", false);
+
+    spdlog::info("Storing stream stats");
+    tasking::StreamStats::getSingleton().asyncTriggerSnapshot();
 
     spdlog::info("Shutting down...");
     return 0;

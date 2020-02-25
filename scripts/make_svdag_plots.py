@@ -140,8 +140,8 @@ def plot_svdag_memory_usage(svdag_stats):
 	ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter("%dMB"))
 	ax.legend(prop={"size": font_size}, frameon=True)
 	fig.tight_layout()
-	fig.savefig("svdag_memory_usage.eps", bbox_inches="tight")
-	#plt.show()
+	#fig.savefig("svdag_memory_usage.eps", bbox_inches="tight")
+	plt.show()
 
 
 def plot_svdag_cull_percentage(svdag_stats):
@@ -187,10 +187,10 @@ def plot_svdag_cull_percentage(svdag_stats):
 	#ax.legend(prop={"size": font_size}, frameon=False)
 	fig.tight_layout()
 	fig.savefig("svdag_culling_percentage.eps", bbox_inches="tight")
-	#plt.show()
+	plt.show()
 
 if __name__ == "__main__":
-	results_folder = "C:/Users/mathijs/Desktop/Euro Graphics/New Results/"
+	results_folder = "C:/Users/Mathijs/OneDrive/TU Delft/Batched Ray Traversal/Results/"
 	svdag_results = parse_svdag_stats(results_folder)
 
 	configure_mpl()

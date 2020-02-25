@@ -366,7 +366,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 
         if (embreeRayHit.hit.instID[0] == RTC_INVALID_GEOMETRY_ID) {
             pSceneObject = reinterpret_cast<const SceneObject*>(
-                rtcGetGeometryUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
+                TriangleShape::getAdditionalUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
         } else {
             glm::mat4 accumulatedTransform { 1.0f };
             RTCScene localScene = scene;
@@ -386,7 +386,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 
             optLocalToWorldMatrix = accumulatedTransform;
             pSceneObject = reinterpret_cast<const SceneObject*>(
-                rtcGetGeometryUserData(rtcGetGeometry(localScene, embreeRayHit.hit.geomID)));
+                TriangleShape::getAdditionalUserData(rtcGetGeometry(localScene, embreeRayHit.hit.geomID)));
         }
 
         RayHit hit;

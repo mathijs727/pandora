@@ -20,9 +20,10 @@ public:
     virtual Bounds getBounds() const = 0;
     virtual Bounds getPrimitiveBounds(unsigned primitiveID) const = 0;
 
-	virtual void subdivide() {};
+    virtual void subdivide() {};
 
     virtual RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const = 0;
+    virtual RTCGeometry createEvictSafeEmbreeGeometry(RTCDevice embreeDevice, const void* pAdditionalUserData) const = 0;
 
     virtual float primitiveArea(unsigned primitiveID) const = 0;
     virtual Interaction samplePrimitive(unsigned primitiveID, PcgRng& rng) const = 0;
@@ -31,7 +32,7 @@ public:
     virtual float pdfPrimitive(unsigned primitiveID, const Interaction& ref) const = 0;
     virtual float pdfPrimitive(unsigned primitiveID, const Interaction& ref, const glm::vec3& wi) const = 0;
 
-	virtual bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const = 0;
+    virtual bool intersectPrimitive(Ray& ray, RayHit& hitInfo, unsigned primitiveID) const = 0;
     virtual SurfaceInteraction fillSurfaceInteraction(const Ray& ray, const RayHit& rayHit) const = 0;
 
     virtual void voxelize(VoxelGrid& grid, const Transform& transform = Transform {}) const = 0;

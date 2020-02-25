@@ -12,9 +12,9 @@ def run_pandora_with_defaults(scene, out_folder, geom_cache, bvh_cache, svdag_re
 		"--subdiv", scene["subdiv"],
 		"--cameraid", 0,
 		"--integrator", "path",
-		"--spp", 128,
-		"--concurrency", 16000000,
-		"--schedulers", 4,
+		"--spp", 256,
+		"--concurrency", 4000000,
+		"--schedulers", 12,
 		"--geomcache", geom_cache,
 		"--bvhcache", bvh_cache,
 		"--primgroup", scene["batch_point_size"],
@@ -24,8 +24,8 @@ def run_pandora_with_defaults(scene, out_folder, geom_cache, bvh_cache, svdag_re
 
 
 def test_svdag_no_mem_limit(scenes, num_runs = 1):
-	for svdag_res in [32]:#, 64, 128, 256, 512]:
-		for scene in scenes:
+	for scene in scenes:
+		for svdag_res in [32]:
 			for run in range(num_runs):
 				print(f"Benchmarking {scene['name']} at SVDAG res {svdag_res} (run {run})")
 				out_folder = os.path.join(result_output_folder, "svdag_res", str(svdag_res), scene["name"], f"run-{run}")
@@ -45,16 +45,25 @@ def test_at_memory_limit(scenes, geom_memory_limit, bvh_memory_limit, culling, n
 			culling_str = "culling" if culling else "no-culling"
 			print(f"Benchmarking {scene['name']} at memory limit {mem_limit_percentage} with {culling_str} (run {run})")
 			out_folder = os.path.join(result_output_folder, "mem_limit", str(mem_limit_percentage), culling_str, scene["name"], f"run-{run}")
+
+			# Adjust for the memory used by the SVDAGs. Equally spread this "cost" over both geometry & BVH cache.
+			if culling:
+				svdag_mem_usage_mb = scene["svdag_mem_usage128"] / 1000000
+			else:
+				svdag_mem_usage_mb = 0
+			geom_mem_mb = int(scene["max_geom_mem_mb"] * geom_memory_limit - svdag_mem_usage_mb / 2)
+			bvh_mem_mb = int(scene["max_bvh_mem_mb"] * geom_memory_limit - svdag_mem_usage_mb / 2)
 			run_pandora_with_defaults(
 				scene,
 				out_folder,
-				int(scene["max_geom_mem_mb"] * geom_memory_limit),
-				int(scene["max_bvh_mem_mb"] * bvh_memory_limit),
+				geom_mem_mb,
+				bvh_mem_mb,
 				128)
 
 if __name__ == "__main__":
 	scenes = shared_benchmark_code.get_scenes()
 	#test_svdag_no_mem_limit(scenes, 1)
-	for i in [1.0, 0.9, 0.8, 0.7, 0.6]:
+	
+	for i in [1.0]:#, 0.9, 0.8, 0.7, 0.6]:
 		test_at_memory_limit(scenes, i, i, False, 1)
 		test_at_memory_limit(scenes, i, i, True, 1)

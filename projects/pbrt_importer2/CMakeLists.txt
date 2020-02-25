@@ -12,7 +12,7 @@ endif()
 
 target_link_libraries(libPbrt_importer2 PUBLIC
 	libPandora
-	eastl
+	EASTL EABase
 	spdlog::spdlog
 	fmt::fmt
 	mio::mio
