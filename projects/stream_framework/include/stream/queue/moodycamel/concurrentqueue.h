@@ -31,6 +31,8 @@
 
 // NOTE: modified version that uses task arenas to get a thread index starting from 0.
 // Prevents us from having to allocate a hashmap and index it every time we want to push.
+#include <spdlog/spdlog.h>
+#include <tbb/concurrent_queue.h>
 #include <tbb/task_arena.h>
 #include <vector>
 
@@ -318,7 +320,7 @@ struct ConcurrentQueueDefaultTraits {
     // but many producers, a smaller block size should be favoured. For few producers
     // and/or many elements, a larger block size is preferred. A sane default
     // is provided. Must be a power of 2.
-    static const size_t BLOCK_SIZE = 32;
+    static const size_t BLOCK_SIZE = 64;
 
     // For explicit producers (i.e. when using a producer token), the block is
     // checked for being empty by iterating through a list of flags, one per element.
@@ -329,11 +331,11 @@ struct ConcurrentQueueDefaultTraits {
 
     // How many full blocks can be expected for a single explicit producer? This should
     // reflect that number's maximum for optimal performance. Must be a power of 2.
-    static const size_t EXPLICIT_INITIAL_INDEX_SIZE = 4;
+    static const size_t EXPLICIT_INITIAL_INDEX_SIZE = 64;
 
     // How many full blocks can be expected for a single implicit producer? This should
     // reflect that number's maximum for optimal performance. Must be a power of 2.
-    static const size_t IMPLICIT_INITIAL_INDEX_SIZE = 32;
+    static const size_t IMPLICIT_INITIAL_INDEX_SIZE = 64;
 
     // The initial size of the hash table mapping thread IDs to implicit producers.
     // Note that the hash is resized every time it becomes half full.
@@ -363,11 +365,17 @@ struct ConcurrentQueueDefaultTraits {
     static inline void*(malloc)(size_t size) { return WORKAROUND_malloc(size); }
     static inline void(free)(void* ptr) { return WORKAROUND_free(ptr); }
 #else
+    inline static std::atomic_size_t s_queueMemory = 0;
     static inline void* malloc(size_t size)
     {
+        s_queueMemory.fetch_add(size, std::memory_order_relaxed);
         return std::malloc(size);
     }
-    static inline void free(void* ptr) { return std::free(ptr); }
+    static inline void free(void* ptr)
+    {
+        //spdlog::info("Total memory malloc'd by queue: {}", s_queueMemory);
+        return std::free(ptr);
+    }
 #endif
 #else
     // Debug versions when running under the Relacy race detector (ignore
@@ -805,6 +813,7 @@ public:
     {
         freeList = sharedFreeList.lock();
         if (!freeList) {
+            spdlog::info("Create shared freelist");
             freeList = std::make_shared<FreeList<Block>>();
             sharedFreeList = freeList;
         }
@@ -1487,7 +1496,7 @@ private:
         inline void add(N* node)
         {
 #ifdef MCDBGQ_NOLOCKFREE_FREELIST
-            debug::DebugLock lock(mutex);
+                debug::DebugLock lock(mutex);
 #endif
             // We know that the should-be-on-freelist bit is 0 at this point, so it's safe to
             // set it using a fetch_add
@@ -3396,7 +3405,7 @@ private:
     ImplicitProducer* get_or_add_implicit_producer()
     {
         auto threadIdx = tbb::task_arena::current_thread_index();
-		return implicitProducers[threadIdx];
+        return implicitProducers[threadIdx];
         /*// Note that since the data is essentially thread-local (key is thread ID),
         // there's a reduced need for fences (memory ordering is already consistent
         // for any individual thread), except for the current table itself.
