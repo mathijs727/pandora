@@ -25,7 +25,7 @@ public:
     ~LRUCacheTS();
 
     //LRUCacheTS(LRUCacheTS&&) = default;
-    LRUCacheTS& operator=(LRUCacheTS&&);
+    LRUCacheTS& operator=(LRUCacheTS&&) noexcept;
 
     template <typename T>
     CachedPtr<T> makeResident(T* pEvictable);
@@ -83,14 +83,14 @@ inline CachedPtr<T> LRUCacheTS::makeResident(T* pEvictable)
         itemData.marked.store(false);
 
     // Ensure that the item will not be deleted by immediately increasing the reference count.
-    itemData.refCount.fetch_add(1);
+    itemData.refCount.fetch_add(1, std::memory_order_relaxed);
 
     // In case the state was changed to evicting then we need to wait for the other thread
     // to finish evicting. This can only happen once: the evict function is a critical section
     // so any subsequent call to evict will see that the ref count has been increased.
     ItemState state;
     do {
-        state = itemData.state.load();
+        state = itemData.state.load(std::memory_order_acquire);
     } while (state == ItemState::Evicting);
 
     // We have increased the reference count so no thread may evict the data. However we still
@@ -123,39 +123,6 @@ inline CachedPtr<T> LRUCacheTS::makeResident(T* pEvictable)
     }
 
     return CachedPtr<T>(pEvictable, &itemData.refCount, false);
-
-    /*
-    // NOTE: thread-safe only if get() is called from one thread at a time (ref count may be modified by any thread concurrently).
-    const uint32_t itemIndex = m_pointerToItemIndex.find(pEvictable)->second;
-    RefCountedItem& refCountedItem = m_items[itemIndex];
-    Evictable* pItem = refCountedItem.pItem;
-    if (pItem->isResident()) {
-        // Remove from list and add to end
-        auto& listIter = m_residentItemsLookUp[itemIndex];
-        m_residentItems.splice(std::end(m_residentItems), m_residentItems, listIter);
-        listIter = --std::end(m_residentItems);
-
-        return CachedPtr<T>(dynamic_cast<T*>(pItem), &refCountedItem.refCount);
-    } else {
-        assert(m_residentItemsLookUp[itemIndex] == std::end(m_residentItems));
-
-        const size_t sizeBefore = pItem->sizeBytes();
-        pItem->makeResident(*m_pDeserializer);
-        assert(pItem->sizeBytes() >= sizeBefore);
-        m_usedMemory += (pItem->sizeBytes() - sizeBefore);
-
-        auto listIter = m_residentItems.insert(std::end(m_residentItems), itemIndex);
-        m_residentItemsLookUp[itemIndex] = listIter;
-
-        // Increase ref count before evict to make sure we never evict the item before returning
-        auto result = CachedPtr<T>(dynamic_cast<T*>(pItem), &refCountedItem.refCount);
-        if (m_usedMemory > m_maxMemory) {
-            const size_t desiredFreeMemory = m_maxMemory / 4;
-            evict(m_maxMemory - desiredFreeMemory);
-        }
-        return result;
-    }
-    */
 }
 
 }

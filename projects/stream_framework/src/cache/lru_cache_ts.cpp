@@ -18,7 +18,7 @@ LRUCacheTS::LRUCacheTS(std::unique_ptr<tasking::Deserializer>&& pDeserializer, g
     }
 }
 
-LRUCacheTS& LRUCacheTS::operator=(LRUCacheTS&& other)
+LRUCacheTS& LRUCacheTS::operator=(LRUCacheTS&& other) noexcept
 {
     m_pDeserializer = std::move(other.m_pDeserializer);
     m_maxMemory = other.m_maxMemory;
@@ -72,13 +72,13 @@ void LRUCacheTS::evictMarked()
     for (auto& [pItem, itemDataIndex] : m_itemDataIndices) {
         // NOTE: no other thread will try to load / use the item since the memory limit has been exceeded.
         auto& itemData = m_pItemData[itemDataIndex];
-        bool marked = itemData.marked.load();
-        ItemState state = itemData.state.load();
+        const bool marked = itemData.marked.load(std::memory_order_relaxed);
+        const ItemState state = itemData.state.load(std::memory_order_acquire);
 
         // If marked (not touched since last evict) and loaded in memory
         if (marked && state == ItemState::Loaded) {
             // Dont try to evict if someone (which includes us) is holding the item.
-            if (itemData.refCount.load() != 0)
+            if (itemData.refCount.load(std::memory_order_relaxed) != 0)
                 continue;
 
             // Exchange state to evicting (if another thread requests the object it will wait for us to
@@ -89,7 +89,7 @@ void LRUCacheTS::evictMarked()
             // because that thread could also try to evict, which means it needs to wait for us (only a single
             // thread may evict at any time) and we need to wait for it to release the object => deadlock.
             if (itemData.refCount.load() != 0) {
-                itemData.state.store(ItemState::Loaded);
+                itemData.state.store(ItemState::Loaded, std::memory_order_acquire);
                 continue;
             }
 
@@ -97,13 +97,16 @@ void LRUCacheTS::evictMarked()
             pItem->evict();
             freedMem -= pItem->sizeBytes();
 
-            itemData.state.store(ItemState::Unloaded);
+            itemData.state.store(ItemState::Unloaded, std::memory_order_release);
         }
 
-        itemData.marked.store(true);
+        itemData.marked.store(true, std::memory_order_relaxed);
     }
 
-    m_usedMemory.fetch_sub(freedMem);
+    m_usedMemory.fetch_sub(freedMem, std::memory_order_relaxed);
+
+    if (m_usedMemory.load(std::memory_order_relaxed) > m_maxMemory)
+        spdlog::warn("LRUCacheTS: memory usage exceeded limit after eviction");
 }
 
 LRUCacheTS::Builder::Builder(std::unique_ptr<Serializer>&& pSerializer)
