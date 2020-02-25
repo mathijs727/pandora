@@ -3,7 +3,7 @@ import os
 import shutil
 
 torque_exe = "C:/Users/Mathijs/Documents/GitHub/pandora/out/build/x64-Release/torque.exe"
-files_of_interest = ["output.jpg", "stats.json", "stream_stats.json"]
+files_of_interest = ["output.jpg", "num_top_level_intersections.exr", "stats.json"]
 
 
 def run_pandora(arguments, out_folder):
@@ -42,30 +42,30 @@ def run_pandora(arguments, out_folder):
 def get_scenes():
     return [
         {
-            "name": "landscape",
-            "file": "F:/Pandora Scenes/PBF/landscape-view0.pbf",
-            "subdiv": 0,
-            # 4330M total / 25M unique primitives => 335 batching points
-            "batch_point_size": 20000000,
-            "max_geom_mem_mb": 860,  # 0.86GB => 859132556 bytes
-            "max_bvh_mem_mb": 1380  # 1.38GB => 2868202912 - 1488687008 = 1379515904 bytes
-        }
-    ]
-    return [
-        {
             "name": "crown",
-            "file": "F:/Pandora Scenes/PBF/crown.pbf",
-            "subdiv": 3,
-            "batch_point_size": 10000000,  # 860M primitives => 132 batching points
-            "max_geom_mem_mb": 20706,  # 20.7GB => 20705820432 bytes
-            "max_bvh_mem_mb": 6250  # 6.25GB => 11484004352 - 5234491392 = 6249512960 bytes
+            "file": "F:/Pandora Scenes/PBF/crown-pbf11.pbf",
+            "subdiv": 4,
+            "batch_point_size": 8100000, # 8.1M => 56 batching points
+            "max_geom_mem_mb": 6318,  # 6.318GB => 6.317.216.528 bytes
+            "max_bvh_mem_mb": 11423,  # 11.423GB => 11.422.434.688‬ bytes
+            "svdag_mem_usage128": 3618552 # 3.618.552 bytes after compression
+        },
+        {
+            "name": "landscape",
+            "file": "F:/Pandora Scenes/PBF/landscape-view0-halfres-pbf11.pbf",
+            "subdiv": 2,
+            "batch_point_size": 15000000, # 15M => 104 batching points
+            "max_geom_mem_mb": 6259,  # 6.259GB => 6.258.291.948‬ bytes
+            "max_bvh_mem_mb": 12062,  # 12.062GB => 12.061.364.864 bytes
+            "svdag_mem_usage128": 6175304 # 6.140.944 bytes after compression
         },
         {
             "name": "island",
-            "file": "F:/Pandora Scenes/PBF/island.pbf",
+            "file": "F:/Pandora Scenes/PBF/island-pbf11.pbf",
             "subdiv": 0,
-            "batch_point_size": 100000000,  # => 504 batching points
-            "max_geom_mem_mb": 8217,  # 8.217GB => 8216115664 bytes
-            "max_bvh_mem_mb": 8649  # 8.649GB => 22402346496 - 13753576064 = 8648770432 bytes
+            "batch_point_size": 7500000,  # 7.5M => 547 batching points
+            "max_geom_mem_mb": 8451,  # 8.451GB => 8.450.315.056 bytes
+            "max_bvh_mem_mb": 9781,   # 9.781GB => 9.780.193.280‬ bytes
+            "svdag_mem_usage128": 23616392 # 23.616.392 bytes after compression
         }
     ]

@@ -60,6 +60,7 @@ CachedEmbreeScene::CachedEmbreeScene(RTCScene scene, std::vector<std::shared_ptr
 
 CachedEmbreeScene::~CachedEmbreeScene()
 {
+    // TODO: delete additional user data because we're leaking memory right now...
     rtcReleaseScene(scene);
     childrenScenes.clear();
 }
@@ -132,8 +133,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
     for (const auto& pSceneObject : pSceneNode->objects) {
         Shape* pShape = pSceneObject->pShape.get();
 
-        RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(m_embreeDevice);
-        rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
+        RTCGeometry embreeGeometry = pShape->createEvictSafeEmbreeGeometry(m_embreeDevice, pSceneObject.get());
         rtcCommitGeometry(embreeGeometry);
 
         rtcAttachGeometry(embreeScene, embreeGeometry);
@@ -192,8 +192,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
     for (const auto& pSceneObject : pSubScene->sceneObjects) {
         const Shape* pShape = pSceneObject->pShape.get();
 
-        RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(m_embreeDevice);
-        rtcSetGeometryUserData(embreeGeometry, pSceneObject);
+        RTCGeometry embreeGeometry = pShape->createEvictSafeEmbreeGeometry(m_embreeDevice, pSceneObject);
         rtcCommitGeometry(embreeGeometry);
 
         rtcAttachGeometry(embreeScene, embreeGeometry);

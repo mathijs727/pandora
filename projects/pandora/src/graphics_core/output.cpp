@@ -68,13 +68,10 @@ template <typename T, AOVOperator Op>
 void ArbitraryOutputVariable<T, Op>::addSplat(const glm::vec2& pFilm, T value)
 {
     if constexpr (Op == AOVOperator::Add) {
-        assert(!m_pFilter); // Filter not supported with min/max
         getPixel(glm::ivec2(pFilm)).add(value);
     } else if constexpr (Op == AOVOperator::Min) {
-        assert(!m_pFilter); // Filter not supported with min/max
         getPixel(glm::ivec2(pFilm)).min(value);
     } else {
-        assert(!m_pFilter); // Filter not supported with min/max
         getPixel(glm::ivec2(pFilm)).max(value);
     }
 }

@@ -19,7 +19,7 @@ endif()
 
 target_link_libraries(stream PUBLIC
 	metrics
-	EABase eastl
+	EABase EASTL
 	fmt::fmt
 	spdlog::spdlog
 	mio_cache_control
