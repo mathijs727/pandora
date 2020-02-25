@@ -22,6 +22,7 @@
 #include <pbrt/pbrt_importer.h>
 #include <pbf/pbf_importer.h>
 #include <stream/cache/lru_cache.h>
+#include <stream/cache/lru_cache_ts.h>
 #include <stream/serialize/file_serializer.h>
 #include <stream/serialize/in_memory_serializer.h>
 #include <pandora/graphics_core/perspective_camera.h>
@@ -40,16 +41,15 @@
 using namespace pandora;
 using namespace torque;
 
-#define OUTPUT_PROFILE_DATA 0
+#define OUTPUT_PROFILE_DATA 1
 
 int main(int argc, char** argv)
 {
+#if OUTPUT_PROFILE_DATA
     OPTICK_APP("Torque");
     Optick::setThisMainThreadOptick();
-
-#if OUTPUT_PROFILE_DATA
-    OPTICK_START_CAPTURE();
 #endif
+
 
 #ifdef _WIN32
     auto vsLogger = spdlog::create<spdlog::sinks::msvc_sink_mt>("vs_logger");
@@ -58,7 +58,6 @@ int main(int argc, char** argv)
     auto colorLogger = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("color_logger");
     spdlog::set_default_logger(colorLogger);
 #endif
-
 
     spdlog::info("Parsing input");
 
@@ -153,7 +152,7 @@ int main(int argc, char** argv)
     auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
     //auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
     //    "pandora_pre_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::sequential);
-    tasking::LRUCache::Builder cacheBuilder { std::move(pSerializer) };
+    tasking::LRUCacheTS::Builder cacheBuilder { std::move(pSerializer) };
 
     RenderConfig renderConfig;
     {
@@ -172,7 +171,7 @@ int main(int argc, char** argv)
         }
     }
     const glm::ivec2 resolution = renderConfig.resolution;
-    tasking::LRUCache geometryCache = cacheBuilder.build(geomCacheSize);
+    tasking::LRUCacheTS geometryCache = cacheBuilder.build(geomCacheSize);
 
     // Store geometry loaded data before we start splitting the large shapes as part of preprocess.
     g_stats.asyncTriggerSnapshot();
@@ -180,15 +179,15 @@ int main(int argc, char** argv)
     tasking::TaskGraph taskGraph { schedulers };
 
     //using AccelBuilder = EmbreeAccelerationStructureBuilder;
-    //using AccelBuilder = BatchingAccelerationStructureBuilder;
-    using AccelBuilder = OfflineBatchingAccelerationStructureBuilder;
+    using AccelBuilder = BatchingAccelerationStructureBuilder;
+    //using AccelBuilder = OfflineBatchingAccelerationStructureBuilder;
     if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder> || std::is_same_v<AccelBuilder, OfflineBatchingAccelerationStructureBuilder>) {
         spdlog::info("Preprocessing scene");
         //auto pSerializer = std::make_unique<tasking::SplitFileSerializer>(
         //    "pandora_render_geom", 512 * 1024 * 1024, mio_cache_control::cache_mode::no_buffering);
         auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
 
-        cacheBuilder = tasking::LRUCache::Builder { std::move(pSerializer) };
+        cacheBuilder = tasking::LRUCacheTS::Builder { std::move(pSerializer) };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
         auto newCache = cacheBuilder.build(geometryCache.maxSize());
         geometryCache = std::move(newCache);
@@ -256,11 +255,6 @@ int main(int argc, char** argv)
     spdlog::info("Writing output to {}.jpg/exr", vm["out"].as<std::string>());
     writeOutputToFile(sensor, spp, vm["out"].as<std::string>() + ".jpg", true);
     writeOutputToFile(sensor, spp, vm["out"].as<std::string>() + ".exr", false);
-
-#if OUTPUT_PROFILE_DATA
-    OPTICK_STOP_CAPTURE();
-    OPTICK_SAVE_CAPTURE("");
-#endif
 
     spdlog::info("Shutting down...");
     return 0;

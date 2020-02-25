@@ -57,8 +57,6 @@ inline size_t WiVeBVH8<LeafObj>::sizeBytes() const
 template <typename LeafObj>
 inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
 {
-    assert(rays.size() == hitInfos.size());
-
     bool hit = false;
 
     SIMDRay simdRay;

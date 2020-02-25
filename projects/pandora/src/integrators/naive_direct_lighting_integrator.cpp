@@ -15,7 +15,7 @@
 namespace pandora {
 
 DirectLightingIntegrator::DirectLightingIntegrator(
-    tasking::TaskGraph* pTaskGraph, tasking::LRUCache* pGeomCache, int maxDepth, int spp, LightStrategy strategy)
+    tasking::TaskGraph* pTaskGraph, tasking::LRUCacheTS* pGeomCache, int maxDepth, int spp, LightStrategy strategy)
     : SamplerIntegrator(pTaskGraph, pGeomCache, maxDepth, spp, strategy)
     , m_hitTask(
           pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, RayState>>(

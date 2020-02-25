@@ -1,6 +1,7 @@
 add_library(stream
 	"src/cache/dummy_cache.cpp"
 	"src/cache/lru_cache.cpp"
+	"src/cache/lru_cache_ts.cpp"
 	"src/cache/evictable.cpp"
 	"src/serialize/file_serializer.cpp"
 	"src/serialize/in_memory_serializer.cpp"
@@ -19,7 +20,7 @@ endif()
 
 target_link_libraries(stream PUBLIC
 	metrics
-	EABase eastl
+	EABase EASTL
 	fmt::fmt
 	spdlog::spdlog
 	mio_cache_control

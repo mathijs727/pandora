@@ -13,8 +13,8 @@ namespace pandora::detail {
 
 std::vector<pandora::SubScene> createSubScenes(const pandora::Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice);
 std::vector<pandora::Shape*> getSubSceneShapes(const SubScene& subScene);
-std::vector<tasking::CachedPtr<Shape>> makeSubSceneResident(const pandora::SubScene& subScene, tasking::LRUCache& geometryCache);
+std::vector<tasking::CachedPtr<Shape>> makeSubSceneResident(const pandora::SubScene& subScene, tasking::LRUCacheTS& geometryCache);
 pandora::SparseVoxelDAG createSVDAGfromSubScene(const pandora::SubScene& subScene, int resolution);
-void splitLargeSceneObjects(pandora::SceneNode* pSceneNode, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize);
+void splitLargeSceneObjects(pandora::SceneNode* pSceneNode, tasking::LRUCacheTS& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize);
 
 }
