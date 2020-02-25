@@ -62,7 +62,7 @@ Ray computeRayWithEpsilon(const Interaction& i1, const glm::vec3& dir)
 void SurfaceInteraction::setShadingGeometry(const glm::vec3& shadingNormal, const glm::vec2& textureCoords)
 {
     shading.normal = shadingNormal;
-    shading.st = textureCoords;
+    //shading.st = textureCoords;
 }
 
 void SurfaceInteraction::computeScatteringFunctions(const Ray& ray, MemoryArena& arena)

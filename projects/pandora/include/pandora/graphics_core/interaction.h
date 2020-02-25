@@ -29,7 +29,7 @@ public:
 
 struct SurfaceInteraction : public Interaction {
 public:
-    std::optional<glm::mat4> localToWorld;
+    //std::optional<glm::mat4> localToWorld;
     const SceneObject* pSceneObject { nullptr };
     BSDF* pBSDF { nullptr };
 
@@ -39,7 +39,7 @@ public:
 
     struct Shading {
         glm::vec3 normal { 0 };
-        glm::vec2 st { 0 };
+        //glm::vec2 st { 0 };
         //glm::vec3 dpdu, dpdv;
         //glm::vec3 dndu, dndv;
 
