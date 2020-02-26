@@ -60,8 +60,6 @@ private:
         virtual size_t approxQueueSize() const = 0;
         virtual size_t approxQueueSizeBytes() const = 0;
         virtual void execute(TaskGraph* pTaskGraph) = 0;
-
-        virtual bool isExecuting() const = 0;
     };
     template <typename T>
     class alignas(64) Task : public TaskBase {
@@ -81,8 +79,6 @@ private:
         size_t approxQueueSizeBytes() const override;
         void execute(TaskGraph* pTaskGraph) override;
 
-        bool isExecuting() const override;
-
     private:
         using TypeErasedKernel = std::function<void(gsl::span<T>, const void*, std::pmr::memory_resource*)>;
         using TypeErasedStaticDataLoader = std::function<void*(std::pmr::memory_resource*)>;
@@ -92,7 +88,6 @@ private:
 
     private:
         const std::string m_name;
-        std::unique_ptr<std::atomic_bool> m_pIsExecuting;
 
         const TypeErasedKernel m_kernel;
         const TypeErasedStaticDataLoader m_staticDataLoader;
@@ -202,7 +197,6 @@ inline TaskGraph::Task<T>::Task(
     TaskGraph::Task<T>::TypeErasedStaticDataLoader&& staticDataLoader,
     TaskGraph::Task<T>::TypeErasedStaticDataDestructor&& staticDataDestructor)
     : m_name(name)
-    , m_pIsExecuting(std::make_unique<std::atomic_bool>(false))
     , m_kernel(std::move(kernel))
     , m_staticDataLoader(std::move(staticDataLoader))
     , m_staticDataDestructor(std::move(staticDataDestructor))
@@ -242,8 +236,6 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
     flushStats.taskName = m_name;
     flushStats.genStats = StreamStats::GeneralStats { pTaskGraph->approxQueuedItems(), pTaskGraph->approxMemoryUsage() };
     flushStats.startTime = std::chrono::high_resolution_clock::now();
-
-    m_pIsExecuting->store(true, std::memory_order_relaxed);
 
     //std::pmr::memory_resource* pMemory = std::pmr::new_delete_resource();
     std::array<std::byte, 1024> buffer;
@@ -318,19 +310,10 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
         m_staticDataDestructor(pMemory, pStaticData);
     }
 
-    m_pIsExecuting->store(false, std::memory_order_relaxed);
-
     /*auto& stats = StreamStats::getSingleton();
     {
         std::lock_guard l { stats.infoAtFlushesMutex };
         stats.infoAtFlushes.emplace_back(std::move(flushStats));
     }*/
 }
-
-template <typename T>
-inline bool TaskGraph::Task<T>::isExecuting() const
-{
-    return m_pIsExecuting->load(std::memory_order_relaxed);
-}
-
 }
