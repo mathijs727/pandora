@@ -14,7 +14,7 @@ def run_pandora_with_defaults(scene, out_folder, geom_cache, bvh_cache, svdag_re
 		"--integrator", "path",
 		"--spp", 256,
 		"--concurrency", 4000000,
-		"--schedulers", 12,
+		"--schedulers", 3,
 		"--geomcache", geom_cache,
 		"--bvhcache", bvh_cache,
 		"--primgroup", scene["batch_point_size"],
@@ -58,7 +58,7 @@ def test_at_memory_limit(scenes, geom_memory_limit, bvh_memory_limit, culling, n
 				out_folder,
 				geom_mem_mb,
 				bvh_mem_mb,
-				128)
+				128 if culling else 0)
 
 if __name__ == "__main__":
 	scenes = shared_benchmark_code.get_scenes()
