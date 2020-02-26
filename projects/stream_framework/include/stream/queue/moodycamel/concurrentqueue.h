@@ -811,11 +811,15 @@ public:
         , nextExplicitConsumerId(0)
         , globalExplicitConsumerOffset(0)
     {
-        freeList = sharedFreeList.lock();
-        if (!freeList) {
-            spdlog::info("Create shared freelist");
-            freeList = std::make_shared<FreeList<Block>>();
-            sharedFreeList = freeList;
+        {
+            std::scoped_lock l { m_sharedFreeListCreateMutex };
+
+            freeList = sharedFreeList.lock();
+            if (!freeList) {
+                spdlog::info("Creating shared freelist");
+                freeList = std::make_shared<FreeList<Block>>();
+                sharedFreeList = freeList;
+            }
         }
 
         std::generate_n(
@@ -1496,7 +1500,7 @@ private:
         inline void add(N* node)
         {
 #ifdef MCDBGQ_NOLOCKFREE_FREELIST
-                debug::DebugLock lock(mutex);
+            debug::DebugLock lock(mutex);
 #endif
             // We know that the should-be-on-freelist bit is 0 at this point, so it's safe to
             // set it using a fetch_add
@@ -3660,7 +3664,8 @@ private:
 #ifndef MCDBGQ_USEDEBUGFREELIST
 public:
     std::shared_ptr<FreeList<Block>> freeList;
-    static std::weak_ptr<FreeList<Block>> sharedFreeList;
+    inline static std::mutex m_sharedFreeListCreateMutex;
+    inline static std::weak_ptr<FreeList<Block>> sharedFreeList;
 
 private:
 #else
