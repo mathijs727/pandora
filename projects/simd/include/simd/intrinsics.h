@@ -19,6 +19,20 @@ inline int64_t popcount64(uint64_t mask)
     return _mm_popcnt_u64(mask);
 }
 
+template <typename T>
+inline int bitScan4(T mask)
+{
+    // Faster than BSF instruction) on AMD Zen2 (Ryzen 3900x).
+    if (mask & 0x1)
+        return 0;
+    else if (mask & 0x2)
+        return 1;
+    else if (mask & 0x4)
+        return 2;
+    else
+        return 3;
+}
+
 #ifdef _MSC_VER
 
 inline int bitScan32(uint32_t mask)
