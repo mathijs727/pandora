@@ -31,6 +31,10 @@ void TaskGraph::run()
                     std::begin(m_tasks),
                     std::end(m_tasks),
                     [](const auto& lhs, const auto& rhs) {
+                        if (lhs->isExecuting())
+                            return true;
+                        if (rhs->isExecuting())
+                            return false;
                         return lhs->approxQueueSize() < rhs->approxQueueSize();
                     });
                 assert(bestTaskIter != std::end(m_tasks));
