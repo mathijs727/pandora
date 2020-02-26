@@ -174,26 +174,14 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             StaticData staticData;
             {
                 OPTICK_EVENT("MakeShapesResident");
-                /*staticData.shapeOwners.reserve(m_shapes.size());
-                for (Shape* pShape : m_shapes) {
-                    auto shapeOwner = m_pGeometryCache->makeResident(pShape);
-                    staticData.shapeOwners.emplace_back(std::move(shapeOwner));
-                }*/
                 staticData.shapeOwners.resize(m_shapes.size());
-                if (m_shapes.size() > 100) {
-                    tbb::blocked_range<size_t> shapeRange { 0, m_shapes.size() };
-                    tbb::parallel_for(shapeRange,
-                        [&](tbb::blocked_range<size_t> localRange) {
-                            for (size_t i = std::begin(localRange); i != std::end(localRange); i++) {
-                                staticData.shapeOwners[i] = m_pGeometryCache->makeResident(m_shapes[i]);
-                            }
-                        });
-                } else {
-                    std::transform(std::begin(m_shapes), std::end(m_shapes), std::begin(staticData.shapeOwners),
-                        [=](Shape* pShape) {
-                            return m_pGeometryCache->makeResident(pShape);
-                        });
-                }
+                tbb::blocked_range<size_t> shapeRange { 0, m_shapes.size() };
+                tbb::parallel_for(shapeRange,
+                    [&](tbb::blocked_range<size_t> localRange) {
+                        for (size_t i = std::begin(localRange); i != std::end(localRange); i++) {
+                            staticData.shapeOwners[i] = m_pGeometryCache->makeResident(m_shapes[i]);
+                        }
+                    });
             }
 
             {
@@ -240,11 +228,14 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 
             {
                 OPTICK_EVENT("MakeShapesResident");
-                staticData.shapeOwners.reserve(m_shapes.size());
-                for (Shape* pShape : m_shapes) {
-                    auto shapeOwner = m_pGeometryCache->makeResident(pShape);
-                    staticData.shapeOwners.emplace_back(std::move(shapeOwner));
-                }
+                staticData.shapeOwners.resize(m_shapes.size());
+                tbb::blocked_range<size_t> shapeRange { 0, m_shapes.size() };
+                tbb::parallel_for(shapeRange,
+                    [&](tbb::blocked_range<size_t> localRange) {
+                        for (size_t i = std::begin(localRange); i != std::end(localRange); i++) {
+                            staticData.shapeOwners[i] = m_pGeometryCache->makeResident(m_shapes[i]);
+                        }
+                    });
             }
 
             {
