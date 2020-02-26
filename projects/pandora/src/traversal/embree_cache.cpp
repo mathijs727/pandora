@@ -76,6 +76,8 @@ LRUEmbreeSceneCache::LRUEmbreeSceneCache(size_t maxSize)
 
 LRUEmbreeSceneCache::~LRUEmbreeSceneCache()
 {
+    spdlog::info("~LRUEmbreeSceneCache(): memory usage = {} bytes", m_size.load());
+
     rtcReleaseDevice(m_embreeDevice);
 }
 

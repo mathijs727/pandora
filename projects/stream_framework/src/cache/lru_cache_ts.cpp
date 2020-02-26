@@ -31,6 +31,7 @@ LRUCacheTS& LRUCacheTS::operator=(LRUCacheTS&& other) noexcept
 
 LRUCacheTS::~LRUCacheTS()
 {
+    spdlog::info("~LRUCacheTS(): memory usage = {} bytes", m_usedMemory.load());
     for (auto& [pItem, _] : m_itemDataIndices) {
         if (pItem->isResident())
             pItem->evict();
