@@ -46,6 +46,7 @@ int main(int argc, char** argv)
 
     auto colorLogger = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("color_logger");
     spdlog::set_default_logger(colorLogger);
+    spdlog::set_level(spdlog::level::info);
 
     spdlog::info("Parsing input");
 

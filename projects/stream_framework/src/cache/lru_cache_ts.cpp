@@ -61,7 +61,7 @@ void LRUCacheTS::forceEvict(Evictable* pEvictable)
 
 void LRUCacheTS::evictMarked()
 {
-    spdlog::info("Evicting items from LRUCacheTS");
+    spdlog::debug("Evicting items from LRUCacheTS");
 
     std::lock_guard l { m_evictMutex };
     if (m_usedMemory.load(std::memory_order_relaxed) < m_maxMemory)
