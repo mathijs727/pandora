@@ -4,6 +4,7 @@
 #include <deque>
 #include <filesystem>
 #include <mio_cache_control/mmap.hpp>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -28,12 +29,12 @@ private:
     std::filesystem::path m_tempFolder;
     mio_cache_control::cache_mode m_fileCacheMode;
 
-    /*struct MappedFile {
+    std::mutex m_mutex;
+    struct MappedFile {
         mio_cache_control::mmap_source file;
         uint32_t useCount;
     };
-    std::unordered_map<uint32_t, MappedFile> m_openFiles;*/
-    std::vector<mio_cache_control::mmap_source> m_mappedFiles;
+    std::unordered_map<uint32_t, MappedFile> m_openFiles;
 };
 
 class SplitFileSerializer : public Serializer {

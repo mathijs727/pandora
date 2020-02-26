@@ -53,32 +53,49 @@ SplitFileDeserializer::SplitFileDeserializer(std::filesystem::path tempFolder, u
     : m_tempFolder(tempFolder)
     , m_fileCacheMode(fileCacheMode)
 {
-    for (uint32_t fileID = 1; fileID <= maxFileID; fileID++) {
+    /*for (uint32_t fileID = 1; fileID <= maxFileID; fileID++) {
         const auto fileName = std::to_string(fileID) + ".bin";
         const auto filePath = m_tempFolder / fileName;
         auto mappedFile = mio_cache_control::mmap_source(filePath.string(), m_fileCacheMode);
         m_mappedFiles.push_back(std::move(mappedFile));
-    }
+    }*/
 }
 
 SplitFileDeserializer::~SplitFileDeserializer()
 {
-    m_mappedFiles.clear();
+    std::scoped_lock l { m_mutex };
+
+    m_openFiles.clear();
     std::filesystem::remove_all(m_tempFolder);
 }
 
 const void* SplitFileDeserializer::map(const Allocation& allocation)
 {
+    std::scoped_lock l { m_mutex };
+
     SplitFileSerializer::FileAllocation fileAllocation;
     std::memcpy(&fileAllocation, &allocation, sizeof(decltype(fileAllocation)));
 
-    const auto& file = m_mappedFiles[fileAllocation.fileID - 1];
-    return reinterpret_cast<const void*>(file.data() + fileAllocation.offsetInFile);
+    if (auto iter = m_openFiles.find(fileAllocation.fileID); iter != std::end(m_openFiles)) {
+        auto& mapped = iter->second;
+        mapped.useCount++;
+        return reinterpret_cast<const void*>(mapped.file.data() + fileAllocation.offsetInFile);
+    } else {
+        const auto fileName = std::to_string(fileAllocation.fileID) + ".bin";
+        const auto filePath = m_tempFolder / fileName;
+        auto mappedFile = mio_cache_control::mmap_source(filePath.string(), m_fileCacheMode);
+        const void* pResult = mappedFile.data() + fileAllocation.offsetInFile;
+
+        m_openFiles.emplace(std::pair { fileAllocation.fileID, MappedFile { std::move(mappedFile), 1 } });
+        return pResult;
+    }
 }
 
 void SplitFileDeserializer::unmap(const Allocation& allocation)
 {
-    /*SplitFileSerializer::FileAllocation fileAllocation;
+    std::scoped_lock l { m_mutex };
+
+    SplitFileSerializer::FileAllocation fileAllocation;
     std::memcpy(&fileAllocation, &allocation, sizeof(decltype(fileAllocation)));
 
     if (auto iter = m_openFiles.find(fileAllocation.fileID); iter != std::end(m_openFiles)) {
@@ -87,7 +104,7 @@ void SplitFileDeserializer::unmap(const Allocation& allocation)
             m_openFiles.erase(iter);
     } else {
         spdlog::error("SplitFileDeserializer trying to unmap a file that was not mapped");
-    }*/
+    }
 }
 
 static void createFileOfSize(std::filesystem::path filePath, size_t size)
