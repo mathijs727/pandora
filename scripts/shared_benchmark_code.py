@@ -46,26 +46,26 @@ def get_scenes():
             "file": "F:/Pandora Scenes/PBF/crown-pbf11.pbf",
             "subdiv": 4,
             "batch_point_size": 8100000, # 8.1M => 56 batching points
-            "max_geom_mem_mb": 6318,  # 6.318GB => 6.317.216.528 bytes
-            "max_bvh_mem_mb": 11423,  # 11.423GB => 11.422.434.688‬ bytes
-            "svdag_mem_usage128": 3618552 # 3.618.552 bytes after compression
+            "max_geom_mem_mb": 6893,  # 6.893GB => 6,892,335,216 bytes
+            "max_bvh_mem_mb": 21210,  # 21.210GB => 21,209,230,208 bytes
+            "svdag_mem_usage128": 1781092 # 1,781,092 bytes after compression
         },
         {
             "name": "landscape",
             "file": "F:/Pandora Scenes/PBF/landscape-view0-halfres-pbf11.pbf",
             "subdiv": 2,
             "batch_point_size": 15000000, # 15M => 104 batching points
-            "max_geom_mem_mb": 6259,  # 6.259GB => 6.258.291.948‬ bytes
-            "max_bvh_mem_mb": 12062,  # 12.062GB => 12.061.364.864 bytes
-            "svdag_mem_usage128": 6175304 # 6.140.944 bytes after compression
+            "max_geom_mem_mb": 625900,  # 6.259GB => 6,258,291,948‬ bytes
+            "max_bvh_mem_mb": 18736,  # 18.736GB => 18,735,951,744 bytes
+            "svdag_mem_usage128": 6175304 # 6,175,304 bytes after compression
         },
-        {
-            "name": "island",
-            "file": "F:/Pandora Scenes/PBF/island-pbf11.pbf",
-            "subdiv": 0,
-            "batch_point_size": 7500000,  # 7.5M => 547 batching points
-            "max_geom_mem_mb": 8451,  # 8.451GB => 8.450.315.056 bytes
-            "max_bvh_mem_mb": 9781,   # 9.781GB => 9.780.193.280‬ bytes
-            "svdag_mem_usage128": 23616392 # 23.616.392 bytes after compression
-        }
+        #{
+        #    "name": "island",
+        #    "file": "F:/Pandora Scenes/PBF/island-pbf11.pbf",
+        #    "subdiv": 0,
+        #    "batch_point_size": 7500000,  # 7.5M => 547 batching points
+        #    "max_geom_mem_mb": 845100,  # 8.451GB => 8.450.315.056 bytes
+        #    "max_bvh_mem_mb": 978100,   # 9.781GB => 9.780.193.280‬ bytes
+        #    "svdag_mem_usage128": 23616392 # 23.616.392 bytes after compression
+        #}
     ]
