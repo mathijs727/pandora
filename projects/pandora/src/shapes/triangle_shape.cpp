@@ -233,7 +233,7 @@ void TriangleShape::doMakeResident(tasking::Deserializer& deserializer)
         m_texCoords.shrink_to_fit();
     }
 
-    deserializer.unmap(m_serializedStateHandle);
+    deserializer.unmap(pData);
 
     g_stats.memory.geometryLoaded += sizeBytes() - sizeBefore;
 }

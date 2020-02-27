@@ -30,7 +30,7 @@ std::pair<Allocation, void*> SplitFileSerializer::allocateAndMap(size_t numBytes
     m_currentOffset += numBytes;
     void* pMemory = reinterpret_cast<void*>(m_currentFile.data() + offset);
 
-    FileAllocation fileAllocation { m_currentFileID, offset };
+    FileAllocation fileAllocation { offset, numBytes, m_currentFileID };
     Allocation allocation;
     std::memcpy(&allocation, &fileAllocation, sizeof(FileAllocation));
 
@@ -71,12 +71,19 @@ SplitFileDeserializer::~SplitFileDeserializer()
 
 const void* SplitFileDeserializer::map(const Allocation& allocation)
 {
-    std::scoped_lock l { m_mutex };
-
     SplitFileSerializer::FileAllocation fileAllocation;
     std::memcpy(&fileAllocation, &allocation, sizeof(decltype(fileAllocation)));
 
-    if (auto iter = m_openFiles.find(fileAllocation.fileID); iter != std::end(m_openFiles)) {
+    const auto fileName = std::to_string(fileAllocation.fileID) + ".bin";
+    const auto filePath = m_tempFolder / fileName;
+
+    auto mappedFile = mio_cache_control::mmap_source(filePath.string(), fileAllocation.offsetInFile, fileAllocation.allocationSize, m_fileCacheMode);
+    const void* pResult = mappedFile.data();
+
+    std::scoped_lock l { m_mutex };
+    m_openFiles.insert({ pResult, std::move(mappedFile) });
+    return pResult;
+    /*if (auto iter = m_openFiles.find(fileAllocation.fileID); iter != std::end(m_openFiles)) {
         auto& mapped = iter->second;
         mapped.useCount++;
         return reinterpret_cast<const void*>(mapped.file.data() + fileAllocation.offsetInFile);
@@ -88,20 +95,15 @@ const void* SplitFileDeserializer::map(const Allocation& allocation)
 
         m_openFiles.emplace(std::pair { fileAllocation.fileID, MappedFile { std::move(mappedFile), 1 } });
         return pResult;
-    }
+    }*/
 }
 
-void SplitFileDeserializer::unmap(const Allocation& allocation)
+void SplitFileDeserializer::unmap(const void* pMemory)
 {
     std::scoped_lock l { m_mutex };
 
-    SplitFileSerializer::FileAllocation fileAllocation;
-    std::memcpy(&fileAllocation, &allocation, sizeof(decltype(fileAllocation)));
-
-    if (auto iter = m_openFiles.find(fileAllocation.fileID); iter != std::end(m_openFiles)) {
-        auto& mapped = iter->second;
-        if (--mapped.useCount == 0)
-            m_openFiles.erase(iter);
+    if (auto iter = m_openFiles.find(pMemory); iter != std::end(m_openFiles)) {
+        m_openFiles.erase(iter);
     } else {
         spdlog::error("SplitFileDeserializer trying to unmap a file that was not mapped");
     }

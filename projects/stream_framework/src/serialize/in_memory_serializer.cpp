@@ -12,7 +12,7 @@ const void* InMemoryDeserializer::map(const Allocation& allocation)
     return reinterpret_cast<void*>(&m_memory[inMemoryAllocation.offset]);
 }
 
-void InMemoryDeserializer::unmap(const Allocation& allocation)
+void InMemoryDeserializer::unmap(const void* pMemory)
 {
 }
 
