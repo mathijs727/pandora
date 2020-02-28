@@ -79,7 +79,7 @@ include("cmake/BuildFlatBuffers.cmake") # Include cmake script that defines the 
 
 if (PANDORA_BUILD_TESTS)
 	enable_testing()
-    find_package(GTest REQUIRED)
+    find_package(GTest CONFIG REQUIRED)
 
 	set(SIMD_BUILD_TESTS ON)
 	set(STREAM_BUILD_TESTS ON)

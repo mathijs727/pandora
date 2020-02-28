@@ -26,7 +26,7 @@ LRUCache::LRUCache(std::unique_ptr<tasking::Deserializer>&& pDeserializer, gsl::
     assert(checkResidencyIsValid());
 
     if (m_usedMemory > m_maxMemory) {
-        spdlog::info("Evicting items in LRUCache constructor");
+        spdlog::debug("Evicting items in LRUCache constructor");
         evict(m_maxMemory / 4 * 3);
     }
 }
@@ -117,7 +117,7 @@ void LRUCache::evict(size_t desiredMemoryUsage)
     }
 
     if (m_usedMemory > desiredMemoryUsage) {
-        spdlog::error("LRUCache was not able to evict enough memory");
+        spdlog::warn("LRUCache was not able to evict enough memory");
     }
 }
 

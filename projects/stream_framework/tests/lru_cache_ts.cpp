@@ -45,7 +45,8 @@ struct DummyDataTS : public tasking::Evictable {
     {
         const int* pInt = reinterpret_cast<const int*>(deserializer.map(alloc));
         value = *pInt;
-        deserializer.unmap(alloc);
+        std::this_thread::sleep_for(std::chrono::microseconds(50));
+        deserializer.unmap(pInt);
     }
 };
 

@@ -39,7 +39,7 @@ struct DummyData : public tasking::Evictable {
     {
         const int* pInt = reinterpret_cast<const int*>(deserializer.map(alloc));
         value = *pInt;
-        deserializer.unmap(alloc);
+        deserializer.unmap(pInt);
     }
 };
 
