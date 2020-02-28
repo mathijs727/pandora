@@ -7,18 +7,21 @@ import brewer2mpl
 import numpy as np
 from helpers import read_time_value
 
+axis_font_size = 16
+axis_tick_font_size = 14
+legend_font_size = 15
+
 plot_style = {"linestyle": "--", "marker": "o", "linewidth": 4, "markersize": 12}
 scatter_style = {"s": 256}
 errorbar_style = {"linestyle": "--", "marker": "o", "linewidth": 4, "markersize": 12}
-font_size = 22
 
 def configure_mpl():
 	mpl.use("TkAgg")
 	plt.rc('font', family='serif', serif='Times')
 	plt.rc('text', usetex=False)
-	plt.rc('xtick', labelsize=font_size)
-	plt.rc('ytick', labelsize=font_size)
-	plt.rc('axes', labelsize=font_size, linewidth=1.5)
+	plt.rc('xtick', labelsize=axis_tick_font_size)
+	plt.rc('ytick', labelsize=axis_tick_font_size)
+	plt.rc('axes', labelsize=axis_font_size, linewidth=1.5)
 
 def get_sub_dirs(folder):
 	return [f for f in os.listdir(folder) if os.path.isdir(os.path.join(folder, f))]
@@ -32,8 +35,12 @@ def parse_svdag_stats(results_folder):
 
 	svdag_res_folder = os.path.join(results_folder, "svdag_res")
 	for res in get_sub_dirs(svdag_res_folder):
+		if res == "1024":
+			continue
 		res_folder = os.path.join(svdag_res_folder, res)
 		for scene in get_sub_dirs(res_folder):
+			if scene == "island":
+				continue
 			scene_folder = os.path.join(res_folder, scene)
 			for run in get_sub_dirs(scene_folder):
 				run_folder = os.path.join(scene_folder, run)
@@ -99,7 +106,7 @@ def plot_svdag_traversal_time(svdag_stats):
 	ax.set_ylim(bottom=0)
 	ax.xaxis.set_major_formatter(mpl.ticker.ScalarFormatter())
 	ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter("%dms"))
-	ax.legend(prop={"size": font_size}, frameon=False)
+	ax.legend(prop={"size": legend_font_size}, frameon=False)
 	fig.tight_layout()
 	#fig.savefig("svdag_memory_usage.pdf", bbox_inches="tight")
 	plt.show()
@@ -128,7 +135,8 @@ def plot_svdag_memory_usage(svdag_stats):
 		y = y[indices]
 
 		offset = (i - num_scenes//2) * (width + inner_margin)
-		ax.bar(ind + offset, y, width=width, bottom=0, color=colors[i], edgecolor="black", linewidth=1, label=scene.title())
+		xxx=  ind + offset
+		ax.bar(xxx, y, width=width, bottom=0, color=colors[i], edgecolor="black", linewidth=1, label=scene.title())
 
 	ax.set_xticks(ind)
 	x = [int(res) for res in list(svdag_stats.values())[0].keys()]
@@ -138,7 +146,7 @@ def plot_svdag_memory_usage(svdag_stats):
 	ax.set_ylabel("Memory Usage") # Per batching point
 	ax.set_yscale("linear")
 	ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter("%dMB"))
-	ax.legend(prop={"size": font_size}, frameon=True)
+	ax.legend(prop={"size": legend_font_size}, frameon=True)
 	fig.tight_layout()
 	#fig.savefig("svdag_memory_usage.eps", bbox_inches="tight")
 	plt.show()
@@ -190,7 +198,7 @@ def plot_svdag_cull_percentage(svdag_stats):
 	plt.show()
 
 if __name__ == "__main__":
-	results_folder = "C:/Users/Mathijs/OneDrive/TU Delft/Batched Ray Traversal/Results/"
+	results_folder = "C:/Users/mathi/OneDrive/TU Delft/Batched Ray Traversal/Results/"
 	svdag_results = parse_svdag_stats(results_folder)
 
 	configure_mpl()

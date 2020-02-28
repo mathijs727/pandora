@@ -49,15 +49,21 @@ def parse_ooc_stats(results_folder):
 	results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [])))
 
 	for mem_limit_str in get_sub_dirs(results_folder):
-		#re_match = re.match("geom([0-9]+)_bvh([0-9]+)", mem_limit_str)
-		#geom_limit = int(re_match.group(1))
-		#bvh_limit = int(re_match.group(2))
-		mem_limit = int(mem_limit_str)
+		re_match = re.match("geom([0-9]+)_bvh([0-9]+)", mem_limit_str)
+		if re_match:
+			geom_limit = int(re_match.group(1))
+			bvh_limit = int(re_match.group(2))
+			mem_limit = geom_limit
+		else:
+			mem_limit = int(mem_limit_str)
 
 		mem_lim_folder = os.path.join(results_folder, mem_limit_str)
 		for culling_str, culling in [("culling", True), ("no-culling", False)]:
 			culling_folder = os.path.join(mem_lim_folder, culling_str)
 			for scene in get_sub_dirs(culling_folder):
+				if scene == "islandX":
+					continue
+				
 				scene_folder = os.path.join(culling_folder, scene)
 				for run in get_sub_dirs(scene_folder):
 					run_folder = os.path.join(scene_folder, run)
@@ -193,6 +199,7 @@ def plot_bandwidth_usage(ooc_stats):
 
 if __name__ == "__main__":
 	results_folder = "C:/Users/mathi/Desktop/Results/mem_limit/"
+	#results_folder = "C:/Users/mathi/Desktop/results_from_submission/mem_limit_performance/"
 	ooc_results = parse_ooc_stats(results_folder)
 
 	configure_mpl()
