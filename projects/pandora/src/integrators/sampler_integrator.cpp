@@ -130,6 +130,10 @@ void SamplerIntegrator::spawnNewPaths(int numPaths)
     const int maxSample = pRenderData->maxPixelIndex * m_maxSpp;
     const int endIndex = std::min(startIndex + numPaths, pRenderData->maxPixelIndex * m_maxSpp);
 
+    const int hundredthMaxSample = maxSample / 100;
+    if (startIndex < maxSample && startIndex / hundredthMaxSample != endIndex / hundredthMaxSample)
+        spdlog::info("Now at {}% of spawning rays", startIndex / hundredthMaxSample);
+
     if (startIndex < maxSample && endIndex == maxSample)
         g_stats.asyncTriggerSnapshot();
 
