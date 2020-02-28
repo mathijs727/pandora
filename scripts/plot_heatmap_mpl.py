@@ -41,6 +41,19 @@ def plot_culling_on_vs_off(results_folder, scenes, spp):
     desired_image_res = (800, 600)
     desired_aspect = desired_image_res[0] / desired_image_res[1]
 
+    image_pairs = []
+    vmax = 0
+    for scene in scenes:
+        image_file1 = os.path.join(results_folder, "mem_limit", "100", "no-culling", scene, "run-0", "num_top_level_intersections.exr")
+        image_file2 = os.path.join(results_folder, "mem_limit", "100", "culling", scene, "run-0", "num_top_level_intersections.exr")
+        images = (shared_image.read_exr(image_file1), shared_image.read_exr(image_file2))
+        images = [image / spp for image in images]
+        images = [image_cutout(im, desired_aspect) for im in images]
+        images = [cv2.resize(im, desired_image_res) for im in images]
+
+        vmax = max(vmax, max(np.max(images[0]), np.max(images[1])))
+        image_pairs.append(images)
+
     #fig, axis = plt.subplots(nrows=2, ncols=len(scenes), constrained_layout=True)
     fig = plt.figure(figsize=(12,6))
     grid = ImageGrid(fig, 111,
@@ -50,16 +63,8 @@ def plot_culling_on_vs_off(results_folder, scenes, spp):
         share_all=True,
         cbar_location="right",
         cbar_mode="single")
-    for j, scene in enumerate(scenes):
-        image_file1 = os.path.join(results_folder, "mem_limit", "100", "culling", scene, "run-0", "num_top_level_intersections.exr")
-        image_file2 = os.path.join(results_folder, "mem_limit", "100", "no-culling", scene, "run-0", "num_top_level_intersections.exr")
-        images = (shared_image.read_exr(image_file1), shared_image.read_exr(image_file2))
-        images = [image / spp for image in images]
-        images = [image_cutout(im, desired_aspect) for im in images]
-        images = [cv2.resize(im, desired_image_res) for im in images]
 
-        vmax = max(np.max(images[0]), np.max(images[1]))
-
+    for j, images in enumerate(image_pairs):
         for i in range(2):
             ax = grid.axes_row[i][j]
             im = ax.imshow(images[i], vmin=0, vmax=vmax, cmap="coolwarm")
@@ -72,5 +77,6 @@ def plot_culling_on_vs_off(results_folder, scenes, spp):
     fig.savefig("num_intersections.pdf", bbox_inches="tight")
 
 if __name__ == "__main__":
-    results_folder = "C:/Users/mathi/OneDrive/TU Delft/Batched Ray Traversal/Results/"
-    plot_culling_on_vs_off(results_folder, ["crown", "landscape", "island"], 256)
+    #results_folder = "C:/Users/mathi/OneDrive/TU Delft/Batched Ray Traversal/Results/"
+    results_folder = "C:/Users/mathi/Desktop/Results/"
+    plot_culling_on_vs_off(results_folder, ["crown", "landscape", "islandX"], 256)
