@@ -178,7 +178,7 @@ int main(int argc, char** argv)
 
         cacheBuilder = tasking::LRUCacheTS::Builder { std::move(pSerializer) };
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
-        auto newCache = cacheBuilder.build(geometryCache.maxSize());
+        auto newCache = cacheBuilder.build(geomCacheSizeMB * 1000000);
         geometryCache = std::move(newCache);
     }
 

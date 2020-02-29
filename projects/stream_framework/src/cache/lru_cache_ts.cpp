@@ -104,9 +104,9 @@ void LRUCacheTS::evictMarked()
         itemData.marked.store(true, std::memory_order_relaxed);
     }
 
-    m_usedMemory.fetch_sub(freedMem, std::memory_order_relaxed);
+    auto newMemoryUsage = m_usedMemory.fetch_sub(freedMem, std::memory_order_relaxed) - freedMem;
 
-    if (m_usedMemory.load(std::memory_order_relaxed) > m_maxMemory)
+    if (newMemoryUsage > m_maxMemory)
         spdlog::warn("LRUCacheTS: memory usage exceeded limit after eviction");
 }
 
