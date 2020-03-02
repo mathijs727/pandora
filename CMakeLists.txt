@@ -22,14 +22,6 @@ endif()
 set(CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL MinSizeRel Release)
 set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO RelWithDebInfo Release)
 
-#include("cmake/pmm.cmake")
-#pmm(VERBOSE
-#	DEBUG
-#	VCPKG
-#		REVISION ea79220f9d9d33a11101c8dea0827aaff5a2b9b3
-#		REQUIRES eastl ms-gsl tbb fmt spdlog gtest assimp glm openimageio mio flatbuffers "boost-program-options" nlohmann-json embree3 libmorton
-#		PORTS "${CMAKE_CURRENT_LIST_DIR}/third_party/assimp5/") # TODO: assimp version in vcpkg@ea79220f9d9d33a11101c8dea0827aaff5a2b9b3 is broken. Update 5.0.0 is available but requires VCPKG revision update = recompile everything
-
 find_package(EASTL CONFIG REQUIRED)
 find_package(EABase CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
@@ -43,9 +35,7 @@ find_package(TBB COMPONENTS tbb tbbmalloc REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(OpenImageIO REQUIRED)
 find_package(Embree3 REQUIRED)
-#find_package(vectorclass REQUIRED)
 find_package(Cnl CONFIG REQUIRED)
-#find_package(hpx REQUIRED)
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/optick/" EXCLUDE_FROM_ALL)
 
 # WARNING: temporary hack because using the assimp::assimp target exported by assimp will try to link against a DLL (and fail)
@@ -58,7 +48,6 @@ get_target_property(EASTL_LOC EASTL IMPORTED_LOCATION_DEBUG)
 message("EASTL LOC: ${EASTL_LOC}")
 
 # Modified version of mio (https://github.com/mandreyel/mio) with a flag added to control the file system cache.
-#add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/mio_cache_control/" EXCLUDE_FROM_ALL) # Modified version that can bypass OS file cache (for benchmarking)
 add_library(mio_cache_control INTERFACE)
 target_include_directories(mio_cache_control INTERFACE "${CMAKE_CURRENT_LIST_DIR}/third_party/mio_cache_control/include/")
 
@@ -107,8 +96,4 @@ include("projects/torque/CMakeLists.txt")
 
 #if (BUILD_VOXEL_EXPORT)
 #    include("projects/voxel/CMakeLists.txt")
-#endif()
-
-#if (PANDORA_BUILD_PBRT_IMPORTER)
-#	add_subdirectory("projects/pbrt_importer/")	
 #endif()
