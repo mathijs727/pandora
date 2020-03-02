@@ -4,8 +4,6 @@
 #include "pandora/shapes/triangle.h"
 #include "pandora/utility/error_handling.h"
 #include "pandora/utility/math.h"
-
-#include "tinyply.h"
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
@@ -363,27 +361,17 @@ std::optional<TriangleShape> TriangleShape::loadFromFileSingleShape(std::filesys
         return {};
     }
 
-    /*if (filePath.extension() == ".ply") {
-        // Assimp is really slow so use tiny ply to parse ply files
-        // https://github.com/ddiakopoulos/tinyply
-        if (objTransform == glm::identity<glm::mat4>())
-            return loadFromPlyFile(filePath, {});
-        else
-            return loadFromPlyFile(filePath, objTransform);
-    } else*/
-    {
-        Assimp::Importer importer;
-        const aiScene* scene = importer.ReadFile(filePath.string().data(), aiProcess_GenNormals | aiProcess_Triangulate);
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile(filePath.string().data(), aiProcess_GenNormals | aiProcess_Triangulate);
 
-        if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
-            spdlog::warn("Failed to load mesh file \"{}\"", filePath.string());
-            return {};
-        }
-
-        auto ret = loadFromFileSingleShape(scene, objTransform, ignoreVertexNormals);
-        importer.FreeScene();
-        return ret;
+    if (scene == nullptr || scene->mRootNode == nullptr || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE) {
+        spdlog::warn("Failed to load mesh file \"{}\"", filePath.string());
+        return {};
     }
+
+    auto ret = loadFromFileSingleShape(scene, objTransform, ignoreVertexNormals);
+    importer.FreeScene();
+    return ret;
 }
 
 std::optional<TriangleShape> TriangleShape::loadFromFileSingleShape(const aiScene* scene, glm::mat4 objTransform, bool ignoreVertexNormals)
@@ -534,81 +522,6 @@ void TriangleShape::serialize(tasking::Serializer& serializer)
     serializer.unmapPreviousAllocations();
 
     m_serializedStateHandle = allocation;
-}
-
-std::optional<TriangleShape> TriangleShape::loadFromPlyFile(std::filesystem::path filePath, std::optional<glm::mat4> optTransform)
-{
-    std::ifstream ss(filePath, std::ios::binary);
-    if (ss.fail()) {
-        spdlog::error("Failed to open plyfile \"{}\"", filePath.string());
-        return {};
-    }
-
-    tinyply::PlyFile file;
-    file.parse_header(ss);
-
-    bool hasIndices = false;
-    bool hasTexCoords = false;
-    bool hasNormals = false;
-    for (auto e : file.get_elements()) {
-        if (e.name == "face") {
-            for (auto p : e.properties) {
-                if (p.name == "vertex_indices")
-                    hasIndices = true;
-            }
-        } else if (e.name == "vertex") {
-            for (auto p : e.properties) {
-                if (p.name == "nx")
-                    hasNormals = true;
-                if (p.name == "u")
-                    hasTexCoords = true;
-            }
-        }
-    }
-
-    std::shared_ptr<tinyply::PlyData> plyIndices;
-    if (hasIndices)
-        plyIndices = file.request_properties_from_element("face", { "vertex_indices" });
-    std::shared_ptr<tinyply::PlyData> plyVertices = file.request_properties_from_element("vertex", { "x", "y", "z" });
-    std::shared_ptr<tinyply::PlyData> plyNormals;
-    if (hasNormals)
-        plyNormals = file.request_properties_from_element("vertex", { "nx", "ny", "nz" });
-    std::shared_ptr<tinyply::PlyData> plyTexCoords;
-    if (hasTexCoords)
-        plyTexCoords = file.request_properties_from_element("vertex", { "u", "v" });
-
-    file.read(ss);
-
-    std::vector<glm::uvec3> indices;
-    if (hasIndices) {
-        ALWAYS_ASSERT(plyIndices->count % 3 == 0);
-        indices.resize(plyIndices->count);
-        size_t size = plyIndices->buffer.size_bytes();
-        std::memcpy(indices.data(), plyIndices->buffer.get(), size);
-    } else {
-        ALWAYS_ASSERT(plyVertices->count % 3 == 0);
-        indices.reserve(plyVertices->count / 3);
-        for (size_t i = 0; i < plyVertices->count; i += 3) {
-            indices.push_back(glm::uvec3(i, i + 1, i + 2));
-        }
-    }
-
-    std::vector<glm::vec3> positions { plyVertices->count };
-    std::memcpy(positions.data(), plyVertices->buffer.get(), plyVertices->buffer.size_bytes());
-
-    std::vector<glm::vec3> normals;
-    if (hasNormals) {
-        normals.resize(plyNormals->count);
-        std::memcpy(normals.data(), plyNormals->buffer.get(), plyNormals->buffer.size_bytes());
-    }
-
-    std::vector<glm::vec2> texCoords;
-    if (hasTexCoords) {
-        texCoords.resize(plyTexCoords->count);
-        std::memcpy(texCoords.data(), plyTexCoords->buffer.get(), plyTexCoords->buffer.size_bytes());
-    }
-
-    return TriangleShape(std::move(indices), std::move(positions), std::move(normals), std::move(texCoords));
 }
 
 TriangleShape TriangleShape::loadSerialized(const serialization::TriangleMesh* pSerializedTriangleMesh, const glm::mat4& transformMatrix)
