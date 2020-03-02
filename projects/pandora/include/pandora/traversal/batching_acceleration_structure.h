@@ -11,14 +11,16 @@
 #include "pandora/traversal/embree_cache.h"
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/utility/enumerate.h"
-#include "stream/cache/lru_cache.h"
-#include "stream/task_graph.h"
 #include <embree3/rtcore.h>
 #include <execution>
 #include <glm/gtc/type_ptr.hpp>
 #include <gsl/span>
 #include <optional>
 #include <spdlog/spdlog.h>
+#include <stream/cache/lru_cache.h>
+#include <stream/cache/lru_cache_ts.h>
+#include <stream/task_graph.h>
+#include <tbb/parallel_for_each.h>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
@@ -44,7 +46,7 @@ private:
         RTCDevice embreeDevice, PauseableBVH4<BatchingPoint, HitRayState, AnyHitRayState>&& topLevelBVH,
         tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
-        tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph, size_t embreeSceneCacheSize);
+        tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph, size_t embreeSceneCacheSize);
 
     using TopLevelBVH = PauseableBVH4<BatchingPoint, HitRayState, AnyHitRayState>;
     using OnHitTask = tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>>;
@@ -54,8 +56,8 @@ private:
 
     class BatchingPoint {
     public:
-        BatchingPoint(SubScene&& subScene, std::vector<Shape*>&& shapes, SparseVoxelDAG&& svdag, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph);
-        BatchingPoint(SubScene&& subScene, std::vector<Shape*>&& shapes, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph);
+        BatchingPoint(SubScene&& subScene, std::vector<Shape*>&& shapes, SparseVoxelDAG&& svdag, tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph);
+        BatchingPoint(SubScene&& subScene, std::vector<Shape*>&& shapes, tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph);
 
         std::optional<bool> intersect(Ray&, SurfaceInteraction&, const HitRayState&, const PauseableBVHInsertHandle&) const;
         std::optional<bool> intersectAny(Ray&, const AnyHitRayState&, const PauseableBVHInsertHandle&) const;
@@ -83,7 +85,7 @@ private:
 
         std::optional<SparseVoxelDAG> m_svdag;
 
-        tasking::LRUCache* m_pGeometryCache;
+        tasking::LRUCacheTS* m_pGeometryCache;
         EmbreeSceneCache* m_pEmbreeCache;
         tasking::TaskGraph* m_pTaskGraph;
 
@@ -108,9 +110,9 @@ private:
 class BatchingAccelerationStructureBuilder {
 public:
     BatchingAccelerationStructureBuilder(
-        const Scene* pScene, tasking::LRUCache* pCache, tasking::TaskGraph* pTaskGraph, unsigned primitivesPerBatchingPoint, size_t botLevelBVHCacheSize, unsigned svdagRes);
+        const Scene* pScene, tasking::LRUCacheTS* pCache, tasking::TaskGraph* pTaskGraph, unsigned primitivesPerBatchingPoint, size_t botLevelBVHCacheSize, unsigned svdagRes);
 
-    static void preprocessScene(Scene& scene, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint);
+    static void preprocessScene(Scene& scene, tasking::LRUCacheTS& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint);
 
     template <typename HitRayState, typename AnyHitRayState>
     BatchingAccelerationStructure<HitRayState, AnyHitRayState> build(
@@ -124,7 +126,7 @@ private:
     RTCDevice m_embreeDevice;
     std::vector<SubScene> m_subScenes;
 
-    tasking::LRUCache* m_pGeometryCache;
+    tasking::LRUCacheTS* m_pGeometryCache;
     tasking::TaskGraph* m_pTaskGraph;
 };
 
@@ -136,7 +138,7 @@ inline glm::vec3 randomVec3()
 
 template <typename HitRayState, typename AnyHitRayState>
 BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
-    SubScene&& subScene, std::vector<Shape*>&& shapes, SparseVoxelDAG&& svdag, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph)
+    SubScene&& subScene, std::vector<Shape*>&& shapes, SparseVoxelDAG&& svdag, tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph)
     : m_subScene(std::move(subScene))
     , m_shapes(std::move(shapes))
     , m_bounds(m_subScene.computeBounds())
@@ -149,7 +151,7 @@ BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::Batch
 
 template <typename HitRayState, typename AnyHitRayState>
 BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
-    SubScene&& subScene, std::vector<Shape*>&& shapes, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph)
+    SubScene&& subScene, std::vector<Shape*>&& shapes, tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph)
     : m_subScene(std::move(subScene))
     , m_shapes(std::move(shapes))
     , m_bounds(m_subScene.computeBounds())
@@ -170,14 +172,16 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             //g_stats.memory.batches = m_pTaskGraph->approxMemoryUsage();
 
             StaticData staticData;
-
             {
                 OPTICK_EVENT("MakeShapesResident");
-                staticData.shapeOwners.reserve(m_shapes.size());
-                for (Shape* pShape : m_shapes) {
-                    auto shapeOwner = m_pGeometryCache->makeResident(pShape);
-                    staticData.shapeOwners.emplace_back(std::move(shapeOwner));
-                }
+                staticData.shapeOwners.resize(m_shapes.size());
+                tbb::blocked_range<size_t> shapeRange { 0, m_shapes.size() };
+                tbb::parallel_for(shapeRange,
+                    [&](tbb::blocked_range<size_t> localRange) {
+                        for (size_t i = std::begin(localRange); i != std::end(localRange); i++) {
+                            staticData.shapeOwners[i] = m_pGeometryCache->makeResident(m_shapes[i]);
+                        }
+                    });
             }
 
             {
@@ -224,11 +228,14 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 
             {
                 OPTICK_EVENT("MakeShapesResident");
-                staticData.shapeOwners.reserve(m_shapes.size());
-                for (Shape* pShape : m_shapes) {
-                    auto shapeOwner = m_pGeometryCache->makeResident(pShape);
-                    staticData.shapeOwners.emplace_back(std::move(shapeOwner));
-                }
+                staticData.shapeOwners.resize(m_shapes.size());
+                tbb::blocked_range<size_t> shapeRange { 0, m_shapes.size() };
+                tbb::parallel_for(shapeRange,
+                    [&](tbb::blocked_range<size_t> localRange) {
+                        for (size_t i = std::begin(localRange); i != std::end(localRange); i++) {
+                            staticData.shapeOwners[i] = m_pGeometryCache->makeResident(m_shapes[i]);
+                        }
+                    });
             }
 
             {
@@ -298,10 +305,10 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
 {
     if (m_svdag) {
         // auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
-        g_stats.svdag.numIntersectionTests++;
+        //g_stats.svdag.numIntersectionTests++;
 
         if (!m_svdag->intersectScalar(ray)) {
-            g_stats.svdag.numRaysCulled++;
+            //g_stats.svdag.numRaysCulled++;
             return false;
         }
     }
@@ -317,10 +324,10 @@ std::optional<bool> BatchingAccelerationStructure<HitRayState, AnyHitRayState>::
 {
     if (m_svdag) {
         //auto stopWatch = g_stats.timings.svdagTraversalTime.getScopedStopwatch();
-        g_stats.svdag.numIntersectionTests++;
+        //g_stats.svdag.numIntersectionTests++;
 
         if (!m_svdag->intersectScalar(ray)) {
-            g_stats.svdag.numRaysCulled++;
+            //g_stats.svdag.numRaysCulled++;
             return false;
         }
     }
@@ -366,7 +373,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 
         if (embreeRayHit.hit.instID[0] == RTC_INVALID_GEOMETRY_ID) {
             pSceneObject = reinterpret_cast<const SceneObject*>(
-                rtcGetGeometryUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
+                TriangleShape::getAdditionalUserData(rtcGetGeometry(scene, embreeRayHit.hit.geomID)));
         } else {
             glm::mat4 accumulatedTransform { 1.0f };
             RTCScene localScene = scene;
@@ -386,7 +393,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 
             optLocalToWorldMatrix = accumulatedTransform;
             pSceneObject = reinterpret_cast<const SceneObject*>(
-                rtcGetGeometryUserData(rtcGetGeometry(localScene, embreeRayHit.hit.geomID)));
+                TriangleShape::getAdditionalUserData(rtcGetGeometry(localScene, embreeRayHit.hit.geomID)));
         }
 
         RayHit hit;
@@ -420,7 +427,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
             si.shading.normal = -si.shading.normal;
 
         si.pSceneObject = pSceneObject;
-        si.localToWorld = optLocalToWorldMatrix;
+        //si.localToWorld = optLocalToWorldMatrix;
         si.shading.batchingPointColor = m_color;
         ray.tfar = embreeRayHit.ray.tfar;
         return true;
@@ -540,7 +547,7 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingAccel
     RTCDevice embreeDevice, PauseableBVH4<BatchingPoint, HitRayState, AnyHitRayState>&& topLevelBVH,
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
-    tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph, size_t embreeSceneCacheSize)
+    tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph, size_t embreeSceneCacheSize)
     : m_embreeDevice(embreeDevice)
     , m_topLevelBVH(std::move(topLevelBVH))
     , m_embreeSceneCache(embreeSceneCacheSize)

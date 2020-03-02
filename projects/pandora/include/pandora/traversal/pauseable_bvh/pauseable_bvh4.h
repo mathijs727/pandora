@@ -238,13 +238,18 @@ inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::
         simd::vec4_f32 tnear;
         simd::vec4_f32 tfar;
     };
+    const glm::vec3 invDir = 1.0f / ray.direction;
+
     SIMDRay simdRay;
     simdRay.originX = simd::vec4_f32(ray.origin.x);
     simdRay.originY = simd::vec4_f32(ray.origin.y);
     simdRay.originZ = simd::vec4_f32(ray.origin.z);
-    simdRay.invDirectionX = simd::vec4_f32(ray.direction.x == 0.0f ? std::numeric_limits<float>::infinity() : 1.0f / ray.direction.x);
-    simdRay.invDirectionY = simd::vec4_f32(ray.direction.y == 0.0f ? std::numeric_limits<float>::infinity() : 1.0f / ray.direction.y);
-    simdRay.invDirectionZ = simd::vec4_f32(ray.direction.z == 0.0f ? std::numeric_limits<float>::infinity() : 1.0f / ray.direction.z);
+    simdRay.invDirectionX = simd::vec4_f32(invDir.x);
+    simdRay.invDirectionY = simd::vec4_f32(invDir.y);
+    simdRay.invDirectionZ = simd::vec4_f32(invDir.z);
+    //simdRay.invDirectionX = simd::vec4_f32(ray.direction.x == 0.0f ? std::numeric_limits<float>::infinity() : 1.0f / ray.direction.x);
+    //simdRay.invDirectionY = simd::vec4_f32(ray.direction.y == 0.0f ? std::numeric_limits<float>::infinity() : 1.0f / ray.direction.y);
+    //simdRay.invDirectionZ = simd::vec4_f32(ray.direction.z == 0.0f ? std::numeric_limits<float>::infinity() : 1.0f / ray.direction.z);
     simdRay.tnear = simd::vec4_f32(ray.tnear);
     simdRay.tfar = simd::vec4_f32(ray.tfar);
 
@@ -287,7 +292,7 @@ inline std::optional<bool> PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::
                 // Find nearest active child for this ray
                 unsigned childIndex;
                 if constexpr (AnyHit) {
-                    childIndex = simd::bitScan32(static_cast<uint32_t>(toVisitMask.bitMask()));
+                    childIndex = simd::bitScan4(static_cast<uint32_t>(toVisitMask.bitMask()));
                 } else {
                     const simd::vec4_f32 inf4(std::numeric_limits<float>::max());
                     const simd::vec4_f32 maskedDistances = simd::blend(inf4, tmin, toVisitMask);

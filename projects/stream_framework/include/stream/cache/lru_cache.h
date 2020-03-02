@@ -88,7 +88,7 @@ inline CachedPtr<T> LRUCache::makeResident(T* pEvictable)
     } else {
         assert(m_residentItemsLookUp[itemIndex] == std::end(m_residentItems));
 
-        size_t sizeBefore = pItem->sizeBytes();
+        const size_t sizeBefore = pItem->sizeBytes();
         pItem->makeResident(*m_pDeserializer);
         assert(pItem->sizeBytes() >= sizeBefore);
         m_usedMemory += (pItem->sizeBytes() - sizeBefore);

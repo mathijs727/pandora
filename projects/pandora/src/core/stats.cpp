@@ -13,8 +13,13 @@ nlohmann::json RenderStats::getMetricsSnapshot() const
     nlohmann::json ret;
     ret["config"]["scene"] = config.sceneFile;
     ret["config"]["subdiv"] = config.subdiv;
+    ret["config"]["cameraID"] = config.cameraID;
     ret["config"]["integrator"] = config.integrator;
     ret["config"]["spp"] = config.spp;
+    ret["config"]["concurrency"] = config.concurrency;
+    ret["config"]["schedulers"] = config.schedulers;
+    ret["config"]["concurrency"] = config.concurrency;
+    ret["config"]["svdagres"] = config.svdagRes;
 
     ret["config"]["ooc"]["geom_cache_size"] = config.geomCacheSize;
     ret["config"]["ooc"]["bvh_cache_size"] = config.bvhCacheSize;

@@ -15,7 +15,7 @@
 #ifdef NDEBUG
 constexpr static int SIMD4_WIDTH = 4;
 #else
-constexpr static int SIMD4_WIDTH = 1;
+constexpr static int SIMD4_WIDTH = 4;
 #endif
 
 namespace simd {

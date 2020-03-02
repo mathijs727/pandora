@@ -54,6 +54,9 @@ target_include_directories(assimp_target INTERFACE ${ASSIMP_INCLUDE_DIRS})
 target_link_directories(assimp_target INTERFACE ${ASSIMP_LIBRARY_DIRS})
 target_link_libraries(assimp_target INTERFACE ${ASSIMP_LIBRARIES})
 
+get_target_property(EASTL_LOC EASTL IMPORTED_LOCATION_DEBUG)
+message("EASTL LOC: ${EASTL_LOC}")
+
 # Modified version of mio (https://github.com/mandreyel/mio) with a flag added to control the file system cache.
 #add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/mio_cache_control/" EXCLUDE_FROM_ALL) # Modified version that can bypass OS file cache (for benchmarking)
 add_library(mio_cache_control INTERFACE)
@@ -76,7 +79,7 @@ include("cmake/BuildFlatBuffers.cmake") # Include cmake script that defines the 
 
 if (PANDORA_BUILD_TESTS)
 	enable_testing()
-    find_package(GTest REQUIRED)
+    find_package(GTest CONFIG REQUIRED)
 
 	set(SIMD_BUILD_TESTS ON)
 	set(STREAM_BUILD_TESTS ON)

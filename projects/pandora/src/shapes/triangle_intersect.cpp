@@ -43,6 +43,114 @@ RTCGeometry TriangleShape::createEmbreeGeometry(RTCDevice embreeDevice) const
     return embreeGeometry;
 }
 
+struct EmbreeUserData {
+    const TriangleShape* pThis;
+    const void* pAdditionalUserData;
+};
+
+RTCGeometry TriangleShape::createEvictSafeEmbreeGeometry(RTCDevice embreeDevice, const void* pAdditionalUserData) const
+{
+    EmbreeUserData* pUserData = new EmbreeUserData { this, pAdditionalUserData };
+
+    RTCGeometry embreeGeometry = rtcNewGeometry(embreeDevice, RTC_GEOMETRY_TYPE_USER);
+    rtcSetGeometryUserPrimitiveCount(embreeGeometry, m_numPrimitives);
+    rtcSetGeometryUserData(embreeGeometry, pUserData);
+    rtcSetGeometryBoundsFunction(
+        embreeGeometry,
+        [](const RTCBoundsFunctionArguments* pArgs) {
+            const TriangleShape* pThis = reinterpret_cast<const EmbreeUserData*>(pArgs->geometryUserPtr)->pThis;
+            const Bounds bounds = pThis->getPrimitiveBounds(pArgs->primID);
+            pArgs->bounds_o->lower_x = bounds.min.x;
+            pArgs->bounds_o->lower_y = bounds.min.y;
+            pArgs->bounds_o->lower_z = bounds.min.z;
+            pArgs->bounds_o->upper_x = bounds.max.x;
+            pArgs->bounds_o->upper_y = bounds.max.y;
+            pArgs->bounds_o->upper_z = bounds.max.z;
+        },
+        const_cast<void*>(reinterpret_cast<const void*>(this)));
+    rtcSetGeometryIntersectFunction(
+        embreeGeometry,
+        [](const RTCIntersectFunctionNArguments* pArgs) {
+            const TriangleShape* pThis = reinterpret_cast<const EmbreeUserData*>(pArgs->geometryUserPtr)->pThis;
+            const unsigned N = pArgs->N;
+
+            for (unsigned i = 0; i < N; i++) {
+                if (!pArgs->valid[i])
+                    continue;
+
+                RTCRayN* pRay = RTCRayHitN_RayN(pArgs->rayhit, N);
+
+                Ray ray;
+                ray.origin.x = RTCRayN_org_x(pRay, N, i);
+                ray.origin.y = RTCRayN_org_y(pRay, N, i);
+                ray.origin.z = RTCRayN_org_z(pRay, N, i);
+                ray.direction.x = RTCRayN_dir_x(pRay, N, i);
+                ray.direction.y = RTCRayN_dir_y(pRay, N, i);
+                ray.direction.z = RTCRayN_dir_z(pRay, N, i);
+                ray.tnear = RTCRayN_tnear(pRay, N, i);
+                ray.tfar = RTCRayN_tfar(pRay, N, i);
+
+                RayHit hitInfo;
+                if (pThis->intersectPrimitive(ray, hitInfo, pArgs->primID)) {
+                    RTCRayN_tfar(pRay, N, i) = ray.tfar;
+
+                    RTCHitN* pHit = RTCRayHitN_HitN(pArgs->rayhit, N);
+                    RTCHitN_geomID(pHit, N, i) = pArgs->geomID;
+                    RTCHitN_primID(pHit, N, i) = pArgs->primID;
+                    RTCHitN_Ng_x(pHit, N, i) = hitInfo.geometricNormal.x;
+                    RTCHitN_Ng_y(pHit, N, i) = hitInfo.geometricNormal.y;
+                    RTCHitN_Ng_z(pHit, N, i) = hitInfo.geometricNormal.z;
+                    RTCHitN_u(pHit, N, i) = hitInfo.geometricUV.x;
+                    RTCHitN_v(pHit, N, i) = hitInfo.geometricUV.y;
+                    for (unsigned j = 0; j < RTC_MAX_INSTANCE_LEVEL_COUNT; j++) {
+                        RTCHitN_instID(pHit, N, i, j) = pArgs->context->instID[j];
+                    }
+                }
+            }
+        });
+    rtcSetGeometryOccludedFunction(
+        embreeGeometry,
+        [](const RTCOccludedFunctionNArguments* pArgs) {
+            const TriangleShape* pThis = reinterpret_cast<const EmbreeUserData*>(pArgs->geometryUserPtr)->pThis;
+            const unsigned N = pArgs->N;
+
+            for (unsigned i = 0; i < N; i++) {
+                if (!pArgs->valid[i])
+                    continue;
+
+                RTCRayN* pRay = pArgs->ray;
+
+                Ray ray;
+                ray.origin.x = RTCRayN_org_x(pRay, N, i);
+                ray.origin.y = RTCRayN_org_y(pRay, N, i);
+                ray.origin.z = RTCRayN_org_z(pRay, N, i);
+                ray.direction.x = RTCRayN_dir_x(pRay, N, i);
+                ray.direction.y = RTCRayN_dir_y(pRay, N, i);
+                ray.direction.z = RTCRayN_dir_z(pRay, N, i);
+                ray.tnear = RTCRayN_tnear(pRay, N, i);
+                ray.tfar = RTCRayN_tfar(pRay, N, i);
+
+                constexpr float minInf = -std::numeric_limits<float>::infinity();
+                RayHit hitInfo;
+                if (pThis->intersectPrimitive(ray, hitInfo, pArgs->primID))
+                    RTCRayN_tfar(pRay, N, i) = minInf;
+            }
+        });
+    return embreeGeometry;
+}
+
+const void* TriangleShape::getAdditionalUserData(RTCGeometry geometry)
+{
+    const EmbreeUserData* pUserData = reinterpret_cast<const EmbreeUserData*>(rtcGetGeometryUserData(geometry));
+    return pUserData->pAdditionalUserData;
+}
+
+void TriangleShape::freeAdditionalUserData(RTCGeometry geometry)
+{
+    EmbreeUserData* pUserData = reinterpret_cast<EmbreeUserData*>(rtcGetGeometryUserData(geometry));
+    delete pUserData;
+}
+
 float TriangleShape::primitiveArea(unsigned primitiveID) const
 {
     glm::uvec3 triangle = m_indices[primitiveID];

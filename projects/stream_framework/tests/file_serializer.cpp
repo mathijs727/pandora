@@ -24,7 +24,7 @@ TEST(SplitFileSerializer, WriteAndUnmap)
     for (int i = 0; i < 4; i++) {
         const int* pInt = reinterpret_cast<const int*>(pDeserializer->map(allocations[i]));
         ASSERT_EQ(*pInt, i);
-        pDeserializer->unmap(allocations[i]);
+        pDeserializer->unmap(pInt);
     }
 }
 

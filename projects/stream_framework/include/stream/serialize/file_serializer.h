@@ -4,10 +4,12 @@
 #include <deque>
 #include <filesystem>
 #include <mio_cache_control/mmap.hpp>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <tuple>
 #include <unordered_map>
+#include <tbb/enumerable_thread_specific.h>
 
 namespace tasking {
 
@@ -18,21 +20,23 @@ public:
     SplitFileDeserializer& operator=(SplitFileDeserializer&&) = default;
 
     const void* map(const Allocation& allocation) final;
-    void unmap(const Allocation& allocation) final;
+    void unmap(const void* pMemory) final;
 
 private:
     friend class SplitFileSerializer;
-    SplitFileDeserializer(std::filesystem::path tempFolder, mio_cache_control::cache_mode fileCacheMode);
+    SplitFileDeserializer(std::filesystem::path tempFolder, uint32_t numFiles, mio_cache_control::cache_mode fileCacheMode);
 
 private:
     std::filesystem::path m_tempFolder;
     mio_cache_control::cache_mode m_fileCacheMode;
 
-    struct MappedFile {
+    std::mutex m_mutex;
+    /*struct MappedFile {
         mio_cache_control::mmap_source file;
         uint32_t useCount;
     };
-    std::unordered_map<uint32_t, MappedFile> m_openFiles;
+    std::unordered_map<uint32_t, MappedFile> m_openFiles;*/
+    std::unordered_map<const void*, mio_cache_control::mmap_source> m_openFiles;
 };
 
 class SplitFileSerializer : public Serializer {
@@ -56,8 +60,9 @@ private:
 private:
     friend class SplitFileDeserializer;
     struct FileAllocation {
-        uint32_t fileID;
         size_t offsetInFile;
+        size_t allocationSize;
+        uint32_t fileID;
     };
     static_assert(sizeof(FileAllocation) <= sizeof(Allocation));
 

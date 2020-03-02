@@ -5,7 +5,7 @@
 namespace tasking {
 
 struct Allocation {
-    char __memory[16];
+    char __memory[24];
 };
 
 class Deserializer {
@@ -13,7 +13,7 @@ public:
     virtual ~Deserializer() = default;
 
     virtual const void* map(const Allocation& allocation) = 0;
-    virtual void unmap(const Allocation& allocation) = 0;
+    virtual void unmap(const void*) = 0;
 };
 
 class Serializer {

@@ -97,7 +97,7 @@ int main(int argc, char** argv)
     g_stats.config.spp = vm["spp"].as<int>();
 
     spdlog::info("Loading scene");
-    tasking::LRUCache::Builder cacheBuilder { std::make_unique<tasking::InMemorySerializer>() };
+    tasking::LRUCacheTS::Builder cacheBuilder { std::make_unique<tasking::InMemorySerializer>() };
     //tasking::DummyCache::Builder cacheBuilder;
 
     const std::filesystem::path sceneFilePath = vm["file"].as<std::string>();
@@ -153,7 +153,7 @@ int main(int argc, char** argv)
     spdlog::info("Preprocessing scene");
     constexpr unsigned primitivesPerBatchingPoint = 5000000;
     if constexpr (std::is_same_v<AccelBuilder, BatchingAccelerationStructureBuilder>) {
-        cacheBuilder = tasking::LRUCache::Builder { std::make_unique<tasking::InMemorySerializer>() };
+        cacheBuilder = tasking::LRUCacheTS::Builder { std::make_unique<tasking::InMemorySerializer>() };
 #ifdef BATCHING_ACCEL
         AccelBuilder::preprocessScene(*renderConfig.pScene, geometryCache, cacheBuilder, primitivesPerBatchingPoint);
 #endif

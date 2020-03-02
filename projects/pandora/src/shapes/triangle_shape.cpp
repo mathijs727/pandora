@@ -185,6 +185,7 @@ void TriangleShape::doMakeResident(tasking::Deserializer& deserializer)
 {
     OPTICK_EVENT();
 
+    const size_t sizeBefore = sizeBytes();
     const void* pData = deserializer.map(m_serializedStateHandle);
     const auto* pSerializedTriangleMesh = serialization::GetTriangleMesh(pData);
 
@@ -232,9 +233,9 @@ void TriangleShape::doMakeResident(tasking::Deserializer& deserializer)
         m_texCoords.shrink_to_fit();
     }
 
-    deserializer.unmap(m_serializedStateHandle);
+    deserializer.unmap(pData);
 
-    g_stats.memory.geometryLoaded += sizeBytes();
+    g_stats.memory.geometryLoaded += sizeBytes() - sizeBefore;
 }
 
 unsigned TriangleShape::numPrimitives() const

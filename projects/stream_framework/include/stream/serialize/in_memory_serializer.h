@@ -8,7 +8,7 @@ namespace tasking {
 class InMemoryDeserializer : public tasking::Deserializer {
 public:
     const void* map(const tasking::Allocation&) final;
-    void unmap(const tasking::Allocation&) final;
+    void unmap(const void*) final;
 
 private:
     friend class InMemorySerializer;

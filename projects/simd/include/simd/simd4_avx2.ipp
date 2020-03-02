@@ -426,7 +426,7 @@ public:
         __m128 mask = _mm_cmpeq_ps(m_value, min4);
         
         int bitMask = _mm_movemask_ps(mask);
-        return bitScan32(static_cast<uint32_t>(bitMask));
+        return bitScan4(bitMask);
     }
 
     inline _vec4<float, 4> horizontalMinVec() const

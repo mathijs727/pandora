@@ -39,6 +39,9 @@ public:
     TriangleShape subMesh(gsl::span<const unsigned> primitives) const;
 
     RTCGeometry createEmbreeGeometry(RTCDevice embreeDevice) const final;
+    RTCGeometry createEvictSafeEmbreeGeometry(RTCDevice embreeDevice, const void* pAdditionalUserData) const final;
+    static const void* getAdditionalUserData(RTCGeometry geometry);
+    static void freeAdditionalUserData(RTCGeometry geometry);
 
     float primitiveArea(unsigned primitiveID) const final;
     Interaction samplePrimitive(unsigned primitiveID, PcgRng& rng) const final;

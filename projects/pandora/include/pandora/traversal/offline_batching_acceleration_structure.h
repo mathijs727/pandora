@@ -12,13 +12,14 @@
 #include "pandora/traversal/pauseable_bvh/pauseable_bvh4.h"
 #include "pandora/traversal/sub_scene.h"
 #include "pandora/utility/enumerate.h"
-#include "stream/cache/lru_cache.h"
-#include "stream/task_graph.h"
 #include <glm/gtc/type_ptr.hpp>
 #include <gsl/span>
 #include <optick.h>
 #include <optional>
 #include <stream/cache/evictable.h>
+#include <stream/cache/lru_cache.h>
+#include <stream/cache/lru_cache_ts.h>
+#include <stream/task_graph.h>
 #include <tuple>
 #include <unordered_map>
 #include <variant>
@@ -39,7 +40,7 @@ private:
         PauseableBVH4<BatchingPoint, HitRayState, AnyHitRayState>&& topLevelBVH,
         tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
         tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
-        tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph, LRUBVHSceneCache&& bvhSceneCache);
+        tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph, LRUBVHSceneCache&& bvhSceneCache);
 
     using TopLevelBVH = PauseableBVH4<BatchingPoint, HitRayState, AnyHitRayState>;
     using OnHitTask = tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>>;
@@ -49,8 +50,8 @@ private:
 
     class BatchingPoint {
     public:
-        BatchingPoint(std::unique_ptr<SubScene>&& pSubScene, std::vector<Shape*>&& shapes, SparseVoxelDAG&& svdag, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph);
-        BatchingPoint(std::unique_ptr<SubScene>&& pSubScene, std::vector<Shape*>&& shapes, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph);
+        BatchingPoint(std::unique_ptr<SubScene>&& pSubScene, std::vector<Shape*>&& shapes, SparseVoxelDAG&& svdag, tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph);
+        BatchingPoint(std::unique_ptr<SubScene>&& pSubScene, std::vector<Shape*>&& shapes, tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph);
 
         std::optional<bool> intersect(Ray&, SurfaceInteraction&, const HitRayState&, const PauseableBVHInsertHandle&) const;
         std::optional<bool> intersectAny(Ray&, const AnyHitRayState&, const PauseableBVHInsertHandle&) const;
@@ -81,7 +82,7 @@ private:
 
         std::optional<SparseVoxelDAG> m_svdag;
 
-        tasking::LRUCache* m_pGeometryCache;
+        tasking::LRUCacheTS* m_pGeometryCache;
         LRUBVHSceneCache* m_pBVHCache;
         tasking::TaskGraph* m_pTaskGraph;
 
@@ -105,9 +106,9 @@ private:
 class OfflineBatchingAccelerationStructureBuilder {
 public:
     OfflineBatchingAccelerationStructureBuilder(
-        const Scene* pScene, tasking::LRUCache* pCache, tasking::TaskGraph* pTaskGraph, unsigned primitivesPerBatchingPoint, size_t botLevelBVHCacheSize, unsigned svdagRes);
+        const Scene* pScene, tasking::LRUCacheTS* pCache, tasking::TaskGraph* pTaskGraph, unsigned primitivesPerBatchingPoint, size_t botLevelBVHCacheSize, unsigned svdagRes);
 
-    static void preprocessScene(Scene& scene, tasking::LRUCache& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint);
+    static void preprocessScene(Scene& scene, tasking::LRUCacheTS& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint);
 
     template <typename HitRayState, typename AnyHitRayState>
     OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState> build(
@@ -120,13 +121,13 @@ private:
 
     std::vector<std::unique_ptr<SubScene>> m_subScenes;
 
-    tasking::LRUCache* m_pGeometryCache;
+    tasking::LRUCacheTS* m_pGeometryCache;
     tasking::TaskGraph* m_pTaskGraph;
 };
 
 template <typename HitRayState, typename AnyHitRayState>
 OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
-    std::unique_ptr<SubScene>&& pSubScene, std::vector<Shape*>&& shapes, SparseVoxelDAG&& svdag, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph)
+    std::unique_ptr<SubScene>&& pSubScene, std::vector<Shape*>&& shapes, SparseVoxelDAG&& svdag, tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph)
     : m_pSubScene(std::move(pSubScene))
     , m_shapes(std::move(shapes))
     , m_bounds(m_pSubScene->computeBounds())
@@ -139,7 +140,7 @@ OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint
 
 template <typename HitRayState, typename AnyHitRayState>
 OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::BatchingPoint(
-    std::unique_ptr<SubScene>&& pSubScene, std::vector<Shape*>&& shapes, tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph)
+    std::unique_ptr<SubScene>&& pSubScene, std::vector<Shape*>&& shapes, tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph)
     : m_pSubScene(std::move(pSubScene))
     , m_shapes(std::move(shapes))
     , m_bounds(m_pSubScene->computeBounds())
@@ -389,7 +390,7 @@ inline OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::Offlin
     PauseableBVH4<BatchingPoint, HitRayState, AnyHitRayState>&& topLevelBVH,
     tasking::TaskHandle<std::tuple<Ray, SurfaceInteraction, HitRayState>> hitTask, tasking::TaskHandle<std::tuple<Ray, HitRayState>> missTask,
     tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyHitTask, tasking::TaskHandle<std::tuple<Ray, AnyHitRayState>> anyMissTask,
-    tasking::LRUCache* pGeometryCache, tasking::TaskGraph* pTaskGraph, LRUBVHSceneCache&& bvhSceneCache)
+    tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph, LRUBVHSceneCache&& bvhSceneCache)
     : m_topLevelBVH(std::move(topLevelBVH))
     , m_pTaskGraph(pTaskGraph)
     , m_onHitTask(hitTask)

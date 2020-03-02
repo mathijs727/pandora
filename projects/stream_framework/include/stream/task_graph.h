@@ -244,7 +244,7 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 
     void* pStaticData;
     {
-        std::lock_guard l { pTaskGraph->m_staticDataMutex };
+        //std::lock_guard l { pTaskGraph->m_staticDataMutex };
 
         const std::string taskName = fmt::format("{}::staticDataLoad", m_name);
         OPTICK_EVENT_DYNAMIC(taskName.c_str());
@@ -302,7 +302,7 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
 
     {
         // WARNING: LRUCache allows for multithreaded release operation but keep this in mind for future cache implementations!
-        std::lock_guard l { pTaskGraph->m_staticDataMutex };
+        //std::lock_guard l { pTaskGraph->m_staticDataMutex };
 
         const std::string taskName = fmt::format("{}::staticDataDestruct", m_name);
         OPTICK_EVENT_DYNAMIC(taskName.c_str());
@@ -316,4 +316,5 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
         stats.infoAtFlushes.emplace_back(std::move(flushStats));
     }*/
 }
+
 }

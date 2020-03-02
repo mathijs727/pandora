@@ -14,7 +14,7 @@
 
 namespace pandora {
 
-SamplerIntegrator::SamplerIntegrator(tasking::TaskGraph* pTaskGraph, tasking::LRUCache* pGeomCache, int maxDepth, int spp, LightStrategy strategy)
+SamplerIntegrator::SamplerIntegrator(tasking::TaskGraph* pTaskGraph, tasking::LRUCacheTS* pGeomCache, int maxDepth, int spp, LightStrategy strategy)
     : m_pTaskGraph(pTaskGraph)
     , m_pGeomCache(pGeomCache)
     , m_maxDepth(maxDepth)
@@ -129,6 +129,10 @@ void SamplerIntegrator::spawnNewPaths(int numPaths)
     const int startIndex = pRenderData->currentRayIndex.fetch_add(numPaths);
     const int maxSample = pRenderData->maxPixelIndex * m_maxSpp;
     const int endIndex = std::min(startIndex + numPaths, pRenderData->maxPixelIndex * m_maxSpp);
+
+    const int hundredthMaxSample = maxSample / 100;
+    if (startIndex < maxSample && startIndex / hundredthMaxSample != endIndex / hundredthMaxSample)
+        spdlog::info("Now at {}% of spawning rays", startIndex / hundredthMaxSample);
 
     if (startIndex < maxSample && endIndex == maxSample)
         g_stats.asyncTriggerSnapshot();

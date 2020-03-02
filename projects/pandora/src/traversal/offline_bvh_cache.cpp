@@ -5,6 +5,7 @@
 #include "pandora/utility/error_handling.h"
 #include <functional>
 #include <spdlog/spdlog.h>
+#include <stream/serialize/file_serializer.h>
 #include <stream/serialize/in_memory_serializer.h>
 #include <unordered_set>
 #include <vector>
@@ -163,8 +164,9 @@ CachedBVHSubScene::CachedBVHSubScene(tasking::CachedPtr<CachedBVH>&& pBVH, std::
 
 pandora::LRUBVHSceneCache::LRUBVHSceneCache(gsl::span<const SubScene*> subScenes, tasking::LRUCache* pSceneCache, size_t maxSize)
 {
-    spdlog::warn("Using in-memory serializer for BVH cache");
-    auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
+    //spdlog::warn("Using in-memory serializer for BVH cache");
+    //auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
+    auto pSerializer = std::make_unique<tasking::SplitFileSerializer>("pandora_render_bvh", 512 * 1024 * 1024, mio_cache_control::cache_mode::no_buffering);
 
     using CacheBuilder = tasking::LRUCache::Builder;
     CacheBuilder cacheBuilder = CacheBuilder(std::move(pSerializer));
@@ -197,6 +199,8 @@ pandora::LRUBVHSceneCache::LRUBVHSceneCache(gsl::span<const SubScene*> subScenes
 
 CachedBVHSubScene LRUBVHSceneCache::fromSubScene(const SubScene* pSubScene)
 {
+    auto stopWatch = g_stats.timings.botLevelBuildTime.getScopedStopwatch();
+
     // Load main BVH
     ALWAYS_ASSERT(m_bvhSceneLUT.find(static_cast<const void*>(pSubScene)) != std::end(m_bvhSceneLUT));
     auto pCachedBVH = m_lruCache->makeResident(m_bvhSceneLUT.find(static_cast<const void*>(pSubScene))->second.get());
@@ -254,10 +258,10 @@ CachedBVH* LRUBVHSceneCache::createBVH(const SceneNode* pSceneNode, tasking::LRU
 
     // Store Evictable wrapper class
     auto pCachedBVHOwner = std::make_unique<CachedBVH>(std::move(bvh), bounds);
-    auto pCachedBVH = pCachedBVHOwner.get();
+    auto* pCachedBVH = pCachedBVHOwner.get();
 
     // Add Evictable BVH to cache
-    pCacheBuilder->registerCacheable(pCachedBVH);
+    pCacheBuilder->registerCacheable(pCachedBVH, true);
 
     // Store SubScene pointer to Evictable BVH in a look-up table
     m_bvhSceneLUT[static_cast<const void*>(pSceneNode)] = std::move(pCachedBVHOwner);
@@ -308,7 +312,7 @@ CachedBVH* LRUBVHSceneCache::createBVH(const SubScene* pSubScene, tasking::LRUCa
     auto pCachedBVH = pCachedBVHOwner.get();
 
     // Add Evictable BVH to cache
-    pCacheBuilder->registerCacheable(pCachedBVH);
+    pCacheBuilder->registerCacheable(pCachedBVH, true);
 
     // Store SubScene pointer to Evictable BVH in a look-up table
     m_bvhSceneLUT[static_cast<const void*>(pSubScene)] = std::move(pCachedBVHOwner);

@@ -5,6 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <optick.h>
 #include <spdlog/spdlog.h>
+#include <tbb/task_arena.h>
 
 static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
 {
@@ -60,6 +61,7 @@ CachedEmbreeScene::CachedEmbreeScene(RTCScene scene, std::vector<std::shared_ptr
 
 CachedEmbreeScene::~CachedEmbreeScene()
 {
+    // TODO: delete additional user data because we're leaking memory right now...
     rtcReleaseScene(scene);
     childrenScenes.clear();
 }
@@ -74,6 +76,8 @@ LRUEmbreeSceneCache::LRUEmbreeSceneCache(size_t maxSize)
 
 LRUEmbreeSceneCache::~LRUEmbreeSceneCache()
 {
+    spdlog::info("~LRUEmbreeSceneCache(): memory usage = {} bytes", m_size.load());
+
     rtcReleaseDevice(m_embreeDevice);
 }
 
@@ -98,41 +102,52 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSceneNode(const Scen
 
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSubScene(const SubScene* pSubScene)
 {
-    const void* pKey = pSubScene;
-    if (auto lutIter = m_lookUp.find(pKey); lutIter != std::end(m_lookUp)) {
-        // Remove from list and add to end
-        auto& listIter = lutIter->second;
-        m_scenes.splice(std::end(m_scenes), m_scenes, listIter);
-        listIter = --std::end(m_scenes);
+    std::lock_guard l { m_mutex };
 
-        return listIter->scene;
-    } else {
-        auto sizeBefore = m_size.load();
-        auto embreeScene = createEmbreeScene(pSubScene);
-        auto sizeAfter = m_size.load();
-        //spdlog::info("Created Embree BVH of {} bytes", sizeAfter - sizeBefore);
+    // NOTE: run in task arena to prevent deadlocks (or crashes on Windows). Embree uses TBB in the BVH builders
+    //  which means that the TBB task scheduler is invoked while we're holding a lock. This means that another
+    //  of our scheduler/worker tasks may get executed during the BVH construction. Such a task may also want to
+    //  build an Embree BVH so it will enter this function and request for the lock (the thread would be requesting
+    //  a lock from the same thread (but different task)). The TBB task arena was designed to prevent this issue by
+    //  only allowing tasks to be run that were specified within the arena (so only Embree builder tasks).
+    tbb::task_arena ta;
+    return ta.execute([&]() {
+        const void* pKey = pSubScene;
+        if (auto lutIter = m_lookUp.find(pKey); lutIter != std::end(m_lookUp)) {
+            // Remove from list and add to end
+            auto& listIter = lutIter->second;
+            m_scenes.splice(std::end(m_scenes), m_scenes, listIter);
+            listIter = --std::end(m_scenes);
 
-        if (m_size.load() > m_maxSize)
-            evict();
+            return listIter->scene;
+        } else {
+            auto sizeBefore = m_size.load();
+            auto embreeScene = createEmbreeScene(pSubScene);
+            auto sizeAfter = m_size.load();
+            //spdlog::info("Created Embree BVH of {} bytes", sizeAfter - sizeBefore);
 
-        m_scenes.emplace_back(CacheItem { pKey, embreeScene });
-        auto listIter = --std::end(m_scenes);
-        m_lookUp[pKey] = listIter;
+            if (m_size.load() > m_maxSize)
+                evict();
 
-        return listIter->scene;
-    }
+            m_scenes.emplace_back(CacheItem { pKey, embreeScene });
+            auto listIter = --std::end(m_scenes);
+            m_lookUp[pKey] = listIter;
+
+            return listIter->scene;
+        }
+    });
 }
 
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const SceneNode* pSceneNode)
 {
     OPTICK_EVENT();
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
+    rtcSetSceneFlags(embreeScene, RTC_SCENE_FLAG_COMPACT);
 
     for (const auto& pSceneObject : pSceneNode->objects) {
         Shape* pShape = pSceneObject->pShape.get();
 
-        RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(m_embreeDevice);
-        rtcSetGeometryUserData(embreeGeometry, pSceneObject.get());
+        RTCGeometry embreeGeometry = pShape->createEvictSafeEmbreeGeometry(m_embreeDevice, pSceneObject.get());
         rtcCommitGeometry(embreeGeometry);
 
         rtcAttachGeometry(embreeScene, embreeGeometry);
@@ -186,12 +201,12 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
     auto stopWatch = g_stats.timings.botLevelBuildTime.getScopedStopwatch();
 
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
+    rtcSetSceneFlags(embreeScene, RTC_SCENE_FLAG_COMPACT);
 
     for (const auto& pSceneObject : pSubScene->sceneObjects) {
         const Shape* pShape = pSceneObject->pShape.get();
 
-        RTCGeometry embreeGeometry = pShape->createEmbreeGeometry(m_embreeDevice);
-        rtcSetGeometryUserData(embreeGeometry, pSceneObject);
+        RTCGeometry embreeGeometry = pShape->createEvictSafeEmbreeGeometry(m_embreeDevice, pSceneObject);
         rtcCommitGeometry(embreeGeometry);
 
         rtcAttachGeometry(embreeScene, embreeGeometry);
@@ -232,7 +247,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
 
 void LRUEmbreeSceneCache::evict()
 {
-    spdlog::debug("LRUEmbreeSceneCache::evict");
+    spdlog::info("LRUEmbreeSceneCache::evict");
     for (auto iter = std::begin(m_scenes); iter != std::end(m_scenes);) {
         // If a scene is still actively being used then there is no point in removing it
         if (iter->scene.use_count() > 1) {
@@ -246,7 +261,7 @@ void LRUEmbreeSceneCache::evict()
         if (m_size.load() < m_maxSize * 3 / 4)
             break;
     }
-    spdlog::debug("Size of BVHs after evict: {}", m_size.load());
+    spdlog::info("Size of BVHs after evict: {}", m_size.load());
 }
 
 bool LRUEmbreeSceneCache::memoryMonitorCallback(void* pThisMem, ssize_t bytes, bool post)

@@ -20,7 +20,7 @@ public:
     MoodyCamelQueue()
         : moodycamel::ConcurrentQueue<T>()
     {
-        std::generate_n(
+        /*std::generate_n(
             std::back_inserter(m_producerTokens),
             std::thread::hardware_concurrency(),
             [&]() {
@@ -31,37 +31,38 @@ public:
             std::thread::hardware_concurrency(),
             [&]() {
                 return moodycamel::ConsumerToken(*this);
-            });
+            });*/
     }
 
     inline void push(T&& item)
     {
-        auto threadIdx = tbb::this_task_arena::current_thread_index();
+        /*auto threadIdx = tbb::this_task_arena::current_thread_index();
         auto& token = m_producerTokens[threadIdx];
-        this->enqueue(token, std::move(item));
-        //this->enqueue(std::move(item));
+        this->enqueue(token, std::move(item));*/
+        this->enqueue(std::move(item));
     }
     inline void push(const T& item)
     {
-        auto threadIdx = tbb::this_task_arena::current_thread_index();
+        /*auto threadIdx = tbb::this_task_arena::current_thread_index();
         auto& token = m_producerTokens[threadIdx];
-        this->enqueue(token, item);
-        //this->enqueue(item);
+        this->enqueue(token, item);*/
+        this->enqueue(item);
     }
 
     inline bool try_pop(T& item)
     {
-        auto threadIdx = tbb::this_task_arena::current_thread_index();
+        /*auto threadIdx = tbb::this_task_arena::current_thread_index();
         auto& token = m_consumerTokens[threadIdx];
-        return this->try_dequeue(token, item);
-        //return this->try_dequeue(item);
+        return this->try_dequeue(token, item);*/
+        return this->try_dequeue(item);
     }
 
     inline size_t try_pop_bulk(gsl::span<T> items)
     {
-        auto threadIdx = tbb::this_task_arena::current_thread_index();
+        /*auto threadIdx = tbb::this_task_arena::current_thread_index();
         auto& token = m_consumerTokens[threadIdx];
-        return this->try_dequeue_bulk(token, items.data(), items.size());
+        return this->try_dequeue_bulk(token, items.data(), items.size());*/
+        return this->try_dequeue_bulk(items.data(), items.size());
     }
 
     inline size_t unsafe_size() const

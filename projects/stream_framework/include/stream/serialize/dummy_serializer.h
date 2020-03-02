@@ -6,7 +6,7 @@ namespace tasking {
 class DummyDeserializer : public tasking::Deserializer {
 public:
     const void* map(const tasking::Allocation&) final { return nullptr; };
-    void unmap(const tasking::Allocation&) final {};
+    void unmap(const void*) final {};
 };
 class DummySerializer : public tasking::Serializer {
 public:
