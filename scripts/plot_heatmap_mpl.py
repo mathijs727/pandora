@@ -5,6 +5,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 from mpl_toolkits.axes_grid1 import make_axes_locatable, ImageGrid
+import matplotlib as mpl
+
+# https://tex.stackexchange.com/questions/77968/how-do-i-avoid-type3-fonts-when-submitting-to-manuscriptcentral
+mpl.rcParams['pdf.fonttype'] = 42
+mpl.rcParams['ps.fonttype'] = 42
 
 def image_cutout(image, cutout_aspect):
     height, width = image.shape
@@ -34,11 +39,11 @@ def black_border_image(resolution, thickness):
     out[:,-thickness:,3] = 1
     return out
 
-font_size = 10
+font_size = 18
 
 def plot_culling_on_vs_off(results_folder, scenes, spp):
     image_border = 6
-    desired_image_res = (800, 600)
+    desired_image_res = (1200, 900)
     desired_aspect = desired_image_res[0] / desired_image_res[1]
 
     image_pairs = []
@@ -54,7 +59,7 @@ def plot_culling_on_vs_off(results_folder, scenes, spp):
         #vmax = max(vmax, max(np.max(images[0]), np.max(images[1])))
         image_pairs.append(images)
 
-    fig = plt.figure(figsize=(12,5))
+    fig = plt.figure(figsize=(24,10))
     for col, image_pair in enumerate(image_pairs):
         grid = ImageGrid(fig, int(f"1{len(image_pairs)}{col+1}"),
             nrows_ncols=(2,1),
@@ -79,6 +84,6 @@ def plot_culling_on_vs_off(results_folder, scenes, spp):
     #plt.show()
 
 if __name__ == "__main__":
-    #results_folder = "C:/Users/mathi/OneDrive/TU Delft/Batched Ray Traversal/Results/"
-    results_folder = "C:/Users/mathi/Desktop/EG2020-final/updated_code"
+    results_folder = "C:/Users/Mathijs/OneDrive/TU Delft/Batched Ray Traversal/Results/"
+    #results_folder = "C:/Users/mathi/Desktop/EG2020-final/updated_code"
     plot_culling_on_vs_off(results_folder, ["crown", "landscape", "islandX"], 256)
