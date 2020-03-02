@@ -11,6 +11,8 @@ import matplotlib as mpl
 mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['ps.fonttype'] = 42
 
+font_size = 20
+
 def image_cutout(image, cutout_aspect):
     height, width = image.shape
     image_aspect = width / height
@@ -38,8 +40,6 @@ def black_border_image(resolution, thickness):
     out[:,:thickness,3] = 1
     out[:,-thickness:,3] = 1
     return out
-
-font_size = 18
 
 def plot_culling_on_vs_off(results_folder, scenes, spp):
     image_border = 6
