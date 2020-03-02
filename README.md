@@ -26,6 +26,7 @@ Pandora uses the following third-party libraries:
  - [spdlog](https://github.com/gabime/spdlog)
  - [Intel Threaded Building Blocks](https://github.com/01org/tbb)
  - [OpenImageIO](https://github.com/OpenImageIO/oiio)
+ - [Optick Profiler 1.3.0](https://github.com/bombomby/optick) (already included as source)
  - [flatbuffers](https://github.com/google/flatbuffers)
  - [libmorton](https://github.com/Forceflow/libmorton)
 
