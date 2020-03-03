@@ -9,9 +9,9 @@ import brewer2mpl
 import numpy as np
 from helpers import read_time_value
 
-axis_font_size = 16
-axis_tick_font_size = 14
-legend_font_size = 15
+axis_font_size = 20
+axis_tick_font_size = 18
+legend_font_size = 20
 
 plot_style = {"marker": "o", "linewidth": 4, "markersize": 12}
 scatter_style = {"s": 256}
@@ -37,6 +37,10 @@ def configure_mpl():
 	plt.rc('xtick', labelsize=axis_tick_font_size)
 	plt.rc('ytick', labelsize=axis_tick_font_size)
 	plt.rc('axes', labelsize=axis_font_size, linewidth=1, labelpad=10)
+
+	# https://tex.stackexchange.com/questions/77968/how-do-i-avoid-type3-fonts-when-submitting-to-manuscriptcentral
+	mpl.rcParams['pdf.fonttype'] = 42
+	mpl.rcParams['ps.fonttype'] = 42
 
 def get_sub_dirs(folder):
 	return [f for f in os.listdir(folder) if os.path.isdir(os.path.join(folder, f))]
@@ -198,10 +202,11 @@ def plot_bandwidth_usage(ooc_stats):
 
 
 if __name__ == "__main__":
-	results_folder = "C:/Users/mathi/Desktop/Results/mem_limit/"
-	#results_folder = "C:/Users/mathi/Desktop/results_from_submission/mem_limit_performance/"
+	#results_folder = "C:/Users/mathi/Desktop/Results/mem_limit/"
+	results_folder = "C:/Users/Mathijs/Desktop/results_from_submission/mem_limit_performance/"
+	#results_folder = "C:/Users/Mathijs/OneDrive/TU Delft/Batched Ray Traversal/Results/mem_limit"
 	ooc_results = parse_ooc_stats(results_folder)
 
 	configure_mpl()
-	#plot_bandwidth_usage(svdag_results)
-	plot_total_render_time(ooc_results)
+	plot_bandwidth_usage(ooc_results)
+	#plot_total_render_time(ooc_results)

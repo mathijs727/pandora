@@ -26,8 +26,8 @@ def run_pandora_with_defaults(scene, out_folder, geom_cache, bvh_cache, svdag_re
 
 def test_svdag_no_mem_limit(scenes, num_runs = 1):
 	for scene in scenes:
-		for svdag_res in [32]:
-			for run in range(num_runs):
+		for svdag_res in [128, 64, 256, 512]:
+			for run in range(1, num_runs+1):
 				formatted_time =  time.asctime(time.localtime(time.time())) # https://www.tutorialspoint.com/python3/python_date_time.htm
 				print(f"Current time: {formatted_time}")
 				print(f"Benchmarking {scene['name']} at SVDAG res {svdag_res} (run {run})\n")
@@ -58,7 +58,7 @@ def test_at_memory_limit(scenes, geom_memory_limit, bvh_memory_limit, culling, n
 			else:
 				svdag_mem_usage_mb = 0
 			geom_mem_mb = int(scene["max_geom_mem_mb"] * geom_memory_limit - svdag_mem_usage_mb / 2)
-			bvh_mem_mb = int(scene["max_bvh_mem_mb"] * geom_memory_limit - svdag_mem_usage_mb / 2)
+			bvh_mem_mb = int(scene["max_bvh_mem_mb"] * bvh_memory_limit)
 			run_pandora_with_defaults(
 				scene,
 				out_folder,
@@ -70,6 +70,6 @@ if __name__ == "__main__":
 	scenes = shared_benchmark_code.get_scenes()
 	#test_svdag_no_mem_limit(scenes, 1)
 	
-	for i in [0.7, 0.6]:
-		test_at_memory_limit(scenes, i, i, False, 1)
-		test_at_memory_limit(scenes, i, i, True, 1)
+	for i in [1.0, 0.9, 0.8, 0.7, 0.6]:
+		test_at_memory_limit(scenes, i, 1.0, False, 1)
+		test_at_memory_limit(scenes, i, 1.0, True, 1)
