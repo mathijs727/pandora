@@ -28,16 +28,13 @@ BatchingAccelerationStructureBuilder::BatchingAccelerationStructureBuilder(
     unsigned primitivesPerBatchingPoint,
     size_t botLevelBVHCacheSize,
     unsigned svdagRes)
-    : m_botLevelBVHCacheSize(botLevelBVHCacheSize)
-    , m_svdagRes(svdagRes)
+    : m_pScene(pScene)
     , m_pGeometryCache(pCache)
     , m_pTaskGraph(pTaskGraph)
+    , m_primitivesPerBatchingPoint(primitivesPerBatchingPoint)
+    , m_botLevelBVHCacheSize(botLevelBVHCacheSize)
+    , m_svdagRes(svdagRes)
 {
-    m_embreeDevice = rtcNewDevice(nullptr);
-    rtcSetDeviceErrorFunction(m_embreeDevice, embreeErrorFunc, nullptr);
-
-    spdlog::info("Splitting scene into sub scenes");
-    m_subScenes = detail::createSubScenes(*pScene, primitivesPerBatchingPoint, m_embreeDevice);
 }
 
 void BatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, tasking::LRUCacheTS& oldCache, tasking::CacheBuilder& newCacheBuilder, unsigned primitivesPerBatchingPoint)
@@ -46,12 +43,17 @@ void BatchingAccelerationStructureBuilder::preprocessScene(Scene& scene, tasking
 
     // NOTE: modifies pScene in place
     //
-    // Split large shapes into smaller sub shpaes so we can guarantee that the batching poinst never exceed the given size.
+    // Split large shapes into smaller sub shapes so we can guarantee that the batching poinst never exceed the given size.
     // This should also help with reducing the spatial extent of the batching points by (hopefully) splitting spatially large shapes.
     spdlog::info("Splitting large scene objects");
     RTCDevice embreeDevice = rtcNewDevice(nullptr);
     detail::splitLargeSceneObjects(scene.pRoot.get(), oldCache, newCacheBuilder, embreeDevice, primitivesPerBatchingPoint / 8);
     rtcReleaseDevice(embreeDevice);
+}
+
+void BatchingAccelerationStructureBuilder::setEmbreeErrorFunc(RTCDevice embreeDevice)
+{
+    rtcSetDeviceErrorFunction(embreeDevice, embreeErrorFunc, nullptr);
 }
 
 static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)

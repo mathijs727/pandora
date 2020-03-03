@@ -53,9 +53,8 @@ Bounds SubScene::computeBounds() const
     return bounds;
 }
 
-CachedEmbreeScene::CachedEmbreeScene(RTCScene scene, std::vector<std::shared_ptr<CachedEmbreeScene>>&& childrenScenes)
+CachedEmbreeScene::CachedEmbreeScene(RTCScene scene)
     : scene(scene)
-    , childrenScenes(std::move(childrenScenes))
 {
 }
 
@@ -63,7 +62,6 @@ CachedEmbreeScene::~CachedEmbreeScene()
 {
     // TODO: delete additional user data because we're leaking memory right now...
     rtcReleaseScene(scene);
-    childrenScenes.clear();
 }
 
 LRUEmbreeSceneCache::LRUEmbreeSceneCache(size_t maxSize)
@@ -81,26 +79,8 @@ LRUEmbreeSceneCache::~LRUEmbreeSceneCache()
     rtcReleaseDevice(m_embreeDevice);
 }
 
-std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSceneNode(const SceneNode* pSceneNode)
-{
-    const void* pKey = pSceneNode;
-    if (auto lutIter = m_lookUp.find(pKey); lutIter != std::end(m_lookUp)) {
-        // Item is used => update LRU
-        auto& listIter = lutIter->second;
-        m_scenes.splice(std::end(m_scenes), m_scenes, listIter);
-        listIter = --std::end(m_scenes);
-
-        return listIter->scene;
-    } else {
-        m_scenes.emplace_back(CacheItem { pKey, createEmbreeScene(pSceneNode) });
-        auto listIter = --std::end(m_scenes);
-        m_lookUp[pKey] = listIter;
-
-        return listIter->scene;
-    }
-}
-
-std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSubScene(const SubScene* pSubScene)
+std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSceneObjectGroup(
+    const void* pKey, gsl::span<const SceneObject*> sceneObjects)
 {
     std::lock_guard l { m_mutex };
 
@@ -112,7 +92,6 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSubScene(const SubSc
     //  only allowing tasks to be run that were specified within the arena (so only Embree builder tasks).
     tbb::task_arena ta;
     return ta.execute([&]() {
-        const void* pKey = pSubScene;
         if (auto lutIter = m_lookUp.find(pKey); lutIter != std::end(m_lookUp)) {
             // Remove from list and add to end
             auto& listIter = lutIter->second;
@@ -122,7 +101,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSubScene(const SubSc
             return listIter->scene;
         } else {
             auto sizeBefore = m_size.load();
-            auto embreeScene = createEmbreeScene(pSubScene);
+            auto embreeScene = createEmbreeScene(sceneObjects);
             auto sizeAfter = m_size.load();
             //spdlog::info("Created Embree BVH of {} bytes", sizeAfter - sizeBefore);
 
@@ -138,73 +117,14 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSubScene(const SubSc
     });
 }
 
-std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const SceneNode* pSceneNode)
+std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(gsl::span<const SceneObject*> sceneObjects)
 {
     OPTICK_EVENT();
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);
     rtcSetSceneFlags(embreeScene, RTC_SCENE_FLAG_COMPACT);
 
-    for (const auto& pSceneObject : pSceneNode->objects) {
+    for (const auto& pSceneObject : sceneObjects) {
         Shape* pShape = pSceneObject->pShape.get();
-
-        RTCGeometry embreeGeometry = pShape->createEvictSafeEmbreeGeometry(m_embreeDevice, pSceneObject.get());
-        rtcCommitGeometry(embreeGeometry);
-
-        rtcAttachGeometry(embreeScene, embreeGeometry);
-        rtcReleaseGeometry(embreeGeometry); // Decrement reference counter (scene will keep it alive)
-    }
-
-    std::vector<std::shared_ptr<CachedEmbreeScene>> children;
-    for (const auto& [pChildNode, optTransform] : pSceneNode->children) {
-        std::shared_ptr<CachedEmbreeScene> pChildScene = fromSceneNode(pSceneNode);
-        children.push_back(pChildScene);
-
-        RTCGeometry embreeInstanceGeometry = rtcNewGeometry(m_embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
-        rtcSetGeometryInstancedScene(embreeInstanceGeometry, pChildScene->scene);
-        rtcSetGeometryUserData(embreeInstanceGeometry, pChildScene->scene);
-        if (optTransform) {
-            rtcSetGeometryTransform(
-                embreeInstanceGeometry, 0,
-                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
-                glm::value_ptr(*optTransform));
-        } else {
-            glm::mat4 identityMatrix = glm::identity<glm::mat4>();
-            rtcSetGeometryTransform(
-                embreeInstanceGeometry, 0,
-                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
-                glm::value_ptr(identityMatrix));
-        }
-        rtcCommitGeometry(embreeInstanceGeometry);
-        rtcAttachGeometry(embreeScene, embreeInstanceGeometry);
-        rtcReleaseGeometry(embreeInstanceGeometry); // Decrement reference counter (scene will keep it alive)
-    }
-
-    rtcCommitScene(embreeScene);
-    return std::make_shared<CachedEmbreeScene>(embreeScene, std::move(children));
-}
-
-std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const SubScene* pSubScene)
-{
-    OPTICK_EVENT();
-
-#ifndef NDEBUG
-    int instanceLevels = 0;
-    for (const auto& [pSceneNode, _] : pSubScene->sceneNodes) {
-        instanceLevels = std::max(instanceLevels, computeMaxInstanceDepthRecurse(pSceneNode, 1));
-    }
-    if (instanceLevels > RTC_MAX_INSTANCE_LEVEL_COUNT) {
-        spdlog::critical("Embree does not support instancing {} levels deep (only {} levels are supported)", instanceLevels, RTC_MAX_INSTANCE_LEVEL_COUNT);
-        throw std::runtime_error("Too many instance levels");
-    }
-#endif
-
-    auto stopWatch = g_stats.timings.botLevelBuildTime.getScopedStopwatch();
-
-    RTCScene embreeScene = rtcNewScene(m_embreeDevice);
-    rtcSetSceneFlags(embreeScene, RTC_SCENE_FLAG_COMPACT);
-
-    for (const auto& pSceneObject : pSubScene->sceneObjects) {
-        const Shape* pShape = pSceneObject->pShape.get();
 
         RTCGeometry embreeGeometry = pShape->createEvictSafeEmbreeGeometry(m_embreeDevice, pSceneObject);
         rtcCommitGeometry(embreeGeometry);
@@ -213,36 +133,8 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(const 
         rtcReleaseGeometry(embreeGeometry); // Decrement reference counter (scene will keep it alive)
     }
 
-    std::vector<std::shared_ptr<CachedEmbreeScene>> children;
-    for (const auto&& [geomID, childAndTransform] : enumerate(pSubScene->sceneNodes)) {
-        const auto& [pChildNode, optTransform] = childAndTransform;
-
-        std::shared_ptr<CachedEmbreeScene> pChildScene = fromSceneNode(pChildNode);
-        children.push_back(pChildScene);
-
-        RTCGeometry embreeInstanceGeometry = rtcNewGeometry(m_embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);
-        rtcSetGeometryInstancedScene(embreeInstanceGeometry, pChildScene->scene);
-        rtcSetGeometryUserData(embreeInstanceGeometry, pChildScene->scene);
-        if (optTransform) {
-            rtcSetGeometryTransform(
-                embreeInstanceGeometry, 0,
-                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
-                glm::value_ptr(*optTransform));
-        } else {
-            glm::mat4 identityMatrix = glm::identity<glm::mat4>();
-            rtcSetGeometryTransform(
-                embreeInstanceGeometry, 0,
-                RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
-                glm::value_ptr(identityMatrix));
-        }
-        rtcCommitGeometry(embreeInstanceGeometry);
-
-        rtcAttachGeometry(embreeScene, embreeInstanceGeometry);
-        rtcReleaseGeometry(embreeInstanceGeometry); // Decrement reference counter (scene will keep it alive)
-    }
-
     rtcCommitScene(embreeScene);
-    return std::make_shared<CachedEmbreeScene>(embreeScene, std::move(children));
+    return std::make_shared<CachedEmbreeScene>(embreeScene);
 }
 
 void LRUEmbreeSceneCache::evict()

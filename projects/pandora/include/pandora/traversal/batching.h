@@ -17,4 +17,13 @@ std::vector<tasking::CachedPtr<Shape>> makeSubSceneResident(const pandora::SubSc
 pandora::SparseVoxelDAG createSVDAGfromSubScene(const pandora::SubScene& subScene, int resolution);
 void splitLargeSceneObjects(pandora::SceneNode* pSceneNode, tasking::LRUCacheTS& oldCache, tasking::CacheBuilder& newCacheBuilder, RTCDevice embreeDevice, unsigned maxSize);
 
+std::vector<std::vector<const SceneObject*>> createSceneObjectGroups(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice);
+std::vector<Shape*> getInstancedShapes(const Scene& scene);
+Bounds computeSceneObjectGroupBounds(gsl::span<const SceneObject* const> sceneObjects);
+SparseVoxelDAG createSVDAGfromSceneObjects(gsl::span<const SceneObject* const> sceneObjects, int resolution);
+
+RTCScene buildInstanceEmbreeScene(const Scene& scene, RTCDevice device);
+bool intersectInstanceEmbreeScene(const RTCScene scene, Ray& ray, SurfaceInteraction& si);
+bool intersectAnyInstanceEmbreeScene(const RTCScene scene, Ray& ray);
+
 }

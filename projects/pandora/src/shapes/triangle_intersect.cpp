@@ -50,6 +50,7 @@ struct EmbreeUserData {
 
 RTCGeometry TriangleShape::createEvictSafeEmbreeGeometry(RTCDevice embreeDevice, const void* pAdditionalUserData) const
 {
+    ALWAYS_ASSERT(isResident());
     EmbreeUserData* pUserData = new EmbreeUserData { this, pAdditionalUserData };
 
     RTCGeometry embreeGeometry = rtcNewGeometry(embreeDevice, RTC_GEOMETRY_TYPE_USER);
@@ -59,6 +60,7 @@ RTCGeometry TriangleShape::createEvictSafeEmbreeGeometry(RTCDevice embreeDevice,
         embreeGeometry,
         [](const RTCBoundsFunctionArguments* pArgs) {
             const TriangleShape* pThis = reinterpret_cast<const EmbreeUserData*>(pArgs->geometryUserPtr)->pThis;
+            ALWAYS_ASSERT(pThis->isResident());
             const Bounds bounds = pThis->getPrimitiveBounds(pArgs->primID);
             pArgs->bounds_o->lower_x = bounds.min.x;
             pArgs->bounds_o->lower_y = bounds.min.y;

@@ -192,7 +192,7 @@ def plot_bandwidth_usage(ooc_stats):
 	w_culling = mpatches.Patch(edgecolor="black", facecolor="gray", hatch="//")
 	ax.legend(
 		bars + [wo_culling, w_culling],
-		[scene.title() for scene in ooc_stats.keys()] + ["Standard", "Early-Out"],
+		[scene.title() for scene in ooc_stats.keys()] + ["Regular", "Proxy Geometry"],
 		prop={"size": legend_font_size},
 		ncol=2)
 
@@ -203,7 +203,7 @@ def plot_bandwidth_usage(ooc_stats):
 
 if __name__ == "__main__":
 	#results_folder = "C:/Users/mathi/Desktop/Results/mem_limit/"
-	results_folder = "C:/Users/Mathijs/Desktop/results_from_submission/mem_limit_performance/"
+	results_folder = "C:/Users/mathi/Desktop/EG2020-submission-results/mem_limit_performance/"
 	#results_folder = "C:/Users/Mathijs/OneDrive/TU Delft/Batched Ray Traversal/Results/mem_limit"
 	ooc_results = parse_ooc_stats(results_folder)
 
