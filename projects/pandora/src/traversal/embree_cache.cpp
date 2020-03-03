@@ -82,7 +82,8 @@ LRUEmbreeSceneCache::~LRUEmbreeSceneCache()
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSceneObjectGroup(
     const void* pKey, gsl::span<const SceneObject*> sceneObjects)
 {
-    std::lock_guard l { m_mutex };
+    //    std::lock_guard l { m_mutex };
+    auto l = tryLock();
 
     // NOTE: run in task arena to prevent deadlocks (or crashes on Windows). Embree uses TBB in the BVH builders
     //  which means that the TBB task scheduler is invoked while we're holding a lock. This means that another
@@ -133,8 +134,31 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(gsl::s
         rtcReleaseGeometry(embreeGeometry); // Decrement reference counter (scene will keep it alive)
     }
 
+    shareCommitScene(embreeScene);
     rtcCommitScene(embreeScene);
     return std::make_shared<CachedEmbreeScene>(embreeScene);
+}
+
+void LRUEmbreeSceneCache::shareCommitScene(RTCScene scene)
+{
+    std::lock_guard l { m_scenesBeingCommitedLock };
+    m_scenesBeingCommited.push_back(scene);
+}
+
+std::unique_lock<std::mutex> LRUEmbreeSceneCache::tryLock()
+{
+    std::unique_lock<std::mutex> l { m_mutex, std::defer_lock };
+    while (!l.try_lock()) {
+        RTCScene sceneToCommit = nullptr;
+        {
+            std::lock_guard l2 { m_scenesBeingCommitedLock };
+            if (m_scenesBeingCommited.size() > 0)
+                sceneToCommit = m_scenesBeingCommited.front();
+        }
+        if (sceneToCommit)
+            rtcCommitScene(sceneToCommit);
+    }
+    return l;
 }
 
 void LRUEmbreeSceneCache::evict()

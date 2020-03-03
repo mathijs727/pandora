@@ -37,6 +37,8 @@ public:
     std::shared_ptr<CachedEmbreeScene> fromSceneObjectGroup(const void* key, gsl::span<const SceneObject*> sceneObjects) override;
 
 private:
+    void shareCommitScene(RTCScene);
+    std::unique_lock<std::mutex> tryLock();
     std::shared_ptr<CachedEmbreeScene> createEmbreeScene(gsl::span<const SceneObject*> sceneObjects);
 
     void evict();
@@ -49,6 +51,8 @@ private:
     std::atomic_size_t m_size { 0 };
 
     std::mutex m_mutex;
+    std::mutex m_scenesBeingCommitedLock;
+    std::list<RTCScene> m_scenesBeingCommited;
 
     struct CacheItem {
         const void* pKey;
