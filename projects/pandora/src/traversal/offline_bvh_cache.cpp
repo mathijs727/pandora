@@ -5,6 +5,7 @@
 #include "pandora/utility/error_handling.h"
 #include <functional>
 #include <spdlog/spdlog.h>
+#include <stream/cache/lru_cache_ts.h>
 #include <stream/serialize/file_serializer.h>
 #include <stream/serialize/in_memory_serializer.h>
 #include <unordered_set>
@@ -162,13 +163,13 @@ CachedBVHSubScene::CachedBVHSubScene(tasking::CachedPtr<CachedBVH>&& pBVH, std::
 {
 }
 
-pandora::LRUBVHSceneCache::LRUBVHSceneCache(gsl::span<const SubScene*> subScenes, tasking::LRUCache* pSceneCache, size_t maxSize)
+pandora::LRUBVHSceneCache::LRUBVHSceneCache(gsl::span<const SubScene*> subScenes, tasking::LRUCacheTS* pSceneCache, size_t maxSize)
 {
     //spdlog::warn("Using in-memory serializer for BVH cache");
     //auto pSerializer = std::make_unique<tasking::InMemorySerializer>();
     auto pSerializer = std::make_unique<tasking::SplitFileSerializer>("pandora_render_bvh", 512 * 1024 * 1024, mio_cache_control::cache_mode::no_buffering);
 
-    using CacheBuilder = tasking::LRUCache::Builder;
+    using CacheBuilder = tasking::LRUCacheTS::Builder;
     CacheBuilder cacheBuilder = CacheBuilder(std::move(pSerializer));
 
     for (const SubScene* pSubScene : subScenes) {
@@ -218,7 +219,7 @@ CachedBVHSubScene LRUBVHSceneCache::fromSubScene(const SubScene* pSubScene)
     return CachedBVHSubScene(std::move(pCachedBVH), std::move(cachedChildBVHs));
 }
 
-CachedBVH* LRUBVHSceneCache::createBVH(const SceneNode* pSceneNode, tasking::LRUCache* pGeomCache, tasking::CacheBuilder* pCacheBuilder)
+CachedBVH* LRUBVHSceneCache::createBVH(const SceneNode* pSceneNode, tasking::LRUCacheTS* pGeomCache, tasking::CacheBuilder* pCacheBuilder)
 {
     std::vector<OfflineBVHLeaf> leafs;
     Bounds bounds;
@@ -269,7 +270,7 @@ CachedBVH* LRUBVHSceneCache::createBVH(const SceneNode* pSceneNode, tasking::LRU
     return pCachedBVH;
 }
 
-CachedBVH* LRUBVHSceneCache::createBVH(const SubScene* pSubScene, tasking::LRUCache* pGeomCache, tasking::CacheBuilder* pCacheBuilder)
+CachedBVH* LRUBVHSceneCache::createBVH(const SubScene* pSubScene, tasking::LRUCacheTS* pGeomCache, tasking::CacheBuilder* pCacheBuilder)
 {
     std::vector<OfflineBVHLeaf> leafs;
     Bounds bounds;

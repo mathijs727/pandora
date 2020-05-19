@@ -7,7 +7,7 @@
 #include <memory>
 #include <optional>
 #include <stream/cache/cached_ptr.h>
-#include <stream/cache/lru_cache.h>
+#include <stream/cache/lru_cache_ts.h>
 #include <unordered_map>
 #include <variant>
 
@@ -81,19 +81,19 @@ private:
 
 class LRUBVHSceneCache {
 public:
-    LRUBVHSceneCache(gsl::span<const SubScene*> subScenes, tasking::LRUCache* pSceneCache, size_t maxSize);
+    LRUBVHSceneCache(gsl::span<const SubScene*> subScenes, tasking::LRUCacheTS* pSceneCache, size_t maxSize);
 
     CachedBVHSubScene fromSubScene(const SubScene* pSubScene);
 
 private:
-    CachedBVH* createBVH(const SceneNode* pSceneNode, tasking::LRUCache* pGeomCache, tasking::CacheBuilder* pCacheBuilder);
-    CachedBVH* createBVH(const SubScene* pSubScene, tasking::LRUCache* pGeomCache, tasking::CacheBuilder* pCacheBuilder);
+    CachedBVH* createBVH(const SceneNode* pSceneNode, tasking::LRUCacheTS* pGeomCache, tasking::CacheBuilder* pCacheBuilder);
+    CachedBVH* createBVH(const SubScene* pSubScene, tasking::LRUCacheTS* pGeomCache, tasking::CacheBuilder* pCacheBuilder);
 
 private:
     std::unordered_map<const void*, std::unique_ptr<CachedBVH>> m_bvhSceneLUT;
     std::unordered_map<const SubScene*, std::vector<CachedBVH*>> m_childBVHs;
 
-    std::optional<tasking::LRUCache> m_lruCache;
+    std::optional<tasking::LRUCacheTS> m_lruCache;
 };
 
 }
