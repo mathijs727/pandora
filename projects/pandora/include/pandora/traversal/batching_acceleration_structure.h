@@ -81,7 +81,7 @@ private:
     private:
         std::vector<const SceneObject*> m_sceneObjects;
         Bounds m_bounds;
-        glm::vec3 m_color;
+        glm::vec3 m_debugColor;
 
         std::optional<SparseVoxelDAG> m_svdag;
 
@@ -145,7 +145,7 @@ BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::Batch
     std::vector<const SceneObject*>&& sceneObjects, SparseVoxelDAG&& svdag, tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph)
     : m_sceneObjects(std::move(sceneObjects))
     , m_bounds(detail::computeSceneObjectGroupBounds(m_sceneObjects))
-    , m_color(randomVec3())
+    , m_debugColor(randomVec3())
     , m_svdag(std::move(svdag))
     , m_pGeometryCache(pGeometryCache)
     , m_pTaskGraph(pTaskGraph)
@@ -157,7 +157,7 @@ BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::Batch
     std::vector<const SceneObject*>&& sceneObjects, tasking::LRUCacheTS* pGeometryCache, tasking::TaskGraph* pTaskGraph)
     : m_sceneObjects(std::move(sceneObjects))
     , m_bounds(detail::computeSceneObjectGroupBounds(m_sceneObjects))
-    , m_color(randomVec3())
+    , m_debugColor(randomVec3())
     , m_pGeometryCache(pGeometryCache)
     , m_pTaskGraph(pTaskGraph)
 {
@@ -432,7 +432,7 @@ bool BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 
         si.pSceneObject = pSceneObject;
         //si.localToWorld = optLocalToWorldMatrix;
-        si.shading.batchingPointColor = m_color;
+        si.shading.batchingPointColor = m_debugColor;
         ray.tfar = embreeRayHit.ray.tfar;
         return true;
     } else {
@@ -497,22 +497,38 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
     spdlog::info("Splitting unique SceneObjects into (roughly) equally sized groups");
     auto sceneObjectGroups = detail::createSceneObjectGroups(*m_pScene, m_primitivesPerBatchingPoint, embreeDevice);
 
+    std::for_each(std::execution::par, std::begin(sceneObjectGroups), std::end(sceneObjectGroups),
+        [&](const std::vector<const SceneObject*>& sceneObjects) {
+            std::vector<tasking::CachedPtr<Shape>> shapeOwners { sceneObjects.size() };
+            std::transform(std::begin(sceneObjects), std::end(sceneObjects), std::begin(shapeOwners), [&](const SceneObject* pSceneObject) {
+                return m_pGeometryCache->makeResident(pSceneObject->pShape.get());
+            });
+        });
+
     using BatchingPointT = typename BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint;
     std::vector<BatchingPointT> batchingPoints;
     if (m_svdagRes > 0) {
         spdlog::info("Loading shapes and creating SVOs");
         std::vector<std::optional<SparseVoxelDAG>> svdags { sceneObjectGroups.size() };
 
-        std::transform(std::execution::par, std::begin(sceneObjectGroups), std::end(sceneObjectGroups), std::begin(svdags),
-            [&](const std::vector<const SceneObject*>& sceneObjects) {
-                std::vector<tasking::CachedPtr<Shape>> shapeOwners { sceneObjects.size() };
+        using clock = std::chrono::high_resolution_clock;
+        {
+            auto start = clock::now();
+            std::transform(std::execution::par, std::begin(sceneObjectGroups), std::end(sceneObjectGroups), std::begin(svdags),
+                [&](const std::vector<const SceneObject*>& sceneObjects) {
+                    // Disable for benchmarking
+                    /*std::vector<tasking::CachedPtr<Shape>> shapeOwners { sceneObjects.size() };
                 std::transform(std::begin(sceneObjects), std::end(sceneObjects), std::begin(shapeOwners), [&](const SceneObject* pSceneObject) {
                     return m_pGeometryCache->makeResident(pSceneObject->pShape.get());
-                });
+                });*/
 
-                // Voxelize and create SVO in parallel
-                return detail::createSVDAGfromSceneObjects(sceneObjects, m_svdagRes);
-            });
+                    // Voxelize and create SVO in parallel
+                    return detail::createSVDAGfromSceneObjects(sceneObjects, m_svdagRes);
+                });
+            auto end = clock::now();
+            auto diff = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+            spdlog::info("Wall clock time to create voxelize and create SVOs: {} microseconds", diff.count());
+        }
 
         for (const auto& svdag : svdags)
             g_stats.memory.svdagsBeforeCompression += svdag->sizeBytes();
@@ -521,7 +537,14 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
         std::vector<SparseVoxelDAG*> pSvdags;
         for (auto& svdag : svdags)
             pSvdags.push_back(&svdag.value());
-        SparseVoxelDAG::compressDAGs(pSvdags);
+        {
+            auto start = clock::now();
+            SparseVoxelDAG::compressDAGs(pSvdags);
+            auto end = clock::now();
+            auto diff = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+            spdlog::info("Wall clock time to compress SVOs into SVDAG: {} microseconds", diff.count());
+        }
+        exit(1);
 
         for (const auto& svdag : svdags)
             g_stats.memory.svdagsAfterCompression += svdag->sizeBytes();
