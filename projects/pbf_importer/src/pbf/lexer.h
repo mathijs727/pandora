@@ -71,7 +71,7 @@ inline gsl::span<const T> Lexer::readArray(size_t numItems)
 {
     auto bytes = readBytes(numItems * sizeof(T));
     const T* pItems = reinterpret_cast<const T*>(bytes.data());
-    return gsl::make_span(pItems, numItems);
+    return gsl::span(pItems, numItems);
 }
 
 }

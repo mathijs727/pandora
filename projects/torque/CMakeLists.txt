@@ -7,7 +7,7 @@ target_link_libraries(torque PRIVATE
     libPandora
 	libPbrt_importer2
 	libPbf_importer
-	OIIO::OpenImageIO
+	OpenImageIO::OpenImageIO
 	Boost::program_options
 	OptickCore
 	glm)

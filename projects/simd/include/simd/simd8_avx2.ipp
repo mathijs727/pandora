@@ -151,22 +151,22 @@ public:
     {
     }
 
-    inline void loadAligned(gsl::span<const uint32_t, 8> v)
+    inline void loadAligned(gsl::span<const uint32_t> v)
     {
         m_value = _mm256_load_si256(reinterpret_cast<const __m256i*>(v.data()));
     }
 
-    inline void storeAligned(gsl::span<uint32_t, 8> v) const
+    inline void storeAligned(gsl::span<uint32_t> v) const
     {
         _mm256_store_si256(reinterpret_cast<__m256i*>(v.data()), m_value);
     }
 
-    inline void load(gsl::span<const uint32_t, 8> v)
+    inline void load(gsl::span<const uint32_t> v)
     {
         m_value = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(v.data()));
     }
 
-    inline void store(gsl::span<uint32_t, 8> v) const
+    inline void store(gsl::span<uint32_t> v) const
     {
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(v.data()), m_value);
     }
@@ -310,22 +310,22 @@ public:
     {
     }
 
-    inline void loadAligned(gsl::span<const float, 8> v)
+    inline void loadAligned(gsl::span<const float> v)
     {
         m_value = _mm256_load_ps(v.data());
     }
 
-    inline void storeAligned(gsl::span<float, 8> v) const
+    inline void storeAligned(gsl::span<float> v) const
     {
         _mm256_store_ps(v.data(), m_value);
     }
 
-    inline void load(gsl::span<const float, 8> v)
+    inline void load(gsl::span<const float> v)
     {
         m_value = _mm256_loadu_ps(v.data());
     }
 
-    inline void store(gsl::span<float, 8> v) const
+    inline void store(gsl::span<float> v) const
     {
         _mm256_storeu_ps(v.data(), m_value);
     }
