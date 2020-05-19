@@ -80,10 +80,10 @@ def plot_culling_on_vs_off(results_folder, scenes, spp):
         cbar = grid.cbar_axes[0].colorbar(im)
         cbar.ax.tick_params(labelsize=font_size)
 
-    fig.savefig("num_intersections.pdf", bbox_inches="tight")
-    #plt.show()
+    fig.savefig("num_intersections.png", bbox_inches="tight")
+    plt.show()
 
 if __name__ == "__main__":
-    results_folder = "C:/Users/Mathijs/OneDrive/TU Delft/Batched Ray Traversal/Results/"
+    results_folder = "C:/Users/Mathijs/OneDrive/TU Delft/Projects/Batched Ray Traversal/Results/"
     #results_folder = "C:/Users/mathi/Desktop/EG2020-final/updated_code"
     plot_culling_on_vs_off(results_folder, ["crown", "landscape", "islandX"], 256)

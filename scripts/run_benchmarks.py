@@ -5,7 +5,7 @@ import time
 import shared_benchmark_code
 
 
-result_output_folder = "C:/Users/Mathijs/OneDrive/TU Delft/Batched Ray Traversal/Results/"
+result_output_folder = "C:/Users/Mathijs/OneDrive/TU Delft/Projects/Batched Ray Traversal/Results/"
 
 def run_pandora_with_defaults(scene, out_folder, geom_cache, bvh_cache, svdag_res):
 	args = [
