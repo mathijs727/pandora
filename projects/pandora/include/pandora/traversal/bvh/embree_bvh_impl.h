@@ -142,9 +142,9 @@ inline void EmbreeBVH<LeafObj>::intersect(gsl::span<Ray> rays, gsl::span<RayHit>
         rtcInitIntersectContext(&context);
 
         RTCRayHit embreeRayHit;
-        raysToEmbreeRayHits<1>(gsl::make_span(&rays[i], 1), reinterpret_cast<RTCRayHitN*>(&embreeRayHit));
+        raysToEmbreeRayHits<1>(gsl::span(&rays[i], 1), reinterpret_cast<RTCRayHitN*>(&embreeRayHit));
 
-        s_intersectionDataRayHit.local() = gsl::make_span(&hitInfos[i], 1);
+        s_intersectionDataRayHit.local() = gsl::span(&hitInfos[i], 1);
         rtcIntersect1(m_scene, &context, &embreeRayHit);
     }
 }
@@ -157,7 +157,7 @@ inline void EmbreeBVH<LeafObj>::intersectAny(gsl::span<Ray> rays) const
         rtcInitIntersectContext(&context);
 
         RTCRay embreeRay;
-        raysToEmbreeRays<1>(gsl::make_span(&ray, 1), reinterpret_cast<RTCRayN*>(&embreeRay));
+        raysToEmbreeRays<1>(gsl::span(&ray, 1), reinterpret_cast<RTCRayN*>(&embreeRay));
         rtcOccluded1(m_scene, &context, &embreeRay);
 
         ray.tfar = embreeRay.tfar;

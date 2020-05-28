@@ -14,7 +14,7 @@ inline gsl::span<T> allocateN(std::pmr::memory_resource* pMemoryResource, size_t
     void* pMemory = pMemoryResource->allocate(N * sizeof(T), std::alignment_of_v<T>);
     T* pFirst = reinterpret_cast<T*>(pMemory);
     T* pLast = pFirst + N;
-    return gsl::make_span(pFirst, pLast);
+    return gsl::span(pFirst, pLast);
 }
 
 template <typename T, typename... Args>

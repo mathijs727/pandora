@@ -66,13 +66,13 @@ inline void DataBlock<T>::push(const T& t)
 template <typename T>
 inline gsl::span<T> DataBlock<T>::data()
 {
-    return gsl::make_span(m_pFirst, m_pCurrent);
+    return gsl::span(m_pFirst, m_pCurrent);
 }
 
 template <typename T>
 inline gsl::span<const T> DataBlock<T>::data() const
 {
-    return gsl::make_span(m_pFirst, m_pCurrent);
+    return gsl::span(m_pFirst, m_pCurrent);
 }
 
 template <typename T>

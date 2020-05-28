@@ -5,6 +5,7 @@
 #include "pandora/graphics_core/scene.h"
 #include "pandora/graphics_core/shape.h"
 #include "pandora/samplers/rng/pcg.h"
+#include "pandora/shapes/triangle.h"
 #include "pandora/svo/sparse_voxel_dag.h"
 #include "pandora/traversal/acceleration_structure.h"
 #include "pandora/traversal/batching.h"

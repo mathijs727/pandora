@@ -275,7 +275,7 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
                 size_t itemsFlushedLocal = 0;
                 eastl::fixed_vector<T, maxBatchSize, false> workBatch;
                 auto executeKernel = [&]() {
-                    m_kernel(gsl::make_span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
+                    m_kernel(gsl::span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
                     itemsFlushedLocal += workBatch.size();
                 };
 

@@ -43,12 +43,12 @@ target_link_libraries(libPandora PUBLIC
 	stream
 	simd
 	metrics
-	assimp_target
+	assimp::assimp
     #assimp::assimp # Buggy (tries to link against a dll file...)
     OpenImageIO::OpenImageIO # Loading textures
 	Cnl::Cnl # Fixed point math library
 	glm # Vector math
-    embree3::embree3 # BVH builder and reference BVH traversal
+    embree # BVH builder and reference BVH traversal
 	TBB::tbb # Multithreading
 	Threads::Threads
 	EABase EASTL # Stack based STL containers <3 
