@@ -7,6 +7,7 @@
 #include <memory>
 #include <stream/cache/cache.h>
 #include <stream/cache/cached_ptr.h>
+#include <stream/cache/lru_cache_ts.h>
 #include <vector>
 
 namespace pandora::detail {

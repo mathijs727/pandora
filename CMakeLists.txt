@@ -22,17 +22,19 @@ endif()
 set(CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL MinSizeRel Release)
 set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO RelWithDebInfo Release)
 
-#include("cmake/pmm.cmake")
-#pmm(VERBOSE
-#	DEBUG
-#	VCPKG
-#		REVISION ea79220f9d9d33a11101c8dea0827aaff5a2b9b3
-#		REQUIRES eastl ms-gsl tbb fmt spdlog gtest assimp glm openimageio mio flatbuffers "boost-program-options" nlohmann-json embree3 libmorton
-#		PORTS "${CMAKE_CURRENT_LIST_DIR}/third_party/assimp5/") # TODO: assimp version in vcpkg@ea79220f9d9d33a11101c8dea0827aaff5a2b9b3 is broken. Update 5.0.0 is available but requires VCPKG revision update = recompile everything
+find_package(assimp CONFIG REQUIRED)
+# assimp find_package is slightly broken on Linux
+if (UNIX)
+    # Issue with assimps CMake files (assimps fault, not vcpkg) not linking to all the required libraries.
+	# Seems to only affect Linux users...
+	find_library(ASSIMP_ZLIB_LIBRARY z)
+	find_library(ASSIMP_IRRXML_LIBRARY IrrXML)
+
+	target_link_libraries(assimp::assimp INTERFACE ${ASSIMP_ZLIB_LIBRARY} ${ASSIMP_IRRXML_LIBRARY})
+endif()
 
 find_package(EASTL CONFIG REQUIRED)
 find_package(EABase CONFIG REQUIRED)
-find_package(assimp CONFIG REQUIRED)
 find_package(glm REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)
 find_package(fmt CONFIG REQUIRED)
@@ -40,19 +42,14 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(mio CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 find_package(TBB COMPONENTS tbb tbbmalloc REQUIRED)
+target_link_libraries(TBB::tbb INTERFACE Threads::Threads)
 find_package(nlohmann_json REQUIRED)
 find_package(OpenImageIO CONFIG REQUIRED)
-find_package(Embree3 REQUIRED)
+find_package(embree 3 CONFIG REQUIRED)
 #find_package(vectorclass REQUIRED)
 find_package(Cnl CONFIG REQUIRED)
 #find_package(hpx REQUIRED)
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/optick/" EXCLUDE_FROM_ALL)
-
-# WARNING: temporary hack because using the assimp::assimp target exported by assimp will try to link against a DLL (and fail)
-add_library(assimp_target INTERFACE IMPORTED)
-target_include_directories(assimp_target INTERFACE ${ASSIMP_INCLUDE_DIRS})
-target_link_directories(assimp_target INTERFACE ${ASSIMP_LIBRARY_DIRS})
-target_link_libraries(assimp_target INTERFACE ${ASSIMP_LIBRARIES})
 
 get_target_property(EASTL_LOC EASTL IMPORTED_LOCATION_DEBUG)
 message("EASTL LOC: ${EASTL_LOC}")

@@ -93,7 +93,7 @@ inline MPSCQueue<T, ChunkSize>::MPSCQueue(tbb::scalable_allocator<MemoryBlock<Ch
 template <typename T, size_t ChunkSize>
 inline void MPSCQueue<T, ChunkSize>::push(const T& item)
 {
-    push(gsl::make_span(&item, 1));
+    push(gsl::span(&item, 1));
 }
 
 template <typename T, size_t ChunkSize>

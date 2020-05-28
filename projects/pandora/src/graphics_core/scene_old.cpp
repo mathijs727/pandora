@@ -152,7 +152,7 @@ gsl::span<const InfiniteLight* const> Scene::getInfiniteLights() const
             }
 
             auto primitiveGroups = reinterpret_cast<tbb::concurrent_vector<gsl::span<unsigned>>*>(userPtr);
-            primitiveGroups->push_back(gsl::make_span(primitiveIDs, numPrims));
+            primitiveGroups->push_back(gsl::span(primitiveIDs, numPrims));
             return nullptr;
         };
 

@@ -163,7 +163,7 @@ inline std::optional<SurfaceInteraction> EmbreeAccelerationStructure<HitRayState
             si.shading.normal = -si.shading.normal;
 
         si.pSceneObject = pSceneObject;
-        si.localToWorld = optLocalToWorldMatrix;
+        //si.localToWorld = optLocalToWorldMatrix;
         return si;
     } else {
         return {};

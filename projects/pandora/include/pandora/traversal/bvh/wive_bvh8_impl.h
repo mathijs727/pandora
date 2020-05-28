@@ -95,8 +95,8 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
             uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
 
             if (numChildren > 0) {
-                childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
-                distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
+                childrenSIMD.store(gsl::span(stackCompressedNodeHandles.data() + stackPtr, 8));
+                distancesSIMD.store(gsl::span(stackDistances.data() + stackPtr, 8));
 
                 stackPtr += numChildren;
             }
@@ -116,16 +116,16 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
                 for (size_t i = 0; i < stackPtr; i += 8) {
                     simd::vec8_u32 nodesSIMD;
                     simd::vec8_f32 distancesSIMD;
-                    distancesSIMD.loadAligned(gsl::make_span(stackDistances.data() + i, 8));
-                    nodesSIMD.loadAligned(gsl::make_span(stackCompressedNodeHandles.data() + i, 8));
+                    distancesSIMD.loadAligned(gsl::span(stackDistances.data() + i, 8));
+                    nodesSIMD.loadAligned(gsl::span(stackCompressedNodeHandles.data() + i, 8));
 
                     simd::mask8 distMask = distancesSIMD < simdRay.tfar;
                     simd::vec8_u32 compressPermuteIndices(distMask.computeCompressPermutation()); // Compute permute indices that represent the compression (so we only have to calculate them once)
                     distancesSIMD = distancesSIMD.permute(compressPermuteIndices);
                     nodesSIMD = nodesSIMD.permute(compressPermuteIndices);
 
-                    distancesSIMD.store(gsl::make_span(stackDistances.data() + outStackPtr, 8));
-                    nodesSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + outStackPtr, 8));
+                    distancesSIMD.store(gsl::span(stackDistances.data() + outStackPtr, 8));
+                    nodesSIMD.store(gsl::span(stackCompressedNodeHandles.data() + outStackPtr, 8));
 
                     size_t numItems = std::min((size_t)8, stackPtr - i);
                     unsigned validMask = (1 << numItems) - 1;
@@ -178,8 +178,8 @@ inline bool WiVeBVH8<LeafObj>::intersectAny(Ray& ray) const
             uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
 
             if (numChildren > 0) {
-                childrenSIMD.store(gsl::make_span(stackCompressedNodeHandles.data() + stackPtr, 8));
-                distancesSIMD.store(gsl::make_span(stackDistances.data() + stackPtr, 8));
+                childrenSIMD.store(gsl::span(stackCompressedNodeHandles.data() + stackPtr, 8));
+                distancesSIMD.store(gsl::span(stackDistances.data() + stackPtr, 8));
 
                 stackPtr += numChildren;
             }

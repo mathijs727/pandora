@@ -3693,9 +3693,6 @@ private:
 };
 
 template <typename T, typename Traits>
-std::weak_ptr<typename ConcurrentQueue<T, Traits>::template FreeList<typename ConcurrentQueue<T, Traits>::Block>> ConcurrentQueue<T, Traits>::sharedFreeList {};
-
-template <typename T, typename Traits>
 ProducerToken::ProducerToken(ConcurrentQueue<T, Traits>& queue)
     : producer(queue.recycle_or_create_producer(true))
 {

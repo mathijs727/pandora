@@ -14,6 +14,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 #include <string>
+#include <thread>
 
 boost::program_options::variables_map parseInput(int argc, const char** argv);
 std::string readFile(std::filesystem::path file);

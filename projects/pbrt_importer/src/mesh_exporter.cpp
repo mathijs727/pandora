@@ -24,7 +24,7 @@ static gsl::span<const Tout> reinterpretNumpyArray(pybind11::array_t<Tin> npArra
         return {};
 
     const Tin* data = npArray.data();
-    return gsl::make_span(reinterpret_cast<const Tout*>(data), numElements);
+    return gsl::span(reinterpret_cast<const Tout*>(data), numElements);
 }
 
 template <typename T, typename S>
