@@ -7,7 +7,7 @@ Some parts of the code are directly based on, or inspired by, [PBRTv3](https://g
 Exploiting self-similarity in geometry for voxel based solid modeling](https://dl.acm.org/citation.cfm?id=781631). Finally, SVDAG traversal was implemented using SSE instructions based on a stripped down version of the GPU traversal algorithm presented in [Efficient Sparse Voxel Octrees](https://research.nvidia.com/publication/efficient-sparse-voxel-octrees).
 
 ## Dependencies
-Pandora rellies on a significant amount of third-party libraries. To make installation easy we include the [package manager manager (pmm)](https://github.com/AnotherFoxGuy/pmm) (forked from [link](https://github.com/vector-of-bool/pmm)) which automatically downloads [vcpkg](https://github.com/microsoft/vcpkg) and installs the required packages.
+Pandora rellies on a significant amount of third-party libraries. We recommend the usage of [vcpkg](https://github.com/microsoft/vcpkg) to download and install the required packages. The current build of Pandora was tested using vcpkg revision `d9b4acf02d8c784927f89d23edb677408ec428af`.
 
 ### Building on Windows
 
