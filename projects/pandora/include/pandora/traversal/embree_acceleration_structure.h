@@ -309,7 +309,7 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
                 si.shading.normal = -si.shading.normal;
 
             si.pSceneObject = pSceneObject;
-            si.localToWorld = optLocalToWorldMatrix;
+            //si.localToWorld = optLocalToWorldMatrix;
             m_pTaskGraph->enqueue(m_onHitTask, std::tuple { ray, si, state });
         } else {
             m_pTaskGraph->enqueue(m_onMissTask, std::tuple { ray, state });

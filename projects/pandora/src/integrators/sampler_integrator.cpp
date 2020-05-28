@@ -10,6 +10,8 @@
 #include "pandora/samplers/rng/pcg.h"
 #include "pandora/utility/math.h"
 #include "pandora/core/stats.h"
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
 #include <functional>
 
 namespace pandora {
@@ -56,9 +58,12 @@ void SamplerIntegrator::render(int concurrentPaths, const PerspectiveCamera& cam
     };
     collectLightShapes(scene.pRoot.get());
 
-
     // Spawn initial rays
-    spawnNewPaths(concurrentPaths);
+    tbb::blocked_range<int> pathsRange { 0, concurrentPaths };
+    tbb::parallel_for(pathsRange, [&](tbb::blocked_range<int> localRange) {
+        const int numPaths = localRange.end() - localRange.begin();
+        spawnNewPaths(numPaths);
+    });
     m_pTaskGraph->run();
 
     m_pCurrentRenderData->pAOVNumTopLevelIntersections->writeImage("num_top_level_intersections.exr");

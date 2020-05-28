@@ -14,6 +14,8 @@
 #include <spdlog/spdlog.h>
 #include <stack>
 #include <string>
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
 #include <tuple>
 #include <unordered_map>
 
@@ -132,9 +134,37 @@ void TriangleShape::subdivide()
 
     size_t sizeBefore = sizeBytes();
 
+    const size_t initialVertexID = m_positions.size();
     std::vector<glm::uvec3> outIndices;
-    outIndices.reserve(m_indices.size() * 3);
-    for (const auto& triangle : m_indices) {
+    outIndices.resize(m_indices.size() * 3);
+    m_positions.resize(m_positions.size() + m_indices.size());
+    if (!m_normals.empty()) {
+        m_normals.resize(m_normals.size() + m_indices.size());
+        assert(m_normals.size() == m_positions.size());
+    }
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, m_indices.size()),
+        [&, initialVertexID](tbb::blocked_range<size_t> localRange) {
+            for (size_t i = std::begin(localRange); i < std::end(localRange); i++) {
+                const auto triangle = m_indices[i];
+                const glm::vec3 v0 = m_positions[triangle[0]];
+                const glm::vec3 v1 = m_positions[triangle[1]];
+                const glm::vec3 v2 = m_positions[triangle[2]];
+                const glm::vec3 v3 = (v0 + v1 + v2) / 3.0f;
+
+                //const unsigned newVertexID = static_cast<unsigned>(m_positions.size());
+                const unsigned newVertexID = static_cast<unsigned>(initialVertexID + i);
+                m_positions[newVertexID] = v3;
+                if (!m_normals.empty()) {
+                    m_normals[newVertexID] = glm::normalize(m_normals[triangle[0]] + m_normals[triangle[1]] + m_normals[triangle[2]]);
+                }
+
+                const size_t firstTriangleID = i * 3;
+                outIndices[firstTriangleID + 0] = { triangle[0], triangle[1], newVertexID };
+                outIndices[firstTriangleID + 1] = { triangle[1], triangle[2], newVertexID };
+                outIndices[firstTriangleID + 2] = { triangle[2], triangle[0], newVertexID };
+            }
+        });
+    /*for (const auto& triangle : m_indices) {
         glm::vec3 v0 = m_positions[triangle[0]];
         glm::vec3 v1 = m_positions[triangle[1]];
         glm::vec3 v2 = m_positions[triangle[2]];
@@ -150,7 +180,7 @@ void TriangleShape::subdivide()
         outIndices.push_back({ triangle[0], triangle[1], newVertexID });
         outIndices.push_back({ triangle[1], triangle[2], newVertexID });
         outIndices.push_back({ triangle[2], triangle[0], newVertexID });
-    }
+    }*/
     m_indices = std::move(outIndices);
     m_indices.shrink_to_fit();
     m_positions.shrink_to_fit();

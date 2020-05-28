@@ -45,7 +45,7 @@ target_link_libraries(libPandora PUBLIC
 	metrics
 	assimp_target
     #assimp::assimp # Buggy (tries to link against a dll file...)
-    OIIO::OpenImageIO # Loading textures
+    OpenImageIO::OpenImageIO # Loading textures
 	Cnl::Cnl # Fixed point math library
 	glm # Vector math
     embree3::embree3 # BVH builder and reference BVH traversal

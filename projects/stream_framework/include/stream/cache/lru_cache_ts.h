@@ -24,7 +24,7 @@ public:
 
     ~LRUCacheTS();
 
-    //LRUCacheTS(LRUCacheTS&&) = default;
+    LRUCacheTS(LRUCacheTS&&) noexcept;
     LRUCacheTS& operator=(LRUCacheTS&&) noexcept;
 
     template <typename T>

@@ -18,6 +18,16 @@ LRUCacheTS::LRUCacheTS(std::unique_ptr<tasking::Deserializer>&& pDeserializer, g
     }
 }
 
+LRUCacheTS::LRUCacheTS(LRUCacheTS&& other) noexcept
+{
+    m_pDeserializer = std::move(other.m_pDeserializer);
+    m_maxMemory = other.m_maxMemory;
+    m_usedMemory.store(other.m_usedMemory.load());
+
+    m_pItemData = std::move(other.m_pItemData);
+    m_itemDataIndices = std::move(other.m_itemDataIndices);
+}
+
 LRUCacheTS& LRUCacheTS::operator=(LRUCacheTS&& other) noexcept
 {
     m_pDeserializer = std::move(other.m_pDeserializer);
