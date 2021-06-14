@@ -1,7 +1,7 @@
 #pragma once
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/graphics_core/transform.h"
-#include <gsl/gsl>
+#include <span>
 #include <memory>
 #include <vector>
 
@@ -39,7 +39,7 @@ public:
         TransportMode mode,
         bool allowMultipleLobes) const = 0;
     virtual const AreaLight* getPrimitiveAreaLight(unsigned primitiveID) const = 0;
-    virtual gsl::span<const AreaLight> areaLights() const = 0;
+    virtual std::span<const AreaLight> areaLights() const = 0;
 };
 
 class Scene {
@@ -52,8 +52,8 @@ public:
     void addInfiniteLight(const std::shared_ptr<InfiniteLight>& light);
 
     std::vector<const SceneObject*> getSceneObjects() const;
-    gsl::span<const Light* const> getLights() const;
-    gsl::span<const InfiniteLight* const> getInfiniteLights() const;
+    std::span<const Light* const> getLights() const;
+    std::span<const InfiniteLight* const> getInfiniteLights() const;
 
     std::vector<std::vector<const SceneObject*>> groupSceneObjects(unsigned uniquePrimsPerGroup) const;
 

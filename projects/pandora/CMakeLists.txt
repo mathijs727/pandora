@@ -1,5 +1,5 @@
 add_library(libPandora "")
-target_compile_features(libPandora PRIVATE cxx_std_17)
+target_compile_features(libPandora PRIVATE cxx_std_20)
 
 if (WIN32)
 	# Define both with MSVC and clang(-cl) on Windows.
@@ -47,7 +47,7 @@ target_link_libraries(libPandora PUBLIC
     #assimp::assimp # Buggy (tries to link against a dll file...)
     OpenImageIO::OpenImageIO # Loading textures
 	Cnl::Cnl # Fixed point math library
-	glm # Vector math
+	glm::glm # Vector math
     embree # BVH builder and reference BVH traversal
 	TBB::tbb # Multithreading
 	Threads::Threads

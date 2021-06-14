@@ -1,7 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <filesystem>
-#include <gsl/span>
+#include <span>
 #include <memory_resource>
 #include <string_view>
 #include <unordered_map>
@@ -63,10 +63,10 @@ struct PBFShape {
     virtual void dummy() const {}; // Must have virtual function to use dynamic_cast
 };
 struct PBFTriangleMesh : public PBFShape {
-    gsl::span<const glm::ivec3> index;
-    gsl::span<const glm::vec3> vertex;
-    gsl::span<const glm::vec2> texCoord;
-    gsl::span<const glm::vec3> normal;
+    std::span<const glm::ivec3> index;
+    std::span<const glm::vec3> vertex;
+    std::span<const glm::vec2> texCoord;
+    std::span<const glm::vec3> normal;
 };
 
 struct PBFObject;

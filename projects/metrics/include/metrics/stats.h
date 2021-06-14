@@ -1,6 +1,6 @@
 #pragma once
 #include <atomic>
-#include <gsl/span>
+#include <span>
 #include <nlohmann/json.hpp>
 #include <tbb/concurrent_queue.h>
 #include <thread>
@@ -12,7 +12,7 @@ class Exporter;
 
 class Stats {
 public:
-    Stats(gsl::span<Exporter*> exporters);
+    Stats(std::span<Exporter*> exporters);
     ~Stats();
 
     void asyncTriggerSnapshot();

@@ -125,7 +125,7 @@ public:
     friend class _vec4<float, 4>; // Make friend so it can access us in permute & compress operations
 
     _vec4() = default;
-    explicit inline _vec4(gsl::span<const uint32_t, 4> v)
+    explicit inline _vec4(std::span<const uint32_t, 4> v)
     {
         load(v);
     }
@@ -142,22 +142,22 @@ public:
     {
     }
 
-    inline void loadAligned(gsl::span<const uint32_t, 4> v)
+    inline void loadAligned(std::span<const uint32_t, 4> v)
     {
         m_value = _mm_load_si128(reinterpret_cast<const __m128i*>(v.data()));
     }
 
-    inline void storeAligned(gsl::span<uint32_t, 4> v) const
+    inline void storeAligned(std::span<uint32_t, 4> v) const
     {
         _mm_store_si128(reinterpret_cast<__m128i*>(v.data()), m_value);
     }
 
-    inline void load(gsl::span<const uint32_t, 4> v)
+    inline void load(std::span<const uint32_t, 4> v)
     {
         m_value = _mm_loadu_si128(reinterpret_cast<const __m128i*>(v.data()));
     }
 
-    inline void store(gsl::span<uint32_t, 4> v) const
+    inline void store(std::span<uint32_t, 4> v) const
     {
         _mm_storeu_si128(reinterpret_cast<__m128i*>(v.data()), m_value);
     }
@@ -300,7 +300,7 @@ template <>
 class alignas(16) _vec4<float, 4> {
 public:
     _vec4() = default;
-    inline _vec4(gsl::span<const float, 4> v)
+    inline _vec4(std::span<const float, 4> v)
     {
         load(v);
     }
@@ -317,22 +317,22 @@ public:
     {
     }
 
-    inline void loadAligned(gsl::span<const float, 4> v)
+    inline void loadAligned(std::span<const float, 4> v)
     {
         m_value = _mm_load_ps(v.data());
     }
 
-    inline void storeAligned(gsl::span<float, 4> v) const
+    inline void storeAligned(std::span<float, 4> v) const
     {
         _mm_store_ps(v.data(), m_value);
     }
 
-    inline void load(gsl::span<const float, 4> v)
+    inline void load(std::span<const float, 4> v)
     {
         m_value = _mm_loadu_ps(v.data());
     }
 
-    inline void store(gsl::span<float, 4> v) const
+    inline void store(std::span<float, 4> v) const
     {
         _mm_storeu_ps(v.data(), m_value);
     }

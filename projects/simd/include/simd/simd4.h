@@ -6,7 +6,7 @@
 #include <cstring> // Memcpy
 #include <emmintrin.h> // SSE2
 #include <functional>
-#include <gsl/span>
+#include <span>
 #include <immintrin.h> // AVX / AVX2
 #include <nmmintrin.h> // Popcount
 #include <smmintrin.h> // SSE4.1

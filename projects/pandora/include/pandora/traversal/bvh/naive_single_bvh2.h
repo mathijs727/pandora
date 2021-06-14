@@ -4,7 +4,7 @@
 #include <EASTL/fixed_vector.h>
 #include <atomic>
 #include <embree3/rtcore.h>
-#include <gsl/span>
+#include <span>
 #include <tuple>
 #include <vector>
 
@@ -13,14 +13,14 @@ namespace pandora {
 template <typename LeafObj>
 class NaiveSingleRayBVH2 : public BVH<LeafObj> {
 public:
-    NaiveSingleRayBVH2(gsl::span<LeafObj> objects);
+    NaiveSingleRayBVH2(std::span<LeafObj> objects);
     NaiveSingleRayBVH2(NaiveSingleRayBVH2<LeafObj>&& other);
     ~NaiveSingleRayBVH2();
 
     size_t sizeBytes() const override final;
 
-    void intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const override final;
-    void intersectAny(gsl::span<Ray> rays) const override final;
+    void intersect(std::span<Ray> rays, std::span<RayHit> hitInfos) const override final;
+    void intersectAny(std::span<Ray> rays) const override final;
 
 private:
     static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
@@ -57,7 +57,7 @@ private:
 };
 
 template <typename LeafObj>
-inline NaiveSingleRayBVH2<LeafObj>::NaiveSingleRayBVH2(gsl::span<LeafObj> objects)
+inline NaiveSingleRayBVH2<LeafObj>::NaiveSingleRayBVH2(std::span<LeafObj> objects)
     : m_root(nullptr)
     , m_memoryUsed(0)
 {
@@ -130,7 +130,7 @@ inline size_t NaiveSingleRayBVH2<LeafObj>::sizeBytes() const
 }
 
 template <typename LeafObj>
-inline void NaiveSingleRayBVH2<LeafObj>::intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const
+inline void NaiveSingleRayBVH2<LeafObj>::intersect(std::span<Ray> rays, std::span<RayHit> hitInfos) const
 {
     assert(rays.size() == hitInfos.size());
 
@@ -140,7 +140,7 @@ inline void NaiveSingleRayBVH2<LeafObj>::intersect(gsl::span<Ray> rays, gsl::spa
 }
 
 template <typename LeafObj>
-inline void NaiveSingleRayBVH2<LeafObj>::intersectAny(gsl::span<Ray> rays) const
+inline void NaiveSingleRayBVH2<LeafObj>::intersectAny(std::span<Ray> rays) const
 {
     for (auto& ray : rays) {
         if (m_root->intersectAny(ray)) {

@@ -18,7 +18,7 @@ namespace pandora {
 template <typename LeafObj>
 class WiVeBVH8 {
 public:
-    WiVeBVH8(const serialization::WiVeBVH8* serialized, gsl::span<const LeafObj> objects);
+    WiVeBVH8(const serialization::WiVeBVH8* serialized, std::span<const LeafObj> objects);
     WiVeBVH8(WiVeBVH8&&) = default;
     ~WiVeBVH8() = default;
 
@@ -29,13 +29,13 @@ public:
     bool intersect(Ray& ray, SurfaceInteraction& si) const;
     bool intersectAny(Ray& rays) const;
 
-    gsl::span<const LeafObj> leafs() const;
+    std::span<const LeafObj> leafs() const;
 
 protected:
     WiVeBVH8(uint32_t numPrims);
 
 protected:
-    virtual void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) = 0;
+    virtual void commit(std::span<RTCBuildPrimitive> embreePrims, std::span<LeafObj> objects) = 0;
 
     void testBVH() const;
 

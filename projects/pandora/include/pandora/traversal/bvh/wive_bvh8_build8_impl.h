@@ -46,8 +46,8 @@ static RTCBVH WiVeBVH8Build8_embreeBVH()
 }
 
 template <typename LeafObj>
-inline WiVeBVH8Build8<LeafObj>::WiVeBVH8Build8(gsl::span<LeafObj> objects)
-    : WiVeBVH8<LeafObj>(objects.size())
+inline WiVeBVH8Build8<LeafObj>::WiVeBVH8Build8(std::span<LeafObj> objects)
+    : WiVeBVH8<LeafObj>(static_cast<uint32_t>(objects.size()))
 {
     // Move the leaf objects
     this->m_leafObjects.reserve(objects.size());
@@ -80,7 +80,7 @@ inline WiVeBVH8Build8<LeafObj>::WiVeBVH8Build8(gsl::span<LeafObj> objects)
 }
 
 template <typename LeafObj>
-inline void WiVeBVH8Build8<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects)
+inline void WiVeBVH8Build8<LeafObj>::commit(std::span<RTCBuildPrimitive> embreePrims, std::span<LeafObj> objects)
 {
     /*RTCDevice device = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);

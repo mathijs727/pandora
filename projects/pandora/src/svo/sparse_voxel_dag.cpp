@@ -58,7 +58,7 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
         }
     }
 
-    auto createAndStoreDescriptor = [&](uint8_t validMask, uint8_t leafMask, const gsl::span<NodeOffset> childrenOffsets) -> NodeOffset {
+    auto createAndStoreDescriptor = [&](uint8_t validMask, uint8_t leafMask, const std::span<NodeOffset> childrenOffsets) -> NodeOffset {
         Descriptor d;
         d.validMask = validMask;
         d.leafMask = leafMask;
@@ -130,7 +130,7 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
     return rootNodeOffset;
 }
 
-void SparseVoxelDAG::compressDAGs(gsl::span<SparseVoxelDAG*> svos)
+void SparseVoxelDAG::compressDAGs(std::span<SparseVoxelDAG*> svos)
 {
     OPTICK_EVENT();
 
@@ -252,7 +252,7 @@ void SparseVoxelDAG::testSVDAG() const
     std::cout << "Nodes visited: " << nodesVisited << "\n";
 }
 
-SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
+SparseVoxelDAG::Descriptor SparseVoxelDAG::createStagingDescriptor(std::span<bool, 8> validMask, std::span<bool, 8> leafMask)
 {
     // Create bit masks
     uint8_t leafMaskBits = 0x0;

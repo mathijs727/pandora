@@ -43,12 +43,12 @@ std::vector<const SceneObject*> Scene::getSceneObjects() const
     return ret;
 }
 
-gsl::span<const Light* const> Scene::getLights() const
+std::span<const Light* const> Scene::getLights() const
 {
     return m_lights;
 }
 
-gsl::span<const InfiniteLight* const> Scene::getInfiniteLights() const
+std::span<const InfiniteLight* const> Scene::getInfiniteLights() const
 {
     return m_infiniteLights;
 }
@@ -125,7 +125,7 @@ gsl::span<const InfiniteLight* const> Scene::getInfiniteLights() const
         // Build the BVH using the Embree BVH builder API
         RTCBVH bvh = rtcNewBVH(device);
 
-        tbb::concurrent_vector<gsl::span<unsigned>> primitiveGroups;
+        tbb::concurrent_vector<std::span<unsigned>> primitiveGroups;
         RTCBuildArguments arguments = rtcDefaultBuildArguments();
         arguments.byteSize = sizeof(arguments);
         arguments.buildFlags = RTC_BUILD_FLAG_NONE;
@@ -151,8 +151,8 @@ gsl::span<const InfiniteLight* const> Scene::getInfiniteLights() const
                 primitiveIDs[i] = prims[i].primID;
             }
 
-            auto primitiveGroups = reinterpret_cast<tbb::concurrent_vector<gsl::span<unsigned>>*>(userPtr);
-            primitiveGroups->push_back(gsl::span(primitiveIDs, numPrims));
+            auto primitiveGroups = reinterpret_cast<tbb::concurrent_vector<std::span<unsigned>>*>(userPtr);
+            primitiveGroups->push_back(std::span(primitiveIDs, numPrims));
             return nullptr;
         };
 
@@ -304,7 +304,7 @@ void Scene::splitLargeOOCSceneObjects(unsigned approximatePrimsPerObject)
     m_oocSceneObjects = std::move(outSceneObjects);
 }*/
 
-std::vector<std::vector<const SceneObject*>> groupSceneObjects(gsl::span<const std::unique_ptr<SceneObject>> objects, unsigned uniquePrimsPerGroup)
+std::vector<std::vector<const SceneObject*>> groupSceneObjects(std::span<const std::unique_ptr<SceneObject>> objects, unsigned uniquePrimsPerGroup)
 {
     const auto embreeErrorFunc = [](void* userPtr, const RTCError code, const char* str) {
         switch (code) {
@@ -449,7 +449,7 @@ std::vector<std::vector<const SceneObject*>> groupSceneObjects(gsl::span<const s
     arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
         ALWAYS_ASSERT(numPrims == 1);
 
-        const auto& sceneObjects = *reinterpret_cast<gsl::span<std::unique_ptr<SceneObject>>*>(userPtr);
+        const auto& sceneObjects = *reinterpret_cast<std::span<std::unique_ptr<SceneObject>>*>(userPtr);
 
         auto* mem = rtcThreadLocalAlloc(alloc, sizeof(BVHLeafNode), 8);
         auto nodePtr = new (mem) BVHLeafNode();

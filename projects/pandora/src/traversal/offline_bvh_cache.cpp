@@ -122,7 +122,7 @@ void CachedBVH::serialize(tasking::Serializer& serializer)
     std::memcpy(pBVHMem, fbb.GetBufferPointer(), fbb.GetSize());
     m_bvhSerializeAllocation = bvhAllocationHandle;
 
-    gsl::span<const OfflineBVHLeaf> leafs = m_bvh->leafs();
+    std::span<const OfflineBVHLeaf> leafs = m_bvh->leafs();
     auto [leafsAllocationHandle, pLeafsMem] = serializer.allocateAndMap(leafs.size_bytes());
     std::memcpy(pLeafsMem, leafs.data(), leafs.size_bytes());
     m_numLeafs = leafs.size();
@@ -141,7 +141,7 @@ void CachedBVH::doMakeResident(tasking::Deserializer& deserializer)
     const OfflineBVHLeaf* pLeafs = static_cast<const OfflineBVHLeaf*>(pLeafsMem);
 
     const void* pBVHMem = deserializer.map(m_bvhSerializeAllocation);
-    WiVeBVH8Build8<OfflineBVHLeaf> bvh { pandora::serialization::GetWiVeBVH8(pBVHMem), gsl::span(pLeafs, m_numLeafs) };
+    WiVeBVH8Build8<OfflineBVHLeaf> bvh { pandora::serialization::GetWiVeBVH8(pBVHMem), std::span(pLeafs, m_numLeafs) };
     m_bvh.emplace(std::move(bvh));
 
     g_stats.memory.botLevelLoaded += m_bvh->sizeBytes();
@@ -163,7 +163,7 @@ CachedBVHSubScene::CachedBVHSubScene(tasking::CachedPtr<CachedBVH>&& pBVH, std::
 {
 }
 
-pandora::LRUBVHSceneCache::LRUBVHSceneCache(gsl::span<const SubScene*> subScenes, tasking::LRUCacheTS* pSceneCache, size_t maxSize)
+pandora::LRUBVHSceneCache::LRUBVHSceneCache(std::span<const SubScene*> subScenes, tasking::LRUCacheTS* pSceneCache, size_t maxSize)
 {
     //spdlog::warn("Using in-memory serializer for BVH cache");
     //auto pSerializer = std::make_unique<tasking::InMemorySerializer>();

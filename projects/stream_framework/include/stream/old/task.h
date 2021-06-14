@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <gsl/span>
+#include <span>
 #include "stream/data_stream.h"
 
 namespace tasking::impl {

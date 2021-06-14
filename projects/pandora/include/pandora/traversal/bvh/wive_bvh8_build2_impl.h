@@ -1,6 +1,6 @@
 
 template <typename LeafObj>
-inline void WiVeBVH8Build2<LeafObj>::commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects)
+inline void WiVeBVH8Build2<LeafObj>::commit(std::span<RTCBuildPrimitive> embreePrims, std::span<LeafObj> objects)
 {
     RTCDevice device = rtcNewDevice(nullptr);
     rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);

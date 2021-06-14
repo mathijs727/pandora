@@ -1,0 +1,30 @@
+{
+  "name": "pandora",
+  "version": "0.0.1",
+  "dependencies": [
+    "tbb",
+    "embree3",
+    "glm",
+    "assimp",
+    "cnl",
+    "tinyply",
+    {
+      "name": "openimageio",
+      "features": ["openjpeg"]
+    },
+    "eabase",
+    "eastl",
+    "fmt",
+    "mio",
+    "spdlog",
+    "flatbuffers",
+    "libmorton",
+    "boost-container-hash",
+    "boost-program-options",
+    "boost-tti",
+    "gtest",
+    "nlohmann-json",
+    "glfw3",
+    "glew"
+  ]
+}

@@ -1,7 +1,7 @@
 #pragma once
 #include "task.h"
 #include <functional>
-#include <gsl/span>
+#include <span>
 #include <vector>
 
 namespace tasking {
@@ -15,7 +15,7 @@ public:
 
 private:
     friend class TaskPool;
-    using Kernel = std::function<void(gsl::span<const Input>, gsl::span<Output>, gsl::span<uint32_t>)>;
+    using Kernel = std::function<void(std::span<const Input>, std::span<Output>, std::span<uint32_t>)>;
     ScatterTransformTask(Kernel&& kernel, unsigned numOutputs);
 
 private:
@@ -40,7 +40,7 @@ template <typename Input, typename Output>
 inline void ScatterTransformTask<Input, Output>::execute()
 {
     assert(m_pOutput != nullptr);
-    for (gsl::span<const T> inputBlock : m_inputStream.consume()) {
+    for (std::span<const T> inputBlock : m_inputStream.consume()) {
         std::vector<uint32_t> output(static_cast<size_t>(inputBlock.size()));
         std::vector<Output> outputNodeIndices(static_cast<size_t>(inputBlock.size()));
         m_kernel(inputBlock, output, outputNodeIndices);

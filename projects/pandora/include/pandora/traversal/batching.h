@@ -20,8 +20,8 @@ void splitLargeSceneObjects(pandora::SceneNode* pSceneNode, tasking::LRUCacheTS&
 
 std::vector<std::vector<const SceneObject*>> createSceneObjectGroups(const Scene& scene, unsigned primitivesPerSubScene, RTCDevice embreeDevice);
 std::vector<Shape*> getInstancedShapes(const Scene& scene);
-Bounds computeSceneObjectGroupBounds(gsl::span<const SceneObject* const> sceneObjects);
-SparseVoxelDAG createSVDAGfromSceneObjects(gsl::span<const SceneObject* const> sceneObjects, int resolution);
+Bounds computeSceneObjectGroupBounds(std::span<const SceneObject* const> sceneObjects);
+SparseVoxelDAG createSVDAGfromSceneObjects(std::span<const SceneObject* const> sceneObjects, int resolution);
 
 RTCScene buildInstanceEmbreeScene(const Scene& scene, RTCDevice device);
 bool intersectInstanceEmbreeScene(const RTCScene scene, Ray& ray, SurfaceInteraction& si);

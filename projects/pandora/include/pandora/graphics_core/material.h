@@ -3,7 +3,7 @@
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/utility/memory_arena.h"
 #include <EASTL/fixed_vector.h>
-#include <gsl/gsl>
+#include <span>
 #include <optional>
 
 namespace pandora {
@@ -26,10 +26,10 @@ public:
     std::optional<Sample> sampleF(const glm::vec3& woWorld, const glm::vec2& u, BxDFType type = BSDF_ALL);
 
     // Total reflection in a given direction due to constant illumination over the hemisphere
-    Spectrum rho(const glm::vec3& wo, gsl::span<const glm::vec2> samples, BxDFType flags = BSDF_ALL) const;
+    Spectrum rho(const glm::vec3& wo, std::span<const glm::vec2> samples, BxDFType flags = BSDF_ALL) const;
 
     // Fraction of incident light reflected by a surface when the incident light is the same from all directions
-    Spectrum rho(gsl::span<const glm::vec2> samples1, gsl::span<const glm::vec2> samples2, BxDFType flags = BSDF_ALL) const;
+    Spectrum rho(std::span<const glm::vec2> samples1, std::span<const glm::vec2> samples2, BxDFType flags = BSDF_ALL) const;
 
     float pdf(const glm::vec3& wo, const glm::vec3& wi, BxDFType flags = BSDF_ALL) const;
 

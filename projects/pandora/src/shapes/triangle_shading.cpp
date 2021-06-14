@@ -41,7 +41,7 @@ SurfaceInteraction pandora::TriangleShape::fillSurfaceInteraction(const Ray& ray
     return si;
 }
 
-void TriangleShape::getTexCoords(unsigned primitiveID, gsl::span<glm::vec2, 3> texCoord) const
+void TriangleShape::getTexCoords(unsigned primitiveID, std::span<glm::vec2, 3> texCoord) const
 {
     glm::ivec3 indices = m_indices[primitiveID];
     texCoord[0] = m_texCoords[indices[0]];
@@ -49,7 +49,7 @@ void TriangleShape::getTexCoords(unsigned primitiveID, gsl::span<glm::vec2, 3> t
     texCoord[2] = m_texCoords[indices[2]];
 }
 
-void TriangleShape::getPositions(unsigned primitiveID, gsl::span<glm::vec3, 3> p) const
+void TriangleShape::getPositions(unsigned primitiveID, std::span<glm::vec3, 3> p) const
 {
     glm::ivec3 indices = m_indices[primitiveID];
     p[0] = m_positions[indices[0]];
@@ -57,7 +57,7 @@ void TriangleShape::getPositions(unsigned primitiveID, gsl::span<glm::vec3, 3> p
     p[2] = m_positions[indices[2]];
 }
 
-void TriangleShape::getShadingNormals(unsigned primitiveID, gsl::span<glm::vec3, 3> ns) const
+void TriangleShape::getShadingNormals(unsigned primitiveID, std::span<glm::vec3, 3> ns) const
 {
     glm::ivec3 indices = m_indices[primitiveID];
     ns[0] = m_normals[indices[0]];

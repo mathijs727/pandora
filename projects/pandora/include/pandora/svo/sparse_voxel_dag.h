@@ -9,7 +9,7 @@
 #include "simd/intrinsics.h"
 #include <EASTL/fixed_vector.h>
 #include <glm/glm.hpp>
-#include <gsl/span>
+#include <span>
 #include <memory>
 #include <optional>
 #include <tuple>
@@ -24,7 +24,7 @@ public:
     ~SparseVoxelDAG() = default;
     SparseVoxelDAG& operator=(SparseVoxelDAG&&) = default;
 
-    static void compressDAGs(gsl::span<SparseVoxelDAG*> svos);
+    static void compressDAGs(std::span<SparseVoxelDAG*> svos);
 
 #ifdef PANDORA_ISPC_SUPPORT
     void intersectSIMD(ispc::RaySOA rays, ispc::HitSOA hits, int N) const;
@@ -62,7 +62,7 @@ private:
     static_assert(sizeof(Descriptor) == sizeof(uint16_t));
 
     NodeOffset constructSVOBreadthFirst(const VoxelGrid& grid);
-    static Descriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
+    static Descriptor createStagingDescriptor(std::span<bool, 8> validMask, std::span<bool, 8> leafMask);
 
     const Descriptor* getChild(const Descriptor* descriptor, int idx) const;
 

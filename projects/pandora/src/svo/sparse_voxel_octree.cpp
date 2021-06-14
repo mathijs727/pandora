@@ -261,7 +261,7 @@ SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::getChild(const ChildDescri
     return m_allocator[descriptor.childPtr + activeChildIndex];
 }
 
-SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask)
+SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::createStagingDescriptor(std::span<bool, 8> validMask, std::span<bool, 8> leafMask)
 {
     // Create bit masks
     uint8_t leafMaskBits = 0x0;
@@ -282,7 +282,7 @@ SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::createStagingDescriptor(gs
     return descriptor;
 }
 
-SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::makeInnerNode(uint16_t baseIndex, gsl::span<ChildDescriptor, 8> children)
+SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::makeInnerNode(uint16_t baseIndex, std::span<ChildDescriptor, 8> children)
 {
     std::array<bool, 8> validMask;
     std::array<bool, 8> leafMask;
@@ -307,7 +307,7 @@ SparseVoxelOctree::ChildDescriptor SparseVoxelOctree::makeInnerNode(uint16_t bas
     return descriptor;
 }
 
-uint16_t SparseVoxelOctree::storeDescriptors(gsl::span<SparseVoxelOctree::ChildDescriptor> children)
+uint16_t SparseVoxelOctree::storeDescriptors(std::span<SparseVoxelOctree::ChildDescriptor> children)
 {
     uint16_t baseIndex = static_cast<uint16_t>(m_allocator.size());
     for (const auto& descriptor : children) {

@@ -1,7 +1,7 @@
 #pragma once
 #include "pandora/graphics_core/pandora.h"
 #include <vector>
-#include <gsl/span>
+#include <span>
 #include <optional>
 #include <tuple>
 #include <glm/glm.hpp>
@@ -43,9 +43,9 @@ private:
 	ChildDescriptor getChild(const ChildDescriptor& descriptor, int idx) const;
 
 	// SVO construction
-	static ChildDescriptor createStagingDescriptor(gsl::span<bool, 8> validMask, gsl::span<bool, 8> leafMask);
-	static ChildDescriptor makeInnerNode(uint16_t baseIndex, gsl::span<ChildDescriptor, 8> children);
-	uint16_t storeDescriptors(gsl::span<ChildDescriptor> children);
+	static ChildDescriptor createStagingDescriptor(std::span<bool, 8> validMask, std::span<bool, 8> leafMask);
+	static ChildDescriptor makeInnerNode(uint16_t baseIndex, std::span<ChildDescriptor, 8> children);
+	uint16_t storeDescriptors(std::span<ChildDescriptor> children);
 private:
 	int m_resolution;
 	ChildDescriptor m_rootNode;

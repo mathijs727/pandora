@@ -2,7 +2,7 @@
 #include <atomic>
 #include <cnl/fixed_point.h>
 #include <glm/glm.hpp>
-#include <gsl/gsl>
+#include <span>
 #include <memory>
 #include <vector>
 

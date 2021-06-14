@@ -2,7 +2,7 @@
 #include "stream/serialize/in_memory_serializer.h"
 #include <cstddef>
 #include <cstring>
-#include <gsl/span>
+#include <span>
 #include <gtest/gtest.h>
 #include <random>
 #include <spdlog/spdlog.h>

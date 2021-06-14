@@ -1,6 +1,6 @@
 #include "pbf/lexer.h"
 #include <exception>
-#include <gsl/span>
+#include <span>
 #include <spdlog/spdlog.h>
 
 // Binary file format lexer for PBF format by Ingo Wald.
@@ -11,7 +11,7 @@ namespace pbf {
 
 Lexer::Lexer(std::filesystem::path filePath)
     : m_mappedFile(filePath.string(), mio_cache_control::cache_mode::sequential)
-    , m_fileBytes(gsl::span(
+    , m_fileBytes(std::span(
           reinterpret_cast<const std::byte*>(m_mappedFile.data()), m_mappedFile.size()))
     , m_fileSize(m_mappedFile.size())
 {
@@ -26,7 +26,7 @@ bool Lexer::endOfFile() const
     return m_cursor >= m_fileSize;
 }
 
-gsl::span<const std::byte> pbf::Lexer::readBytes(size_t numBytes)
+std::span<const std::byte> pbf::Lexer::readBytes(size_t numBytes)
 {
     auto subSpan = m_fileBytes.subspan(m_cursor, numBytes);
     m_cursor += numBytes;

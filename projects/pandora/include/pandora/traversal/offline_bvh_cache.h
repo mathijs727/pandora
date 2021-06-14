@@ -3,7 +3,7 @@
 #include "pandora/traversal/bvh/wive_bvh8_build8.h"
 #include "pandora/traversal/sub_scene.h"
 #include <glm/glm.hpp>
-#include <gsl/span>
+#include <span>
 #include <memory>
 #include <optional>
 #include <stream/cache/cached_ptr.h>
@@ -81,7 +81,7 @@ private:
 
 class LRUBVHSceneCache {
 public:
-    LRUBVHSceneCache(gsl::span<const SubScene*> subScenes, tasking::LRUCacheTS* pSceneCache, size_t maxSize);
+    LRUBVHSceneCache(std::span<const SubScene*> subScenes, tasking::LRUCacheTS* pSceneCache, size_t maxSize);
 
     CachedBVHSubScene fromSubScene(const SubScene* pSubScene);
 

@@ -1,6 +1,6 @@
 #pragma once
 #include "moodycamel/concurrentqueue.h"
-#include <gsl/span>
+#include <span>
 #include <tbb/task_arena.h>
 #include <thread>
 #include <vector>
@@ -57,7 +57,7 @@ public:
         return this->try_dequeue(item);
     }
 
-    inline size_t try_pop_bulk(gsl::span<T> items)
+    inline size_t try_pop_bulk(std::span<T> items)
     {
         /*auto threadIdx = tbb::this_task_arena::current_thread_index();
         auto& token = m_consumerTokens[threadIdx];

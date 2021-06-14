@@ -289,7 +289,7 @@ Bounds TriangleShape::getPrimitiveBounds(unsigned primitiveID) const
     return bounds;
 }
 
-TriangleShape TriangleShape::subMesh(gsl::span<const unsigned> primitives) const
+TriangleShape TriangleShape::subMesh(std::span<const unsigned> primitives) const
 {
     std::vector<bool> usedVertices;
     std::fill_n(std::back_inserter(usedVertices), m_positions.size(), false);

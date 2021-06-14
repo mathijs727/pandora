@@ -1,7 +1,7 @@
 namespace pandora {
 
 template <typename LeafObj>
-tbb::enumerable_thread_specific<gsl::span<RayHit>> EmbreeBVH<LeafObj>::s_intersectionDataRayHit;
+tbb::enumerable_thread_specific<std::span<RayHit>> EmbreeBVH<LeafObj>::s_intersectionDataRayHit;
 
 template <typename LeafObj>
 inline EmbreeBVH<LeafObj>::EmbreeBVH(EmbreeBVH&& other)
@@ -27,14 +27,14 @@ template <typename LeafObj>
 size_t EmbreeBVH<LeafObj>::sizeBytes() const
 {
     size_t sizeBytes = sizeof(decltype(*this));
-    sizeBytes += s_intersectionDataRayHit.size() * sizeof(gsl::span<RayHit>);
+    sizeBytes += s_intersectionDataRayHit.size() * sizeof(std::span<RayHit>);
     sizeBytes += m_memoryUsed.load();
     sizeBytes += m_leafs.size() * sizeof(LeafObj);
     return sizeBytes;
 }
 
 template <unsigned N>
-void raysToEmbreeRayHits(gsl::span<const Ray> rays, RTCRayHitN* embreeRayHits)
+void raysToEmbreeRayHits(std::span<const Ray> rays, RTCRayHitN* embreeRayHits)
 {
     RTCRayN* embreeRays = RTCRayHitN_RayN(embreeRayHits, N);
     RTCHitN* embreeHits = RTCRayHitN_HitN(embreeRayHits, N);
@@ -54,7 +54,7 @@ void raysToEmbreeRayHits(gsl::span<const Ray> rays, RTCRayHitN* embreeRayHits)
 }
 
 template <unsigned N>
-void raysToEmbreeRays(gsl::span<const Ray> rays, RTCRayN* embreeRays)
+void raysToEmbreeRays(std::span<const Ray> rays, RTCRayN* embreeRays)
 {
     for (unsigned i = 0; i < N; i++) {
         RTCRayN_org_x(embreeRays, N, i) = rays[i].origin.x;
@@ -99,7 +99,7 @@ static void embreeErrorFunc(void* userPtr, const RTCError code, const char* str)
 }
 
 template <typename LeafObj>
-EmbreeBVH<LeafObj>::EmbreeBVH(gsl::span<LeafObj> leafs)
+EmbreeBVH<LeafObj>::EmbreeBVH(std::span<LeafObj> leafs)
     : m_memoryUsed(0)
 {
     m_device = rtcNewDevice(nullptr);
@@ -131,7 +131,7 @@ EmbreeBVH<LeafObj>::EmbreeBVH(gsl::span<LeafObj> leafs)
 }
 
 template <typename LeafObj>
-inline void EmbreeBVH<LeafObj>::intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const
+inline void EmbreeBVH<LeafObj>::intersect(std::span<Ray> rays, std::span<RayHit> hitInfos) const
 {
     assert(rays.size() == hitInfos.size());
     ALWAYS_ASSERT(rays.size() == hitInfos.size());
@@ -142,22 +142,22 @@ inline void EmbreeBVH<LeafObj>::intersect(gsl::span<Ray> rays, gsl::span<RayHit>
         rtcInitIntersectContext(&context);
 
         RTCRayHit embreeRayHit;
-        raysToEmbreeRayHits<1>(gsl::span(&rays[i], 1), reinterpret_cast<RTCRayHitN*>(&embreeRayHit));
+        raysToEmbreeRayHits<1>(std::span(&rays[i], 1), reinterpret_cast<RTCRayHitN*>(&embreeRayHit));
 
-        s_intersectionDataRayHit.local() = gsl::span(&hitInfos[i], 1);
+        s_intersectionDataRayHit.local() = std::span(&hitInfos[i], 1);
         rtcIntersect1(m_scene, &context, &embreeRayHit);
     }
 }
 
 template <typename LeafObj>
-inline void EmbreeBVH<LeafObj>::intersectAny(gsl::span<Ray> rays) const
+inline void EmbreeBVH<LeafObj>::intersectAny(std::span<Ray> rays) const
 {
     for (auto& ray : rays) {
         RTCIntersectContext context;
         rtcInitIntersectContext(&context);
 
         RTCRay embreeRay;
-        raysToEmbreeRays<1>(gsl::span(&ray, 1), reinterpret_cast<RTCRayN*>(&embreeRay));
+        raysToEmbreeRays<1>(std::span(&ray, 1), reinterpret_cast<RTCRayN*>(&embreeRay));
         rtcOccluded1(m_scene, &context, &embreeRay);
 
         ray.tfar = embreeRay.tfar;

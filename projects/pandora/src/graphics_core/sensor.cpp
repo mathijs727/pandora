@@ -1,5 +1,6 @@
 #include "pandora/graphics_core/sensor.h"
 #include "pandora/utility/error_handling.h"
+#include <algorithm>
 #include <iterator>
 #include <memory>
 

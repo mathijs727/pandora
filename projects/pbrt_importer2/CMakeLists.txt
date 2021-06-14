@@ -3,7 +3,7 @@ project("pbrt_importer2")
 add_library(libPbrt_importer2 STATIC "")
 include("${CMAKE_CURRENT_LIST_DIR}/src/CMakeLists.txt")
 target_include_directories(libPbrt_importer2 PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/")
-target_compile_features(libPbrt_importer2 PUBLIC cxx_std_17)
+target_compile_features(libPbrt_importer2 PUBLIC cxx_std_20)
 enable_native_isa(libPbrt_importer2)
 
 if (PANDORA_ISA_AVX512)

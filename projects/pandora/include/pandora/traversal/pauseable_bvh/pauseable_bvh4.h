@@ -19,7 +19,7 @@ namespace pandora {
 template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
 class PauseableBVH4 : PauseableBVH<LeafObj, HitRayState, AnyHitRayState> {
 public:
-    PauseableBVH4(gsl::span<LeafObj> object);
+    PauseableBVH4(std::span<LeafObj> object);
     PauseableBVH4(PauseableBVH4&&) = default;
     ~PauseableBVH4() = default;
 
@@ -34,7 +34,7 @@ public:
     std::optional<bool> intersectAny(Ray& ray, const AnyHitRayState& userState) const override final;
     std::optional<bool> intersectAny(Ray& ray, const AnyHitRayState& userState, PauseableBVHInsertHandle handle) const override final;
 
-    gsl::span<LeafObj> leafs() { return m_leafs; }
+    std::span<LeafObj> leafs() { return m_leafs; }
 
 private:
     template <bool AnyHit, typename UserState>
@@ -51,8 +51,8 @@ private:
 
     // Tuple returning node pointer and isLeaf
     struct ConstructionInnerNode;
-    uint32_t generateFinalBVH(ConstructionInnerNode* node, gsl::span<LeafObj> leafs);
-    void generateFinalBVHRecurse(ConstructionInnerNode* node, uint32_t parentHandle, uint32_t depth, uint32_t outHandle, gsl::span<LeafObj> leafs);
+    uint32_t generateFinalBVH(ConstructionInnerNode* node, std::span<LeafObj> leafs);
+    void generateFinalBVHRecurse(ConstructionInnerNode* node, uint32_t parentHandle, uint32_t depth, uint32_t outHandle, std::span<LeafObj> leafs);
 
     static void* innerNodeCreate(RTCThreadLocalAllocator alloc, unsigned numChildren, void* userPtr);
     static void innerNodeSetChildren(void* nodePtr, void** childPtr, unsigned numChildren, void* userPtr);
@@ -104,7 +104,7 @@ private:
 };
 
 template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
-inline PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::PauseableBVH4(gsl::span<LeafObj> leafs)
+inline PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::PauseableBVH4(std::span<LeafObj> leafs)
 {
     // Create a representatin of the leafs that Embree will understand
     std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
@@ -177,7 +177,7 @@ inline PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::PauseableBVH4(gsl::s
     if (auto* constructionRootInner = dynamic_cast<ConstructionInnerNode*>(constructionRoot)) {
         m_rootHandle = generateFinalBVH(constructionRootInner, leafs);
     } else {
-        ALWAYS_ASSERT(false, "Leaf node cannot be the root of PauseableBVH4");
+        ALWAYS_ASSERT(false, "All geometry is grouped into a single batching point. This is not supported. Please change the batching point size by setting --primgroup=... to a smaller value.");
     }
 
     // Releases Embree memory (including the temporary BVH)
@@ -395,7 +395,7 @@ inline void PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::testBVHRecurse(
 }
 
 template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
-inline uint32_t PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::generateFinalBVH(ConstructionInnerNode* node, gsl::span<LeafObj> leafs)
+inline uint32_t PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::generateFinalBVH(ConstructionInnerNode* node, std::span<LeafObj> leafs)
 {
     // Allocate root node
     uint32_t handle { 0 };
@@ -408,7 +408,7 @@ inline uint32_t PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::generateFin
 }
 
 template <typename LeafObj, typename HitRayState, typename AnyHitRayState>
-inline void PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::generateFinalBVHRecurse(ConstructionInnerNode* constructionInnerNode, uint32_t parentHandle, uint32_t depth, uint32_t outHandle, gsl::span<LeafObj> leafs)
+inline void PauseableBVH4<LeafObj, HitRayState, AnyHitRayState>::generateFinalBVHRecurse(ConstructionInnerNode* constructionInnerNode, uint32_t parentHandle, uint32_t depth, uint32_t outHandle, std::span<LeafObj> leafs)
 {
     assert(constructionInnerNode->children.size() == constructionInnerNode->childrenBounds.size());
     BVHNode& outNode = m_bvhNodes[outHandle];

@@ -8,7 +8,7 @@
 #include <chrono>
 #include <fstream>
 #include <glm/glm.hpp>
-#include <gsl/gsl>
+#include <span>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -22,10 +22,10 @@ const std::string projectBasePath = "../../../../"s;
 const int resolution = 128;
 
 using SVO = SparseVoxelDAG;
-void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, std::string_view filePath);
+void exportMesh(std::span<glm::vec3> vertices, std::span<glm::ivec3> triangles, std::string_view filePath);
 SVO createSVO(std::string_view meshFile);
-void testDAGCompressionTogether(const gsl::span<std::pair<std::string, std::string>> files);
-void testDAGCompressionSeparate(const gsl::span<std::pair<std::string, std::string>> files);
+void testDAGCompressionTogether(const std::span<std::pair<std::string, std::string>> files);
+void testDAGCompressionSeparate(const std::span<std::pair<std::string, std::string>> files);
 
 int main()
 {
@@ -53,7 +53,7 @@ int main()
     return 0;
 }
 
-void testDAGCompressionTogether(const gsl::span<std::pair<std::string, std::string>> files)
+void testDAGCompressionTogether(const std::span<std::pair<std::string, std::string>> files)
 {
     std::vector<SparseVoxelDAG> DAGs;
     for (const auto& [filePath, outFile] : files) {
@@ -89,7 +89,7 @@ void testDAGCompressionTogether(const gsl::span<std::pair<std::string, std::stri
     }
 }
 
-void testDAGCompressionSeparate(const gsl::span<std::pair<std::string, std::string>> files)
+void testDAGCompressionSeparate(const std::span<std::pair<std::string, std::string>> files)
 {
     for (const auto& [filePath, outFile] : files) {
         std::vector<SparseVoxelDAG> DAGs;
@@ -148,7 +148,7 @@ SVO createSVO(std::string_view meshFile)
     return std::move(svo);
 }
 
-void exportMesh(gsl::span<glm::vec3> vertices, gsl::span<glm::ivec3> triangles, std::string_view filePath)
+void exportMesh(std::span<glm::vec3> vertices, std::span<glm::ivec3> triangles, std::string_view filePath)
 {
     assert(vertices.size() > 0 && triangles.size() > 0);
 

@@ -1,6 +1,6 @@
 #include "stream/cache/cache.h"
 #include <cstddef>
-#include <gsl/span>
+#include <span>
 #include <gtest/gtest.h>
 
 struct DummyData {
@@ -26,7 +26,7 @@ struct DummyData {
         , y(y)
     {
     }
-    DummyData(gsl::span<const std::byte> data)
+    DummyData(std::span<const std::byte> data)
     {
         const DummyData* pGeomData = reinterpret_cast<const DummyData*>(data.data());
         x = pGeomData->x;

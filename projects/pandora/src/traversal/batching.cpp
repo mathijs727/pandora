@@ -623,7 +623,7 @@ std::vector<Shape*> getInstancedShapes(const Scene& scene)
     return shapesVector;
 }
 
-Bounds computeSceneObjectGroupBounds(gsl::span<const SceneObject* const> sceneObjects)
+Bounds computeSceneObjectGroupBounds(std::span<const SceneObject* const> sceneObjects)
 {
     return std::transform_reduce(
         std::execution::seq,
@@ -637,7 +637,7 @@ Bounds computeSceneObjectGroupBounds(gsl::span<const SceneObject* const> sceneOb
         });
 }
 
-SparseVoxelDAG createSVDAGfromSceneObjects(gsl::span<const SceneObject* const> sceneObjects, int resolution)
+SparseVoxelDAG createSVDAGfromSceneObjects(std::span<const SceneObject* const> sceneObjects, int resolution)
 {
     OPTICK_EVENT();
 

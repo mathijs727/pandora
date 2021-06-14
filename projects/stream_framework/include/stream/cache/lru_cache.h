@@ -8,7 +8,7 @@
 #include <cassert>
 #include <cstddef>
 #include <filesystem>
-#include <gsl/span>
+#include <span>
 #include <list>
 #include <optick.h>
 #include <unordered_map>
@@ -36,7 +36,7 @@ public:
     size_t maxSize() const;
 
 private:
-    LRUCache(std::unique_ptr<tasking::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory);
+    LRUCache(std::unique_ptr<tasking::Deserializer>&& pDeserializer, std::span<Evictable*> items, size_t maxMemory);
 
     void evict(size_t desiredMemoryUsage);
 

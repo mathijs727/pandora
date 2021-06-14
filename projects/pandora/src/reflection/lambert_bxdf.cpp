@@ -17,7 +17,7 @@ Spectrum LambertianReflection::f(const glm::vec3& wo, const glm::vec3& wi) const
     return m_r * glm::one_over_pi<float>();
 }
 
-Spectrum LambertianReflection::rho(const glm::vec3& wo, gsl::span<const glm::vec2> samples) const
+Spectrum LambertianReflection::rho(const glm::vec3& wo, std::span<const glm::vec2> samples) const
 {
     (void)wo;
     (void)samples;
@@ -25,7 +25,7 @@ Spectrum LambertianReflection::rho(const glm::vec3& wo, gsl::span<const glm::vec
     return m_r;
 }
 
-Spectrum LambertianReflection::rho(gsl::span<const glm::vec2> samples1, gsl::span<const glm::vec2> samples2) const
+Spectrum LambertianReflection::rho(std::span<const glm::vec2> samples1, std::span<const glm::vec2> samples2) const
 {
     (void)samples1;
     (void)samples2;
@@ -44,7 +44,7 @@ Spectrum LambertianTransmission::f(const glm::vec3& wo, const glm::vec3& wi) con
     return m_t * glm::one_over_pi<float>();
 }
 
-Spectrum LambertianTransmission::rho(const glm::vec3& wo, gsl::span<const glm::vec2> samples) const
+Spectrum LambertianTransmission::rho(const glm::vec3& wo, std::span<const glm::vec2> samples) const
 {
     (void)wo;
     (void)samples;
@@ -52,7 +52,7 @@ Spectrum LambertianTransmission::rho(const glm::vec3& wo, gsl::span<const glm::v
     return m_t;
 }
 
-Spectrum LambertianTransmission::rho(gsl::span<const glm::vec2> samples1, gsl::span<const glm::vec2> samples2) const
+Spectrum LambertianTransmission::rho(std::span<const glm::vec2> samples1, std::span<const glm::vec2> samples2) const
 {
     (void)samples1;
     (void)samples2;

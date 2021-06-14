@@ -13,7 +13,7 @@
 #include "pandora/traversal/sub_scene.h"
 #include "pandora/utility/enumerate.h"
 #include <glm/gtc/type_ptr.hpp>
-#include <gsl/span>
+#include <span>
 #include <optick.h>
 #include <optional>
 #include <stream/cache/evictable.h>
@@ -176,7 +176,7 @@ void OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::Batching
 
             return StaticData { std::move(shapeOwners), std::move(*optSubSceneBVH) };
         },
-        [=](gsl::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
+        [=](std::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
             {
                 auto stopWatch = g_stats.timings.botLevelTraversalTime.getScopedStopwatch();
 
@@ -223,7 +223,7 @@ void OfflineBatchingAccelerationStructure<HitRayState, AnyHitRayState>::Batching
 
             return StaticData { std::move(shapeOwners), std::move(*optSubSceneBVH) };
         },
-        [=](gsl::span<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
+        [=](std::span<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
             std::vector<uint32_t> hits;
             hits.resize(data.size());
             std::fill(std::begin(hits), std::end(hits), false);

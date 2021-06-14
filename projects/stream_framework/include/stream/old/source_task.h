@@ -11,7 +11,7 @@ public:
 
 private:
     friend class TaskPool;
-    using Kernel = std::function<void(gsl::span<Output>)>;
+    using Kernel = std::function<void(std::span<Output>)>;
     using ProductionCountFunc = std::function<size_t()>;
     SourceTask(Kernel&& kernel, ProductionCountFunc&& productionCountFunc);
 

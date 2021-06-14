@@ -7,7 +7,7 @@
 #include "stream/task_graph.h"
 #include <embree3/rtcore.h>
 #include <glm/gtc/type_ptr.hpp>
-#include <gsl/span>
+#include <span>
 #include <optional>
 #include <tuple>
 #include <unordered_map>
@@ -28,8 +28,8 @@ public:
     std::optional<SurfaceInteraction> intersectDebug(const Ray& ray) const;
 
 private:
-    void intersectKernel(gsl::span<const std::tuple<Ray, HitRayState>> data, std::pmr::memory_resource* pMemoryResource);
-    void intersectAnyKernel(gsl::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource);
+    void intersectKernel(std::span<const std::tuple<Ray, HitRayState>> data, std::pmr::memory_resource* pMemoryResource);
+    void intersectAnyKernel(std::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource);
 
 private:
     friend class EmbreeAccelerationStructureBuilder;
@@ -223,7 +223,7 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectA
 
 template <typename HitRayState, typename AnyHitRayState>
 inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectKernel(
-    gsl::span<const std::tuple<Ray, HitRayState>> data, std::pmr::memory_resource* pMemoryResource)
+    std::span<const std::tuple<Ray, HitRayState>> data, std::pmr::memory_resource* pMemoryResource)
 {
     for (auto [ray, state] : data) {
         RTCRayHit embreeRayHit;
@@ -319,7 +319,7 @@ inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectK
 
 template <typename HitRayState, typename AnyHitRayState>
 inline void EmbreeAccelerationStructure<HitRayState, AnyHitRayState>::intersectAnyKernel(
-    gsl::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource)
+    std::span<const std::tuple<Ray, AnyHitRayState>> data, std::pmr::memory_resource* pMemoryResource)
 {
     for (auto [ray, state] : data) {
         RTCRay embreeRay;
