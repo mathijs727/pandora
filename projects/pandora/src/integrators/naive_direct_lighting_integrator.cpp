@@ -20,7 +20,7 @@ DirectLightingIntegrator::DirectLightingIntegrator(
     , m_hitTask(
           pTaskGraph->addTask<std::tuple<Ray, SurfaceInteraction, RayState>>(
               "DirectLightingIntegrator::hit",
-              [this](gsl::span<const std::tuple<Ray, SurfaceInteraction, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
+              [this](std::span<const std::tuple<Ray, SurfaceInteraction, RayState>> hits, std::pmr::memory_resource* pMemoryResource) {
                   for (auto [ray, si, state] : hits) {
                       if (ray.numTopLevelIntersections > 0)
                           m_pCurrentRenderData->pAOVNumTopLevelIntersections->addSplat(
@@ -35,7 +35,7 @@ DirectLightingIntegrator::DirectLightingIntegrator(
     , m_missTask(
           pTaskGraph->addTask<std::tuple<Ray, RayState>>(
               "DirectLightingIntegrator::miss",
-              [this](gsl::span<const std::tuple<Ray, RayState>> misses, std::pmr::memory_resource* pMemoryResource) {
+              [this](std::span<const std::tuple<Ray, RayState>> misses, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, state] : misses) {
                       if (ray.numTopLevelIntersections > 0)
                           m_pCurrentRenderData->pAOVNumTopLevelIntersections->addSplat(
@@ -47,7 +47,7 @@ DirectLightingIntegrator::DirectLightingIntegrator(
     , m_anyHitTask(
           pTaskGraph->addTask<std::tuple<Ray, AnyRayState>>(
               "DirectLightingIntegrator::anyHit",
-              [this](gsl::span<const std::tuple<Ray, AnyRayState>> hits, std::pmr::memory_resource* pMemoryResource) {
+              [this](std::span<const std::tuple<Ray, AnyRayState>> hits, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, state] : hits) {
                       if (ray.numTopLevelIntersections > 0)
                           m_pCurrentRenderData->pAOVNumTopLevelIntersections->addSplat(
@@ -59,7 +59,7 @@ DirectLightingIntegrator::DirectLightingIntegrator(
     , m_anyMissTask(
           pTaskGraph->addTask<std::tuple<Ray, AnyRayState>>(
               "DirectLightingIntegrator::anyMiss",
-              [this](gsl::span<const std::tuple<Ray, AnyRayState>> misses, std::pmr::memory_resource* pMemoryResource) {
+              [this](std::span<const std::tuple<Ray, AnyRayState>> misses, std::pmr::memory_resource* pMemoryResource) {
                   for (const auto& [ray, state] : misses) {
                       if (ray.numTopLevelIntersections > 0)
                           m_pCurrentRenderData->pAOVNumTopLevelIntersections->addSplat(

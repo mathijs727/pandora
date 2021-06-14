@@ -1,7 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <filesystem>
-#include <gsl/span>
+#include <span>
 #include <mio/mmap.hpp>
 #include <tuple>
 #include <string_view>
@@ -17,17 +17,17 @@ public:
     template <typename T>
     T readT();
     template <typename T>
-    gsl::span<const T> readArray(size_t numItems);
+    std::span<const T> readArray(size_t numItems);
 
 	bool endOfFile() const;
 
 private:
-    gsl::span<const std::byte> readBytes(size_t numBytes);
+    std::span<const std::byte> readBytes(size_t numBytes);
 
 private:
     //mio::mmap_source m_mappedFile;
     mio_cache_control::mmap_sink m_mappedFile;
-    gsl::span<const std::byte> m_fileBytes;
+    std::span<const std::byte> m_fileBytes;
 
 	const size_t m_fileSize;
     size_t m_cursor { 0 };
@@ -67,11 +67,11 @@ inline std::filesystem::path Lexer::readT()
 }
 
 template <typename T>
-inline gsl::span<const T> Lexer::readArray(size_t numItems)
+inline std::span<const T> Lexer::readArray(size_t numItems)
 {
     auto bytes = readBytes(numItems * sizeof(T));
     const T* pItems = reinterpret_cast<const T*>(bytes.data());
-    return gsl::span(pItems, numItems);
+    return std::span(pItems, numItems);
 }
 
 }

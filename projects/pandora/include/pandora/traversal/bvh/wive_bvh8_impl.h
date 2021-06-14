@@ -18,7 +18,7 @@ inline WiVeBVH8<LeafObj>::WiVeBVH8(uint32_t numPrims)
 }
 
 template <typename LeafObj>
-inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, gsl::span<const LeafObj> leafs)
+inline WiVeBVH8<LeafObj>::WiVeBVH8(const serialization::WiVeBVH8* serialized, std::span<const LeafObj> leafs)
     : m_innerNodeAllocator(serialized->innerNodeAllocator())
     , m_leafIndexAllocator(serialized->leafIndexAllocator())
 {
@@ -95,8 +95,8 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
             uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
 
             if (numChildren > 0) {
-                childrenSIMD.store(gsl::span(stackCompressedNodeHandles.data() + stackPtr, 8));
-                distancesSIMD.store(gsl::span(stackDistances.data() + stackPtr, 8));
+                childrenSIMD.store(std::span(stackCompressedNodeHandles.data() + stackPtr, 8));
+                distancesSIMD.store(std::span(stackDistances.data() + stackPtr, 8));
 
                 stackPtr += numChildren;
             }
@@ -116,16 +116,16 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
                 for (size_t i = 0; i < stackPtr; i += 8) {
                     simd::vec8_u32 nodesSIMD;
                     simd::vec8_f32 distancesSIMD;
-                    distancesSIMD.loadAligned(gsl::span(stackDistances.data() + i, 8));
-                    nodesSIMD.loadAligned(gsl::span(stackCompressedNodeHandles.data() + i, 8));
+                    distancesSIMD.loadAligned(std::span(stackDistances.data() + i, 8));
+                    nodesSIMD.loadAligned(std::span(stackCompressedNodeHandles.data() + i, 8));
 
                     simd::mask8 distMask = distancesSIMD < simdRay.tfar;
                     simd::vec8_u32 compressPermuteIndices(distMask.computeCompressPermutation()); // Compute permute indices that represent the compression (so we only have to calculate them once)
                     distancesSIMD = distancesSIMD.permute(compressPermuteIndices);
                     nodesSIMD = nodesSIMD.permute(compressPermuteIndices);
 
-                    distancesSIMD.store(gsl::span(stackDistances.data() + outStackPtr, 8));
-                    nodesSIMD.store(gsl::span(stackCompressedNodeHandles.data() + outStackPtr, 8));
+                    distancesSIMD.store(std::span(stackDistances.data() + outStackPtr, 8));
+                    nodesSIMD.store(std::span(stackCompressedNodeHandles.data() + outStackPtr, 8));
 
                     size_t numItems = std::min((size_t)8, stackPtr - i);
                     unsigned validMask = (1 << numItems) - 1;
@@ -178,8 +178,8 @@ inline bool WiVeBVH8<LeafObj>::intersectAny(Ray& ray) const
             uint32_t numChildren = intersectInnerNode(node, simdRay, childrenSIMD, distancesSIMD);
 
             if (numChildren > 0) {
-                childrenSIMD.store(gsl::span(stackCompressedNodeHandles.data() + stackPtr, 8));
-                distancesSIMD.store(gsl::span(stackDistances.data() + stackPtr, 8));
+                childrenSIMD.store(std::span(stackCompressedNodeHandles.data() + stackPtr, 8));
+                distancesSIMD.store(std::span(stackDistances.data() + stackPtr, 8));
 
                 stackPtr += numChildren;
             }
@@ -201,7 +201,7 @@ inline bool WiVeBVH8<LeafObj>::intersectAny(Ray& ray) const
 }
 
 template <typename LeafObj>
-inline gsl::span<const LeafObj> WiVeBVH8<LeafObj>::leafs() const
+inline std::span<const LeafObj> WiVeBVH8<LeafObj>::leafs() const
 {
     return m_leafObjects;
 }

@@ -8,8 +8,8 @@
 #include <cassert>
 #include <cstddef>
 #include <filesystem>
-#include <gsl/gsl>
-#include <gsl/span>
+#include <span>
+#include <span>
 #include <list>
 #include <mutex>
 #include <optick.h>
@@ -36,7 +36,7 @@ public:
     size_t maxSize() const;
 
 private:
-    LRUCacheTS(std::unique_ptr<tasking::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory);
+    LRUCacheTS(std::unique_ptr<tasking::Deserializer>&& pDeserializer, std::span<Evictable*> items, size_t maxMemory);
 
     void evictMarked();
 

@@ -13,7 +13,7 @@ public:
 
 private:
     friend class TaskPool;
-    using Kernel = std::function<void(gsl::span<const Input>, gsl::span<Output>)>;
+    using Kernel = std::function<void(std::span<const Input>, std::span<Output>)>;
     TransformTask(Kernel&& kernel);
 
 private:
@@ -36,7 +36,7 @@ inline void TransformTask<Input, Output>::connect(Task<Output>* pTask)
 template <typename Input, typename Output>
 inline void TransformTask<Input, Output>::execute()
 {
-    for (gsl::span<const Input> inputBlock : m_inputStream.consume()) {
+    for (std::span<const Input> inputBlock : m_inputStream.consume()) {
         std::vector<Output> output(static_cast<size_t>(inputBlock.size()));
         m_kernel(inputBlock, output);
         if (m_pOutput)
@@ -60,7 +60,7 @@ template <
     typename InputT = std::remove_const_t<std::tuple_element_t<0, boost::callable_traits::args_t<Kernel>>::element_type>,
     typename OutputT = std::tuple_element_t<1, boost::callable_traits::args_t<std::decay_t<Kernel>>>::element_type,
     typename = std::enable_if_t<
-        std::is_same_v<std::result_of_t<Kernel(gsl::span<const InputT>, gsl::span<OutputT>)>, void> && std::is_same_v<std::result_of_t<DataLocalityEstimator(int)>, StaticDataInfo>>>
+        std::is_same_v<std::result_of_t<Kernel(std::span<const InputT>, std::span<OutputT>)>, void> && std::is_same_v<std::result_of_t<DataLocalityEstimator(int)>, StaticDataInfo>>>
 class TransformTask : public Task<InputT> {
 public:
     TransformTask(TaskPool& pool, Kernel cpuKernel, DataLocalityEstimator dataLocalityEstimator)

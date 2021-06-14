@@ -26,7 +26,7 @@ public:
 
 struct EmbreeSceneCache {
 public:
-    virtual std::shared_ptr<CachedEmbreeScene> fromSceneObjectGroup(const void* key, gsl::span<const SceneObject*> sceneObjects) = 0;
+    virtual std::shared_ptr<CachedEmbreeScene> fromSceneObjectGroup(const void* key, std::span<const SceneObject*> sceneObjects) = 0;
 };
 
 struct LRUEmbreeSceneCache : public EmbreeSceneCache {
@@ -34,12 +34,12 @@ public:
     LRUEmbreeSceneCache(size_t maxSize);
     ~LRUEmbreeSceneCache();
 
-    std::shared_ptr<CachedEmbreeScene> fromSceneObjectGroup(const void* key, gsl::span<const SceneObject*> sceneObjects) override;
+    std::shared_ptr<CachedEmbreeScene> fromSceneObjectGroup(const void* key, std::span<const SceneObject*> sceneObjects) override;
 
 private:
     void shareCommitScene(RTCScene);
     std::unique_lock<std::mutex> tryLock();
-    std::shared_ptr<CachedEmbreeScene> createEmbreeScene(gsl::span<const SceneObject*> sceneObjects);
+    std::shared_ptr<CachedEmbreeScene> createEmbreeScene(std::span<const SceneObject*> sceneObjects);
 
     void evict();
 

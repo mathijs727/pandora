@@ -34,8 +34,8 @@ int main()
     tasking::TaskGraph g;
     rayTask = g.addTask<Ray>(
         "rayTask",
-		[&](gsl::span<const Ray> rays, std::pmr::memory_resource* pMemoryResource) {
-        gsl::span<Hit> hits = tasking::allocateN<Hit>(pMemoryResource, rays.size());
+		[&](std::span<const Ray> rays, std::pmr::memory_resource* pMemoryResource) {
+        std::span<Hit> hits = tasking::allocateN<Hit>(pMemoryResource, rays.size());
         std::transform(std::begin(rays), std::end(rays), std::begin(hits),
             [](const Ray& ray) {
                 return Hit { ray.a };
@@ -44,7 +44,7 @@ int main()
     });
     shadeTask = g.addTask<Hit>(
         "shadeTask",
-        [&](gsl::span<const Hit> hits, std::pmr::memory_resource* pMemoryResource) {
+        [&](std::span<const Hit> hits, std::pmr::memory_resource* pMemoryResource) {
         for (const Hit& hit : hits)
             spdlog::info("Hit: {}", hit.a);
     });

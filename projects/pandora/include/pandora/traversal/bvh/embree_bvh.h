@@ -1,7 +1,7 @@
 #include "pandora/geometry/bounds.h"
 #include "pandora/traversal/bvh.h"
 #include <embree3/rtcore.h>
-#include <gsl/gsl>
+#include <span>
 #include <tbb/enumerable_thread_specific.h>
 #include <tuple>
 #include <variant>
@@ -12,14 +12,14 @@ namespace pandora {
 template <typename LeafObj>
 class EmbreeBVH : public BVH<LeafObj> {
 public:
-    EmbreeBVH(gsl::span<LeafObj> objects);
+    EmbreeBVH(std::span<LeafObj> objects);
     EmbreeBVH(EmbreeBVH&&);
     ~EmbreeBVH();
 
     size_t sizeBytes() const override final;
 
-    void intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const override final;
-    void intersectAny(gsl::span<Ray> rays) const override final;
+    void intersect(std::span<Ray> rays, std::span<RayHit> hitInfos) const override final;
+    void intersectAny(std::span<Ray> rays) const override final;
 
 private:
     static void geometryBoundsFunc(const RTCBoundsFunctionArguments* args);
@@ -34,7 +34,7 @@ private:
     std::atomic_size_t m_memoryUsed;
 
     std::vector<LeafObj> m_leafs;
-    static tbb::enumerable_thread_specific<gsl::span<RayHit>> s_intersectionDataRayHit;
+    static tbb::enumerable_thread_specific<std::span<RayHit>> s_intersectionDataRayHit;
 };
 
 }

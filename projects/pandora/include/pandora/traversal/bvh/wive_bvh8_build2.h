@@ -12,9 +12,9 @@ namespace pandora {
 template <typename LeafObj>
 class WiVeBVH8Build2 : public WiVeBVH8<LeafObj> {
 public:
-    WiVeBVH8Build2(gsl::span<LeafObj> objects);
+    WiVeBVH8Build2(std::span<LeafObj> objects);
 protected:
-    void commit(gsl::span<RTCBuildPrimitive> embreePrims, gsl::span<LeafObj> objects) override final;
+    void commit(std::span<RTCBuildPrimitive> embreePrims, std::span<LeafObj> objects) override final;
 
 private:
     struct ConstructionBVHNode {

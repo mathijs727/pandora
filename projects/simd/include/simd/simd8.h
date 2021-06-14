@@ -4,7 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <functional>
-#include <gsl/span>
+#include <span>
 #include <immintrin.h> // AVX / AVX2
 #include <iostream>
 

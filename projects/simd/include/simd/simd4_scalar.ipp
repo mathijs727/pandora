@@ -127,7 +127,7 @@ class _vec4_base<T, 1> {
 public:
     _vec4_base() = default;
 
-    _vec4_base(gsl::span<const T, 4> v)
+    _vec4_base(std::span<const T, 4> v)
     {
         std::copy(std::begin(v), std::end(v), std::begin(m_values));
     }
@@ -150,22 +150,22 @@ public:
         return m_values[i];
     }
 
-    inline void load(gsl::span<const T, 4> v)
+    inline void load(std::span<const T, 4> v)
     {
         std::copy(std::begin(v), std::end(v), std::begin(m_values));
     }
 
-    inline void store(gsl::span<T, 4> v) const
+    inline void store(std::span<T, 4> v) const
     {
         std::copy(std::begin(m_values), std::end(m_values), std::begin(v));
     }
 
-    inline void loadAligned(gsl::span<const T, 4> v)
+    inline void loadAligned(std::span<const T, 4> v)
     {
         std::copy(std::begin(v), std::end(v), std::begin(m_values));
     }
 
-    inline void storeAligned(gsl::span<T, 4> v) const
+    inline void storeAligned(std::span<T, 4> v) const
     {
         std::copy(std::begin(m_values), std::end(m_values), std::begin(v));
     }

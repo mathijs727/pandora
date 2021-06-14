@@ -5,7 +5,7 @@
 
 namespace tasking {
 
-LRUCacheTS::LRUCacheTS(std::unique_ptr<tasking::Deserializer>&& pDeserializer, gsl::span<Evictable*> items, size_t maxMemory)
+LRUCacheTS::LRUCacheTS(std::unique_ptr<tasking::Deserializer>&& pDeserializer, std::span<Evictable*> items, size_t maxMemory)
     : m_pDeserializer(std::move(pDeserializer))
     , m_maxMemory(maxMemory)
 {

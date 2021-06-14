@@ -2,7 +2,7 @@
 #include <EASTL/fixed_vector.h>
 #include <array>
 #include <cstddef>
-#include <gsl/gsl>
+#include <span>
 #include <optional>
 #include <tbb/scalable_allocator.h>
 #include <type_traits>
@@ -26,8 +26,8 @@ public:
     DataBlock(MemoryBlock* pMemoryBlock);
 
     void push(const T& t);
-    gsl::span<T> data();
-    gsl::span<const T> data() const;
+    std::span<T> data();
+    std::span<const T> data() const;
 
     bool empty() const;
     bool full() const;
@@ -64,15 +64,15 @@ inline void DataBlock<T>::push(const T& t)
 }
 
 template <typename T>
-inline gsl::span<T> DataBlock<T>::data()
+inline std::span<T> DataBlock<T>::data()
 {
-    return gsl::span(m_pFirst, m_pCurrent);
+    return std::span(m_pFirst, m_pCurrent);
 }
 
 template <typename T>
-inline gsl::span<const T> DataBlock<T>::data() const
+inline std::span<const T> DataBlock<T>::data() const
 {
-    return gsl::span(m_pFirst, m_pCurrent);
+    return std::span(m_pFirst, m_pCurrent);
 }
 
 template <typename T>

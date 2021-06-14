@@ -1,4 +1,5 @@
 #include "pandora/utility/memory_arena.h"
+#include <iterator>
 
 namespace pandora {
 MemoryArena::MemoryArena(size_t blockSize)
@@ -16,7 +17,7 @@ void MemoryArena::reset()
     m_currentBlockSpace = 0;
 
     // Move all used memory blocks to the unused pool
-    m_unusedMemoryBlocks.reserve(m_unusedMemoryBlocks.size () + m_usedMemoryBlocks.size());
+    m_unusedMemoryBlocks.reserve(m_unusedMemoryBlocks.size() + m_usedMemoryBlocks.size());
     std::move(std::begin(m_usedMemoryBlocks), std::end(m_usedMemoryBlocks), std::back_inserter(m_unusedMemoryBlocks));
     m_usedMemoryBlocks.clear();
 }
@@ -24,8 +25,7 @@ void MemoryArena::reset()
 void MemoryArena::allocateBlock()
 {
     std::unique_ptr<std::byte[]> data;
-    if (m_unusedMemoryBlocks.empty())
-    {
+    if (m_unusedMemoryBlocks.empty()) {
         data = std::make_unique<std::byte[]>(m_memoryBlockSize);
     } else {
         data = std::move(m_unusedMemoryBlocks.back());
@@ -43,9 +43,9 @@ void* MemoryArena::tryAlignedAllocInCurrentBlock(size_t amount, size_t alignment
     void* ptr = m_currentBlockData;
     size_t space = m_currentBlockSpace;
     if (std::align(alignment, amount, ptr, space)) {
-		void* result = ptr;
+        void* result = ptr;
         m_currentBlockData = reinterpret_cast<std::byte*>(ptr) + amount;
-		m_currentBlockSpace = space - amount;
+        m_currentBlockSpace = space - amount;
         return result;
     }
 

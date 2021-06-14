@@ -134,7 +134,7 @@ public:
     friend class _vec8<float, 8>; // Make friend so it can access us in permute & compress operations
 
     _vec8() = default;
-    explicit inline _vec8(gsl::span<const uint32_t, 8> v)
+    explicit inline _vec8(std::span<const uint32_t, 8> v)
     {
         load(v);
     }
@@ -151,22 +151,22 @@ public:
     {
     }
 
-    inline void loadAligned(gsl::span<const uint32_t> v)
+    inline void loadAligned(std::span<const uint32_t> v)
     {
         m_value = _mm256_load_si256(reinterpret_cast<const __m256i*>(v.data()));
     }
 
-    inline void storeAligned(gsl::span<uint32_t> v) const
+    inline void storeAligned(std::span<uint32_t> v) const
     {
         _mm256_store_si256(reinterpret_cast<__m256i*>(v.data()), m_value);
     }
 
-    inline void load(gsl::span<const uint32_t> v)
+    inline void load(std::span<const uint32_t> v)
     {
         m_value = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(v.data()));
     }
 
-    inline void store(gsl::span<uint32_t> v) const
+    inline void store(std::span<uint32_t> v) const
     {
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(v.data()), m_value);
     }
@@ -293,7 +293,7 @@ template <>
 class alignas(32) _vec8<float, 8> {
 public:
     _vec8() = default;
-    explicit inline _vec8(gsl::span<const float, 8> v)
+    explicit inline _vec8(std::span<const float, 8> v)
     {
         load(v);
     }
@@ -310,22 +310,22 @@ public:
     {
     }
 
-    inline void loadAligned(gsl::span<const float> v)
+    inline void loadAligned(std::span<const float> v)
     {
         m_value = _mm256_load_ps(v.data());
     }
 
-    inline void storeAligned(gsl::span<float> v) const
+    inline void storeAligned(std::span<float> v) const
     {
         _mm256_store_ps(v.data(), m_value);
     }
 
-    inline void load(gsl::span<const float> v)
+    inline void load(std::span<const float> v)
     {
         m_value = _mm256_loadu_ps(v.data());
     }
 
-    inline void store(gsl::span<float> v) const
+    inline void store(std::span<float> v) const
     {
         _mm256_storeu_ps(v.data(), m_value);
     }

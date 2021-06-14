@@ -15,7 +15,7 @@
 #include <embree3/rtcore.h>
 #include <execution>
 #include <glm/gtc/type_ptr.hpp>
-#include <gsl/span>
+#include <span>
 #include <optional>
 #include <spdlog/spdlog.h>
 #include <stream/cache/lru_cache.h>
@@ -195,7 +195,7 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 
             return staticData;
         },
-        [=](gsl::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data,
+        [=](std::span<std::tuple<Ray, SurfaceInteraction, HitRayState, PauseableBVHInsertHandle>> data,
             const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
             {
                 auto stopWatch = g_stats.timings.botLevelTraversalTime.getScopedStopwatch();
@@ -250,7 +250,7 @@ void BatchingAccelerationStructure<HitRayState, AnyHitRayState>::BatchingPoint::
 
             return staticData;
         },
-        [=](gsl::span<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
+        [=](std::span<std::tuple<Ray, AnyHitRayState, PauseableBVHInsertHandle>> data, const StaticData* pStaticData, std::pmr::memory_resource* pMemoryResource) {
             std::vector<uint32_t> hits;
             hits.resize(data.size());
             std::fill(std::begin(hits), std::end(hits), false);
@@ -518,10 +518,10 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
             std::transform(std::execution::par, std::begin(sceneObjectGroups), std::end(sceneObjectGroups), std::begin(svdags),
                 [&](const std::vector<const SceneObject*>& sceneObjects) {
                     // Disable for benchmarking
-                    /*std::vector<tasking::CachedPtr<Shape>> shapeOwners { sceneObjects.size() };
-                std::transform(std::begin(sceneObjects), std::end(sceneObjects), std::begin(shapeOwners), [&](const SceneObject* pSceneObject) {
-                    return m_pGeometryCache->makeResident(pSceneObject->pShape.get());
-                });*/
+                    std::vector<tasking::CachedPtr<Shape>> shapeOwners { sceneObjects.size() };
+                    std::transform(std::begin(sceneObjects), std::end(sceneObjects), std::begin(shapeOwners), [&](const SceneObject* pSceneObject) {
+                        return m_pGeometryCache->makeResident(pSceneObject->pShape.get());
+                    });
 
                     // Voxelize and create SVO in parallel
                     return detail::createSVDAGfromSceneObjects(sceneObjects, m_svdagRes);
@@ -545,7 +545,6 @@ inline BatchingAccelerationStructure<HitRayState, AnyHitRayState> BatchingAccele
             auto diff = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
             spdlog::info("Wall clock time to compress SVOs into SVDAG: {} microseconds", diff.count());
         }
-        exit(1);
 
         for (const auto& svdag : svdags)
             g_stats.memory.svdagsAfterCompression += svdag->sizeBytes();

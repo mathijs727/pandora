@@ -4,7 +4,7 @@ target_include_directories(metrics
 		"${CMAKE_CURRENT_LIST_DIR}/src"
 	PUBLIC
 		"${CMAKE_CURRENT_LIST_DIR}/include")
-target_compile_features(metrics PUBLIC cxx_std_17)
+target_compile_features(metrics PUBLIC cxx_std_20)
 
 target_link_libraries(metrics PUBLIC nlohmann_json::nlohmann_json Threads::Threads)
 

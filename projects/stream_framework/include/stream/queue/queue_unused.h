@@ -4,7 +4,7 @@
 #include <array>
 #include <atomic>
 #include <cstddef>
-#include <gsl/gsl>
+#include <span>
 #include <tbb/concurrent_queue.h>
 #include <tbb/scalable_allocator.h>
 #include <tbb/task_arena.h>
@@ -29,7 +29,7 @@ public:
     class Iterator {
     public:
         using iterator_category = std::forward_iterator_tag;
-        using value_type = gsl::span<const T>;
+        using value_type = std::span<const T>;
 
     private:
         friend class MPSCQueue;
@@ -47,7 +47,7 @@ public:
     MPSCQueue(tbb::scalable_allocator<MemoryBlock<ChunkSize>>& allocator);
 
     void push(const T& item);
-    void push(gsl::span<const T> items);
+    void push(std::span<const T> items);
 
     size_t approxQueueSize() const;
     void forwardThreadLocalChunksUnsafe();
@@ -93,11 +93,11 @@ inline MPSCQueue<T, ChunkSize>::MPSCQueue(tbb::scalable_allocator<MemoryBlock<Ch
 template <typename T, size_t ChunkSize>
 inline void MPSCQueue<T, ChunkSize>::push(const T& item)
 {
-    push(gsl::span(&item, 1));
+    push(std::span(&item, 1));
 }
 
 template <typename T, size_t ChunkSize>
-inline void MPSCQueue<T, ChunkSize>::push(gsl::span<const T> data)
+inline void MPSCQueue<T, ChunkSize>::push(std::span<const T> data)
 {
     const int currentThreadIndex = tbb::this_task_arena::current_thread_index();
     Chunk*& pThreadLocalChunk = m_threadData[currentThreadIndex].pPartialChunk;

@@ -13,7 +13,7 @@ target_include_directories(stream
 	PRIVATE
 		"src")
 
-target_compile_features(stream PUBLIC cxx_std_17)
+target_compile_features(stream PUBLIC cxx_std_20)
 if (WIN32)
 	target_compile_definitions(stream PUBLIC "NOMINMAX")
 endif()

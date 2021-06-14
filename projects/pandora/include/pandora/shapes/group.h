@@ -1,6 +1,6 @@
 #pragma once
 #include <embree3/rtcore.h>
-#include <gsl/span>
+#include <span>
 #include <iostream>
 #include <tuple>
 #include <vector>
@@ -8,7 +8,7 @@
 namespace pandora {
 
 template <typename T>
-std::vector<std::vector<T>> geometricGroupObjects(gsl::span<const T> objects, unsigned objectsPerGroup)
+std::vector<std::vector<T>> geometricGroupObjects(std::span<const T> objects, unsigned objectsPerGroup)
 {
     const auto embreeErrorFunc = [](void* userPtr, const RTCError code, const char* str) {
         switch (code) {
@@ -132,7 +132,7 @@ std::vector<std::vector<T>> geometricGroupObjects(gsl::span<const T> objects, un
     arguments.createLeaf = [](RTCThreadLocalAllocator alloc, const RTCBuildPrimitive* prims, size_t numPrims, void* userPtr) -> void* {
         ALWAYS_ASSERT(numPrims <= 8);
 
-        const auto& objects = *reinterpret_cast<gsl::span<const T>*>(userPtr);
+        const auto& objects = *reinterpret_cast<std::span<const T>*>(userPtr);
 
         auto* mem = rtcThreadLocalAlloc(alloc, sizeof(BVHLeafNode), 8);
         auto* node = new (mem) BVHLeafNode();

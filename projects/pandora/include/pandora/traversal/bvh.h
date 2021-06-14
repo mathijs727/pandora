@@ -2,7 +2,7 @@
 #include "pandora/graphics_core/pandora.h"
 #include "pandora/graphics_core/bounds.h"
 #include <boost/tti/has_member_function.hpp>
-#include <gsl/span>
+#include <span>
 
 namespace pandora {
 template <typename T>
@@ -21,10 +21,10 @@ class BVH {
 public:
 	static_assert(is_bvh_Leaf_obj<LeafObj>::value, "BVH leaf does not implement the is_bvh_Leaf_obj trait");
 
-    //virtual void build(gsl::span<LeafObj> leafs) = 0;
+    //virtual void build(std::span<LeafObj> leafs) = 0;
 
-    virtual void intersect(gsl::span<Ray> rays, gsl::span<RayHit> hitInfos) const = 0;
-    virtual void intersectAny(gsl::span<Ray> rays) const = 0;// Set ray tfar to -infinity when hit
+    virtual void intersect(std::span<Ray> rays, std::span<RayHit> hitInfos) const = 0;
+    virtual void intersectAny(std::span<Ray> rays) const = 0;// Set ray tfar to -infinity when hit
 
     virtual size_t sizeBytes() const = 0;
 };

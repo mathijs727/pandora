@@ -7,7 +7,7 @@ target_include_directories(libPbf_importer
 		"${CMAKE_CURRENT_LIST_DIR}/src/"
 	PUBLIC 
 		"${CMAKE_CURRENT_LIST_DIR}/include/")
-target_compile_features(libPbf_importer PUBLIC cxx_std_17)
+target_compile_features(libPbf_importer PUBLIC cxx_std_20)
 enable_native_isa(libPbf_importer)
 
 target_link_libraries(libPbf_importer PUBLIC

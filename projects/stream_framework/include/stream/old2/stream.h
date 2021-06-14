@@ -12,8 +12,8 @@ public:
     ~StreamConsumer();
 
     bool loadData();
-    gsl::span<T> data();
-    gsl::span<const T> data() const;
+    std::span<T> data();
+    std::span<const T> data() const;
 
 private:
     std::shared_ptr<DataChannel<T>> m_pChannel;
@@ -29,7 +29,7 @@ public:
 
     // Internally keep a bucket and once bucket is full submit it.
     void push(T&& item);
-    void push(gsl::span<const T> items);
+    void push(std::span<const T> items);
 
     void flush();
 
@@ -69,7 +69,7 @@ inline void StreamProducer<T>::push(T&& item)
 }
 
 template <typename T>
-inline void StreamProducer<T>::push(gsl::span<const T> items)
+inline void StreamProducer<T>::push(std::span<const T> items)
 {
     // TODO: make more efficient by doing a memcpy (if trivially copyable)
     for (const T& item : items)
@@ -109,14 +109,14 @@ inline bool StreamConsumer<T>::loadData()
 }
 
 template <typename T>
-inline gsl::span<T> StreamConsumer<T>::data()
+inline std::span<T> StreamConsumer<T>::data()
 {
     assert(m_currentDataBlock.has_value());
     return m_currentDataBlock->data();
 }
 
 template <typename T>
-inline gsl::span<const T> StreamConsumer<T>::data() const
+inline std::span<const T> StreamConsumer<T>::data() const
 {
     assert(m_currentDataBlock.has_value());
     return m_currentDataBlock->data();

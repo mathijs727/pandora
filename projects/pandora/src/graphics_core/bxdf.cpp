@@ -28,7 +28,7 @@ BxDF::Sample BxDF::sampleF(const glm::vec3& wo, const glm::vec2& sample, BxDFTyp
     };
 }
 
-Spectrum BxDF::rho(const glm::vec3 & wo, gsl::span<const glm::vec2> samples) const
+Spectrum BxDF::rho(const glm::vec3 & wo, std::span<const glm::vec2> samples) const
 {
     Spectrum r(0.0f);
     for (const glm::vec2& u : samples) {
@@ -39,7 +39,7 @@ Spectrum BxDF::rho(const glm::vec3 & wo, gsl::span<const glm::vec2> samples) con
     return r / (float)samples.size();
 }
 
-Spectrum BxDF::rho(gsl::span<const glm::vec2> u1, gsl::span<const glm::vec2> u2) const
+Spectrum BxDF::rho(std::span<const glm::vec2> u1, std::span<const glm::vec2> u2) const
 {
     assert(u1.size() == u2.size());
 

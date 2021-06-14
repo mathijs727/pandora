@@ -4,7 +4,7 @@
 
 namespace metrics {
 
-Stats::Stats(gsl::span<Exporter*> exporters)
+Stats::Stats(std::span<Exporter*> exporters)
     : m_shouldStop(false)
     , m_startTime(high_res_clock::now())
 {

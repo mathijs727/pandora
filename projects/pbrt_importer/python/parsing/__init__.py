@@ -1,1 +1,0 @@
-from parsing.parser import parse_file

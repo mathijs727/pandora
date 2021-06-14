@@ -1,7 +1,7 @@
 add_executable(voxel "")
 include(${CMAKE_CURRENT_LIST_DIR}/src/CMakeLists.txt)
 target_include_directories(voxel PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src/)
-target_compile_features(voxel PRIVATE cxx_std_17)
+target_compile_features(voxel PRIVATE cxx_std_20)
 
 if (MSVC)
 	# Prefent sscanf warnings in glewinfo.c
@@ -16,4 +16,4 @@ endif()
 target_link_libraries(voxel PRIVATE 
 	libPandora
 	tinyply
-	glm)
+	glm::glm)

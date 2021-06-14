@@ -80,7 +80,7 @@ LRUEmbreeSceneCache::~LRUEmbreeSceneCache()
 }
 
 std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSceneObjectGroup(
-    const void* pKey, gsl::span<const SceneObject*> sceneObjects)
+    const void* pKey, std::span<const SceneObject*> sceneObjects)
 {
     //    std::lock_guard l { m_mutex };
     auto l = tryLock();
@@ -118,7 +118,7 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSceneObjectGroup(
     });
 }
 
-std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(gsl::span<const SceneObject*> sceneObjects)
+std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::createEmbreeScene(std::span<const SceneObject*> sceneObjects)
 {
     OPTICK_EVENT();
     RTCScene embreeScene = rtcNewScene(m_embreeDevice);

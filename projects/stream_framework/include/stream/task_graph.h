@@ -4,7 +4,7 @@
 #include "stream/stats.h"
 #include <EASTL/fixed_vector.h>
 #include <functional>
-#include <gsl/span>
+#include <span>
 #include <memory_resource>
 #include <tbb/task_arena.h>
 #define __TBB_ALLOW_MUTABLE_FUNCTORS 1
@@ -28,11 +28,11 @@ class TaskGraph {
 public:
     TaskGraph(unsigned numSchedulers = 1);
 
-    // Kernel signature: void(gsl::span<const T>, std::pmr::memory_resource*>
+    // Kernel signature: void(std::span<const T>, std::pmr::memory_resource*>
     template <typename T, typename Kernel>
     TaskHandle<T> addTask(std::string_view name, Kernel&& kernel);
 
-    // Kernel signature:           void(gsl::span<const T>, std::pmr::memory_resource*>
+    // Kernel signature:           void(std::span<const T>, std::pmr::memory_resource*>
     // StaticDataLoader signature: StaticData*();
     template <typename T, typename StaticData, typename StaticDataLoader, typename Kernel>
     TaskHandle<T> addTask(std::string_view name, StaticDataLoader&& staticDataLoader, Kernel&& kernel);
@@ -40,7 +40,7 @@ public:
     template <typename T>
     void enqueue(TaskHandle<T> task, const T& item);
     template <typename T>
-    void enqueue(TaskHandle<T> task, gsl::span<const T> items);
+    void enqueue(TaskHandle<T> task, std::span<const T> items);
 
     size_t approxMemoryUsage() const;
     size_t approxQueuedItems() const;
@@ -73,14 +73,14 @@ private:
         ~Task() override = default;
 
         void enqueue(const T& item);
-        void enqueue(gsl::span<const T> items);
+        void enqueue(std::span<const T> items);
 
         size_t approxQueueSize() const override;
         size_t approxQueueSizeBytes() const override;
         void execute(TaskGraph* pTaskGraph) override;
 
     private:
-        using TypeErasedKernel = std::function<void(gsl::span<T>, const void*, std::pmr::memory_resource*)>;
+        using TypeErasedKernel = std::function<void(std::span<T>, const void*, std::pmr::memory_resource*)>;
         using TypeErasedStaticDataLoader = std::function<void*(std::pmr::memory_resource*)>;
         using TypeErasedStaticDataDestructor = std::function<void(std::pmr::memory_resource*, void*)>;
 
@@ -142,7 +142,7 @@ inline void TaskGraph::enqueue(TaskHandle<T> taskHandle, const T& item)
 }
 
 template <typename T>
-inline void TaskGraph::enqueue(TaskHandle<T> taskHandle, gsl::span<const T> items)
+inline void TaskGraph::enqueue(TaskHandle<T> taskHandle, std::span<const T> items)
 {
     Task<T>* pTask = reinterpret_cast<Task<T>*>(m_tasks[taskHandle.index].get());
 
@@ -161,7 +161,7 @@ inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(std::string_view name, 
 {
     return TaskGraph::Task<T>(
         name,
-        [=](gsl::span<T> dynamicData, const void*, std::pmr::memory_resource* pMemory) {
+        [=](std::span<T> dynamicData, const void*, std::pmr::memory_resource* pMemory) {
             kernel(dynamicData, pMemory);
         },
         [](std::pmr::memory_resource*) { return nullptr; },
@@ -174,7 +174,7 @@ inline TaskGraph::Task<T> TaskGraph::Task<T>::initialize(std::string_view name, 
 {
     return TaskGraph::Task<T>(
         name,
-        [=](gsl::span<T> dynamicData, const void* pStaticData, std::pmr::memory_resource* pMemory) {
+        [=](std::span<T> dynamicData, const void* pStaticData, std::pmr::memory_resource* pMemory) {
             kernel(dynamicData, reinterpret_cast<const StaticData*>(pStaticData), pMemory);
         },
         [=](std::pmr::memory_resource* pMemoryResource) -> void* {
@@ -210,7 +210,7 @@ inline void TaskGraph::Task<T>::enqueue(const T& item)
 }
 
 template <typename T>
-inline void TaskGraph::Task<T>::enqueue(gsl::span<const T> items)
+inline void TaskGraph::Task<T>::enqueue(std::span<const T> items)
 {
     for (const auto& item : items)
         m_workQueue.push(item);
@@ -275,7 +275,7 @@ inline void TaskGraph::Task<T>::execute(TaskGraph* pTaskGraph)
                 size_t itemsFlushedLocal = 0;
                 eastl::fixed_vector<T, maxBatchSize, false> workBatch;
                 auto executeKernel = [&]() {
-                    m_kernel(gsl::span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
+                    m_kernel(std::span(workBatch.data(), workBatch.data() + workBatch.size()), pStaticData, std::pmr::new_delete_resource());
                     itemsFlushedLocal += workBatch.size();
                 };
 

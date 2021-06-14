@@ -8,7 +8,7 @@ add_executable(stream_test
 	"main.cpp")
 
 target_link_libraries(stream_test PRIVATE GTest::gtest stream TBB::tbb)
-target_compile_features(stream_test PRIVATE cxx_std_17)
+target_compile_features(stream_test PRIVATE cxx_std_20)
 
 if (MSVC)
     target_compile_options(stream_test PUBLIC "/wd4251" "/wd4275") # Gtest warnings about dll stuff

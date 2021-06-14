@@ -124,7 +124,7 @@ std::optional<BSDF::Sample> BSDF::sampleF(const glm::vec3& woWorld, const glm::v
     };
 }
 
-Spectrum BSDF::rho(const glm::vec3& wo, gsl::span<const glm::vec2> samples, BxDFType flags) const
+Spectrum BSDF::rho(const glm::vec3& wo, std::span<const glm::vec2> samples, BxDFType flags) const
 {
     Spectrum result(0.0f);
     for (const BxDF* bxdf : m_bxdfs)
@@ -133,7 +133,7 @@ Spectrum BSDF::rho(const glm::vec3& wo, gsl::span<const glm::vec2> samples, BxDF
     return result;
 }
 
-Spectrum BSDF::rho(gsl::span<const glm::vec2> samples1, gsl::span<const glm::vec2> samples2, BxDFType flags) const
+Spectrum BSDF::rho(std::span<const glm::vec2> samples1, std::span<const glm::vec2> samples2, BxDFType flags) const
 {
     Spectrum result(0.0f);
     for (const BxDF* bxdf : m_bxdfs)

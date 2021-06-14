@@ -11,7 +11,7 @@ static tasking::SourceTask<int>* createIntRangeSource(tasking::TaskPool& taskPoo
     auto pState = std::make_shared<State>();
     pState->current = start;
     return taskPool.createSourceTask<int>(
-        [=](gsl::span<int> output) mutable {
+        [=](std::span<int> output) mutable {
             int i = pState->current;
             std::generate(std::begin(output), std::end(output), [&]() { return i++; });
             pState->current = i;
@@ -29,7 +29,7 @@ TEST(TaskPool, Transform)
     constexpr int batchSize = 64;
 
     std::atomic_int sum = 0;
-    auto cpuKernel1 = [&](gsl::span<const int> input, gsl::span<float> output) {
+    auto cpuKernel1 = [&](std::span<const int> input, std::span<float> output) {
         int localSum = 0;
 
 		spdlog::info("int to float {}", input.size());

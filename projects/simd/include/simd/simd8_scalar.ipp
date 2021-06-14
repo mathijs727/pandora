@@ -121,7 +121,7 @@ class _vec8_base<T, 1> {
 public:
     _vec8_base() = default;
 
-	inline explicit _vec8_base(gsl::span<const T, 8> v)
+	inline explicit _vec8_base(std::span<const T, 8> v)
     {
         std::copy(std::begin(v), std::end(v), std::begin(m_values));
     }
@@ -147,22 +147,22 @@ public:
 		return m_values[i];
 	}
 
-	inline void load(gsl::span<const T, 8> v)
+	inline void load(std::span<const T, 8> v)
 	{
 		std::copy(std::begin(v), std::end(v), std::begin(m_values));
 	}
 
-	inline void store(gsl::span<T, 8> v) const
+	inline void store(std::span<T, 8> v) const
 	{
 		std::copy(std::begin(m_values), std::end(m_values), std::begin(v));
 	}
 
-    inline void loadAligned(gsl::span<const T, 8> v)
+    inline void loadAligned(std::span<const T, 8> v)
     {
         std::copy(std::begin(v), std::end(v), std::begin(m_values));
     }
 
-    inline void storeAligned(gsl::span<T, 8> v) const
+    inline void storeAligned(std::span<T, 8> v) const
     {
         std::copy(std::begin(m_values), std::end(m_values), std::begin(v));
     }

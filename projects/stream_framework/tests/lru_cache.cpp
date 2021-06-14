@@ -1,7 +1,7 @@
 #include "stream/cache/lru_cache.h"
 #include "stream/serialize/in_memory_serializer.h"
 #include <cstddef>
-#include <gsl/span>
+#include <span>
 #include <gtest/gtest.h>
 #include <thread>
 #include <vector>
