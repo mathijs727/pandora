@@ -119,8 +119,10 @@ SparseVoxelDAG::NodeOffset SparseVoxelDAG::constructSVOBreadthFirst(const VoxelG
             currentLevelNodes.push_back({ prevMortonCode, true, 0 });
         } else {
             auto descriptorOffset = createAndStoreDescriptor(validMask, leafMask, childrenOffsets);
+#ifndef NDEBUG
             auto lastNodeMortonCode = (previousLevelNodes.back().mortonCode >> 3);
             assert(lastNodeMortonCode == prevMortonCode);
+#endif
             currentLevelNodes.push_back({ prevMortonCode, false, descriptorOffset });
             rootNodeOffset = descriptorOffset; // Keep track of the offset to the root node
         }
@@ -185,7 +187,6 @@ void SparseVoxelDAG::compressDAGs(std::span<SparseVoxelDAG*> svos)
         int numNodes = 0;
         int numOffsets = 0;
         std::function<NodeOffset(const Descriptor*)> recurseSVO = [&](const Descriptor* descriptor) -> NodeOffset {
-            const NodeOffset* childOffsetPtr = reinterpret_cast<const NodeOffset*>(descriptor) + 1;
             numNodes++;
 
             FullDescriptor fullDescriptor { *descriptor, {} };

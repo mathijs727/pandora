@@ -42,7 +42,7 @@ std::vector<pandora::SubScene> createSubScenes(const pandora::Scene& scene, unsi
     // Split a large shape into smaller shapes with maxSize/2 to maxSize primitives.
     // The Embree BVH builder API used to efficiently partition the shapes primitives into groups.
     //using Path = eastl::fixed_vector<unsigned, 4>;
-    using Path = std::vector<unsigned>;
+    //using Path = std::vector<unsigned>;
     std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
 
     for (const auto& [sceneObjectID, pSceneObject] : enumerate(scene.pRoot->objects)) {
@@ -350,7 +350,7 @@ pandora::SparseVoxelDAG createSVDAGfromSubScene(const pandora::SubScene& subScen
     }
 
     // SVO is at (1, 1, 1) to (2, 2, 2)
-    const float maxDim = maxComponent(bounds.extent());
+    //const float maxDim = maxComponent(bounds.extent());
 
     return SparseVoxelDAG { grid };
 }
@@ -428,7 +428,7 @@ std::vector<std::vector<const SceneObject*>> createSceneObjectGroups(const Scene
     // Split a large shape into smaller shapes with maxSize/2 to maxSize primitives.
     // The Embree BVH builder API used to efficiently partition the shapes primitives into groups.
     //using Path = eastl::fixed_vector<unsigned, 4>;
-    using Path = std::vector<unsigned>;
+    //using Path = std::vector<unsigned>;
     std::vector<RTCBuildPrimitive> embreeBuildPrimitives;
 
     for (const auto& [sceneObjectID, pSceneObject] : enumerate(scene.pRoot->objects)) {
@@ -605,7 +605,7 @@ std::vector<Shape*> getInstancedShapes(const Scene& scene)
 {
     std::unordered_set<Shape*> shapes;
     std::function<void(const SceneNode*)> collectShapesRecurse = [&](const SceneNode* pSceneNode) {
-        for (const auto [pChild, _] : pSceneNode->children) {
+        for (const auto& [pChild, _] : pSceneNode->children) {
             collectShapesRecurse(pChild.get());
         }
 
@@ -615,7 +615,7 @@ std::vector<Shape*> getInstancedShapes(const Scene& scene)
                 shapes.insert(pShape);
         }
     };
-    for (const auto [pChild, _] : scene.pRoot->children)
+    for (const auto& [pChild, _] : scene.pRoot->children)
         collectShapesRecurse(pChild.get());
 
     std::vector<Shape*> shapesVector { shapes.size() };
@@ -677,7 +677,7 @@ RTCScene buildInstanceEmbreeScene(const Scene& scene, RTCDevice embreeDevice)
             }
         }
 
-        for (const auto [pChild, optTransform] : pSceneNode->children) {
+        for (const auto& [pChild, optTransform] : pSceneNode->children) {
             RTCScene childScene = buildRecurse(pChild.get());
 
             RTCGeometry embreeInstanceGeometry = rtcNewGeometry(embreeDevice, RTC_GEOMETRY_TYPE_INSTANCE);

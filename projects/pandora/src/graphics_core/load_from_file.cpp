@@ -158,7 +158,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         spdlog::info("Loading materials");
         std::vector<std::shared_ptr<Material>> materials;
         if (loadMaterials) {
-            for (const auto jsonMaterial : sceneJson["materials"]) {
+            for (const auto& jsonMaterial : sceneJson["materials"]) {
                 auto materialType = jsonMaterial["type"].get<std::string>();
                 auto arguments = jsonMaterial["arguments"];
 
@@ -184,17 +184,11 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         //assert(SUBDIVIDE_LEVEL == 1);
         spdlog::info("Loading geometry");
         std::vector<std::shared_ptr<Shape>> shapes;
-
-        {
-            size_t size = 0;
-            for (const auto& _ : sceneJson["shapes"])
-                size++;
-            shapes.resize(size);
-        }
+        shapes.resize(sceneJson["shapes"].size());
 
         tbb::task_group tg;
         size_t i = 0;
-        for (const auto jsonGeometry : sceneJson["shapes"]) {
+        for (const auto& jsonGeometry : sceneJson["shapes"]) {
             auto geometryType = jsonGeometry["type"].get<std::string>();
             auto geometryFile = basePath / std::filesystem::path(jsonGeometry["filename"].get<std::string>());
 
@@ -236,7 +230,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
         spdlog::info("Creating scene objects");
         SceneBuilder sceneBuilder;
         std::vector<std::shared_ptr<SceneObject>> sceneObjects;
-        for (const auto jsonSceneObject : sceneJson["scene_objects"]) {
+        for (const auto& jsonSceneObject : sceneJson["scene_objects"]) {
             auto pShape = shapes[jsonSceneObject["geometry_id"].get<int>()];
             std::shared_ptr<Material> pMaterial;
             if (loadMaterials)
@@ -270,7 +264,7 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
             for (const int sceneObjectID : jsonSceneNode["objects"])
                 sceneBuilder.attachObject(pSceneNode, sceneObjects[sceneObjectID]);
 
-            for (const nlohmann::json childLink : jsonSceneNode["children"]) {
+            for (const auto& childLink : jsonSceneNode["children"]) {
                 auto pChildNode = createSceneNodeRecurse(childLink["id"].get<int>());
 
                 if (auto iter = childLink.find("transform"); iter != std::end(childLink)) {
@@ -288,14 +282,16 @@ RenderConfig loadFromFile(std::filesystem::path filePath, bool loadMaterials)
 
         // Load lights
         spdlog::info("Create infinite lights");
-        for (const auto jsonLight : sceneJson["lights"]) {
+        for (const auto& jsonLight : sceneJson["lights"]) {
             std::string type = jsonLight["type"].get<std::string>();
             if (type == "infinite") {
                 spdlog::debug("Creating environment area light");
                 auto transform = getTransform(jsonLight["transform"]);
                 auto scale = readVec3(jsonLight["scale"]);
+#ifndef NDEBUG
                 auto numSamples = jsonLight["num_samples"].get<int>();
                 assert(numSamples == 1);
+#endif
                 auto texture = getColorTexture(jsonLight["texture"].get<int>());
 
                 spdlog::debug("Environment area light with id: {}", jsonLight["texture"].get<int>());

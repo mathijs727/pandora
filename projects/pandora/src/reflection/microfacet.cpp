@@ -162,10 +162,7 @@ float BeckmannDistribution::lambda(const glm::vec3& w) const
         return 0.0f;
 
     // Compute alpha for direction w
-    // clang-format off
-	float alpha = std::sqrt(cos2phi(w) * m_alphaX * m_alphaX +
-		                    sin2phi(w) * m_alphaY * m_alphaY);
-    // clang-format on
+    float alpha = std::sqrt(cos2phi(w) * m_alphaX * m_alphaX + sin2phi(w) * m_alphaY * m_alphaY);
     float a = 1.0f / (alpha * absTanTheta);
     if (a >= 1.6f)
         return 0.0f;
@@ -184,7 +181,7 @@ static glm::vec2 trowbridgeReitzSample11(float cosTheta, float u1, float u2)
         return glm::vec2(r * cos(phi), r * sin(phi));
     }
 
-	glm::vec2 slope;
+    glm::vec2 slope;
     float sinTheta = std::sqrt(std::max((float)0, (float)1 - cosTheta * cosTheta));
     float tanTheta = sinTheta / cosTheta;
     float a = 1 / tanTheta;
@@ -200,7 +197,7 @@ static glm::vec2 trowbridgeReitzSample11(float cosTheta, float u1, float u2)
         std::max(float(B * B * tmp * tmp - (A * A - B * B) * tmp), float(0)));
     float slope_x_1 = B * tmp - D;
     float slope_x_2 = B * tmp + D;
-	slope.x = (A < 0 || slope_x_2 > 1.f / tanTheta) ? slope_x_1 : slope_x_2;
+    slope.x = (A < 0 || slope_x_2 > 1.f / tanTheta) ? slope_x_1 : slope_x_2;
 
     // sample slope_y
     float S;
@@ -212,8 +209,8 @@ static glm::vec2 trowbridgeReitzSample11(float cosTheta, float u1, float u2)
         u2 = 2.f * (.5f - u2);
     }
     float z = (u2 * (u2 * (u2 * 0.27385f - 0.73369f) + 0.46341f)) / (u2 * (u2 * (u2 * 0.093073f + 0.309420f) - 1.000000f) + 0.597999f);
-	slope.y = S * z * std::sqrt(1.f + slope.x * slope.x);
-	return slope;
+    slope.y = S * z * std::sqrt(1.f + slope.x * slope.x);
+    return slope;
 }
 
 static glm::vec3 trowbridgeReitzSample(const glm::vec3& wi, float alphaX, float alphaY, float u1, float u2)
@@ -226,12 +223,12 @@ static glm::vec3 trowbridgeReitzSample(const glm::vec3& wi, float alphaX, float 
 
     // 3. rotate
     float tmp = cosPhi(wiStretched) * slope.x - sinPhi(wiStretched) * slope.y;
-	slope.y = sinPhi(wiStretched) * slope.x + cosPhi(wiStretched) * slope.y;
-	slope.x = tmp;
+    slope.y = sinPhi(wiStretched) * slope.x + cosPhi(wiStretched) * slope.y;
+    slope.x = tmp;
 
     // 4. unstretch
-	slope.x = alphaX * slope.x;
-	slope.y = alphaY * slope.y;
+    slope.x = alphaX * slope.x;
+    slope.y = alphaY * slope.y;
 
     // 5. compute normal
     return glm::normalize(glm::vec3(-slope.x, -slope.y, 1.));
@@ -252,11 +249,11 @@ float TrowbridgeReitzDistribution::roughnessToAlpha(float roughness)
 
 glm::vec3 TrowbridgeReitzDistribution::sampleWh(const glm::vec3& wo, const glm::vec2& u) const
 {
-	bool flip = wo.z < 0;
-	glm::vec3 wh = trowbridgeReitzSample(flip ? -wo : wo, m_alphaX, m_alphaY, u[0], u[1]);
-	if (flip)
-		wh = -wh;
-	return wh;
+    bool flip = wo.z < 0;
+    glm::vec3 wh = trowbridgeReitzSample(flip ? -wo : wo, m_alphaX, m_alphaY, u[0], u[1]);
+    if (flip)
+        wh = -wh;
+    return wh;
 }
 
 float TrowbridgeReitzDistribution::D(const glm::vec3& wh) const
@@ -265,12 +262,9 @@ float TrowbridgeReitzDistribution::D(const glm::vec3& wh) const
     if (std::isinf(tan2Theta))
         return 0.0f;
 
-    // clang-format off
-	float cos4theta = cos2theta(wh) * cos2theta(wh);
-	float e = (cos2phi(wh) / (m_alphaX * m_alphaX) +
-		sin2phi(wh) / (m_alphaY * m_alphaY)) * tan2Theta;
-	return 1.0f / (glm::pi<float>() * m_alphaX * m_alphaY * cos4theta * (1.0f + e) * (1.0f + e));
-    // clang-format on
+    float cos4theta = cos2theta(wh) * cos2theta(wh);
+    float e = (cos2phi(wh) / (m_alphaX * m_alphaX) + sin2phi(wh) / (m_alphaY * m_alphaY)) * tan2Theta;
+    return 1.0f / (glm::pi<float>() * m_alphaX * m_alphaY * cos4theta * (1.0f + e) * (1.0f + e));
 }
 
 float TrowbridgeReitzDistribution::lambda(const glm::vec3& w) const
@@ -280,10 +274,7 @@ float TrowbridgeReitzDistribution::lambda(const glm::vec3& w) const
         return 0.0f;
 
     // Compute alpha for direction w
-    // clang-format off
-	float alpha = std::sqrt(cos2phi(w) * m_alphaX * m_alphaX +
-		sin2phi(w) * m_alphaY * m_alphaY);
-    // clang-format on
+    float alpha = std::sqrt(cos2phi(w) * m_alphaX * m_alphaX + sin2phi(w) * m_alphaY * m_alphaY);
 
     float alpha2tan2theta = (alpha * absTanTheta) * (alpha * absTanTheta);
     return (-1.0f + std::sqrt(1.0f + alpha2tan2theta)) / 2.0f;

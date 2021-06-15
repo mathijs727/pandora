@@ -94,7 +94,7 @@ void ArbitraryOutputVariable<T, Op>::writeImage(std::filesystem::path file) cons
             return static_cast<T>(pixel);
         });
     if constexpr (std::is_same_v<T, uint64_t>) {
-        T sum = std::accumulate(std::begin(pixels), std::end(pixels), T(0));
+        //T sum = std::accumulate(std::begin(pixels), std::end(pixels), T(0));
 
         // EXR format only supports uint32 values.
         std::vector<uint32_t> u32Pixels;

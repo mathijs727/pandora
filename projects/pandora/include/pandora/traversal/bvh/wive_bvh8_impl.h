@@ -84,7 +84,7 @@ inline bool WiVeBVH8<LeafObj>::intersect(Ray& ray, SurfaceInteraction& si) const
     while (stackPtr > 0) {
         stackPtr--;
         uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
-        float distance = stackDistances[stackPtr];
+        //float distance = stackDistances[stackPtr];
 
         uint32_t handle = decompressNodeHandle(compressedNodeHandle);
         const auto* node = &m_innerNodeAllocator.get(handle);
@@ -167,7 +167,7 @@ inline bool WiVeBVH8<LeafObj>::intersectAny(Ray& ray) const
     while (stackPtr > 0) {
         stackPtr--;
         uint32_t compressedNodeHandle = stackCompressedNodeHandles[stackPtr];
-        float distance = stackDistances[stackPtr];
+        //float distance = stackDistances[stackPtr];
 
         uint32_t handle = decompressNodeHandle(compressedNodeHandle);
         const auto* node = &m_innerNodeAllocator.get(handle);

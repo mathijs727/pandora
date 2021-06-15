@@ -18,8 +18,13 @@ inline bool isWhiteSpace(const char c) noexcept
 }
 
 WaldLexer::WaldLexer(std::filesystem::path file)
-    : m_pFile(fopen(file.string().c_str(), "r"))
 {
+    fopen_s(&m_pFile, file.string().c_str(), "r");
+}
+
+WaldLexer::~WaldLexer()
+{
+    fclose(m_pFile);
 }
 
 WaldToken WaldLexer::next()

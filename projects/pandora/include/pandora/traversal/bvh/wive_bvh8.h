@@ -20,7 +20,7 @@ class WiVeBVH8 {
 public:
     WiVeBVH8(const serialization::WiVeBVH8* serialized, std::span<const LeafObj> objects);
     WiVeBVH8(WiVeBVH8&&) = default;
-    ~WiVeBVH8() = default;
+    virtual ~WiVeBVH8() = default;
 
     flatbuffers::Offset<serialization::WiVeBVH8> serialize(flatbuffers::FlatBufferBuilder& builder) const;
 

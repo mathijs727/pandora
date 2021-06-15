@@ -12,6 +12,12 @@ option(PANDORA_ISA_AVX512 "Compile code that uses AVX512" OFF)
 option(LINK_STDCXX_FILESYSTEM "Add libstdc++ filesystem to the linker flags" OFF)
 option(LINK_CXX_FILESYSTEM "Add libc++ filesystem to the linker flags" OFF)
 
+if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+	set(PANDORA_COMPILER "Clang-cl")
+else()
+	set(PANDORA_COMPILER ${CMAKE_CXX_COMPILER_ID})
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/enable_simd.cmake")
 if (PANDORA_ISPC_SUPPORT)
@@ -37,6 +43,10 @@ find_package(OpenImageIO CONFIG REQUIRED)
 find_package(embree 3 CONFIG REQUIRED)
 find_package(Cnl CONFIG REQUIRED)
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/third_party/optick/" EXCLUDE_FROM_ALL)
+if (PANDORA_COMPILER MATCHES "Clang-cl")
+	# Ignore warnings about dllexport and strcat being deprecated/unsafe.
+	target_compile_options(OptickCore PUBLIC "-Wno-ignored-attributes" "-Wno-deprecated-declarations")
+endif()
 
 get_target_property(EASTL_LOC EASTL IMPORTED_LOCATION_DEBUG)
 message("EASTL LOC: ${EASTL_LOC}")
@@ -85,8 +95,3 @@ if (PANDORA_BUILD_ATLAS)
     include("projects/atlas/CMakeLists.txt")
 endif()
 include("projects/torque/CMakeLists.txt")
-
-
-#if (BUILD_VOXEL_EXPORT)
-#    include("projects/voxel/CMakeLists.txt")
-#endif()

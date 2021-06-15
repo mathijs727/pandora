@@ -20,6 +20,7 @@ struct WaldToken {
 class WaldLexer {
 public:
     WaldLexer(std::filesystem::path fileName);
+    ~WaldLexer();
 
     WaldToken next();
 

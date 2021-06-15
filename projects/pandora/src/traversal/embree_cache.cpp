@@ -101,9 +101,9 @@ std::shared_ptr<CachedEmbreeScene> LRUEmbreeSceneCache::fromSceneObjectGroup(
 
             return listIter->scene;
         } else {
-            auto sizeBefore = m_size.load();
+            //auto sizeBefore = m_size.load();
             auto embreeScene = createEmbreeScene(sceneObjects);
-            auto sizeAfter = m_size.load();
+            //auto sizeAfter = m_size.load();
             //spdlog::info("Created Embree BVH of {} bytes", sizeAfter - sizeBefore);
 
             if (m_size.load() > m_maxSize)

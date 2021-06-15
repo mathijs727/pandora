@@ -16,8 +16,6 @@ namespace tasking {
 class SplitFileDeserializer : public Deserializer {
 public:
     ~SplitFileDeserializer();
-    SplitFileDeserializer(SplitFileDeserializer&&) = default;
-    SplitFileDeserializer& operator=(SplitFileDeserializer&&) = default;
 
     const void* map(const Allocation& allocation) final;
     void unmap(const void* pMemory) final;

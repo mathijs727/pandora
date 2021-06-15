@@ -73,7 +73,6 @@ void testReadFunc(F&& f)
         auto start = clock::now();
         f(file, buffer);
         auto end = clock::now();
-        auto diff = end - start;
         auto diffus = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
         auto bytesRead = buffer.size();

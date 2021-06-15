@@ -2,16 +2,16 @@ add_library(libPandora "")
 target_compile_features(libPandora PRIVATE cxx_std_20)
 
 if (WIN32)
-	# Define both with MSVC and clang(-cl) on Windows.
-	target_compile_definitions(libPandora PUBLIC "NOMINMAX")
-endif()
-if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_compile_definitions(libPandora PUBLIC "_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
 
 	# Surpess warnings from OpenImageIO & libmorton and enable AVX2
 	set_target_properties(libPandora PROPERTIES COMPILE_FLAGS "/arch:AVX2 /wd5040 /wd4244 /wd4275 /wd4309")
 	target_compile_options(libPandora PUBLIC "/wd4275")
 endif()
+if (PANDORA_COMPILER MATCHES "Clang-cl")
+	target_compile_options(libPandora PUBLIC "-Wno-unused-command-line-argument" "-Wno-unused-private-field" "-Wno-unused-function")
+endif()
+
 enable_native_isa(libPandora)
 
 target_compile_definitions(libPandora PRIVATE "ENABLE_STATIC_LIB")# Embree static lib

@@ -9,8 +9,8 @@
 namespace tasking {
 
 TaskGraph::TaskGraph(unsigned numSchedulers)
-    : m_numSchedulers(numSchedulers)
-    , m_taskArena(static_cast<int>(std::thread::hardware_concurrency()))
+    : m_taskArena(static_cast<int>(std::thread::hardware_concurrency()))
+    , m_numSchedulers(numSchedulers)
 {
     auto& stats = StreamStats::getSingleton();
     (void)stats;

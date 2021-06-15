@@ -82,10 +82,6 @@ inline WiVeBVH8Build8<LeafObj>::WiVeBVH8Build8(std::span<LeafObj> objects)
 template <typename LeafObj>
 inline void WiVeBVH8Build8<LeafObj>::commit(std::span<RTCBuildPrimitive> embreePrims, std::span<LeafObj> objects)
 {
-    /*RTCDevice device = rtcNewDevice(nullptr);
-    rtcSetDeviceErrorFunction(device, embreeErrorFunc, nullptr);
-    std::cout << "create embree BVH class" << std::endl;
-    RTCBVH bvh = rtcNewBVH(device);*/
     RTCBVH bvh = WiVeBVH8Build8_embreeBVH(); // Prevent crashes when creating & deleting large numbers of Embree devices
 
     RTCBuildArguments arguments = rtcDefaultBuildArguments();

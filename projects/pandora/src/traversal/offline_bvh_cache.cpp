@@ -173,7 +173,7 @@ pandora::LRUBVHSceneCache::LRUBVHSceneCache(std::span<const SubScene*> subScenes
     CacheBuilder cacheBuilder = CacheBuilder(std::move(pSerializer));
 
     for (const SubScene* pSubScene : subScenes) {
-        const CachedBVH* pBVH = createBVH(pSubScene, pSceneCache, &cacheBuilder);
+        //const CachedBVH* pBVH = createBVH(pSubScene, pSceneCache, &cacheBuilder);
 
         std::unordered_set<const SceneNode*> childNodes;
         std::function<void(const SceneNode*)> collectSceneNodesRecurse = [&](const SceneNode* pNode) {

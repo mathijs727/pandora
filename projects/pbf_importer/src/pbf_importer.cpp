@@ -73,8 +73,8 @@ pandora::RenderConfig pbfToRenderConfig(PBFScene* pScene, unsigned cameraID, tas
 }
 
 Converter::Converter(tasking::CacheBuilder* pCacheBuilder, bool loadTextures)
-    : m_pCacheBuilder(pCacheBuilder)
-    , m_loadTextures(loadTextures)
+    : m_loadTextures(loadTextures)
+    , m_pCacheBuilder(pCacheBuilder)
 {
 }
 
