@@ -10,7 +10,7 @@
     "tinyply",
     {
       "name": "openimageio",
-      "features": ["openjpeg"]
+      "features": [ "openjpeg" ]
     },
     "eabase",
     "eastl",
@@ -26,5 +26,6 @@
     "nlohmann-json",
     "glfw3",
     "glew"
-  ]
+  ],
+  "builtin-baseline": "b361c2eefa3966cb7cec45275aff32e90430aaa6"
 }
