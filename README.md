@@ -38,7 +38,7 @@ The code base is divided into several smaller projects such that code can be reu
 - metrics:			a simple metrics library that supports outputting run-time data to a JSON file
 - **pandora**:		library containing the core renderer code
 - pbf_importer:		parser of the unofficial [Binary PBRT File(PBF)](https://github.com/ingowald/pbrt-parser) format
-- pbf_importer:		parser of the [PBRTv3 file format](https://www.pbrt.org/fileformat-v3)
+- pbrt_importer2:	parser of the [PBRTv3 file format](https://www.pbrt.org/fileformat-v3)
 - simd:				collection of (hand written) SSE/AVX wrapper classes
 - stream_framework:	small framework for parallel stream processing using a high performance queue.
 - **torque**:		command-line (offline) renderer based on Pandora
