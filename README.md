@@ -29,8 +29,6 @@ There are three different acceleration structures between one can choose by modi
 - `BatchingAccelerationStructureBuilder`:			two-level hierarchy using Embree for the bottom level (rebuild instead of loading from disk)
 - `OfflineBatchingAccelerationStructureBuilder`:	two-level hierarchy with a bottom level structure which can be stored/loaded from disk
 
-Install using vcpkg:
-`vcpkg install assimp boost-program-options eabase eastl cnl ms-gsl embree3 fmt glm gtest mio nlohmann-json spdlog tbb openimageio flatbuffers libmorton glfw3 glew`
 
 ## Projects
 The code base is divided into several smaller projects such that code can be reused more easily:
